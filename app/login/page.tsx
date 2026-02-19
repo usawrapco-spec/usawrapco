@@ -6,30 +6,23 @@ export default function LoginPage({
   searchParams: { error?: string; message?: string }
 }) {
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <span className="text-2xl">🚗</span>
-            <span
-              className="font-display text-3xl font-900 tracking-tight text-text1"
-              style={{ fontFamily: 'Barlow Condensed, sans-serif' }}
-            >
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 28 }}>🚗</span>
+            <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 32, fontWeight: 900, letterSpacing: '-.01em', color: 'var(--text1)' }}>
               USA WRAP CO
             </span>
           </div>
-          <div className="text-xs font-700 tracking-widest text-text3 uppercase">
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--text3)', textTransform: 'uppercase' }}>
             Operations Platform
           </div>
         </div>
 
-        <LoginForm
-          errorMessage={searchParams.error}
-          successMessage={searchParams.message}
-        />
+        <LoginForm errorMessage={searchParams.error} />
 
-        <p className="text-center text-xs text-text3 mt-6">
+        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text3)', marginTop: 20 }}>
           Contact your admin if you need access.
         </p>
       </div>
