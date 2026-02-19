@@ -9,10 +9,12 @@ const PAGE_TITLES: Record<string, string> = {
   '/pipeline':   'Approval Process',
   '/tasks':      'Task Queue',
   '/calendar':   'Calendar',
+  '/inventory':  'Vinyl Inventory',
   '/design':     'Design Studio',
-  '/employees':  'Employees',
+  '/employees':  'Team',
   '/analytics':  'Analytics',
   '/settings':   'Settings',
+  '/projects':   'Project Detail',
 }
 
 interface TopBarProps {
@@ -29,20 +31,17 @@ export function TopBar({ profile }: TopBarProps) {
     <header className="h-12 bg-surface border-b border-border flex items-center px-6 gap-4 shrink-0">
       <div className="flex items-center gap-2">
         <h1 className="text-sm font-700 text-text1">{title}</h1>
-        {/* Division badge — admin only */}
         {canAccess(profile.role, 'view_master_mode') && (
           <span className="badge-accent text-xs px-2 py-0.5 rounded">🌐 Master</span>
         )}
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* Live indicator */}
         <span className="flex items-center gap-1.5 text-xs text-text3 font-500">
           <span className="live-dot" />
           Live
         </span>
 
-        {/* Notification bell placeholder */}
         <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface2 text-text3 hover:text-text1 transition-colors text-base">
           🔔
         </button>
