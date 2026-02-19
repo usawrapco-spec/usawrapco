@@ -176,7 +176,6 @@ export type Permission =
   | 'view_master_mode'
   | 'access_design_studio'
 
-// Permission map by role — single source of truth used by both UI and API
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   admin: [
     'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
@@ -205,7 +204,7 @@ export function canAccess(role: UserRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false
 }
 
-// ─── Database type stub (extend as you generate from Supabase CLI) ─────────────
+// ─── Database type stub ────────────────────────────────────────────────────────
 export type Database = {
   public: {
     Tables: {

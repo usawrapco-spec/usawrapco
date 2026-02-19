@@ -17,15 +17,15 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard',   label: 'Dashboard',     icon: '📊', always: true },
-  { href: '/pipeline',    label: 'Approval',       icon: '🔄', permission: 'view_all_projects' },
-  { href: '/tasks',       label: 'Tasks',          icon: '✅', always: true },
-  { href: '/calendar',    label: 'Calendar',       icon: '📅', always: true },
-  { href: '/inventory',   label: 'Vinyl',          icon: '🎨', permission: 'view_inventory' },
-  { href: '/design',      label: 'Design Studio',  icon: '✏️', permission: 'access_design_studio' },
-  { href: '/employees',   label: 'Team',           icon: '👥', permission: 'manage_users' },
-  { href: '/analytics',   label: 'Analytics',      icon: '📈', permission: 'view_analytics' },
-  { href: '/settings',    label: 'Settings',       icon: '⚙️',  permission: 'manage_settings' },
+  { href: '/dashboard',   label: 'Dashboard',    icon: '📊', always: true },
+  { href: '/pipeline',    label: 'Approval',     icon: '🔄', permission: 'view_all_projects' },
+  { href: '/tasks',       label: 'Task Queue',   icon: '✅', always: true },
+  { href: '/calendar',    label: 'Calendar',     icon: '📅', always: true },
+  { href: '/inventory',   label: 'Vinyl',        icon: '🎨', always: true },
+  { href: '/design',      label: 'Design Studio',icon: '✏️', permission: 'access_design_studio' },
+  { href: '/employees',   label: 'Team',         icon: '👥', permission: 'manage_users' },
+  { href: '/analytics',   label: 'Analytics',    icon: '📈', permission: 'view_analytics' },
+  { href: '/settings',    label: 'Settings',     icon: '⚙️', permission: 'manage_settings' },
 ]
 
 interface SidebarProps {
@@ -49,12 +49,8 @@ export function Sidebar({ profile }: SidebarProps) {
   }
 
   const roleColors: Record<string, string> = {
-    admin:      'text-purple',
-    sales:      'text-accent',
-    production: 'text-green',
-    installer:  'text-cyan',
-    designer:   'text-amber',
-    customer:   'text-text3',
+    admin: 'text-purple', sales: 'text-accent', production: 'text-green',
+    installer: 'text-cyan', designer: 'text-amber', customer: 'text-text3',
   }
 
   return (
@@ -65,24 +61,22 @@ export function Sidebar({ profile }: SidebarProps) {
           <div className="flex items-center gap-2">
             <span className="text-lg">🚗</span>
             <div>
-              <div
-                className="text-sm font-900 tracking-tight text-text1 leading-none"
-                style={{ fontFamily: 'Barlow Condensed, sans-serif' }}
-              >
+              <div className="text-sm font-900 tracking-tight text-text1 leading-none"
+                style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
                 USA WRAP CO
               </div>
-              <div className="text-xs text-text3">Ops Platform</div>
+              <div className="text-xs text-text3">
+                Ops Platform
+                <span className="ml-1 text-accent/60 mono text-[9px]">v3.0</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* New Project button */}
         <div className="px-3 py-3 border-b border-border">
-          <button
-            onClick={() => setShowNewProject(true)}
-            className="btn-primary w-full text-sm"
-          >
-            <span className="text-base">＋</span> New Project
+          <button onClick={() => setShowNewProject(true)} className="btn-primary w-full text-sm">
+            <span className="text-base">＋</span> New Estimate
           </button>
         </div>
 
@@ -92,16 +86,13 @@ export function Sidebar({ profile }: SidebarProps) {
             const active = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href))
             return (
-              <Link
-                key={item.href}
-                href={item.href}
+              <Link key={item.href} href={item.href}
                 className={clsx(
                   'flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-500 transition-all',
                   active
                     ? 'bg-accent/15 text-accent font-700'
                     : 'text-text2 hover:bg-surface2 hover:text-text1'
-                )}
-              >
+                )}>
                 <span className="text-base w-5 text-center">{item.icon}</span>
                 {item.label}
               </Link>
@@ -109,11 +100,11 @@ export function Sidebar({ profile }: SidebarProps) {
           })}
         </nav>
 
-        {/* User profile + sign out */}
+        {/* User profile */}
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface2 transition-colors">
             <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-800 text-accent shrink-0">
-              {profile.name.charAt(0).toUpperCase()}
+              {profile.name?.charAt(0).toUpperCase() || '?'}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-600 text-text1 truncate">{profile.name}</div>
@@ -121,13 +112,8 @@ export function Sidebar({ profile }: SidebarProps) {
                 {profile.role}
               </div>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="text-text3 hover:text-red transition-colors text-sm"
-              title="Sign out"
-            >
-              ↩
-            </button>
+            <button onClick={handleSignOut}
+              className="text-text3 hover:text-red transition-colors text-sm" title="Sign out">↩</button>
           </div>
         </div>
       </aside>
@@ -136,10 +122,7 @@ export function Sidebar({ profile }: SidebarProps) {
         <NewProjectModal
           profile={profile}
           onClose={() => setShowNewProject(false)}
-          onCreated={() => {
-            setShowNewProject(false)
-            router.refresh()
-          }}
+          onCreated={() => { setShowNewProject(false); router.refresh() }}
         />
       )}
     </>
