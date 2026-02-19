@@ -1,51 +1,41 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopBar } from '@/components/layout/TopBar'
-import type { Profile } from '@/types'
+import { NextResponse } from 'next/server'
 
-export default async function AppLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const supabase = createClient()
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
-  // Auth check
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code  = searchParams.get('code')
+  const next  = searchParams.get('next') ?? '/dashboard'
 
-  // Load profile with role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  if (code) {
+    const supabase = createClient()
+    const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code)
 
-  if (!profile) {
-    // Profile doesn't exist yet — show setup error
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="card max-w-sm text-center">
-          <div className="text-3xl mb-3">⚠️</div>
-          <div className="font-700 text-text1 mb-2">Profile not found</div>
-          <div className="text-sm text-text3">
-            Your account was created but no profile exists. Contact your admin.
-          </div>
-        </div>
-      </div>
-    )
+    if (!error && user) {
+      // Upsert profile so new Google users get one automatically
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+
+      if (!existing) {
+        await supabase.from('profiles').insert({
+          id:      user.id,
+          org_id:  ORG_ID,
+          role:    'sales',            // default role — admin can change
+          name:    user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          email:   user.email || '',
+          phone:   null,
+          active:  true,
+          permissions: {},
+        })
+      }
+
+      return NextResponse.redirect(`${origin}${next}`)
+    }
   }
 
-  return (
-    <div className="flex h-screen bg-bg overflow-hidden">
-      <Sidebar profile={profile as Profile} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  )
+  return NextResponse.redirect(`${origin}/login?error=Could not sign in`)
 }
