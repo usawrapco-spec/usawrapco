@@ -67,15 +67,15 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
-  const agents = [...new Map(
-    projects.filter(p => p.agent_id && (p.agent as any)?.name)
-      .map(p => [p.agent_id, (p.agent as any).name])
-  ).entries()]
+  const agentMap = new Map<string, string>()
+  projects.filter(p => p.agent_id && (p.agent as any)?.name)
+    .forEach(p => agentMap.set(p.agent_id!, (p.agent as any).name))
+  const agents = Array.from(agentMap.entries())
 
-  const installers = [...new Map(
-    projects.filter(p => p.installer_id && (p.installer as any)?.name)
-      .map(p => [p.installer_id, (p.installer as any).name])
-  ).entries()]
+  const installerMap = new Map<string, string>()
+  projects.filter(p => p.installer_id && (p.installer as any)?.name)
+    .forEach(p => installerMap.set(p.installer_id!, (p.installer as any).name))
+  const installers = Array.from(installerMap.entries())
 
   const sendbackCount = projects.filter(p => {
     const lastSB = p.send_backs?.[p.send_backs.length - 1]
