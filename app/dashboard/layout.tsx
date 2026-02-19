@@ -42,7 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar profile={profile} teammates={teammates || []} />
+      <Sidebar profile={profile}  />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <TopBar profile={profile} />
         <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
