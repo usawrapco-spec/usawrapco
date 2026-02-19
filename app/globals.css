@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg:       #0d0f14;
+    --surface:  #151820;
+    --surface2: #1c202b;
+    --border:   #2a2f3d;
+    --accent:   #4f7fff;
+    --green:    #22c07a;
+    --cyan:     #22d3ee;
+    --amber:    #f59e0b;
+    --purple:   #8b5cf6;
+    --red:      #f25a5a;
+  }
+
+  html { background: var(--bg); }
+
+  body {
+    @apply bg-bg text-text1 font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  * { box-sizing: border-box; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+}
+
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-surface border border-border rounded-xl p-4;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           rounded-lg font-semibold text-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent/90 active:scale-[.98];
+  }
+  .btn-ghost {
+    @apply btn bg-transparent border border-border text-text2 hover:bg-surface2 hover:text-text1;
+  }
+  .btn-danger {
+    @apply btn bg-red text-white hover:bg-red/90;
+  }
+  .btn-sm { @apply text-xs px-3 py-1.5; }
+  .btn-xs { @apply text-xs px-2 py-1; }
+
+  /* Form fields */
+  .field {
+    @apply w-full bg-surface2 border border-border rounded-lg px-3 py-2
+           text-sm text-text1 placeholder:text-text3
+           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30
+           transition-colors duration-150;
+  }
+  .field-label {
+    @apply block text-xs font-semibold text-text3 uppercase tracking-wider mb-1.5;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold;
+  }
+  .badge-green  { @apply badge bg-green/15 text-green; }
+  .badge-amber  { @apply badge bg-amber/15 text-amber; }
+  .badge-red    { @apply badge bg-red/15 text-red; }
+  .badge-accent { @apply badge bg-accent/15 text-accent; }
+  .badge-purple { @apply badge bg-purple/15 text-purple; }
+  .badge-cyan   { @apply badge bg-cyan/15 text-cyan; }
+  .badge-gray   { @apply badge bg-surface2 text-text3; }
+
+  /* Mono numbers */
+  .mono { @apply font-mono; }
+
+  /* Divider label */
+  .section-label {
+    @apply text-xs font-extrabold text-text3 uppercase tracking-widest
+           border-b border-border pb-2 mb-4;
+  }
+
+  /* Table */
+  .data-table {
+    @apply w-full text-sm border-collapse;
+  }
+  .data-table th {
+    @apply text-left text-xs font-bold text-text3 uppercase tracking-wider
+           px-4 py-3 border-b border-border bg-surface;
+  }
+  .data-table td {
+    @apply px-4 py-3 border-b border-border/50 text-text2;
+  }
+  .data-table tr:hover td { @apply bg-surface2; }
+
+  /* Kanban column */
+  .kanban-col {
+    @apply flex-1 min-w-[220px] max-w-[280px] rounded-xl p-3;
+  }
+
+  /* Toast */
+  .toast {
+    @apply fixed bottom-6 left-1/2 -translate-x-1/2 z-50
+           px-5 py-3 rounded-xl text-sm font-semibold shadow-2xl
+           flex items-center gap-3;
+  }
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(242, 90, 90, 0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(242, 90, 90, 0); }
+}
+
+.anim-fade-up  { animation: fadeUp .2s ease; }
+.anim-pop-in   { animation: popIn .2s cubic-bezier(.175,.885,.32,1.275); }
+.anim-pulse-red { animation: pulse-glow 2s infinite; }
+
+.live-dot {
+  @apply inline-block w-2 h-2 rounded-full bg-green mr-1.5;
+  animation: pulse-glow 1.8s infinite;
+}
