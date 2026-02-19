@@ -163,6 +163,7 @@ export type Permission =
   | 'view_financials'
   | 'view_all_projects'
   | 'view_all_agents'
+  | 'view_inventory'
   | 'manage_users'
   | 'manage_settings'
   | 'manage_workflows'
@@ -179,16 +180,16 @@ export type Permission =
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   admin: [
     'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
-    'manage_users', 'manage_settings', 'manage_workflows', 'edit_projects',
-    'delete_projects', 'manage_bids', 'sign_off_production', 'sign_off_install',
-    'sign_off_sales', 'view_master_mode', 'access_design_studio',
+    'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
+    'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
+    'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
   ],
   sales: [
-    'view_financials', 'view_all_projects', 'view_all_agents',
+    'view_financials', 'view_all_projects', 'view_all_agents', 'view_inventory',
     'edit_projects', 'sign_off_sales', 'access_design_studio',
   ],
   production: [
-    'view_all_projects', 'edit_projects',
+    'view_all_projects', 'view_inventory', 'edit_projects',
     'sign_off_production', 'access_design_studio',
   ],
   installer: [
