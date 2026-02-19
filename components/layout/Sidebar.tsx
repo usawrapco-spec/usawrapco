@@ -4,142 +4,116 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { canAccess, type Profile, type Permission } from '@/types'
-import { clsx } from 'clsx'
 import { useState } from 'react'
 import NewProjectModal from '@/components/dashboard/NewProjectModal'
 
 interface NavItem {
-  href: string
-  label: string
-  icon: string
-  permission?: Permission
-  always?: boolean
+  href: string; label: string; icon: string
+  permission?: Permission; always?: boolean
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard',   label: 'Dashboard',   icon: '📊', always: true },
-  { href: '/pipeline',    label: 'Approval',     icon: '🔄', permission: 'view_all_projects' },
-  { href: '/tasks',       label: 'Tasks',        icon: '✅', always: true },
-  { href: '/calendar',    label: 'Calendar',     icon: '📅', always: true },
-  { href: '/design',      label: 'Design Studio',icon: '🎨', permission: 'access_design_studio' },
-  { href: '/employees',   label: 'Employees',    icon: '👥', permission: 'manage_users' },
-  { href: '/analytics',   label: 'Analytics',    icon: '📈', permission: 'view_analytics' },
-  { href: '/settings',    label: 'Settings',     icon: '⚙️',  permission: 'manage_settings' },
-]
-
-interface SidebarProps {
-  profile: Profile
-}
-
-export function Sidebar({ profile }: SidebarProps) {
+export function Sidebar({ profile, teammates = [] }: { profile: Profile; teammates?: any[] }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [showNewProject, setShowNewProject] = useState(false)
+  const [showNew, setShowNew] = useState(false)
 
-  const visibleItems = NAV_ITEMS.filter(item =>
-    item.always || (item.permission && canAccess(profile.role, item.permission))
-  )
+  const NAV: NavItem[] = [
+    { href: '/dashboard',  label: 'Dashboard',       icon: '📊', always: true },
+    { href: '/pipeline',   label: 'Pipeline',         icon: '🔄', permission: 'view_all_projects' },
+    { href: '/customers',  label: 'Customers',        icon: '👤', permission: 'view_all_projects' },
+    { href: '/calendar',   label: 'Calendar',         icon: '📅', always: true },
+    { href: '/tasks',      label: 'Tasks',            icon: '✅', always: true },
+    { href: '/inventory',  label: 'Vinyl Inventory',  icon: '🗄️', permission: 'view_all_projects' },
+    { href: '/analytics',  label: 'Analytics',        icon: '📈', permission: 'view_analytics' },
+    { href: '/employees',  label: 'Team',             icon: '👥', permission: 'manage_users' },
+    { href: '/settings',   label: 'Settings',         icon: '⚙️', always: true },
+  ]
 
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+  const visible = NAV.filter(i => i.always || (i.permission && canAccess(profile.role, i.permission)))
+
+  const ROLE_COLORS: Record<string, string> = {
+    admin: '#8b5cf6', sales: '#4f7fff', production: '#22c07a',
+    installer: '#22d3ee', designer: '#f59e0b', customer: '#9ca3af',
   }
 
-  const roleColors: Record<string, string> = {
-    admin:      'text-purple',
-    sales:      'text-accent',
-    production: 'text-green',
-    installer:  'text-cyan',
-    designer:   'text-amber',
-    customer:   'text-text3',
+  async function signOut() {
+    await supabase.auth.signOut(); router.push('/login'); router.refresh()
   }
 
   return (
     <>
-      <aside className="w-56 bg-surface border-r border-border flex flex-col shrink-0 h-full">
+      <aside style={{
+        width: 220, background: 'var(--surface)', borderRight: '1px solid var(--border)',
+        display: 'flex', flexDirection: 'column', height: '100vh', flexShrink: 0,
+        position: 'sticky', top: 0, overflowY: 'auto',
+      }}>
         {/* Logo */}
-        <div className="px-4 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🚗</span>
+        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span style={{ fontSize: 20 }}>🚗</span>
             <div>
-              <div
-                className="text-sm font-900 tracking-tight text-text1 leading-none"
-                style={{ fontFamily: 'Barlow Condensed, sans-serif' }}
-              >
-                USA WRAP CO
-              </div>
-              <div className="text-xs text-text3">Ops Platform</div>
+              <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 14, fontWeight: 900, letterSpacing: '-.01em', lineHeight: 1 }}>USA WRAP CO</div>
+              <div style={{ fontSize: 9, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>Ops Platform</div>
             </div>
           </div>
         </div>
 
-        {/* New Project button */}
-        <div className="px-3 py-3 border-b border-border">
-          <button
-            onClick={() => setShowNewProject(true)}
-            className="btn-primary w-full text-sm"
-          >
-            <span className="text-base">＋</span> New Project
-          </button>
+        {/* New Project */}
+        <div style={{ padding: '10px 10px 6px', flexShrink: 0 }}>
+          <button onClick={() => setShowNew(true)} style={{
+            width: '100%', background: 'var(--accent)', color: '#fff', border: 'none',
+            borderRadius: 9, padding: '9px 12px', fontWeight: 800, fontSize: 13,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}>＋ New Project</button>
         </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 py-2 overflow-y-auto">
-          {visibleItems.map(item => {
-            const active = pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href))
+        {/* Nav */}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
+          {visible.map(item => {
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={clsx(
-                  'flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-500 transition-all',
-                  active
-                    ? 'bg-accent/15 text-accent font-700'
-                    : 'text-text2 hover:bg-surface2 hover:text-text1'
-                )}
-              >
-                <span className="text-base w-5 text-center">{item.icon}</span>
-                {item.label}
+              <Link key={item.href} href={item.href} style={{
+                display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px',
+                borderRadius: 8, marginBottom: 2, textDecoration: 'none', fontSize: 13,
+                fontWeight: active ? 700 : 500,
+                background: active ? 'rgba(79,127,255,.12)' : 'transparent',
+                color: active ? 'var(--accent)' : 'var(--text2)',
+                border: active ? '1px solid rgba(79,127,255,.2)' : '1px solid transparent',
+                transition: 'all .15s',
+              }}>
+                <span style={{ fontSize: 14, lineHeight: 1 }}>{item.icon}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
               </Link>
             )
           })}
         </nav>
 
-        {/* User profile + sign out */}
-        <div className="p-3 border-t border-border">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface2 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-800 text-accent shrink-0">
-              {profile.name.charAt(0).toUpperCase()}
+        {/* User footer */}
+        <div style={{ padding: '10px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: '50%',
+              background: `${ROLE_COLORS[profile.role] || '#4f7fff'}22`,
+              border: `2px solid ${ROLE_COLORS[profile.role] || '#4f7fff'}55`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 800, color: ROLE_COLORS[profile.role] || '#4f7fff', flexShrink: 0,
+            }}>{profile.name?.[0]?.toUpperCase() || '?'}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.name}</div>
+              <div style={{ fontSize: 9, color: ROLE_COLORS[profile.role], fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>{profile.role}</div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-600 text-text1 truncate">{profile.name}</div>
-              <div className={clsx('text-xs font-700 capitalize', roleColors[profile.role])}>
-                {profile.role}
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="text-text3 hover:text-red transition-colors text-sm"
-              title="Sign out"
-            >
-              ↩
-            </button>
           </div>
+          <button onClick={signOut} style={{
+            width: '100%', background: 'none', border: '1px solid var(--border)',
+            color: 'var(--text3)', padding: '6px', borderRadius: 7,
+            fontSize: 11, fontWeight: 600, cursor: 'pointer',
+          }}>⏻ Sign Out</button>
         </div>
       </aside>
 
-      {showNewProject && (
-        <NewProjectModal
-          profile={profile}
-          onClose={() => setShowNewProject(false)}
-          onCreated={() => {
-            setShowNewProject(false)
-            router.refresh()
-          }}
-        />
+      {showNew && (
+        <NewProjectModal profile={profile} teammates={teammates} onClose={() => setShowNew(false)} />
       )}
     </>
   )
