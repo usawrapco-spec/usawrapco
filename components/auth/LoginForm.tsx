@@ -1,98 +1,41 @@
-'use client'
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
-interface LoginFormProps {
-  errorMessage?: string
-  successMessage?: string
-}
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code  = searchParams.get('code')
+  const next  = searchParams.get('next') ?? '/dashboard'
 
-export function LoginForm({ errorMessage, successMessage }: LoginFormProps) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(errorMessage || '')
-  const router = useRouter()
-  const supabase = createClient()
+  if (code) {
+    const supabase = createClient()
+    const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code)
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+    if (!error && user) {
+      // Upsert profile so new Google users get one automatically
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single()
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (!existing) {
+        await supabase.from('profiles').insert({
+          id:      user.id,
+          org_id:  ORG_ID,
+          role:    'sales',            // default role — admin can change
+          name:    user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          email:   user.email || '',
+          phone:   null,
+          active:  true,
+          permissions: {},
+        })
+      }
 
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
+      return NextResponse.redirect(`${origin}${next}`)
     }
-
-    router.push('/dashboard')
-    router.refresh()
   }
 
-  return (
-    <div className="card anim-pop-in" style={{ padding: '28px' }}>
-      <h1 className="text-lg font-800 text-text1 mb-1">Sign in</h1>
-      <p className="text-sm text-text3 mb-6">Enter your credentials to access ops</p>
-
-      {error && (
-        <div className="mb-4 px-3 py-2 rounded-lg bg-red/10 border border-red/30 text-red text-sm">
-          {error}
-        </div>
-      )}
-      {successMessage && (
-        <div className="mb-4 px-3 py-2 rounded-lg bg-green/10 border border-green/30 text-green text-sm">
-          {successMessage}
-        </div>
-      )}
-
-      <form onSubmit={handleLogin} className="flex flex-col gap-4">
-        <div>
-          <label className="field-label">Email</label>
-          <input
-            type="email"
-            className="field"
-            placeholder="you@example.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-        </div>
-
-        <div>
-          <label className="field-label">Password</label>
-          <input
-            type="password"
-            className="field"
-            placeholder="••••••••"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="btn-primary w-full mt-2"
-          disabled={loading}
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              Signing in…
-            </span>
-          ) : 'Sign In'}
-        </button>
-      </form>
-    </div>
-  )
+  return NextResponse.redirect(`${origin}/login?error=Could not sign in`)
 }
