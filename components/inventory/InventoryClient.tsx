@@ -59,7 +59,7 @@ export function InventoryClient({ profile }: InventoryClientProps) {
     return list
   }, [inventory, statusFilter, brandFilter, search])
 
-  const brands = [...new Set(inventory.map(v => v.brand))]
+  const brands = Array.from(new Set(inventory.map(v => v.brand)))
   const totalValue = inventory.reduce((s, v) => s + ((v.totalLength - v.usedLength) * v.costPerFoot), 0)
   const lowItems = inventory.filter(v => v.status === 'low' || v.status === 'out')
   const totalRolls = inventory.length
