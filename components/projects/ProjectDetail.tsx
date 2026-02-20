@@ -483,7 +483,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ═══ INSTALL TAB ═══ */}
           {tab === 'install' && (
-            <InstallTab f={f} ff={ff} project={project} profile={profile} />
+            <InstallTab f={f} ff={ff} project={project} profile={profile} teammates={teammates} />
           )}
 
           {/* ═══ QC TAB ═══ */}
@@ -493,7 +493,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ═══ CLOSE TAB ═══ */}
           {tab === 'close' && (
-            <CloseTab f={f} ff={ff} fin={fin} project={project} profile={profile} sendBacks={sendBacks} />
+            <CloseTab f={f} ff={ff} fin={fin} project={project} profile={profile} sendBacks={sendBacks} teammates={teammates} />
           )}
 
           {/* ═══ EXPENSES TAB ═══ */}
@@ -1111,7 +1111,7 @@ function RemnantMatchPanel({ sqft, material }: { sqft: number; material: string 
 // ═══════════════════════════════════════════════════════════════════
 // INSTALL TAB — Vinyl check, timer, post-install verification
 // ═══════════════════════════════════════════════════════════════════
-function InstallTab({ f, ff, project, profile }: any) {
+function InstallTab({ f, ff, project, profile, teammates }: any) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Pre-install vinyl check */}
@@ -1157,7 +1157,7 @@ function InstallTab({ f, ff, project, profile }: any) {
         </div>
       </Section>
 
-      <SendBidToInstaller projectId={project.id} orgId={project.org_id} />
+      <SendBidToInstaller projectId={project.id} orgId={project.org_id} project={project} teammates={teammates || []} />
     </div>
   )
 }
@@ -1293,7 +1293,7 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
   )
 }
 
-function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
+function CloseTab({ f, ff, fin, project, profile, sendBacks, teammates }: any) {
   const expenses: { desc: string; amount: number }[] = f.jobExpenses || []
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
   const reprintCost = v(f.reprintCost)
@@ -1339,7 +1339,7 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
         </div>
       </Section>
 
-      <ReferralPanel projectId={project.id} orgId={project.org_id} />
+      <ReferralPanel projectId={project.id} orgId={project.org_id} project={project} teammates={teammates || []} />
 
       {/* Send-back summary */}
       {sendBacks.length > 0 && (
