@@ -9,6 +9,9 @@ import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
 import JobChat from '@/components/chat/JobChat'
 import JobImages from '@/components/images/JobImages'
 import ProgressTicks from '@/components/pipeline/ProgressTicks'
+import StageApproval from '@/components/approval/StageApproval'
+import QuotedVsActual from '@/components/approval/QuotedVsActual'
+import MaterialTracking from '@/components/approval/MaterialTracking'
 
 interface Teammate { id: string; name: string; full_name?: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -62,7 +65,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ────────────────────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab]         = useState<1|2|3|4|5>(1)
+  const [tab, setTab]         = useState<1|2|3|4|5|6|7>(1)
   const [tab2Done, setTab2Done] = useState(false)
   const [tab3Done, setTab3Done] = useState(false)
   const [saving, setSaving]   = useState(false)
@@ -344,8 +347,8 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       {/* Tabs */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
         <div style={{ display:'flex', borderBottom:'1px solid var(--border)', background:'var(--surface)', overflowX:'auto' }}>
-          {([1,2,3,4,5] as const).map(n => {
-            const labels: Record<number, string> = {1:'Quote & Materials', 2:'Design & Scope', 3:'Logistics & Status', 4:'💬 Chat', 5:'📷 Images'}
+          {([1,2,3,4,5,6,7] as const).map(n => {
+            const labels: Record<number, string> = {1:'Quote & Materials', 2:'Design & Scope', 3:'Logistics & Status', 4:'🔒 Approval', 5:'📊 Actuals', 6:'💬 Chat', 7:'📷 Images'}
             const done   = n===2 ? tab2Done : n===3 ? tab3Done : false
             return (
               <button key={n} onClick={() => setTab(n)} style={{
@@ -376,6 +379,34 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           {tab === 2 && <Tab2 f={f} ff={ff} onComplete={() => { setTab2Done(true); setTab(3) }} />}
           {tab === 3 && <Tab3 f={f} ff={ff} project={project} teammates={teammates} onComplete={() => { setTab3Done(true) }} onAdvance={advancePipeline} onSaveOrder={saveAsSalesOrder} profile={profile} curStage={project.pipe_stage || 'sales_in'} />}
           {tab === 4 && (
+            <StageApproval
+              projectId={project.id}
+              orgId={project.org_id}
+              userId={profile.id}
+              userName={profile.full_name || profile.name}
+              currentStage={project.pipe_stage || 'sales_in'}
+              project={project}
+              onStageAdvance={(newStage) => {
+                setProject(p => ({ ...p, pipe_stage: newStage }))
+              }}
+            />
+          )}
+          {tab === 5 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <QuotedVsActual
+                projectId={project.id}
+                orgId={project.org_id}
+                project={project}
+              />
+              <MaterialTracking
+                projectId={project.id}
+                orgId={project.org_id}
+                userId={profile.id}
+                project={project}
+              />
+            </div>
+          )}
+          {tab === 6 && (
             <JobChat
               projectId={project.id}
               orgId={project.org_id}
@@ -383,7 +414,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
               currentUserName={profile.full_name || profile.name}
             />
           )}
-          {tab === 5 && (
+          {tab === 7 && (
             <JobImages
               projectId={project.id}
               orgId={project.org_id}
