@@ -12,7 +12,7 @@ import {
   eachWeekOfInterval,
   eachMonthOfInterval,
 } from 'date-fns'
-import { Search, X, CheckSquare, Trash2 } from 'lucide-react'
+import { Search, X, CheckSquare, Trash2, Plus, TrendingUp, Palette, Package, Hammer, BarChart3, Clock, FileText, Wrench, Camera } from 'lucide-react'
 import ApprovalModal from '@/components/approval/ApprovalModal'
 import CloseJobModal from '@/components/projects/CloseJobModal'
 import { clsx } from 'clsx'
@@ -499,6 +499,50 @@ export function DashboardClient({
           )}
         </div>
       </div>
+
+      {/* ====== Quick Actions ====== */}
+      {(() => {
+        const role = profile.role
+        const actions: { label: string; href: string; Icon: any; color: string }[] = []
+        if (['owner','admin','sales_agent'].includes(role)) {
+          actions.push({ label: 'Sales Pipeline', href: '/pipeline', Icon: TrendingUp, color: '#4f7fff' })
+        }
+        if (['owner','admin','production'].includes(role)) {
+          actions.push({ label: 'Production Hub', href: '/production', Icon: Package, color: '#22c07a' })
+          actions.push({ label: 'Print Schedule', href: '/timeline', Icon: Clock, color: '#22d3ee' })
+        }
+        if (['owner','admin','designer','production'].includes(role)) {
+          actions.push({ label: 'Design Studio', href: '/design', Icon: Palette, color: '#8b5cf6' })
+        }
+        if (['owner','admin','installer'].includes(role)) {
+          actions.push({ label: 'Open Bids', href: '/installer-portal', Icon: Hammer, color: '#f59e0b' })
+        }
+        if (['owner','admin','sales_agent'].includes(role)) {
+          actions.push({ label: 'Reports', href: '/reports', Icon: BarChart3, color: '#22d3ee' })
+          actions.push({ label: 'Media Library', href: '/media', Icon: Camera, color: '#9299b5' })
+        }
+        if (actions.length === 0) return null
+        return (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {actions.slice(0, 6).map(a => (
+              <button
+                key={a.href + a.label}
+                onClick={() => router.push(a.href)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '10px 16px', borderRadius: 10,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: a.color, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  whiteSpace: 'nowrap',
+                }}>
+                <a.Icon size={15} />
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* ====== Period Selector ====== */}
       {canSeeFinancials && (
