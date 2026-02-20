@@ -556,6 +556,65 @@ function Check({ label, checked, onChange }: { label:string; checked:boolean; on
 // ═══════════════════════════════════════════════════════════════════
 // SALES TAB — Full quote builder (all existing Tab 1-3 content merged)
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// Similar Portfolio Photos — AI-powered matching
+function SimilarPhotosPanel({ vehicleType, wrapType, description }: { vehicleType?: string; wrapType?: string; description?: string }) {
+  const [photos, setPhotos] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [shown, setShown] = useState(false)
+
+  const findSimilar = async () => {
+    if (!shown) { setShown(true) }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/ai/similar-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicleType, wrapType, description }),
+      })
+      const data = await res.json()
+      setPhotos(data.photos || [])
+    } catch {}
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: shown ? 12 : 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Similar Completed Work
+        </div>
+        <button onClick={findSimilar} disabled={loading} style={{
+          padding: '6px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+          cursor: 'pointer', border: '1px solid var(--border)',
+          background: 'var(--surface2)', color: 'var(--accent)',
+        }}>
+          {loading ? 'Searching...' : 'Find Similar'}
+        </button>
+      </div>
+      {shown && (
+        photos.length === 0 && !loading ? (
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>No similar photos found in media library.</div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {photos.map((p: any) => (
+              <div key={p.id} style={{ position: 'relative', cursor: 'pointer' }} title={p.match_reason}>
+                <img src={p.url} alt="Similar work"
+                  style={{ width: 100, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--border)' }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+                <div style={{ position: 'absolute', bottom: 4, right: 4, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4 }}>
+                  {p.similarity_score}%
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project }: any) {
   const isVehicle = jobType === 'Commercial' && subType === 'Vehicle'
   const isBox = jobType === 'Commercial' && subType === 'Box Truck'
@@ -747,6 +806,9 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
           <Check label="Contract Signed" checked={f.contractSigned} onChange={v => ff('contractSigned',v)} />
         </div>
       </Section>
+
+      {/* Similar portfolio photos */}
+      <SimilarPhotosPanel vehicleType={f.vehicle} wrapType={subType} description={f.coverage || f.salesNotes} />
 
       {/* Customer link generator */}
       <IntakeLinkGenerator projectId={project.id} orgId={project.org_id} clientName={f.client} clientEmail={f.email} />
