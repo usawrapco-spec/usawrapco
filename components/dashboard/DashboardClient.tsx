@@ -94,9 +94,37 @@ export function DashboardClient({
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [approvalProject, setApprovalProject] = useState<Project | null>(null)
   const [closeProject, setCloseProject] = useState<Project | null>(null)
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
   const router = useRouter()
   const supabase = createClient()
   const { toast } = useToast()
+
+  // Greeting + XP/streak computed values
+  const greeting = useMemo(() => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
+    return 'Good evening'
+  }, [])
+  const xp      = (profile as any).xp || 0
+  const streak  = (profile as any).current_streak || 0
+  const xpLevel = Math.floor(Math.sqrt(xp / 50)) + 1
+  const xpNext  = xpLevel * xpLevel * 50
+  const xpPrev  = (xpLevel - 1) * (xpLevel - 1) * 50
+  const xpPct   = Math.min(100, Math.round(((xp - xpPrev) / Math.max(1, xpNext - xpPrev)) * 100))
+
+  // Load recent activity feed (job comments)
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('job_comments')
+        .select('id, body, created_at, author_id, project_id, author:author_id(name), project:project_id(title, vehicle_desc)')
+        .order('created_at', { ascending: false })
+        .limit(8)
+      if (data) setRecentActivity(data)
+    }
+    load()
+  }, [])
 
   // --- Period selector state ---
   const [period, setPeriod] = useState<PeriodKey>('month')
@@ -435,6 +463,42 @@ export function DashboardClient({
 
   return (
     <div className="flex flex-col gap-5">
+
+      {/* ====== Welcome Banner ====== */}
+      <div className="card" style={{ padding: '14px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {greeting}, {profile.name?.split(' ')[0] || profile.email?.split('@')[0]}!
+              {streak > 0 && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                  {streak}-day streak
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+              {format(new Date(), 'EEEE, MMMM d, yyyy')}
+            </div>
+          </div>
+          {xp > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 5 }}>
+                Level {xpLevel} · {xp.toLocaleString()} XP
+              </div>
+              <div style={{ width: 160, height: 5, background: 'var(--surface2)', borderRadius: 3 }}>
+                <div style={{
+                  height: '100%', borderRadius: 3,
+                  background: 'linear-gradient(to right, var(--accent), var(--cyan))',
+                  width: `${xpPct}%`, transition: 'width 0.5s ease',
+                }} />
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>
+                {(xpNext - xp).toLocaleString()} XP to Level {xpLevel + 1}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ====== Period Selector ====== */}
       {canSeeFinancials && (
@@ -846,6 +910,48 @@ export function DashboardClient({
               <button className="btn-ghost flex-1" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="btn-danger flex-1" onClick={() => deleteProject(confirmDelete)}>Delete</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== Activity Feed ====== */}
+      {recentActivity.length > 0 && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Recent Activity
+          </div>
+          <div>
+            {recentActivity.map((item, i) => (
+              <div key={item.id} style={{
+                padding: '10px 16px',
+                borderBottom: i < recentActivity.length - 1 ? '1px solid var(--border)' : 'none',
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: 'rgba(79,127,255,0.15)', color: 'var(--accent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 800,
+                }}>
+                  {(item.author?.name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text1)', lineHeight: 1.4 }}>
+                    <span style={{ fontWeight: 700 }}>{item.author?.name || 'Someone'}</span>
+                    {' commented on '}
+                    <span style={{ color: 'var(--accent)' }}>
+                      {item.project?.title || 'a project'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.body}
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', flexShrink: 0, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {format(new Date(item.created_at), 'MMM d, h:mm a')}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
