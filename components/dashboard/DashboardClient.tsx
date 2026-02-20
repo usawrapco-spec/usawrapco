@@ -18,6 +18,7 @@ import CloseJobModal from '@/components/projects/CloseJobModal'
 import { clsx } from 'clsx'
 import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
+import VelocityGauge from '@/components/dashboard/VelocityGauge'
 
 interface DashboardClientProps {
   profile: Profile
@@ -257,6 +258,18 @@ export function DashboardClient({
   }, [periodRange, period, closedProjects])
 
   const chartMax = useMemo(() => Math.max(...revenueChartData.map(d => d.value), 1), [revenueChartData])
+
+  // --- Velocity gauge data ---
+  const daysElapsed = useMemo(() => {
+    const now  = new Date()
+    const diff = now.getTime() - periodRange.start.getTime()
+    return Math.max(1, Math.floor(diff / 86400000))
+  }, [periodRange.start])
+
+  const daysInPeriod = useMemo(() => {
+    const diff = periodRange.end.getTime() - periodRange.start.getTime()
+    return Math.max(1, Math.ceil(diff / 86400000))
+  }, [periodRange])
 
   // Unique agents
   const agents = useMemo(() => {
@@ -508,6 +521,19 @@ export function DashboardClient({
             </div>
           ))}
         </div>
+      )}
+
+      {/* ====== Sales Velocity Gauge ====== */}
+      {canSeeFinancials && (
+        <VelocityGauge
+          totalRevenue={totalRevenue}
+          closedCount={closedProjects.length}
+          estimateCount={estimates.length}
+          pipelineValue={pipelineValue}
+          daysElapsed={daysElapsed}
+          daysInPeriod={daysInPeriod}
+          periodLabel={period === 'week' ? 'week' : period === 'quarter' ? 'quarter' : period === 'year' ? 'year' : 'month'}
+        />
       )}
 
       {/* ====== Revenue Bar Chart ====== */}
