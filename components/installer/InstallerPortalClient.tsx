@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Wrench, Check, X, Clock, DollarSign, Calendar, Bell } from 'lucide-react'
 import clsx from 'clsx'
 import type { Profile } from '@/types'
+import { useToast } from '@/components/shared/Toast'
 
 interface InstallerPortalClientProps {
   profile: Profile
@@ -16,6 +17,7 @@ type Tab = 'open' | 'pending' | 'accepted' | 'history'
 
 export default function InstallerPortalClient({ profile, bids: initialBids, openBids: initialOpenBids = [] }: InstallerPortalClientProps) {
   const supabase = createClient()
+  const { xpToast } = useToast()
   const [bids, setBids] = useState<any[]>(initialBids)
   const [openBids, setOpenBids] = useState<any[]>(initialOpenBids)
   const [newBidAlert, setNewBidAlert] = useState(false)
@@ -93,7 +95,12 @@ export default function InstallerPortalClient({ profile, bids: initialBids, open
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'installer_bid', sourceType: 'installer_bid', sourceId: bidId }),
-      }).catch(() => {})
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'Bid submitted', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
     }
     setSubmitting(false)
   }

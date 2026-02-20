@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Upload, Tag, ImageIcon, Video, FileText, Grid, List, X, CheckCircle } from 'lucide-react'
 import type { Profile } from '@/types'
+import { useToast } from '@/components/shared/Toast'
 
 interface MediaFile {
   id: string
@@ -38,6 +39,7 @@ function formatBytes(bytes: number) {
 }
 
 export default function MediaLibraryClient({ profile }: Props) {
+  const { xpToast } = useToast()
   const [files, setFiles]       = useState<MediaFile[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -124,7 +126,12 @@ export default function MediaLibraryClient({ profile }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'media_upload', sourceType: 'media' }),
-      }).catch(() => {})
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'Media uploaded', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
     } catch (err) {
       console.error('Upload error:', err)
     }

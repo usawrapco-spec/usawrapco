@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Printer, Calendar, Clock, ChevronLeft, ChevronRight, Plus, CheckCircle } from 'lucide-react'
 import type { Profile } from '@/types'
 import Link from 'next/link'
+import { useToast } from '@/components/shared/Toast'
 
 interface Job {
   id: string
@@ -68,6 +69,7 @@ function formatDate(dateStr: string) {
 
 export default function PrintScheduleClient({ profile, jobs }: Props) {
   const supabase = createClient()
+  const { xpToast } = useToast()
   const [viewDate, setViewDate]     = useState(todayStr())
   const [printJobs, setPrintJobs]   = useState<PrintJob[]>([])
   const [showSchedule, setShowSchedule] = useState(false)
@@ -144,7 +146,12 @@ export default function PrintScheduleClient({ profile, jobs }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'print_job_completed', sourceType: 'print_job', sourceId: jobId }),
-      }).catch(() => {})
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'Print job completed', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
     }
   }
 

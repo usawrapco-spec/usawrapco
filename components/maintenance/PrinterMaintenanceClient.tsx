@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Wrench, AlertTriangle, CheckCircle, Clock, X, ChevronRight } from 'lucide-react'
 import type { Profile } from '@/types'
+import { useToast } from '@/components/shared/Toast'
 
 interface MaintenanceLog {
   id: string
@@ -28,6 +29,7 @@ const INK_MOCK = {
 }
 
 export default function PrinterMaintenanceClient({ profile }: Props) {
+  const { xpToast } = useToast()
   const [logs, setLogs]     = useState<MaintenanceLog[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -69,7 +71,12 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'maintenance_logged', sourceType: 'maintenance' }),
-    }).catch(() => {})
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        if (res?.amount) xpToast(res.amount, 'Maintenance logged', res.leveledUp, res.newLevel)
+      })
+      .catch(() => {})
     setShowAdd(false)
     setForm({ printer_name: PRINTERS[0], maintenance_type: 'scheduled', description: '', print_hours_at_service: '', next_service_hours: '50' })
     setSaving(false)
