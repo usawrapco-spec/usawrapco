@@ -1,0 +1,178 @@
+/**
+ * lib/gamification.ts
+ * XP award system — call from server-side code (API routes, server actions).
+ * Records XP in profiles table and returns level-up info.
+ */
+import { XP_LEVELS, xpToLevel, XP_VALUES, type XPAction } from './commission'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+export interface XPAwardResult {
+  newXP: number
+  newLevel: number
+  leveledUp: boolean
+  amount: number
+}
+
+/**
+ * Award XP to a user. Updates profiles table and returns result.
+ */
+export async function awardXP(
+  supabase: SupabaseClient,
+  userId: string,
+  action: XPAction,
+  sourceType?: string,
+  sourceId?: string,
+): Promise<XPAwardResult | null> {
+  const amount = XP_VALUES[action]
+
+  try {
+    // Fetch current profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('xp, level, monthly_xp, weekly_xp')
+      .eq('id', userId)
+      .single()
+
+    if (!profile) return null
+
+    const newXP    = (profile.xp || 0) + amount
+    const newLevel = xpToLevel(newXP)
+    const leveledUp = newLevel > (profile.level || 1)
+
+    // Update profile totals
+    await supabase.from('profiles').update({
+      xp:         newXP,
+      level:      newLevel,
+      monthly_xp: (profile.monthly_xp || 0) + amount,
+      weekly_xp:  (profile.weekly_xp  || 0) + amount,
+    }).eq('id', userId)
+
+    // Try to record in xp_ledger (may not exist in all DB setups)
+    try {
+      await supabase.from('xp_ledger').insert({
+        user_id:     userId,
+        amount,
+        reason:      action,
+        source_type: sourceType,
+        source_id:   sourceId,
+      })
+    } catch {}
+
+    return { newXP, newLevel, leveledUp, amount }
+  } catch (err) {
+    console.error('[gamification.awardXP] error:', err)
+    return null
+  }
+}
+
+/**
+ * Update daily login streak and award streak XP.
+ */
+export async function updateLoginStreak(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ streak: number; xpAwarded: number }> {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('current_streak, longest_streak, last_active_date')
+      .eq('id', userId)
+      .single()
+
+    if (!profile) return { streak: 1, xpAwarded: 0 }
+
+    const today = new Date().toISOString().split('T')[0]
+    const lastActive = profile.last_active_date || ''
+
+    // Check if already logged in today
+    if (lastActive === today) {
+      return { streak: profile.current_streak || 1, xpAwarded: 0 }
+    }
+
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const isConsecutive = lastActive === yesterday
+
+    const newStreak = isConsecutive ? (profile.current_streak || 0) + 1 : 1
+    const longestStreak = Math.max(newStreak, profile.longest_streak || 0)
+
+    // XP = base(5) + streak bonus (capped at +10)
+    const streakBonus = Math.min(10, newStreak - 1)
+    const xpBase = XP_VALUES.daily_login
+    const xpTotal = xpBase + streakBonus
+
+    await supabase.from('profiles').update({
+      current_streak:  newStreak,
+      longest_streak:  longestStreak,
+      last_active_date: today,
+    }).eq('id', userId)
+
+    // Award XP
+    await awardXP(supabase, userId, 'daily_login')
+
+    // Award bonus XP directly if streak bonus > 0
+    if (streakBonus > 0) {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('xp, monthly_xp, weekly_xp')
+        .eq('id', userId)
+        .single()
+      if (p) {
+        await supabase.from('profiles').update({
+          xp:         (p.xp || 0) + streakBonus,
+          monthly_xp: (p.monthly_xp || 0) + streakBonus,
+          weekly_xp:  (p.weekly_xp  || 0) + streakBonus,
+        }).eq('id', userId)
+      }
+    }
+
+    return { streak: newStreak, xpAwarded: xpTotal }
+  } catch (err) {
+    console.error('[gamification.updateLoginStreak] error:', err)
+    return { streak: 1, xpAwarded: 0 }
+  }
+}
+
+/**
+ * Check if a user has earned any new badges based on current stats.
+ */
+export async function checkAndAwardBadges(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string[]> {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('xp, level, current_streak, longest_streak, badges')
+      .eq('id', userId)
+      .single()
+
+    if (!profile) return []
+
+    const existingBadges: string[] = profile.badges || []
+    const newBadges: string[] = []
+
+    const addBadge = (key: string) => {
+      if (!existingBadges.includes(key)) {
+        existingBadges.push(key)
+        newBadges.push(key)
+      }
+    }
+
+    if ((profile.longest_streak || 0) >= 7)  addBadge('hot_streak')
+    if ((profile.level || 1) >= 25)           addBadge('elite')
+
+    // Count closed deals from projects (handled separately by callers)
+
+    if (newBadges.length > 0) {
+      await supabase.from('profiles').update({
+        badges: existingBadges,
+      }).eq('id', userId)
+    }
+
+    return newBadges
+  } catch {
+    return []
+  }
+}
+
+export { XP_VALUES, xpToLevel, XP_LEVELS }
