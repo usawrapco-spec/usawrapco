@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { awardXP } from '@/lib/gamification'
 import Stripe from 'stripe'
 
 export async function POST(req: Request) {
@@ -49,10 +50,8 @@ export async function POST(req: Request) {
             .single()
 
           if (project?.agent_id) {
-            // XP for intake payment received (+15 XP to agent)
-            await admin.from('profiles').update({
-              xp: admin.rpc('increment_xp', { user_id: project.agent_id, amount: 15 }),
-            }).eq('id', project.agent_id)
+            // XP for intake payment received
+            await awardXP(admin, project.agent_id, 'invoice_paid', 'project', projectId)
           }
         }
       }
