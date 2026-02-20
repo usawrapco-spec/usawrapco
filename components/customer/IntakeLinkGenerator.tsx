@@ -61,9 +61,10 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const baseUrl   = typeof window !== 'undefined' ? window.location.origin : ''
   const intakeUrl = intake ? `${baseUrl}/intake/${intake.token}` : ''
-  const proofUrl = intake?._proofToken ? `${baseUrl}/proof/${intake._proofToken}` : ''
+  const proofUrl  = intake?._proofToken ? `${baseUrl}/proof/${intake._proofToken}` : ''
+  const trackUrl  = intake ? `${baseUrl}/track/${intake.token}` : ''
 
   if (loading) return null
 
@@ -153,6 +154,29 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
             </div>
           )}
         </>
+      )}
+
+      {/* Job tracking link */}
+      {intake && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', marginBottom: 6 }}>JOB TRACKER LINK</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input readOnly value={trackUrl} style={{
+              flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '8px 10px', fontSize: 11, color: 'var(--text2)',
+              fontFamily: 'JetBrains Mono, monospace',
+            }} />
+            <button onClick={() => copyLink(trackUrl, 'track')} style={{
+              padding: '8px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', border: 'none',
+              background: copied === 'track' ? 'var(--green)' : '#22d3ee',
+              color: '#fff',
+            }}>
+              {copied === 'track' ? '✓ Copied' : '📋 Copy'}
+            </button>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Share with customer to track job progress</div>
+        </div>
       )}
     </div>
   )
