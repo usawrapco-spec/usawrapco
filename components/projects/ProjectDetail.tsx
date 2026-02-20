@@ -12,6 +12,10 @@ import ProgressTicks from '@/components/pipeline/ProgressTicks'
 import StageApproval from '@/components/approval/StageApproval'
 import QuotedVsActual from '@/components/approval/QuotedVsActual'
 import MaterialTracking from '@/components/approval/MaterialTracking'
+import IntakeLinkGenerator from '@/components/customer/IntakeLinkGenerator'
+import DesignerBidPanel from '@/components/designer/DesignerBidPanel'
+import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
+import ReferralPanel from '@/components/referral/ReferralPanel'
 
 interface Teammate { id: string; name: string; full_name?: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
