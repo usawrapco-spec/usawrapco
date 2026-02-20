@@ -1,11 +1,70 @@
 // ─── Role types ────────────────────────────────────────────────────────────────
+// These MUST match the DB check constraint on profiles.role
 export type UserRole =
+  | 'owner'
   | 'admin'
-  | 'sales'
+  | 'sales_agent'
+  | 'designer'
   | 'production'
   | 'installer'
-  | 'designer'
-  | 'customer'
+  | 'viewer'
+
+// ─── Permission names (used for sidebar/page-level RBAC) ──────────────────────
+export type Permission =
+  | 'view_analytics'
+  | 'view_financials'
+  | 'view_all_projects'
+  | 'view_all_agents'
+  | 'view_inventory'
+  | 'manage_users'
+  | 'manage_settings'
+  | 'manage_workflows'
+  | 'edit_projects'
+  | 'delete_projects'
+  | 'manage_bids'
+  | 'sign_off_production'
+  | 'sign_off_install'
+  | 'sign_off_sales'
+  | 'view_master_mode'
+  | 'access_design_studio'
+
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  owner: [
+    'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
+    'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
+    'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
+    'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
+  ],
+  admin: [
+    'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
+    'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
+    'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
+    'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
+  ],
+  sales_agent: [
+    'view_financials', 'view_all_projects', 'view_all_agents',
+    'edit_projects', 'sign_off_sales',
+  ],
+  designer: [
+    'access_design_studio', 'view_all_projects',
+  ],
+  production: [
+    'view_all_projects', 'view_inventory', 'edit_projects',
+    'sign_off_production', 'access_design_studio', 'manage_bids',
+  ],
+  installer: [
+    'sign_off_install', 'view_all_projects', 'view_inventory',
+  ],
+  viewer: [],
+}
+
+export function canAccess(role: UserRole | string, permission: Permission): boolean {
+  return (ROLE_PERMISSIONS[role as UserRole] ?? []).includes(permission)
+}
+
+export function isAdminRole(role: UserRole | string): boolean {
+  return role === 'owner' || role === 'admin'
+}
 
 // ─── Profile ───────────────────────────────────────────────────────────────────
 export interface Profile {
@@ -18,6 +77,8 @@ export interface Profile {
   avatar_url: string | null
   permissions: Record<string, boolean>
   active: boolean
+  division?: string | null
+  last_active_date?: string | null
   created_at: string
   updated_at: string
 }
@@ -85,7 +146,6 @@ export interface Project {
   referral: string | null
   created_at: string
   updated_at: string
-  // Joined fields
   agent?: Pick<Profile, 'id' | 'name' | 'email'>
   installer?: Pick<Profile, 'id' | 'name' | 'email'>
   customer?: Pick<Profile, 'id' | 'name' | 'email'>
@@ -157,7 +217,7 @@ export interface ProjectFile {
   created_at: string
 }
 
-// ─── Design Project ─────────────────────────────────────────────────────────
+// ─── Design Project ────────────────────────────────────────────────────────────
 export type DesignProjectStatus = 'brief' | 'in_progress' | 'proof_sent' | 'approved'
 export type DesignType = 'full_wrap' | 'partial_wrap' | 'decal' | 'livery' | 'color_change' | 'other'
 
@@ -174,67 +234,32 @@ export interface DesignProject {
   assigned_to: string | null
   created_at: string
   updated_at: string
-  // Joined fields
   linked_project?: Pick<Project, 'id' | 'title'>
   creator?: Pick<Profile, 'id' | 'name'>
   assignee?: Pick<Profile, 'id' | 'name'>
 }
 
-// ─── RBAC helpers ──────────────────────────────────────────────────────────────
-export type Permission =
-  | 'view_analytics'
-  | 'view_financials'
-  | 'view_all_projects'
-  | 'view_all_agents'
-  | 'view_inventory'
-  | 'manage_users'
-  | 'manage_settings'
-  | 'manage_workflows'
-  | 'edit_projects'
-  | 'delete_projects'
-  | 'manage_bids'
-  | 'sign_off_production'
-  | 'sign_off_install'
-  | 'sign_off_sales'
-  | 'view_master_mode'
-  | 'access_design_studio'
-
-export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  admin: [
-    'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
-    'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
-    'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
-    'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
-  ],
-  sales: [
-    'view_financials', 'view_all_projects', 'view_all_agents', 'view_inventory',
-    'edit_projects', 'sign_off_sales', 'access_design_studio',
-  ],
-  production: [
-    'view_all_projects', 'view_inventory', 'edit_projects',
-    'sign_off_production', 'access_design_studio',
-  ],
-  installer: [
-    'sign_off_install',
-  ],
-  designer: [
-    'access_design_studio',
-  ],
-  customer: [],
-}
-
-export function canAccess(role: UserRole, permission: Permission): boolean {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false
+// ─── Team Invite ───────────────────────────────────────────────────────────────
+export interface TeamInvite {
+  id: string
+  org_id: string
+  email: string
+  role: UserRole
+  invited_by: string | null
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled'
+  created_at: string
+  accepted_at: string | null
 }
 
 // ─── Database type stub ────────────────────────────────────────────────────────
 export type Database = {
   public: {
     Tables: {
-      profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> }
-      projects: { Row: Project; Insert: Partial<Project>; Update: Partial<Project> }
-      tasks: { Row: Task; Insert: Partial<Task>; Update: Partial<Task> }
-      files: { Row: ProjectFile; Insert: Partial<ProjectFile>; Update: Partial<ProjectFile> }
+      profiles:     { Row: Profile;     Insert: Partial<Profile>;     Update: Partial<Profile> }
+      projects:     { Row: Project;     Insert: Partial<Project>;     Update: Partial<Project> }
+      tasks:        { Row: Task;        Insert: Partial<Task>;        Update: Partial<Task> }
+      files:        { Row: ProjectFile; Insert: Partial<ProjectFile>; Update: Partial<ProjectFile> }
+      team_invites: { Row: TeamInvite;  Insert: Partial<TeamInvite>;  Update: Partial<TeamInvite> }
     }
   }
 }

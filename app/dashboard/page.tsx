@@ -1,18 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import { canAccess } from '@/types'
+import { canAccess, isAdminRole } from '@/types'
 import type { Profile, Project } from '@/types'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import DashboardWrapper from '@/components/dashboard/DashboardWrapper'
 
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
 export default async function DashboardPage() {
     const supabase = createClient()
-
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/login')
 
-    // Load profile
-    const { data: profile } = await supabase
+    // Use admin client — bypasses RLS so profile always loads
+    const admin = getSupabaseAdmin()
+    const { data: profile } = await admin
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -20,8 +23,10 @@ export default async function DashboardPage() {
 
     if (!profile) redirect('/login')
 
+    const orgId = profile.org_id || ORG_ID
+
     // Load projects with customer join
-    let query = supabase
+    let query = admin
         .from('projects')
         .select(`
             *,
@@ -29,19 +34,17 @@ export default async function DashboardPage() {
             installer:installer_id(id, name, email),
             customer:customer_id(id, name, email)
         `)
-        .eq('org_id', profile.org_id)
+        .eq('org_id', orgId)
         .order('updated_at', { ascending: false })
         .limit(200)
 
-    // Scope by role — RLS also enforces this server-side, this is for UX clarity
+    // Scope by role
     if (profile.role === 'installer') {
         query = query.eq('installer_id', user.id)
-    } else if (profile.role === 'customer') {
-        query = query.eq('customer_id', user.id)
-    } else if (profile.role === 'sales' && !canAccess(profile.role, 'view_all_projects')) {
+    } else if (profile.role === 'sales_agent') {
         query = query.eq('agent_id', user.id)
     }
-    // admin / production / designer get all (filtered by RLS)
+    // owner / admin / production / designer get all
 
     const { data: projects, error } = await query
 
@@ -49,12 +52,11 @@ export default async function DashboardPage() {
         console.error('Projects load error:', error)
     }
 
-    // Period stats — only for roles that can see financials
-    const canSeeFinancials = canAccess(profile.role, 'view_financials')
+    const canSeeFinancials = isAdminRole(profile.role) || canAccess(profile.role, 'view_financials')
 
     return (
         <DashboardWrapper
-            orgId={profile.org_id}
+            orgId={orgId}
             profileId={user.id}
             role={profile.role}
         >

@@ -8,8 +8,9 @@ import {
   AlertTriangle, Trash2, Download, ChevronRight, Info, Percent,
   Clock, Layers, Zap, BookOpen, Scale, Users, Award, Target,
   Ruler, FileText, Activity, BarChart3, PiggyBank, Building2,
-  Wrench, Gauge
+  Wrench, Gauge, Lock
 } from 'lucide-react'
+import { PermissionsMatrix } from '@/components/settings/PermissionsMatrix'
 
 interface SettingsPageProps {
   profile: any
@@ -88,7 +89,7 @@ const SIM_JOBS = [
 
 export function SettingsPage({ profile }: SettingsPageProps) {
   const supabase = createClient()
-  const [activeTab, setActiveTab] = useState<'defaults' | 'commission' | 'simulation'>('defaults')
+  const [activeTab, setActiveTab] = useState<'defaults' | 'commission' | 'simulation' | 'permissions'>('defaults')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loadingSim, setLoadingSim] = useState(false)
@@ -356,9 +357,10 @@ export function SettingsPage({ profile }: SettingsPageProps) {
   }
 
   const tabs = [
-    { key: 'defaults' as const, label: 'Defaults & Equations', icon: <Settings size={14} /> },
-    { key: 'commission' as const, label: 'Commission Rules', icon: <Shield size={14} /> },
-    { key: 'simulation' as const, label: 'Simulation Data', icon: <Database size={14} /> },
+    { key: 'defaults'     as const, label: 'Defaults & Equations', icon: <Settings size={14} /> },
+    { key: 'commission'   as const, label: 'Commission Rules',     icon: <Shield size={14} /> },
+    { key: 'simulation'   as const, label: 'Simulation Data',      icon: <Database size={14} /> },
+    { key: 'permissions'  as const, label: 'Role Permissions',     icon: <Lock size={14} /> },
   ]
 
   return (
@@ -1471,6 +1473,35 @@ export function SettingsPage({ profile }: SettingsPageProps) {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* ===== TAB 4: Role Permissions ===== */}
+      {activeTab === 'permissions' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{
+            background: '#13151c', border: '1px solid #1a1d27', borderRadius: 12, overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid #1a1d27',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{
+                  fontFamily: 'Barlow Condensed, sans-serif', fontSize: 16, fontWeight: 800,
+                  color: '#e8eaed', display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                  <Lock size={16} style={{ color: '#4f7fff' }} />
+                  Role Permissions Matrix
+                </div>
+                <div style={{ fontSize: 12, color: '#5a6080', marginTop: 4 }}>
+                  Read-only reference. Assign roles to team members in the Team page.
+                  Roles with all permissions automatically bypass individual checks.
+                </div>
+              </div>
+            </div>
+            <PermissionsMatrix />
+          </div>
         </div>
       )}
     </div>

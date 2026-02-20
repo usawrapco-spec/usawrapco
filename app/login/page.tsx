@@ -1,4 +1,5 @@
 import { LoginForm } from '@/components/auth/LoginForm'
+import { Truck } from 'lucide-react'
 
 export default function LoginPage({
   searchParams,
@@ -10,7 +11,7 @@ export default function LoginPage({
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <span style={{ fontSize: 28 }}>🚗</span>
+            <Truck size={30} style={{ color: 'var(--accent)' }} />
             <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 32, fontWeight: 900, letterSpacing: '-.01em', color: 'var(--text1)' }}>
               USA WRAP CO
             </span>
@@ -23,7 +24,7 @@ export default function LoginPage({
         <LoginForm errorMessage={searchParams.error} />
 
         <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text3)', marginTop: 20 }}>
-          Contact your admin if you need access.
+          Need access? Create an account or contact your admin.
         </p>
       </div>
     </div>

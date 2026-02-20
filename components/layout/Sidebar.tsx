@@ -3,72 +3,173 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { canAccess, type Profile, type Permission } from '@/types'
-import { clsx } from 'clsx'
+import { hasPermission, type ModulePermission } from '@/lib/permissions'
+import type { Profile } from '@/types'
 import { useState } from 'react'
 import NewProjectModal from '@/components/dashboard/NewProjectModal'
 import {
   LayoutDashboard,
-  ClipboardCheck,
-  ListTodo,
-  CalendarDays,
-  Scissors,
+  TrendingUp,
+  Briefcase,
   Palette,
-  Users,
+  Wand2,
+  ImageIcon,
   Factory,
-  Trophy,
-  GanttChart,
-  DollarSign,
+  Package,
+  Hammer,
+  Users,
   BarChart3,
+  Trophy,
   Settings,
   LogOut,
   Plus,
   Truck,
-  Receipt,
-  Car,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react'
+
+// ── Nav types ────────────────────────────────────────────────
+type NavChild = {
+  href: string
+  label: string
+}
 
 type NavItem = {
   href: string
   label: string
   icon: LucideIcon
   always?: boolean
-  permission?: Permission
+  permission?: ModulePermission
+  children?: NavChild[]
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard, always: true },
-  { href: '/pipeline',     label: 'Approval',       icon: ClipboardCheck,  permission: 'view_all_projects' },
-  { href: '/tasks',        label: 'Task Queue',     icon: ListTodo,        always: true },
-  { href: '/calendar',     label: 'Calendar',       icon: CalendarDays,    always: true },
-  { href: '/inventory',    label: 'Vinyl',          icon: Scissors,        always: true },
-  { href: '/design',       label: 'Design Studio',  icon: Palette,         permission: 'access_design_studio' },
-  { href: '/employees',    label: 'Team',           icon: Users,           permission: 'manage_users' },
-  { href: '/production',   label: 'Production',     icon: Factory,         always: true },
-  { href: '/leaderboard',  label: 'Leaderboard',    icon: Trophy,          always: true },
-  { href: '/timeline',     label: 'Timeline',       icon: GanttChart,      always: true },
-  { href: '/overhead',     label: 'Overhead',       icon: DollarSign,      always: true },
-  { href: '/analytics',    label: 'Analytics',      icon: BarChart3,       permission: 'view_analytics' },
-  { href: '/catalog',      label: 'Catalog',        icon: Car,             always: true },
-  { href: '/1099',         label: '1099 Calc',      icon: Receipt,         always: true },
-  { href: '/settings',     label: 'Settings',       icon: Settings,        permission: 'manage_settings' },
+// ── Nav definition (spec Section 8) ─────────────────────────
+const NAV: NavItem[] = [
+  {
+    href: '/dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    always: true,
+  },
+  {
+    href: '/pipeline',
+    label: 'Sales Pipeline',
+    icon: TrendingUp,
+    permission: 'sales.read',
+  },
+  {
+    href: '/projects',
+    label: 'Jobs',
+    icon: Briefcase,
+    permission: 'jobs.read',
+  },
+  {
+    href: '/design',
+    label: 'Design Studio',
+    icon: Palette,
+    permission: 'design.read',
+  },
+  {
+    href: '/mockup',
+    label: 'Mockup Tool',
+    icon: Wand2,
+    permission: 'design.read',
+  },
+  {
+    href: '/media',
+    label: 'Media Library',
+    icon: ImageIcon,
+    permission: 'design.read',
+  },
+  {
+    href: '/production',
+    label: 'Production',
+    icon: Factory,
+    permission: 'production.read',
+    children: [
+      { href: '/timeline',              label: 'Print Schedule' },
+      { href: '/production/printers',   label: 'Printer Maintenance' },
+    ],
+  },
+  {
+    href: '/inventory',
+    label: 'Inventory',
+    icon: Package,
+    permission: 'inventory.read',
+    children: [
+      { href: '/inventory/remnants',    label: 'Remnants' },
+    ],
+  },
+  {
+    href: '/installer-portal',
+    label: 'Installer Bids',
+    icon: Hammer,
+    permission: 'bids.read',
+  },
+  {
+    href: '/customers',
+    label: 'Customers',
+    icon: Users,
+    permission: 'sales.read',
+  },
+  {
+    href: '/analytics',
+    label: 'Reports',
+    icon: BarChart3,
+    permission: 'reports.view',
+  },
+  {
+    href: '/leaderboard',
+    label: 'Leaderboard',
+    icon: Trophy,
+    always: true,
+  },
+  {
+    href: '/settings',
+    label: 'Settings',
+    icon: Settings,
+    permission: 'settings.locked',
+    children: [
+      { href: '/employees',  label: 'Team' },
+      { href: '/settings',   label: 'Defaults' },
+      { href: '/overhead',   label: 'Shop Expenses' },
+      { href: '/1099',       label: 'Commissions' },
+    ],
+  },
 ]
+
+// ── Role color map ───────────────────────────────────────────
+const ROLE_COLORS: Record<string, string> = {
+  owner:       '#f59e0b',
+  admin:       '#8b5cf6',
+  sales_agent: '#4f7fff',
+  designer:    '#22d3ee',
+  production:  '#22c07a',
+  installer:   '#f59e0b',
+  viewer:      '#5a6080',
+}
 
 interface SidebarProps {
   profile: Profile
 }
 
-const roleColors: Record<string, string> = {
-  admin: 'text-purple', sales: 'text-accent', production: 'text-green',
-  installer: 'text-cyan', designer: 'text-amber', customer: 'text-text3',
-}
-
 export function Sidebar({ profile }: SidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClient()
+  const pathname  = usePathname()
+  const router    = useRouter()
+  const supabase  = createClient()
   const [showNewProject, setShowNewProject] = useState(false)
+
+  // Sections that are expanded (by href key)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    // Auto-open any section whose child is currently active
+    const init: Record<string, boolean> = {}
+    NAV.forEach(item => {
+      if (item.children?.some(c => pathname?.startsWith(c.href))) {
+        init[item.href] = true
+      }
+    })
+    return init
+  })
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -76,78 +177,246 @@ export function Sidebar({ profile }: SidebarProps) {
     router.refresh()
   }
 
+  // Permission gate — owner/admin bypass all checks
+  const isAdmin = profile.role === 'owner' || profile.role === 'admin'
+  function canSee(item: NavItem): boolean {
+    if (item.always) return true
+    if (isAdmin) return true
+    if (!item.permission) return true
+    return hasPermission(profile.role, item.permission)
+  }
+
+  const roleColor = ROLE_COLORS[profile.role] ?? '#5a6080'
+  const initial   = (profile.name ?? profile.email ?? '?').charAt(0).toUpperCase()
+
   return (
     <>
-      <aside className="w-56 bg-surface border-r border-border flex flex-col shrink-0 h-full">
-        {/* Logo */}
-        <div className="px-4 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <span className="text-lg"><Truck size={20} className="text-accent" /></span>
-            <div>
-              <div className="text-sm font-900 tracking-tight text-text1 leading-none"
-                   style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-                USA WRAP CO
-              </div>
-              <div className="text-xs text-text3">
-                Ops Platform
-                <span className="ml-1 text-accent/60 mono text-[9px]">v5.0</span>
-              </div>
+      <aside style={{
+        width: 220,
+        background: 'var(--surface)',
+        borderRight: '1px solid var(--border)',
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        height: '100%',
+        overflowY: 'auto',
+      }}>
+
+        {/* ── Logo ─────────────────────────────────────────── */}
+        <div style={{
+          padding: '14px 16px',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexShrink: 0,
+        }}>
+          <Truck size={20} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <div>
+            <div style={{
+              fontFamily: 'Barlow Condensed, sans-serif',
+              fontSize: 15,
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
+              color: 'var(--text1)',
+              lineHeight: 1,
+            }}>
+              USA WRAP CO
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
+              Ops Platform
+              <span style={{ marginLeft: 4, color: 'var(--accent)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' }}>
+                v5.0
+              </span>
             </div>
           </div>
         </div>
 
-        {/* New Project button */}
-        <div className="p-3">
-          <button
-            onClick={() => setShowNewProject(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-accent text-white text-sm font-600 hover:bg-accent/90 transition-colors"
-          >
-            <Plus size={16} />
-            New Estimate
-          </button>
-        </div>
+        {/* ── New Estimate button ───────────────────────────── */}
+        {(isAdmin || hasPermission(profile.role, 'jobs.write')) && (
+          <div style={{ padding: '10px 12px', flexShrink: 0 }}>
+            <button
+              onClick={() => setShowNewProject(true)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: 'var(--accent)',
+                color: '#fff',
+                fontSize: 13,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={14} />
+              New Estimate
+            </button>
+          </div>
+        )}
 
-        {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-          {NAV_ITEMS.map((item) => {
-            if (!item.always && item.permission && profile.role !== 'admin' && !canAccess(profile.role, item.permission)) return null
+        {/* ── Nav ──────────────────────────────────────────── */}
+        <nav style={{ flex: 1, padding: '6px 8px', overflowY: 'auto' }}>
+          {NAV.map(item => {
+            if (!canSee(item)) return null
 
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-            const Icon = item.icon
+            const isParentActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+            const hasChildren    = item.children && item.children.length > 0
+            const isOpen         = expanded[item.href] ?? false
+            const Icon           = item.icon
 
+            // Parent row
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                  isActive
-                    ? 'bg-accent/10 text-accent font-600'
-                    : 'text-text2 hover:bg-surface2 hover:text-text1'
+              <div key={item.href + item.label} style={{ marginBottom: 1 }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 0 }}
+                  onClick={() => hasChildren && setExpanded(p => ({ ...p, [item.href]: !p[item.href] }))}
+                >
+                  {hasChildren ? (
+                    // Expandable parent — click row to toggle children
+                    <button
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '7px 10px',
+                        borderRadius: 7,
+                        fontSize: 13,
+                        fontWeight: isParentActive ? 600 : 400,
+                        color: isParentActive ? 'var(--accent)' : 'var(--text2)',
+                        background: isParentActive ? 'rgba(79,127,255,0.08)' : 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                      }}
+                    >
+                      <Icon
+                        size={16}
+                        style={{ color: isParentActive ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }}
+                      />
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      <ChevronRight
+                        size={13}
+                        style={{
+                          color: 'var(--text3)',
+                          transition: 'transform 0.15s',
+                          transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                          flexShrink: 0,
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    // Regular link
+                    <Link
+                      href={item.href}
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '7px 10px',
+                        borderRadius: 7,
+                        fontSize: 13,
+                        fontWeight: isParentActive ? 600 : 400,
+                        color: isParentActive ? 'var(--accent)' : 'var(--text2)',
+                        background: isParentActive ? 'rgba(79,127,255,0.08)' : 'transparent',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <Icon
+                        size={16}
+                        style={{ color: isParentActive ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }}
+                      />
+                      {item.label}
+                    </Link>
+                  )}
+                </div>
+
+                {/* Sub-items */}
+                {hasChildren && isOpen && (
+                  <div style={{ paddingLeft: 26, paddingTop: 2, paddingBottom: 2 }}>
+                    {item.children!.map(child => {
+                      const isChildActive = pathname === child.href || pathname?.startsWith(child.href + '/')
+                      return (
+                        <Link
+                          key={child.href + child.label}
+                          href={child.href}
+                          style={{
+                            display: 'block',
+                            padding: '5px 10px',
+                            borderRadius: 6,
+                            fontSize: 12,
+                            fontWeight: isChildActive ? 600 : 400,
+                            color: isChildActive ? 'var(--accent)' : 'var(--text2)',
+                            background: isChildActive ? 'rgba(79,127,255,0.08)' : 'transparent',
+                            textDecoration: 'none',
+                            marginBottom: 1,
+                          }}
+                        >
+                          {child.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
                 )}
-              >
-                <Icon size={18} className={isActive ? 'text-accent' : 'text-text3'} />
-                {item.label}
-              </Link>
+              </div>
             )
           })}
         </nav>
 
-        {/* User profile */}
-        <div className="p-3 border-t border-border">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface2 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-800 text-accent shrink-0">
-              {profile.name?.charAt(0).toUpperCase() || '?'}
+        {/* ── User footer ──────────────────────────────────── */}
+        <div style={{
+          padding: '10px 12px',
+          borderTop: '1px solid var(--border)',
+          flexShrink: 0,
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '6px 8px',
+            borderRadius: 8,
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'rgba(79,127,255,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 800, color: 'var(--accent)',
+              flexShrink: 0,
+            }}>
+              {initial}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-600 text-text1 truncate">{profile.name}</div>
-              <div className={clsx('text-xs font-700 capitalize', roleColors[profile.role])}>
-                {profile.role}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 600, color: 'var(--text1)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {profile.name ?? profile.email}
+              </div>
+              <div style={{
+                fontSize: 11, fontWeight: 700,
+                color: roleColor,
+                textTransform: 'capitalize',
+              }}>
+                {profile.role.replace('_', ' ')}
               </div>
             </div>
-            <button onClick={handleSignOut}
-                    className="text-text3 hover:text-red transition-colors text-sm" title="Sign out">
-              <LogOut size={16} />
+            <button
+              onClick={handleSignOut}
+              title="Sign out"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text3)', padding: 4, borderRadius: 4,
+                display: 'flex', alignItems: 'center',
+              }}
+            >
+              <LogOut size={15} />
             </button>
           </div>
         </div>

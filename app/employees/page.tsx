@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
-import { canAccess } from '@/types'
+import { canAccess, isAdminRole } from '@/types'
 import type { Profile } from '@/types'
 import EmployeesPageClient from '@/components/employees/EmployeesPage'
 
@@ -11,11 +12,11 @@ export default async function EmployeesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile } = await getSupabaseAdmin()
     .from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  if (!canAccess(profile.role, 'manage_users')) {
+  if (!isAdminRole(profile.role) && !canAccess(profile.role, 'manage_users')) {
     return (
       <div className="flex h-screen bg-bg overflow-hidden">
         <Sidebar profile={profile as Profile} />

@@ -14,7 +14,7 @@ export default async function InventoryPage() {
     .from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  const allowed = ['admin', 'production', 'sales']
+  const allowed = ['owner', 'admin', 'production', 'sales', 'sales_agent']
   if (!allowed.includes(profile.role)) {
     return (
       <div className="flex h-screen bg-bg overflow-hidden">

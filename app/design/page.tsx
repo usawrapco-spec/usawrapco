@@ -18,8 +18,8 @@ export default async function DesignPage() {
 
   if (!profile) redirect('/login')
 
-  // Check permission
-  const hasAccess = profile.role === 'admin' || profile.role === 'designer' || profile.role === 'sales'
+  // Check permission — owner/admin always have access
+  const hasAccess = profile.role === 'owner' || profile.role === 'admin' || profile.role === 'designer' || profile.role === 'sales' || profile.role === 'sales_agent' || profile.role === 'production'
   if (!hasAccess) {
     return (
       <div className="flex h-screen bg-bg overflow-hidden">
