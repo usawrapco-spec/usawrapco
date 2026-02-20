@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   Trophy, Zap, TrendingUp, Star, Flame, Crown,
   Medal, DollarSign, Target, Palette, Wand2, FileText,
-  Sunrise, Activity,
+  Sunrise, Activity, Camera, Users, Gem,
 } from 'lucide-react'
 import type { Profile } from '@/types'
 import { xpToLevel, xpForNextLevel } from '@/lib/commission'
@@ -61,6 +61,10 @@ function BadgeIcon({ badge }: { badge: string }) {
     perfect_brief:   { icon: <FileText size={size} style={{ color: '#4f7fff' }} />, label: 'Perfect Brief' },
     early_bird:      { icon: <Sunrise size={size} style={{ color: '#22d3ee' }} />,  label: 'Early Bird' },
     marathon:        { icon: <Activity size={size} style={{ color: '#22c07a' }} />, label: 'Marathon' },
+    shutterbug:      { icon: <Camera size={size} style={{ color: '#22d3ee' }} />,   label: 'Shutterbug' },
+    team_player:     { icon: <Users size={size} style={{ color: '#8b5cf6' }} />,    label: 'Team Player' },
+    elite:           { icon: <Gem size={size} style={{ color: '#4f7fff' }} />,      label: 'Elite' },
+    zero_waste:      { icon: <Zap size={size} style={{ color: '#22c07a' }} />,      label: 'Zero Waste' },
   }
   const info = map[badge]
   if (!info) return null
