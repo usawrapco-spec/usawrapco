@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
 import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, type LucideIcon } from 'lucide-react'
+import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
 import JobChat from '@/components/chat/JobChat'
@@ -80,6 +81,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState('')
+  const { xpToast } = useToast()
   const [sendBackOpen, setSendBackOpen] = useState<string|null>(null)
   const [sendBackReason, setSendBackReason] = useState('')
   const [sendBackNotes, setSendBackNotes] = useState('')
@@ -231,18 +233,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
     // Gate checks
     if (curStageKey === 'sales_in') {
-      if (!f.client) { showToast('⚠ Client name required'); return }
-      if (!f.installer && !f.vehicle) { showToast('⚠ Assign installer or enter vehicle'); return }
+      if (!f.client) { showToast('Client name required'); return }
+      if (!f.installer && !f.vehicle) { showToast('Assign installer or enter vehicle'); return }
     }
     if (curStageKey === 'production') {
-      if (!f.linftPrinted) { showToast('⚠ Log linear feet printed before advancing'); return }
+      if (!f.linftPrinted) { showToast('Log linear feet printed before advancing'); return }
     }
     if (curStageKey === 'install') {
-      if (!f.actualHrs) { showToast('⚠ Log actual install hours'); return }
-      if (!f.installerSig) { showToast('⚠ Installer signature required'); return }
+      if (!f.actualHrs) { showToast('Log actual install hours'); return }
+      if (!f.installerSig) { showToast('Installer signature required'); return }
     }
     if (curStageKey === 'prod_review') {
-      if (f.qcPass === 'reprint' && !v(f.reprintCost)) { showToast('⚠ Enter reprint cost'); return }
+      if (f.qcPass === 'reprint' && !v(f.reprintCost)) { showToast('Enter reprint cost'); return }
     }
 
     const next = order[idx + 1]
@@ -262,11 +264,19 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                    : curStageKey === 'prod_review'  ? 'customer_signoff'
                    : null
     if (xpAction) {
+      const stageLabel = curStageKey === 'install' ? 'Install complete'
+        : curStageKey === 'production' ? 'Print job done'
+        : 'Customer signed off'
       fetch('/api/xp/award', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: xpAction, sourceType: 'project', sourceId: project.id }),
-      }).catch(() => {})
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, stageLabel, res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
     }
 
     showToast(`Moved to ${PIPE_STAGES.find(s=>s.key===next)?.label || 'Done'}`)
@@ -274,7 +284,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
   // ── Close job ──────────────────────────────────────────────────
   async function closeJob() {
-    if (!f.finalApproved) { showToast('⚠ Check the final approval box'); return }
+    if (!f.finalApproved) { showToast('Check the final approval box'); return }
     await save({ pipe_stage: 'done', status: 'closed' as ProjectStatus })
     await supabase.from('stage_approvals').insert({
       project_id: project.id, org_id: project.org_id,
@@ -286,8 +296,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'deal_won', sourceType: 'project', sourceId: project.id }),
-    }).catch(() => {})
-    showToast('Job Closed & Approved! +100 XP')
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        if (res?.amount) xpToast(res.amount, 'Deal closed!', res.leveledUp, res.newLevel)
+      })
+      .catch(() => {})
+    showToast('Job Closed & Approved!')
   }
 
   // ── Send back ──────────────────────────────────────────────────
@@ -305,7 +320,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     await save({ pipe_stage: prevStage })
     setSendBacks(prev => [{ from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason, notes: sendBackNotes, created_at: new Date().toISOString() }, ...prev])
     setSendBackOpen(null); setSendBackReason(''); setSendBackNotes('')
-    showToast(`↩ Sent back to ${PIPE_STAGES.find(s=>s.key===prevStage)?.label}`)
+    showToast(`Sent back to ${PIPE_STAGES.find(s=>s.key===prevStage)?.label}`)
   }
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
@@ -349,7 +364,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       {sendBackOpen && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => setSendBackOpen(null)}>
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:24, width:460, maxHeight:'80vh', overflow:'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:18, fontWeight:800, color:'var(--red)', marginBottom:16 }}>↩ Send Back from {PIPE_STAGES.find(s=>s.key===curStageKey)?.label}</div>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:18, fontWeight:800, color:'var(--red)', marginBottom:16 }}>Send Back from{PIPE_STAGES.find(s=>s.key===curStageKey)?.label}</div>
             <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:8 }}>Select Reason</div>
             <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
               {(SEND_BACK_REASONS[curStageKey] || SEND_BACK_REASONS.production).map(r => (
@@ -368,7 +383,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             </div>
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={() => setSendBackOpen(null)} style={{ flex:1, padding:'10px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>Cancel</button>
-              <button onClick={confirmSendBack} disabled={!sendBackReason} style={{ flex:1, padding:'10px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'var(--red)', border:'none', color:'#fff', opacity: sendBackReason ? 1 : 0.4 }}>↩ Confirm Send Back</button>
+              <button onClick={confirmSendBack} disabled={!sendBackReason} style={{ flex:1, padding:'10px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'var(--red)', border:'none', color:'#fff', opacity: sendBackReason ? 1 : 0.4 }}>Confirm Send Back</button>
             </div>
           </div>
         </div>
@@ -507,7 +522,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
               <div>
                 {curStageKey !== 'sales_in' && (
                   <button onClick={() => setSendBackOpen(curStageKey)} style={{ padding:'9px 18px', borderRadius:9, fontWeight:700, fontSize:12, cursor:'pointer', background:'rgba(242,90,90,.1)', border:'1px solid rgba(242,90,90,.3)', color:'var(--red)' }}>
-                    ↩ Send Back
+                    Send Back
                   </button>
                 )}
               </div>
@@ -533,7 +548,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       {/* Send-back history */}
       {sendBacks.length > 0 && (
         <div style={{ marginTop:16, background:'var(--surface)', border:'1px solid rgba(242,90,90,.2)', borderRadius:12, padding:16 }}>
-          <div style={{ fontSize:10, fontWeight:900, color:'var(--red)', textTransform:'uppercase', marginBottom:10 }}>↩ Send-Back History ({sendBacks.length})</div>
+          <div style={{ fontSize:10, fontWeight:900, color:'var(--red)', textTransform:'uppercase', marginBottom:10 }}>Send-Back History ({sendBacks.length})</div>
           {sendBacks.slice(0, 5).map((sb: any, i: number) => (
             <div key={i} style={{ padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.04)', fontSize:12 }}>
               <div style={{ color:'var(--amber)', fontWeight:600 }}>{sb.reason}</div>
@@ -1343,7 +1358,7 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks, teammates }: any) {
 
       {/* Send-back summary */}
       {sendBacks.length > 0 && (
-        <Section label={`↩ Send-Backs (${sendBacks.length})`}>
+        <Section label={`Send-Backs (${sendBacks.length})`}>
           <div style={{ fontSize:11, color:'var(--text3)' }}>
             {sendBacks.length} send-back(s) during this job's lifecycle
           </div>
