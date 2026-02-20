@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Link2, Copy, CheckCircle, Send, RefreshCw, Plus, ChevronDown } from 'lucide-react'
 import type { Profile, Project } from '@/types'
+import { useToast } from '@/components/shared/Toast'
 
 interface Props {
   profile: Profile
@@ -19,6 +20,7 @@ export default function OnboardingLinkPanel({ profile, projects }: Props) {
   const [copied, setCopied]   = useState(false)
   const [expanded, setExpanded] = useState(true)
   const supabase = createClient()
+  const { xpToast } = useToast()
 
   // Show only sales-eligible projects
   const salesProjects = projects.filter(p =>
@@ -60,7 +62,12 @@ export default function OnboardingLinkPanel({ profile, projects }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'send_onboarding_link', sourceType: 'intake', sourceId: selectedProject || undefined }),
-      }).catch(() => {})
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'Onboarding link sent', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
     }
     setGenerating(false)
   }
