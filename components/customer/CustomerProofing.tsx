@@ -229,7 +229,7 @@ export default function CustomerProofing({ token }: CustomerProofingProps) {
                         background: confirmName && responsibilityAccepted ? '#22c55e' : '#1a2540',
                         color: confirmName && responsibilityAccepted ? '#0d1a10' : '#5a6478',
                       }}>
-                      ✓ Approve Design
+                      Approve Design
                     </button>
                     <button onClick={requestRevision}
                       disabled={!feedback.trim() || revisionsLeft <= 0 || saving}
@@ -274,7 +274,7 @@ export default function CustomerProofing({ token }: CustomerProofingProps) {
 function StatusBadge({ status, small }: { status: string; small?: boolean }) {
   const config: Record<string, { bg: string; color: string; label: string }> = {
     pending: { bg: '#f59e0b15', color: '#f59e0b', label: 'Awaiting Review' },
-    approved: { bg: '#22c55e15', color: '#22c55e', label: 'Approved ✓' },
+    approved: { bg: '#22c55e15', color: '#22c55e', label: 'Approved' },
     revision_requested: { bg: '#ef444415', color: '#ef4444', label: 'Revision Requested' },
   }
   const c = config[status] || config.pending

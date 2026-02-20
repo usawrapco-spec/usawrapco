@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Check, X } from 'lucide-react'
 
 interface InstallerHubProps {
   orgId: string
@@ -168,8 +169,8 @@ export default function InstallerHub({ orgId, profileId, installerName }: Instal
                 {/* Scope */}
                 {(fd.coverage || fd.exclusions) && (
                   <div style={{ fontSize: 11, color: 'var(--text3)', padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 12 }}>
-                    {fd.coverage && <div>✓ Wrap: {fd.coverage}</div>}
-                    {fd.exclusions && <div>✗ Exclude: {fd.exclusions}</div>}
+                    {fd.coverage && <div style={{ display:'flex', alignItems:'center', gap:4 }}><Check size={11} style={{ color:'var(--green)', flexShrink:0 }} /> Wrap: {fd.coverage}</div>}
+                    {fd.exclusions && <div style={{ display:'flex', alignItems:'center', gap:4 }}><X size={11} style={{ color:'var(--red)', flexShrink:0 }} /> Exclude: {fd.exclusions}</div>}
                   </div>
                 )}
 
@@ -179,13 +180,13 @@ export default function InstallerHub({ orgId, profileId, installerName }: Instal
                     flex: 1, padding: '12px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13,
                     cursor: 'pointer', border: 'none', background: '#22c55e', color: '#0d1a10',
                   }}>
-                    ✓ Accept Job
+                    Accept Job
                   </button>
                   <button onClick={() => declineBid(bid)} style={{
                     padding: '12px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13,
                     cursor: 'pointer', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text3)',
                   }}>
-                    ✗ Pass
+                    Pass
                   </button>
                 </div>
 

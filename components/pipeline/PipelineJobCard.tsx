@@ -207,7 +207,7 @@ export default function PipelineJobCard({ project, department, isGhost, onClick 
           </span>
           {project.installer_bid.acceptedBy && (
             <span style={{ fontSize: 8, color: '#22c07a', fontWeight: 700 }}>
-              ✓ Assigned
+              Assigned
             </span>
           )}
         </div>

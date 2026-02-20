@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
+import { X } from 'lucide-react'
 
 const fM = (n:number) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)
 
@@ -113,7 +114,7 @@ export default function ShopOverheadCalc({ profile }: { profile: Profile }) {
                   <input type="number" value={r.amount || ''} onChange={e => updateCustomRow(i, 'amount', e.target.value)}
                     style={{ width:110, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, padding:'7px 10px 7px 22px', fontSize:13, color:'var(--text1)', outline:'none', fontFamily:'JetBrains Mono' }} />
                 </div>
-                <button onClick={() => removeCustomRow(i)} style={{ background:'none', border:'none', color:'var(--red)', cursor:'pointer', fontSize:14, padding:4 }}>✕</button>
+                <button onClick={() => removeCustomRow(i)} style={{ background:'none', border:'none', color:'var(--red)', cursor:'pointer', padding:4, display:'flex', alignItems:'center' }}><X size={14} /></button>
               </div>
             ))}
 

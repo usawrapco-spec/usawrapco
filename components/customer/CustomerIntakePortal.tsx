@@ -181,7 +181,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
                 {photo ? (
                   <>
                     <img src={photo.url} alt={side.label} style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />
-                    <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>✓ {side.label}</div>
+                    <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>Uploaded: {side.label}</div>
                   </>
                 ) : (
                   <>
@@ -284,7 +284,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
             background: '#22c55e', color: '#0d1a10',
             opacity: saving || !form.customer_name ? 0.5 : 1,
           }}>
-          {saving ? 'Submitting...' : '✓ Submit Information'}
+          {saving ? 'Submitting...' : 'Submit Information'}
         </button>
       </div>
 

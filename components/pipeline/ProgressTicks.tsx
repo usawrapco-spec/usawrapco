@@ -1,5 +1,7 @@
 'use client';
 
+import { Check } from 'lucide-react'
+
 const STAGES = [
   { key: 'sales_in', label: 'Sales Intake', color: '#4f7fff' },
   { key: 'production', label: 'Production', color: '#22c07a' },
@@ -48,7 +50,7 @@ export default function ProgressTicks({ currentStage, className = '', size = 'md
                     : 'bg-[#111827] border-[#1e2d4a] text-gray-500'
                 }`}
               >
-                {state === 'completed' ? '✓' : i + 1}
+                {state === 'completed' ? <Check size={12} /> : i + 1}
               </div>
               <span
                 className={`${labelSize} font-semibold tracking-wide uppercase mt-1 text-center ${

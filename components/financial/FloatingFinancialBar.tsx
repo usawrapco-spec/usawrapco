@@ -143,13 +143,13 @@ export default function FloatingFinancialBar({ project, className = '' }: Floati
               <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background:'#22c55e' }} /> Sales Commission
             </div>
             <div className="text-xs text-gray-400 mb-2">
-              Inbound 7% of GP (✓ +2% &gt;73% GPM)
+              Inbound 7% of GP (+2% &gt;73% GPM)
             </div>
             <div className="flex gap-1.5">
               {[
                 { label: `Base ${fin.comm_base || 4.5}%`, active: true },
                 { label: `+${fin.comm_inbound || 1}% Inbnd`, active: true },
-                { label: `+${fin.comm_gpm_bonus || 2}% GPM>73 ${gpm > 73 ? '✓' : '✗'}`, active: gpm > 73 },
+                { label: `+${fin.comm_gpm_bonus || 2}% GPM>73${gpm > 73 ? ' (met)' : ''}`, active: gpm > 73 },
               ].map((tier) => (
                 <span
                   key={tier.label}

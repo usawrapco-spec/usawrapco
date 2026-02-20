@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Check } from 'lucide-react'
 
 interface SendBidToInstallerProps {
   projectId: string
@@ -71,12 +72,12 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
       {/* Accepted */}
       {acceptedBid && (
         <div style={{ padding: 12, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green)' }}>✓ Installer Assigned</div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green)', display:'flex', alignItems:'center', gap:4 }}><Check size={11} /> Installer Assigned</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginTop: 4 }}>
             {(acceptedBid.installer as any)?.full_name || (acceptedBid.installer as any)?.name}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-            Pay: ${acceptedBid.pay_amount} · {acceptedBid.hours_budget}h budget · Liability: {acceptedBid.liability_accepted ? '✓' : 'Pending'}
+            Pay: ${acceptedBid.pay_amount} · {acceptedBid.hours_budget}h budget · Liability: {acceptedBid.liability_accepted ? 'Accepted' : 'Pending'}
           </div>
         </div>
       )}

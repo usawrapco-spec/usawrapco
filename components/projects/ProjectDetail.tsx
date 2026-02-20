@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, type LucideIcon } from 'lucide-react'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
 import JobChat from '@/components/chat/JobChat'
@@ -575,7 +575,7 @@ function Check({ label, checked, onChange }: { label:string; checked:boolean; on
   return (
     <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:12, fontWeight:600, color: checked ? 'var(--green)' : 'var(--text2)' }}>
       <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-      {checked ? '✅' : '⬜'} {label}
+      {label}
     </label>
   )
 }
@@ -654,7 +654,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Client Info */}
-      <Section label="👤 Client Info">
+      <Section label="Client Info">
         <Grid cols={3}>
           <Field label="Client Name *"><input style={inp} value={f.client} onChange={e=>ff('client',e.target.value)} placeholder="John Smith" /></Field>
           <Field label="Business Name"><input style={inp} value={f.bizName} onChange={e=>ff('bizName',e.target.value)} placeholder="Smith Plumbing LLC" /></Field>
@@ -686,7 +686,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
       </Section>
 
       {/* Job Type */}
-      <Section label="🔧 Job Type">
+      <Section label="Job Type">
         <div style={{ display:'flex', gap:8, marginBottom:12 }}>
           {(['Commercial','Marine','PPF'] as const).map(jt => (
             <button key={jt} onClick={() => setJobType(jt)} style={{
@@ -694,7 +694,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
               background: jobType===jt ? 'var(--accent)' : 'var(--surface2)',
               borderColor: jobType===jt ? 'var(--accent)' : 'var(--border)',
               color: jobType===jt ? '#fff' : 'var(--text2)',
-            }}>{jt === 'Commercial' ? '🚗 Wrap' : jt === 'Marine' ? '⛵ Marine' : '🛡 PPF'}</button>
+            }}>{jt === 'Commercial' ? 'Wrap' : jt === 'Marine' ? 'Marine' : 'PPF'}</button>
           ))}
         </div>
         {jobType === 'Commercial' && (
@@ -772,7 +772,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
 
       {/* Marine */}
       {isMarine && (
-        <Section label="⛵ Marine">
+        <Section label="Marine">
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
             {MARINE_LENGTHS.map(l => (
               <button key={l} onClick={() => ff('len', l.toString())} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer', border:'1px solid var(--border)', background: f.len===l.toString() ? 'var(--cyan)' : 'var(--surface2)', color: f.len===l.toString() ? '#0d0f14' : 'var(--text2)' }}>{l}'</button>
@@ -788,7 +788,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
 
       {/* PPF */}
       {isPPF && (
-        <Section label="🛡 PPF Package">
+        <Section label="PPF Package">
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10 }}>
             {PPF_PACKAGES.map(pkg => (
               <button key={pkg.name} onClick={() => setSelectedPPF(pkg)} style={{
@@ -806,7 +806,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
       )}
 
       {/* Material & Pricing */}
-      <Section label="💲 Pricing & Material">
+      <Section label="Pricing & Material">
         <Grid cols={3}>
           {!isPPF && <Field label="Material Rate"><select style={sel} value={f.matRate} onChange={e=>ff('matRate',e.target.value)}>{MAT_RATES.map(m => <option key={m.rate} value={m.rate}>{m.label} — ${m.rate}/sqft</option>)}</select></Field>}
           <Field label="Net Sqft"><input style={inp} type="number" value={f.sqft} onChange={e=>ff('sqft',e.target.value)} /></Field>
@@ -821,7 +821,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
       </Section>
 
       {/* Scope & Logistics */}
-      <Section label="📝 Scope & Notes">
+      <Section label="Scope & Notes">
         <Grid cols={2}>
           <Field label="Parts to Wrap"><textarea style={{...inp, minHeight:70}} value={f.coverage} onChange={e=>ff('coverage',e.target.value)} placeholder="Full vehicle, all panels..." /></Field>
           <Field label="Exclusions"><textarea style={{...inp, minHeight:70}} value={f.exclusions} onChange={e=>ff('exclusions',e.target.value)} placeholder="Mirrors, handles, roof..." /></Field>
@@ -881,7 +881,7 @@ function LinkedDesignPanel({ project }: { project: any }) {
   }
 
   return (
-    <Section label="🔗 Linked Design Projects" color="#8b5cf6">
+    <Section label="Linked Design Projects" color="#8b5cf6">
       {designProjects.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           {designProjects.map(dp => (
@@ -929,7 +929,7 @@ function DesignTab({ f, ff, project, profile }: any) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <LinkedDesignPanel project={project} />
-      <Section label="🎨 Design & Artwork" color="#8b5cf6">
+      <Section label="Design & Artwork" color="#8b5cf6">
         <Check label="Design / Artwork Required" checked={f.designNeeded} onChange={v => ff('designNeeded',v)} />
         <Grid cols={2} style={{marginTop:12}}>
           <Field label="Design Instructions"><textarea style={{...inp,minHeight:90}} value={f.designNotes} onChange={e=>ff('designNotes',e.target.value)} placeholder="Logo placement, colors, text..." /></Field>
@@ -965,18 +965,18 @@ function DesignTab({ f, ff, project, profile }: any) {
         </Grid>
       </Section>
 
-      <Section label="⚠ Pre-Install Warnings">
+      <Section label="Pre-Install Warnings">
         <Field label="Vehicle Conditions / Warnings">
           <textarea style={{...inp,minHeight:80}} value={f.warnings} onChange={e=>ff('warnings',e.target.value)} placeholder="Rust, old wrap remnants, paint chips..." />
         </Field>
       </Section>
 
       {/* Send bid to designer */}
-      <Section label="📤 Designer Bidding">
+      <Section label="Designer Bidding">
         <div style={{ padding:16, background:'var(--surface2)', borderRadius:10, border:'1px solid var(--border)' }}>
           <div style={{ fontSize:12, color:'var(--text2)', marginBottom:8 }}>Send design package to freelance designers for bidding</div>
-          <button style={{ padding:'8px 16px', borderRadius:8, fontWeight:700, fontSize:12, cursor:'pointer', background:'#8b5cf6', border:'none', color:'#fff' }}>
-            📤 Open Designer Bid Panel
+          <button style={{ padding:'8px 16px', borderRadius:8, fontWeight:700, fontSize:12, cursor:'pointer', background:'#8b5cf6', border:'none', color:'#fff', display:'flex', alignItems:'center', gap:6 }}>
+            <Package size={13} /> Open Designer Bid Panel
           </button>
         </div>
       </Section>
@@ -993,7 +993,7 @@ function ProductionTab({ f, ff, project, profile }: any) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <Section label="📏 Material Log — Required to advance" color="#22c07a">
+      <Section label="Material Log — Required to advance" color="#22c07a">
         <div style={{ padding:14, background:'rgba(34,192,122,.06)', border:'1px solid rgba(34,192,122,.2)', borderRadius:10 }}>
           <Grid cols={3}>
             <Field label="Linear Feet Printed *"><input style={inp} type="number" value={f.linftPrinted} onChange={e=>ff('linftPrinted',e.target.value)} placeholder={estLinft ? `~${estLinft} estimated` : '0'} /></Field>
@@ -1029,7 +1029,7 @@ function ProductionTab({ f, ff, project, profile }: any) {
         </div>
       </Section>
 
-      <Section label="🖨 Print Checklist">
+      <Section label="Print Checklist">
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
           <Check label="Files prepped and color-proofed" checked={f.printFilesReady || false} onChange={v => ff('printFilesReady',v)} />
           <Check label="Material loaded and calibrated" checked={f.printMatLoaded || false} onChange={v => ff('printMatLoaded',v)} />
@@ -1115,7 +1115,7 @@ function InstallTab({ f, ff, project, profile }: any) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Pre-install vinyl check */}
-      <Section label="📋 Pre-Install Vinyl Check" color="#22d3ee">
+      <Section label="Pre-Install Vinyl Check" color="#22d3ee">
         <div style={{ padding:14, background:'rgba(34,211,238,.06)', border:'1px solid rgba(34,211,238,.2)', borderRadius:10 }}>
           <div style={{ fontSize:11, color:'var(--text2)', marginBottom:10 }}>Before starting: inspect vinyl condition and confirm below</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
@@ -1131,12 +1131,12 @@ function InstallTab({ f, ff, project, profile }: any) {
       </Section>
 
       {/* Install Timer */}
-      <Section label="⏱ Install Timer" color="#22c07a">
+      <Section label="Install Timer" color="#22c07a">
         <InstallTimer projectId={project.id} orgId={project.org_id} installerId={profile.id} />
       </Section>
 
       {/* Post-install verification */}
-      <Section label="✅ Post-Install Verification" color="#22d3ee">
+      <Section label="Post-Install Verification" color="#22d3ee">
         <div style={{ padding:14, background:'rgba(34,211,238,.06)', border:'1px solid rgba(34,211,238,.2)', borderRadius:10 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
             <Check label="Post-heat applied throughout" checked={f.postHeat} onChange={v => ff('postHeat',v)} />
@@ -1172,14 +1172,14 @@ function QCTab({ f, ff, fin, project, profile }: any) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <Section label="🔍 QC Review" color="#f59e0b">
+      <Section label="QC Review" color="#f59e0b">
         <div style={{ padding:14, background:'rgba(245,158,11,.06)', border:'1px solid rgba(245,158,11,.25)', borderRadius:10 }}>
           <Grid cols={3}>
             <Field label="QC Result">
               <select style={sel} value={f.qcPass} onChange={e=>ff('qcPass',e.target.value)}>
-                <option value="pass">✅ Pass — Ship it</option>
-                <option value="reprint">🖨 Reprint Needed</option>
-                <option value="fix">🔧 Minor Fix Needed</option>
+                <option value="pass">Pass — Ship it</option>
+                <option value="reprint">Reprint Needed</option>
+                <option value="fix">Minor Fix Needed</option>
               </select>
             </Field>
             <Field label="Final Linear Feet"><input style={inp} type="number" value={f.finalLinft} onChange={e=>ff('finalLinft',e.target.value)} placeholder={f.linftPrinted || '0'} /></Field>
@@ -1247,7 +1247,7 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
   const total = expenses.reduce((s, e) => s + e.amount, 0)
 
   return (
-    <Section label="💸 Job Expenses" color="#f59e0b">
+    <Section label="Job Expenses" color="#f59e0b">
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
         Track additional costs (materials, rush fees, permits, etc.) that reduce final profit.
       </div>
@@ -1259,7 +1259,7 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
               <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
                 -{fM(e.amount)}
               </span>
-              <button onClick={() => removeExpense(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>✕</button>
+              <button onClick={() => removeExpense(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}><X size={13} /></button>
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', marginTop: 4 }}>
@@ -1306,7 +1306,7 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <ExpensesSection f={f} ff={ff} />
 
-      <Section label="📊 Final Numbers Review" color="#8b5cf6">
+      <Section label="Final Numbers Review" color="#8b5cf6">
         <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:16 }}>
           {[
             { label:'Sale', val: fM(fin.sale), color:'var(--accent)' },
@@ -1324,8 +1324,8 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
 
         {(reprintCost > 0 || totalExpenses > 0) && (
           <div style={{ padding:10, background:'rgba(242,90,90,.08)', border:'1px solid rgba(242,90,90,.2)', borderRadius:8, fontSize:12, color:'var(--red)', marginBottom:12 }}>
-            {reprintCost > 0 && <>⚠ Reprint cost of {fM(reprintCost)} deducted. </>}
-            {totalExpenses > 0 && <>⚠ Job expenses of {fM(totalExpenses)} deducted. </>}
+            {reprintCost > 0 && <><AlertTriangle size={12} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} /> Reprint cost of {fM(reprintCost)} deducted. </>}
+            {totalExpenses > 0 && <><AlertTriangle size={12} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} /> Job expenses of {fM(totalExpenses)} deducted. </>}
             Commission recalculated on adjusted profit.
           </div>
         )}
@@ -1335,7 +1335,7 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
         </Field>
 
         <div style={{ marginTop:12 }}>
-          <Check label="✅ I approve this job — lock commission and close" checked={f.finalApproved} onChange={v => ff('finalApproved',v)} />
+          <Check label="I approve this job — lock commission and close" checked={f.finalApproved} onChange={v => ff('finalApproved',v)} />
         </div>
       </Section>
 

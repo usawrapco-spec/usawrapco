@@ -122,7 +122,7 @@ export default function VisibilitySettings({ orgId }: VisibilitySettingsProps) {
         }}>
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
-        {saved && <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 700 }}>✓ Saved</span>}
+        {saved && <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 700 }}>Saved</span>}
       </div>
     </div>
   )
