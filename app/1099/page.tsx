@@ -1,15 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import type { Profile } from '@/types'
+import { isAdminRole } from '@/types'
 import TaxCalculatorPageClient from '@/components/financial/TaxCalculatorPage'
 
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
 export default async function TaxCalcPage() {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
+  const admin = getSupabaseAdmin()
+  const { data: profile } = await admin.from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
   return (
