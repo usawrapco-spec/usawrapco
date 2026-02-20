@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, type LucideIcon } from 'lucide-react'
+import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
 import JobChat from '@/components/chat/JobChat'
 import JobImages from '@/components/images/JobImages'
@@ -75,7 +76,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'>('chat')
+  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'>('chat')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState('')
@@ -328,6 +329,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     { key: 'install',    label: 'Install',    Icon: Wrench, stageKey: 'install' },
     { key: 'qc',         label: 'QC',         Icon: Search, stageKey: 'prod_review' },
     { key: 'close',      label: 'Close',      Icon: DollarSign, stageKey: 'sales_close' },
+    { key: 'expenses',   label: 'Expenses',   Icon: Receipt },
   ]
 
   const stageOrder = ['sales_in','production','install','prod_review','sales_close']
@@ -410,7 +412,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       {/* Send-back alert banner */}
       {latestSendBack && stageOrder.indexOf(latestSendBack.to_stage) >= curIdx && (
         <div style={{ background:'rgba(242,90,90,.12)', border:'2px solid rgba(242,90,90,.5)', borderRadius:10, padding:'12px 16px', marginBottom:12, display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ fontSize:24 }}>🔴</div>
+          <div style={{ width:14, height:14, borderRadius:'50%', background:'var(--red)', flexShrink:0 }} />
           <div style={{ flex:1 }}>
             <div style={{ fontSize:11, fontWeight:900, color:'#ff6b6b', textTransform:'uppercase', letterSpacing:'.07em' }}>SENT BACK — NEEDS ACTION</div>
             <div style={{ fontSize:13, color:'var(--text1)', fontWeight:700, marginTop:2 }}>{latestSendBack.reason}</div>
@@ -458,7 +460,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                 <JobChat projectId={project.id} orgId={project.org_id} currentUserId={profile.id} currentUserName={profile.full_name || profile.name} />
               </div>
               <div style={{ borderTop:'1px solid var(--border)', paddingTop:16 }}>
-                <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', marginBottom:12 }}>📷 Job Photos</div>
+                <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><Camera size={12} /> Job Photos</div>
                 <JobImages projectId={project.id} orgId={project.org_id} currentUserId={profile.id} vehicleType={(project.form_data as any)?.selectedVehicle?.name || ''} wrapScope={(project.form_data as any)?.wrapDetail || ''} />
               </div>
             </div>
@@ -494,8 +496,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             <CloseTab f={f} ff={ff} fin={fin} project={project} profile={profile} sendBacks={sendBacks} />
           )}
 
+          {/* ═══ EXPENSES TAB ═══ */}
+          {tab === 'expenses' && (
+            <JobExpenses projectId={project.id} orgId={project.org_id} currentUserId={profile.id} />
+          )}
+
           {/* ── Stage Action Bar ──────────────────────────── */}
-          {tab !== 'chat' && tab !== 'design' && (
+          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && (
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (
@@ -506,15 +513,15 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
               </div>
               <div style={{ display:'flex', gap:10 }}>
                 <button onClick={() => save()} style={{ padding:'9px 18px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>
-                  💾 Save Progress
+                  Save Progress
                 </button>
                 {tab === 'close' ? (
                   <button onClick={closeJob} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'#8b5cf6', border:'none', color:'#fff' }}>
-                    🎉 Close & Approve Job
+                    Close & Approve Job
                   </button>
                 ) : (
                   <button onClick={advanceStage} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)', border:'none', color:'#fff' }}>
-                    ✓ Sign Off & Advance →
+                    Sign Off & Advance →
                   </button>
                 )}
               </div>
