@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Pencil } from 'lucide-react'
 
 interface Props {
   totalRevenue:  number
@@ -144,7 +145,7 @@ export default function VelocityGauge({
           ) : (
             <button onClick={() => { setTargetInput(target.toString()); setEditing(true) }}
               style={{ background: 'none', border: 'none', fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>
-              Target: {fM(target)} &nbsp;✎
+              Target: {fM(target)} <Pencil size={10} style={{ display:'inline', verticalAlign:'middle' }} />
             </button>
           )}
         </div>

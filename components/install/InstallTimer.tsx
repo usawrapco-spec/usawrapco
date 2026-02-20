@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Timer, Play, Pause } from 'lucide-react'
 
 interface InstallTimerProps {
   projectId: string
@@ -117,8 +118,8 @@ export default function InstallTimer({ projectId, orgId, installerId }: InstallT
       padding: 24,
       textAlign: 'center',
     }}>
-      <div style={{ fontSize: 10, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 12 }}>
-        ⏱ Install Timer
+      <div style={{ fontSize: 10, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 12, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+        <Timer size={12} /> Install Timer
       </div>
 
       {/* Timer display */}
@@ -149,7 +150,7 @@ export default function InstallTimer({ projectId, orgId, installerId }: InstallT
               background: 'var(--green)', color: '#0d1a10',
             }}
           >
-            ▶ Start
+            <Play size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} /> Start
           </button>
         ) : (
           <button
@@ -161,14 +162,14 @@ export default function InstallTimer({ projectId, orgId, installerId }: InstallT
               animation: 'pulse 2s infinite',
             }}
           >
-            ⏸ Stop
+            <Pause size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} /> Stop
           </button>
         )}
       </div>
 
       {running && (
-        <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 8, fontWeight: 600 }}>
-          🟢 Timer is running...
+        <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 8, fontWeight: 600, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'var(--green)' }} /> Timer is running...
         </div>
       )}
     </div>

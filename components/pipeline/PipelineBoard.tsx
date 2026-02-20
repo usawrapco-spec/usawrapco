@@ -11,7 +11,7 @@ import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
 import ApprovalModal from '@/components/approval/ApprovalModal'
 import CloseJobModal from '@/components/projects/CloseJobModal'
 import OnboardingLinkPanel from '@/components/pipeline/OnboardingLinkPanel'
-import { Briefcase, Printer, Wrench, Search, CheckCircle, type LucideIcon } from 'lucide-react'
+import { Briefcase, Printer, Wrench, Search, CheckCircle, AlertTriangle, type LucideIcon } from 'lucide-react'
 
 interface PipelineBoardProps {
   profile: Profile
@@ -248,7 +248,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                       {/* Send-back banner */}
                       {hasSendBack && (
                         <div className="mb-2 -mx-3 -mt-3 px-3 py-2 bg-red/20 border-b border-red/40 rounded-t-xl">
-                          <div className="text-xs font-900 text-red uppercase tracking-wide">⚠ Sent Back</div>
+                          <div className="text-xs font-900 text-red uppercase tracking-wide flex items-center gap-1"><AlertTriangle size={11} /> Sent Back</div>
                           <div className="text-xs text-red/80 mt-0.5">{lastSB.reason?.substring(0, 60)}</div>
                         </div>
                       )}

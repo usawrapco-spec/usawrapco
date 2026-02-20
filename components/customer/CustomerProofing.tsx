@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Palette, CheckCircle2, Pencil } from 'lucide-react'
 
 interface CustomerProofingProps {
   token: string
@@ -117,7 +118,7 @@ export default function CustomerProofing({ token }: CustomerProofingProps) {
 
       {proofs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#5a6478' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🎨</div>
+          <Palette size={48} style={{ margin: '0 auto 16px', color: '#5a6478' }} />
           <div style={{ fontSize: 16, fontWeight: 700, color: '#8892a8' }}>Design in Progress</div>
           <div style={{ fontSize: 13, marginTop: 8 }}>Your design proof will appear here once our team uploads it. Check back soon!</div>
         </div>
@@ -149,7 +150,7 @@ export default function CustomerProofing({ token }: CustomerProofingProps) {
               {/* Already approved */}
               {latestProof.customer_status === 'approved' && (
                 <div style={{ padding: 16, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+                  <CheckCircle2 size={32} style={{ margin: '0 auto 8px', color: '#22c55e' }} />
                   <div style={{ fontSize: 15, fontWeight: 800, color: '#22c55e' }}>Design Approved</div>
                   <div style={{ fontSize: 12, color: '#8892a8', marginTop: 4 }}>
                     Approved by {latestProof.customer_name_confirm} on {new Date(latestProof.customer_approved_at).toLocaleDateString()}
@@ -238,7 +239,7 @@ export default function CustomerProofing({ token }: CustomerProofingProps) {
                         background: '#f59e0b15', color: revisionsLeft > 0 ? '#f59e0b' : '#5a6478',
                         border: '1px solid #f59e0b30',
                       }}>
-                      ✎ Request Revision ({revisionsLeft} left)
+                      <Pencil size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:5 }} /> Request Revision ({revisionsLeft} left)
                     </button>
                   </div>
                 </div>

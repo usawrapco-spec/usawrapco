@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, type LucideIcon } from 'lucide-react'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
 import JobChat from '@/components/chat/JobChat'
 import JobImages from '@/components/images/JobImages'
@@ -53,12 +54,12 @@ const MAT_RATES = [
   {label:'Avery Supreme',   rate:2.80},
   {label:'Avery 900 (PPF)', rate:4.50},
 ]
-const PIPE_STAGES = [
-  {key:'sales_in',    label:'Sales',       icon:'📋', color:'#4f7fff'},
-  {key:'production',  label:'Production',  icon:'🖨', color:'#22c07a'},
-  {key:'install',     label:'Install',     icon:'🔧', color:'#22d3ee'},
-  {key:'prod_review', label:'QC Review',   icon:'🔍', color:'#f59e0b'},
-  {key:'sales_close', label:'Close',       icon:'✅', color:'#8b5cf6'},
+const PIPE_STAGES: {key:string; label:string; Icon:LucideIcon; color:string}[] = [
+  {key:'sales_in',    label:'Sales',       Icon:ClipboardList, color:'#4f7fff'},
+  {key:'production',  label:'Production',  Icon:Printer,       color:'#22c07a'},
+  {key:'install',     label:'Install',     Icon:Wrench,        color:'#22d3ee'},
+  {key:'prod_review', label:'QC Review',   Icon:Search,        color:'#f59e0b'},
+  {key:'sales_close', label:'Close',       Icon:DollarSign,    color:'#8b5cf6'},
 ]
 const SEND_BACK_REASONS: Record<string, string[]> = {
   production: ['Incorrect scope / coverage', 'Missing design files', 'Price needs adjustment', 'Customer changed specs', 'Installer not assigned', 'Other'],
@@ -319,14 +320,14 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   }
 
   // ── Tab config ─────────────────────────────────────────────────
-  const TABS: {key: typeof tab; label: string; icon: string; stageKey?: string}[] = [
-    { key: 'chat',       label: 'Chat',       icon: '💬' },
-    { key: 'sales',      label: 'Sales',      icon: '📋', stageKey: 'sales_in' },
-    { key: 'design',     label: 'Design',     icon: '🎨' },
-    { key: 'production', label: 'Production', icon: '🖨', stageKey: 'production' },
-    { key: 'install',    label: 'Install',    icon: '🔧', stageKey: 'install' },
-    { key: 'qc',         label: 'QC',         icon: '🔍', stageKey: 'prod_review' },
-    { key: 'close',      label: 'Close',      icon: '💰', stageKey: 'sales_close' },
+  const TABS: {key: typeof tab; label: string; Icon: LucideIcon; stageKey?: string}[] = [
+    { key: 'chat',       label: 'Chat',       Icon: MessageSquare },
+    { key: 'sales',      label: 'Sales',      Icon: ClipboardList, stageKey: 'sales_in' },
+    { key: 'design',     label: 'Design',     Icon: Palette },
+    { key: 'production', label: 'Production', Icon: Printer, stageKey: 'production' },
+    { key: 'install',    label: 'Install',    Icon: Wrench, stageKey: 'install' },
+    { key: 'qc',         label: 'QC',         Icon: Search, stageKey: 'prod_review' },
+    { key: 'close',      label: 'Close',      Icon: DollarSign, stageKey: 'sales_close' },
   ]
 
   const stageOrder = ['sales_in','production','install','prod_review','sales_close']
@@ -383,11 +384,11 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           {PIPE_STAGES.find(s => s.key === curStageKey) && (
             <div style={{ padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:800, background:`${PIPE_STAGES.find(s => s.key === curStageKey)!.color}18`, color: PIPE_STAGES.find(s => s.key === curStageKey)!.color, border:`1px solid ${PIPE_STAGES.find(s => s.key === curStageKey)!.color}40` }}>
-              {PIPE_STAGES.find(s => s.key === curStageKey)!.icon} {PIPE_STAGES.find(s => s.key === curStageKey)!.label}
+              {(() => { const ps = PIPE_STAGES.find(s => s.key === curStageKey)!; return <><ps.Icon size={12} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />{ps.label}</>})()}
             </div>
           )}
           <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, padding:'9px 18px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1 }}>
-            {saving ? 'Saving…' : saved ? '✓ Saved' : '💾 Save'}
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </button>
         </div>
       </div>
@@ -399,7 +400,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           const active = s.key === curStageKey
           return (
             <div key={s.key} style={{ flex:1, textAlign:'center', padding:'8px 4px', borderRadius:8, background: done ? 'rgba(34,192,122,.12)' : active ? `${s.color}15` : 'var(--surface)', border: `1px solid ${done ? 'rgba(34,192,122,.3)' : active ? `${s.color}40` : 'var(--border)'}` }}>
-              <div style={{ fontSize:16 }}>{done ? '✅' : active ? s.icon : '⭕'}</div>
+              <div style={{ display:'flex', justifyContent:'center' }}>{done ? <CheckCircle size={16} color="#22c07a" /> : active ? <s.Icon size={16} color={s.color} /> : <Circle size={16} color="var(--border)" />}</div>
               <div style={{ fontSize:9, fontWeight:700, color: done ? '#22c07a' : active ? s.color : 'var(--text3)', textTransform:'uppercase', marginTop:2 }}>{s.label}</div>
             </div>
           )
@@ -441,7 +442,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                 background:'transparent', whiteSpace:'nowrap', marginBottom:-1,
                 color: isActive ? 'var(--accent)' : isDone ? '#22c07a' : isCurrent ? 'var(--text1)' : 'var(--text3)',
               }}>
-                <span style={{ fontSize:14 }}>{isDone ? '✅' : t.icon}</span>
+                {isDone ? <CheckCircle size={14} /> : <t.Icon size={14} />}
                 {t.label}
                 {isCurrent && !isDone && <span style={{ width:6, height:6, borderRadius:'50%', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)' }} />}
               </button>

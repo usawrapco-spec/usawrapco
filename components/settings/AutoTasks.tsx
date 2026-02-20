@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { AlertCircle, Clock, Circle, CheckCircle2, ListTodo, X, type LucideIcon } from 'lucide-react'
 import type { Profile } from '@/types'
 
 interface Task {
@@ -108,28 +109,28 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
   const urgentCount = tasks.filter(t => t.urgency === 'urgent').length
   const todayCount = tasks.filter(t => t.urgency === 'today').length
 
-  const URGENCY_STYLES: Record<string, {bg:string; border:string; icon:string; color:string}> = {
-    urgent: { bg:'rgba(242,90,90,.08)', border:'rgba(242,90,90,.3)', icon:'🔴', color:'#f25a5a' },
-    today:  { bg:'rgba(245,158,11,.06)', border:'rgba(245,158,11,.25)', icon:'🟡', color:'#f59e0b' },
-    normal: { bg:'var(--surface2)', border:'var(--border)', icon:'🔵', color:'#4f7fff' },
+  const URGENCY_STYLES: Record<string, {bg:string; border:string; Icon:LucideIcon; color:string}> = {
+    urgent: { bg:'rgba(242,90,90,.08)', border:'rgba(242,90,90,.3)', Icon:AlertCircle, color:'#f25a5a' },
+    today:  { bg:'rgba(245,158,11,.06)', border:'rgba(245,158,11,.25)', Icon:Clock, color:'#f59e0b' },
+    normal: { bg:'var(--surface2)', border:'var(--border)', Icon:Circle, color:'#4f7fff' },
   }
 
   return (
     <div style={{ maxWidth:900, margin:'0 auto' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
         <div>
-          <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)' }}>✅ Tasks</div>
+          <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)', display:'flex', alignItems:'center', gap:8 }}><ListTodo size={24} /> Tasks</div>
           <div style={{ fontSize:12, color:'var(--text3)' }}>Auto-generated from job status</div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          {urgentCount > 0 && <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(242,90,90,.15)', color:'#f25a5a', border:'1px solid rgba(242,90,90,.3)' }}>🔴 {urgentCount} urgent</span>}
-          {todayCount > 0 && <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(245,158,11,.1)', color:'#f59e0b', border:'1px solid rgba(245,158,11,.2)' }}>🟡 {todayCount} today</span>}
+          {urgentCount > 0 && <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(242,90,90,.15)', color:'#f25a5a', border:'1px solid rgba(242,90,90,.3)', display:'inline-flex', alignItems:'center', gap:4 }}><AlertCircle size={11} /> {urgentCount} urgent</span>}
+          {todayCount > 0 && <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(245,158,11,.1)', color:'#f59e0b', border:'1px solid rgba(245,158,11,.2)', display:'inline-flex', alignItems:'center', gap:4 }}><Clock size={11} /> {todayCount} today</span>}
         </div>
       </div>
 
       {/* Role filter */}
       <div style={{ display:'flex', gap:6, marginBottom:16 }}>
-        {([{k:'all',l:'All',c:'var(--text1)'},{k:'sales',l:'💼 Sales',c:'#4f7fff'},{k:'production',l:'🖨 Production',c:'#22c07a'},{k:'installer',l:'🔧 Install',c:'#22d3ee'}] as const).map(f => (
+        {([{k:'all',l:'All',c:'var(--text1)'},{k:'sales',l:'Sales',c:'#4f7fff'},{k:'production',l:'Production',c:'#22c07a'},{k:'installer',l:'Install',c:'#22d3ee'}] as const).map(f => (
           <button key={f.k} onClick={() => setFilter(f.k as any)} style={{
             padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', border:'1px solid',
             background: filter===f.k ? 'var(--surface)' : 'transparent',
@@ -142,7 +143,7 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
       {/* Task list */}
       {tasks.length === 0 ? (
         <div style={{ textAlign:'center', padding:40, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, color:'var(--text3)' }}>
-          <div style={{ fontSize:32, marginBottom:8 }}>🎉</div>
+          <CheckCircle2 size={32} style={{ margin:'0 auto 8px', color:'var(--text3)' }} />
           <div style={{ fontSize:14, fontWeight:700 }}>All clear! No pending tasks.</div>
         </div>
       ) : (
@@ -151,14 +152,14 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
             const s = URGENCY_STYLES[t.urgency]
             return (
               <div key={t.id} style={{ background:s.bg, border:`1px solid ${s.border}`, borderRadius:10, padding:'12px 16px', display:'flex', alignItems:'center', gap:12 }}>
-                <div style={{ fontSize:18, flexShrink:0 }}>{s.icon}</div>
+                <s.Icon size={18} style={{ flexShrink:0, color: s.color }} />
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:700, color:'var(--text1)' }}>{t.desc}</div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
                     {t.sub} · <span style={{ color: t.role === 'sales' ? '#4f7fff' : t.role === 'production' ? '#22c07a' : '#22d3ee', fontWeight:600 }}>{t.person}</span>
                   </div>
                 </div>
-                <button onClick={() => setDismissed(p => new Set([...p, t.id]))} title="Dismiss" style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:14, padding:4 }}>✕</button>
+                <button onClick={() => setDismissed(p => new Set([...p, t.id]))} title="Dismiss" style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', padding:4 }}><X size={13} /></button>
               </div>
             )
           })}

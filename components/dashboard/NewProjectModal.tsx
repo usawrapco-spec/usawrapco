@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, ProjectType } from '@/types'
 import { clsx } from 'clsx'
+import { Car, Anchor, Palette, Shield, X, type LucideIcon } from 'lucide-react'
 
 interface NewProjectModalProps {
   profile: Profile
@@ -37,11 +38,11 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
 
   const supabase = createClient()
 
-  const TYPE_OPTIONS: { type: ProjectType; icon: string; label: string; desc: string }[] = [
-    { type: 'wrap',    icon: '🚗', label: 'Vehicle Wrap',  desc: 'Commercial · Fleet · Marine · Color Change' },
-    { type: 'decking', icon: '⛵', label: 'Boat Decking',  desc: 'EVA foam · SeaDek · Teak alternatives' },
-    { type: 'design',  icon: '🎨', label: 'Design Only',   desc: 'Artwork · Proofs · Approvals' },
-    { type: 'ppf',     icon: '🛡', label: 'PPF / Tint',    desc: 'Paint protection · Window tint' },
+  const TYPE_OPTIONS: { type: ProjectType; Icon: LucideIcon; label: string; desc: string }[] = [
+    { type: 'wrap',    Icon: Car,     label: 'Vehicle Wrap',  desc: 'Commercial · Fleet · Marine · Color Change' },
+    { type: 'decking', Icon: Anchor,  label: 'Boat Decking',  desc: 'EVA foam · SeaDek · Teak alternatives' },
+    { type: 'design',  Icon: Palette, label: 'Design Only',   desc: 'Artwork · Proofs · Approvals' },
+    { type: 'ppf',     Icon: Shield,  label: 'PPF / Tint',    desc: 'Paint protection · Window tint' },
   ]
 
   const autoVehicleDesc = [vehicleYear, vehicleMake, vehicleModel, vehicleColor ? `— ${vehicleColor}` : '']
@@ -107,7 +108,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
           <div className="font-display text-xl font-900" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
             {step === 'type' ? '＋ New Estimate' : `New ${TYPE_OPTIONS.find(t => t.type === projectType)?.label}`}
           </div>
-          <button onClick={onClose} className="text-text3 hover:text-text1 text-lg">✕</button>
+          <button onClick={onClose} className="text-text3 hover:text-text1"><X size={18} /></button>
         </div>
 
         {/* Body */}
@@ -121,7 +122,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
                     onClick={() => { setProjectType(opt.type); setStep('details') }}
                     className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border
                                bg-surface2 hover:border-accent hover:bg-accent/5 transition-all text-center">
-                    <span className="text-4xl">{opt.icon}</span>
+                    <opt.Icon size={40} className="text-text2" />
                     <div>
                       <div className="font-800 text-text1 text-sm">{opt.label}</div>
                       <div className="text-xs text-text3 mt-0.5">{opt.desc}</div>

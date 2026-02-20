@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Car, Building2 } from 'lucide-react';
 
 interface NewJobModalProps {
   isOpen: boolean;
@@ -116,7 +117,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-bold text-gray-100 mb-5 flex items-center gap-2" style={{ fontFamily: 'var(--font-heading, inherit)' }}>
-          🚀 Create New Job
+          Create New Job
         </h2>
 
         {/* Job type selector */}
@@ -132,7 +133,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
                 : 'border-[#1e2d4a] bg-[#111827] hover:border-[#2a3f6a]'
             }`}
           >
-            <div className="text-3xl mb-2">🚗</div>
+            <div className="mb-2 flex justify-center"><Car size={32} /></div>
             <div className="text-base font-bold">Vehicle Wrap</div>
             <div className="text-xs text-gray-500 mt-1">Cars, trucks, vans, trailers</div>
           </button>
@@ -144,7 +145,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
                 : 'border-[#1e2d4a] bg-[#111827] hover:border-[#2a3f6a]'
             }`}
           >
-            <div className="text-3xl mb-2">🏗️</div>
+            <div className="mb-2 flex justify-center"><Building2 size={32} /></div>
             <div className="text-base font-bold">Decking</div>
             <div className="text-xs text-gray-500 mt-1">Builds, resurfacing, composite</div>
           </button>
@@ -290,7 +291,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
               font-bold text-sm hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all
               disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Creating...' : '✅ Create Job'}
+            {saving ? 'Creating...' : 'Create Job'}
           </button>
           <button
             onClick={onClose}

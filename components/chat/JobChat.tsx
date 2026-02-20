@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { X } from 'lucide-react';
+import { X, Camera } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -144,7 +144,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
       project_id: projectId,
       user_id: currentUserId,
       channel: activeChannel,
-      message: newMessage.trim() || `📷 ${file.name}`,
+      message: newMessage.trim() || `[Image] ${file.name}`,
       image_url: urlData.publicUrl,
     });
 
@@ -250,7 +250,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
             hover:text-purple-400 hover:border-purple-500 transition-all text-lg"
           title="Upload image"
         >
-          📷
+          <Camera size={18} />
         </button>
         <input
           type="text"

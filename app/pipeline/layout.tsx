@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import type { Profile } from '@/types'
+import { AlertTriangle } from 'lucide-react'
 
 export default async function AppLayout({
   children,
@@ -20,7 +21,7 @@ export default async function AppLayout({
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
         <div className="card max-w-sm text-center">
-          <div className="text-3xl mb-3">⚠️</div>
+          <AlertTriangle size={28} className="mx-auto mb-3 text-amber" />
           <div className="font-700 text-text1 mb-2">Profile not found</div>
           <div className="text-sm text-text3">
             Your account was created but no profile exists. Contact your admin.

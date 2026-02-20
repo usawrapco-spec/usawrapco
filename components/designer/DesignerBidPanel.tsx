@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Check, Package, AlertTriangle, Star, Send } from 'lucide-react'
 
 interface DesignerBidPanelProps {
   projectId: string
@@ -11,13 +12,13 @@ interface DesignerBidPanelProps {
 }
 
 const SPECIALTIES = [
-  { key: 'vehicles', label: '🚗 Vehicles' },
-  { key: 'boats', label: '⛵ Boats' },
-  { key: 'fleet', label: '🚛 Fleet' },
-  { key: 'complex_curves', label: '🔄 Complex Curves' },
-  { key: 'lettering', label: '✍️ Lettering' },
-  { key: 'color_change', label: '🎨 Color Change' },
-  { key: 'ppf', label: '🛡 PPF' },
+  { key: 'vehicles', label: 'Vehicles' },
+  { key: 'boats', label: 'Boats' },
+  { key: 'fleet', label: 'Fleet' },
+  { key: 'complex_curves', label: 'Complex Curves' },
+  { key: 'lettering', label: 'Lettering' },
+  { key: 'color_change', label: 'Color Change' },
+  { key: 'ppf', label: 'PPF' },
 ]
 
 export default function DesignerBidPanel({ projectId, orgId, project, teammates }: DesignerBidPanelProps) {
@@ -120,7 +121,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
       {/* Accepted designer */}
       {acceptedBid && (
         <div style={{ padding: 16, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--green)', textTransform: 'uppercase', marginBottom: 8 }}>✓ Designer Assigned</div>
+          <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--green)', textTransform: 'uppercase', marginBottom: 8, display:'flex', alignItems:'center', gap:4 }}><Check size={12} /> Designer Assigned</div>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text1)' }}>
             {(acceptedBid.designer as any)?.full_name || (acceptedBid.designer as any)?.name}
           </div>
@@ -136,9 +137,9 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
           width: '100%', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           background: 'transparent', border: 'none', cursor: 'pointer',
         }}>
-          <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text1)' }}>📦 Design Package</span>
-          <span style={{ fontSize: 10, color: packageComplete ? 'var(--green)' : '#f59e0b', fontWeight: 700 }}>
-            {packageComplete ? '✓ Ready to send' : '⚠ Missing required info'}
+          <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text1)', display:'flex', alignItems:'center', gap:4 }}><Package size={13} /> Design Package</span>
+          <span style={{ fontSize: 10, color: packageComplete ? 'var(--green)' : '#f59e0b', fontWeight: 700, display:'flex', alignItems:'center', gap:4 }}>
+            {packageComplete ? <><Check size={10} /> Ready to send</> : <><AlertTriangle size={10} /> Missing required info</>}
           </span>
         </button>
         {showPackage && (
@@ -173,7 +174,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
                   {(bid.designer as any)?.full_name || (bid.designer as any)?.name}
-                  {bid.is_first_choice && <span style={{ fontSize: 9, color: '#f59e0b', marginLeft: 6 }}>⭐ FIRST CHOICE</span>}
+                  {bid.is_first_choice && <span style={{ fontSize: 9, color: '#f59e0b', marginLeft: 6, display:'inline-flex', alignItems:'center', gap:3 }}><Star size={9} fill="#f59e0b" /> FIRST CHOICE</span>}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>
                   {bid.status === 'counter' ? `Counter: ${bid.counter_terms}` : 'Awaiting response'}
@@ -217,8 +218,8 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
                   <div style={{ fontSize: 10, color: 'var(--text3)' }}>{d.role}</div>
                 </div>
                 <button onClick={e => { e.preventDefault(); setFirstChoice(firstChoice === d.id ? null : d.id) }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, opacity: firstChoice === d.id ? 1 : 0.3 }}>
-                  ⭐
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: firstChoice === d.id ? 1 : 0.3, color: '#f59e0b' }}>
+                  <Star size={16} fill={firstChoice === d.id ? '#f59e0b' : 'none'} />
                 </button>
               </label>
             ))}
@@ -253,7 +254,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
               background: selectedDesigners.size > 0 && packageComplete ? '#8b5cf6' : 'var(--surface2)',
               color: selectedDesigners.size > 0 && packageComplete ? '#fff' : 'var(--text3)',
             }}>
-            {sending ? 'Sending...' : `📨 Send Package to ${selectedDesigners.size} Designer${selectedDesigners.size !== 1 ? 's' : ''}`}
+            {sending ? 'Sending...' : <><Send size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }} /> Send Package to {selectedDesigners.size} Designer{selectedDesigners.size !== 1 ? 's' : ''}</>}
           </button>
         </div>
       )}

@@ -139,8 +139,8 @@ export default function FloatingFinancialBar({ project, className = '' }: Floati
 
           {/* Commission breakdown */}
           <div className="mt-3 p-3 bg-green-500/5 border border-green-500/15 rounded-lg">
-            <div className="text-[10px] font-bold tracking-[1px] text-green-400 uppercase mb-1.5">
-              🟢 Sales Commission
+            <div className="text-[10px] font-bold tracking-[1px] text-green-400 uppercase mb-1.5 flex items-center gap-1.5">
+              <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background:'#22c55e' }} /> Sales Commission
             </div>
             <div className="text-xs text-gray-400 mb-2">
               Inbound 7% of GP (✓ +2% &gt;73% GPM)

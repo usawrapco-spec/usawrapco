@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { clsx } from 'clsx'
+import { CheckCircle, XCircle, Info, AlertTriangle } from 'lucide-react'
 
 interface ToastItem {
   id: number
@@ -32,8 +33,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
   }, [])
 
-  const icons: Record<string, string> = {
-    success: '✓', error: '✕', info: 'ℹ', warning: '⚠',
+  const icons: Record<string, ReactNode> = {
+    success: <CheckCircle size={16} />,
+    error:   <XCircle size={16} />,
+    info:    <Info size={16} />,
+    warning: <AlertTriangle size={16} />,
   }
   const colors: Record<string, string> = {
     success: 'bg-green/20 border-green/40 text-green',

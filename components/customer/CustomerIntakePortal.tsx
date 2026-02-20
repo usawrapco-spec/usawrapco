@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Car, RotateCcw, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Camera, Paperclip, type LucideIcon } from 'lucide-react'
 
 interface CustomerIntakePortalProps {
   token: string
 }
 
-const VEHICLE_SIDES = [
-  { key: 'front', label: 'Front', icon: '🚗', desc: 'Straight on from the front — include bumper, hood, grille' },
-  { key: 'rear', label: 'Rear', icon: '🔙', desc: 'Straight on from the back — include bumper, tailgate/hatch' },
-  { key: 'left', label: 'Driver Side', icon: '⬅️', desc: 'Full left side — stand back far enough to get the whole vehicle' },
-  { key: 'right', label: 'Passenger Side', icon: '➡️', desc: 'Full right side — same distance as driver side' },
-  { key: 'top', label: 'Roof (if needed)', icon: '⬆️', desc: 'Optional — only if roof wrap is included in scope' },
+const VEHICLE_SIDES: { key: string; label: string; Icon: LucideIcon; desc: string }[] = [
+  { key: 'front', label: 'Front',          Icon: Car,       desc: 'Straight on from the front — include bumper, hood, grille' },
+  { key: 'rear',  label: 'Rear',           Icon: RotateCcw, desc: 'Straight on from the back — include bumper, tailgate/hatch' },
+  { key: 'left',  label: 'Driver Side',    Icon: ArrowLeft, desc: 'Full left side — stand back far enough to get the whole vehicle' },
+  { key: 'right', label: 'Passenger Side', Icon: ArrowRight,desc: 'Full right side — same distance as driver side' },
+  { key: 'top',   label: 'Roof (if needed)',Icon: ArrowUp,  desc: 'Optional — only if roof wrap is included in scope' },
 ]
 
 export default function CustomerIntakePortal({ token }: CustomerIntakePortalProps) {
@@ -130,7 +131,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
   if (submitted) {
     return (
       <div style={{ maxWidth: 600, margin: '60px auto', padding: 40, textAlign: 'center', background: '#111827', borderRadius: 16, border: '1px solid #1e2d4a' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+        <CheckCircle2 size={48} style={{ margin: '0 auto 16px', color: '#22c55e' }} />
         <div style={{ fontSize: 22, fontWeight: 900, color: '#e8ecf4', marginBottom: 8 }}>Thank You!</div>
         <div style={{ fontSize: 14, color: '#8892a8' }}>Your information has been submitted. Our team will review and get started on your project.</div>
       </div>
@@ -184,14 +185,14 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>{side.icon}</div>
+                    <div style={{ marginBottom: 8, display:'flex', justifyContent:'center' }}><side.Icon size={32} /></div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#e8ecf4', marginBottom: 4 }}>{side.label}</div>
                     <div style={{ fontSize: 11, color: '#5a6478', marginBottom: 12 }}>{side.desc}</div>
                     <label style={{
                       display: 'inline-block', padding: '8px 16px', borderRadius: 8,
                       background: '#4f7fff', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     }}>
-                      {uploading === side.key ? 'Uploading...' : '📷 Upload Photo'}
+                      {uploading === side.key ? 'Uploading...' : <><Camera size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:5 }} /> Upload Photo</>}
                       <input type="file" accept="image/*" capture="environment" hidden
                         onChange={e => e.target.files?.[0] && uploadPhoto(side.key, e.target.files[0])} />
                     </label>
@@ -213,7 +214,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
             display: 'inline-block', padding: '10px 24px', borderRadius: 8,
             background: '#8b5cf6', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
           }}>
-            {uploading === 'logo' ? 'Uploading...' : '📎 Upload Logo / Files'}
+            {uploading === 'logo' ? 'Uploading...' : <><Paperclip size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:5 }} /> Upload Logo / Files</>}
             <input type="file" accept="image/*,.ai,.eps,.pdf,.svg" multiple hidden
               onChange={e => { if (e.target.files) Array.from(e.target.files).forEach(f => uploadLogo(f)) }} />
           </label>
@@ -221,7 +222,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               {logoFiles.map((f, i) => (
                 <div key={i} style={{ padding: '6px 12px', background: '#1a2540', borderRadius: 6, fontSize: 11, color: '#8892a8' }}>
-                  📎 {f.file_name}
+                  <Paperclip size={10} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} /> {f.file_name}
                 </div>
               ))}
             </div>

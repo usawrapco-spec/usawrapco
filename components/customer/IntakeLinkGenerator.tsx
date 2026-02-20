@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Link2, Download, Check, Clipboard, User, Mail, AlertTriangle, Palette } from 'lucide-react'
 
 interface IntakeLinkGeneratorProps {
   projectId: string
@@ -70,7 +71,7 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text1)', marginBottom: 12 }}>🔗 Customer Links</div>
+      <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text1)', marginBottom: 12, display:'flex', alignItems:'center', gap:6 }}><Link2 size={13} /> Customer Links</div>
 
       {/* Intake link */}
       {!intake ? (
@@ -78,13 +79,13 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
           width: '100%', padding: '12px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13,
           cursor: 'pointer', border: '1px dashed var(--border)', background: 'transparent', color: 'var(--accent)',
         }}>
-          📥 Generate Customer Intake Link
+          <Download size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }} /> Generate Customer Intake Link
         </button>
       ) : (
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)' }}>INTAKE LINK</span>
-            {intake.completed && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: '#22c55e20', color: '#22c55e' }}>COMPLETED ✓</span>}
+            {intake.completed && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: '#22c55e20', color: '#22c55e', display:'inline-flex', alignItems:'center', gap:3 }}>COMPLETED <Check size={9} /></span>}
             {!intake.completed && <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: '#f59e0b20', color: '#f59e0b' }}>PENDING</span>}
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -99,7 +100,7 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
               background: copied === 'intake' ? 'var(--green)' : 'var(--accent)',
               color: '#fff',
             }}>
-              {copied === 'intake' ? '✓ Copied' : '📋 Copy'}
+              {copied === 'intake' ? 'Copied' : 'Copy'}
             </button>
           </div>
 
@@ -107,10 +108,10 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
           {intake.completed && (
             <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(34,197,94,0.05)', borderRadius: 8, fontSize: 11 }}>
               <div style={{ color: 'var(--text2)' }}>
-                {intake.customer_name && <span>👤 {intake.customer_name} · </span>}
-                {intake.customer_email && <span>📧 {intake.customer_email} · </span>}
+                {intake.customer_name && <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}><User size={11} /> {intake.customer_name} · </span>}
+                {intake.customer_email && <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}><Mail size={11} /> {intake.customer_email} · </span>}
                 {(intake.vehicle_photos || []).length} photos · {(intake.logo_files || []).length} logos
-                {intake.removal_required && <span style={{ color: '#f59e0b' }}> · ⚠ Removal required</span>}
+                {intake.removal_required && <span style={{ color: '#f59e0b', display:'inline-flex', alignItems:'center', gap:3 }}> · <AlertTriangle size={11} /> Removal required</span>}
               </div>
             </div>
           )}
@@ -126,7 +127,7 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
               cursor: 'pointer', border: '1px dashed var(--border)', background: 'transparent', color: '#8b5cf6',
               marginTop: 8,
             }}>
-              🎨 Generate Customer Proofing Link
+              <Palette size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }} /> Generate Customer Proofing Link
             </button>
           ) : (
             <div style={{ marginTop: 8 }}>
@@ -148,7 +149,7 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
                   background: copied === 'proof' ? 'var(--green)' : '#8b5cf6',
                   color: '#fff',
                 }}>
-                  {copied === 'proof' ? '✓ Copied' : '📋 Copy'}
+                  {copied === 'proof' ? 'Copied' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -172,7 +173,7 @@ export default function IntakeLinkGenerator({ projectId, orgId }: IntakeLinkGene
               background: copied === 'track' ? 'var(--green)' : '#22d3ee',
               color: '#fff',
             }}>
-              {copied === 'track' ? '✓ Copied' : '📋 Copy'}
+              {copied === 'track' ? 'Copied' : 'Copy'}
             </button>
           </div>
           <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Share with customer to track job progress</div>

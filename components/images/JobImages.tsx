@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Camera, Palette, FileCheck, Star, Folder, Tag, Trash2, Images, Loader2, type LucideIcon } from 'lucide-react';
 
 interface JobImage {
   id: string;
@@ -24,12 +25,12 @@ interface JobImagesProps {
   wrapScope?: string;     // auto-fill from project
 }
 
-const CATEGORIES = [
-  { key: 'before', label: '📷 Before Photos', icon: '🚗' },
-  { key: 'design', label: '🎨 Design Mockups', icon: '🎨' },
-  { key: 'proof', label: '📋 Proofs / Approvals', icon: '✅' },
-  { key: 'after', label: '✨ After Photos', icon: '🌟' },
-  { key: 'general', label: '📁 Other Files', icon: '📎' },
+const CATEGORIES: { key: string; label: string; Icon: LucideIcon }[] = [
+  { key: 'before', label: 'Before Photos', Icon: Camera },
+  { key: 'design', label: 'Design Mockups', Icon: Palette },
+  { key: 'proof', label: 'Proofs / Approvals', Icon: FileCheck },
+  { key: 'after', label: 'After Photos', Icon: Star },
+  { key: 'general', label: 'Other Files', Icon: Folder },
 ];
 
 export default function JobImages({
@@ -158,13 +159,13 @@ export default function JobImages({
             <button
               key={cat.key}
               onClick={() => setUploadCategory(cat.key)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all flex items-center gap-1 ${
                 uploadCategory === cat.key
                   ? 'bg-purple-600/20 border-purple-500 text-purple-400'
                   : 'bg-[#111827] border-[#1e2d4a] text-gray-500 hover:text-gray-300'
               }`}
             >
-              {cat.icon} {cat.key}
+              <cat.Icon size={11} /> {cat.key}
             </button>
           ))}
         </div>
@@ -177,7 +178,7 @@ export default function JobImages({
               : 'border-[#2a3f6a] hover:border-purple-500 hover:bg-purple-500/5'
             }`}
         >
-          <div className="text-4xl mb-2 opacity-60">{uploading ? '⏳' : '📸'}</div>
+          <div className="mb-2 opacity-60 flex justify-center">{uploading ? <Loader2 size={36} className="animate-spin" /> : <Camera size={36} />}</div>
           <div className="text-sm font-semibold text-gray-400">
             {uploading ? 'Uploading...' : 'Drop images here or click to upload'}
           </div>
@@ -198,8 +199,8 @@ export default function JobImages({
       {/* Before / After gallery */}
       {hasBeforeAfter && (
         <div className="mb-6 p-4 bg-gradient-to-r from-red-500/5 to-green-500/5 border border-[#1e2d4a] rounded-xl">
-          <div className="text-xs font-bold text-green-400 uppercase tracking-[1px] mb-3">
-            📸 Before & After Gallery
+          <div className="text-xs font-bold text-green-400 uppercase tracking-[1px] mb-3 flex items-center gap-1.5">
+            <Images size={13} /> Before & After Gallery
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -229,8 +230,8 @@ export default function JobImages({
       {/* Categorized galleries */}
       {groupedImages.map((group) => (
         <div key={group.key} className="mb-5">
-          <div className="text-xs font-bold text-purple-400 uppercase tracking-[1px] mb-2.5">
-            {group.label}
+          <div className="text-xs font-bold text-purple-400 uppercase tracking-[1px] mb-2.5 flex items-center gap-1.5">
+            <group.Icon size={12} /> {group.label}
           </div>
 
           {group.images.length === 0 ? (
@@ -265,18 +266,18 @@ export default function JobImages({
                           e.stopPropagation();
                           setShowTagModal(img.id);
                         }}
-                        className="text-[10px] bg-[#111827] text-gray-300 px-2 py-0.5 rounded hover:bg-purple-600 transition-colors"
+                        className="text-[10px] bg-[#111827] text-gray-300 px-2 py-0.5 rounded hover:bg-purple-600 transition-colors flex items-center gap-1"
                       >
-                        🏷️ Tag
+                        <Tag size={9} /> Tag
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteImage(img.id, img.image_url);
                         }}
-                        className="text-[10px] bg-[#111827] text-red-400 px-2 py-0.5 rounded hover:bg-red-600 hover:text-white transition-colors"
+                        className="text-[10px] bg-[#111827] text-red-400 px-2 py-0.5 rounded hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1"
                       >
-                        🗑️
+                        <Trash2 size={9} />
                       </button>
                     </div>
                   </div>
@@ -291,7 +292,7 @@ export default function JobImages({
       {showTagModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowTagModal(null)}>
           <div className="bg-[#0c1222] border border-[#2a3f6a] rounded-xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
-            <div className="text-sm font-bold text-gray-200 mb-3">🏷️ Add Tags</div>
+            <div className="text-sm font-bold text-gray-200 mb-3 flex items-center gap-2"><Tag size={14} /> Add Tags</div>
             <div className="flex gap-2 mb-3">
               <input
                 type="text"

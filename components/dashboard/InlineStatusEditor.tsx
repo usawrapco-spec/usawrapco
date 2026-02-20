@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Check, MapPin } from 'lucide-react';
 
 const STATUS_OPTIONS = [
   { key: 'estimate', label: 'Estimate', color: '#6b7280', bg: 'rgba(107,114,128,0.15)', border: 'rgba(107,114,128,0.3)' },
@@ -91,7 +92,7 @@ export default function InlineStatusEditor({ projectId, type, value, onUpdate }:
           opacity: saving ? 0.6 : 1,
         }}
       >
-        {type === 'status' ? '●' : '📍'} {activeOption.label}
+        {type === 'status' ? <span style={{ display:'inline-block', width:6, height:6, borderRadius:'50%', background:'currentColor', verticalAlign:'middle', marginRight:3 }} /> : <MapPin size={10} style={{ display:'inline', verticalAlign:'middle', marginRight:3 }} />} {activeOption.label}
       </button>
 
       {/* Dropdown */}
@@ -117,7 +118,7 @@ export default function InlineStatusEditor({ projectId, type, value, onUpdate }:
               />
               {opt.label}
               {opt.key === current && (
-                <span className="ml-auto text-green-400 text-xs">✓</span>
+                <Check size={11} className="ml-auto text-green-400" />
               )}
             </button>
           ))}

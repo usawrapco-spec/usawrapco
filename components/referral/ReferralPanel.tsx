@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Users2, X, Check } from 'lucide-react'
 
 interface ReferralPanelProps {
   projectId: string
@@ -81,7 +82,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text1)' }}>🤝 Referrals & Splits</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text1)', display:'flex', alignItems:'center', gap:6 }}><Users2 size={14} /> Referrals & Splits</div>
         <button onClick={() => setShowAdd(!showAdd)} style={{
           padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
           background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
@@ -119,8 +120,8 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
                 <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 4, background: '#22c55e20', color: '#22c55e' }}>PAID</span>
               )}
               <button onClick={() => removeReferral(ref.id)} style={{
-                background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, opacity: 0.4,
-              }}>✕</button>
+                background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4,
+              }}><X size={14} /></button>
             </div>
           </div>
         )
@@ -204,7 +205,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
                 cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#0d1a10',
                 opacity: form.referring_agent_id && form.receiving_agent_id ? 1 : 0.5,
               }}>
-              {saving ? 'Saving...' : '✓ Add Referral'}
+              {saving ? 'Saving...' : <><Check size={12} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} /> Add Referral</>}
             </button>
             <button onClick={() => setShowAdd(false)} style={{
               padding: '10px 20px', borderRadius: 8, fontWeight: 600, fontSize: 12,
