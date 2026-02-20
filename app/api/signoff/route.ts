@@ -29,6 +29,17 @@ export async function POST(req: Request) {
         updated_at: now,
       }).eq('id', project.id)
 
+      // Award customer_signoff XP to the project agent (if any)
+      const { data: fullProject } = await admin
+        .from('projects')
+        .select('agent_id')
+        .eq('id', project.id)
+        .single()
+      if (fullProject?.agent_id) {
+        const { awardXP } = await import('@/lib/gamification')
+        await awardXP(admin, fullProject.agent_id, 'customer_signoff', 'project', project.id)
+      }
+
       return Response.json({ success: true })
     }
 

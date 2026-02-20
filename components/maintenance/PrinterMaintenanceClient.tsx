@@ -64,6 +64,12 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
       resolved: true,
     })
     await loadLogs()
+    // Award maintenance_logged XP
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'maintenance_logged', sourceType: 'maintenance' }),
+    }).catch(() => {})
     setShowAdd(false)
     setForm({ printer_name: PRINTERS[0], maintenance_type: 'scheduled', description: '', print_hours_at_service: '', next_service_hours: '50' })
     setSaving(false)

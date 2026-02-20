@@ -54,6 +54,12 @@ export default function InstallerPortalClient({ profile, bids: initialBids, open
       setSubmittingBidId(null)
       setMyBidAmount('')
       setMyBidDate('')
+      // Award installer_bid XP
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'installer_bid', sourceType: 'installer_bid', sourceId: bidId }),
+      }).catch(() => {})
     }
     setSubmitting(false)
   }

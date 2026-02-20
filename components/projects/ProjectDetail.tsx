@@ -1224,6 +1224,12 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
     const next = [...expenses, { desc: desc.trim(), amount }]
     ff('jobExpenses', next)
     setDesc(''); setAmt('')
+    // Award log_expense XP
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'log_expense', sourceType: 'job_expense' }),
+    }).catch(() => {})
   }
 
   function removeExpense(i: number) {
