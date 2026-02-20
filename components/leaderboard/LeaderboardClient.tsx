@@ -1,7 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Trophy, Zap, TrendingUp, Star, Flame, Crown } from 'lucide-react'
+import {
+  Trophy, Zap, TrendingUp, Star, Flame, Crown,
+  Medal, DollarSign, Target, Palette, Wand2, FileText,
+  Sunrise, Activity,
+} from 'lucide-react'
 import type { Profile } from '@/types'
 import { xpToLevel, xpForNextLevel } from '@/lib/commission'
 import { ROLE_COLORS } from '@/lib/permissions'
@@ -39,17 +43,39 @@ interface Props {
 
 type Board = 'xp' | 'revenue' | 'streak'
 
-const BADGES_MAP: Record<string, { icon: string; label: string }> = {
-  hot_streak:      { icon: '🔥', label: 'Hot Streak' },
-  closer:          { icon: '💰', label: 'Closer' },
-  sharpshooter:    { icon: '🎯', label: 'Sharpshooter' },
-  pixel_perfect:   { icon: '🎨', label: 'Pixel Perfect' },
-  speed_demon:     { icon: '⚡', label: 'Speed Demon' },
-  top_dog:         { icon: '🏆', label: 'Top Dog' },
-  material_wizard: { icon: '🪄', label: 'Material Wizard' },
-  perfect_brief:   { icon: '📋', label: 'Perfect Brief' },
-  early_bird:      { icon: '🌅', label: 'Early Bird' },
-  marathon:        { icon: '🏃', label: 'Marathon' },
+interface BadgeInfo {
+  icon: React.ReactNode
+  label: string
+}
+
+function BadgeIcon({ badge }: { badge: string }) {
+  const size = 14
+  const map: Record<string, BadgeInfo> = {
+    hot_streak:      { icon: <Flame size={size} style={{ color: '#f59e0b' }} />,   label: 'Hot Streak' },
+    closer:          { icon: <DollarSign size={size} style={{ color: '#22c07a' }} />, label: 'Closer' },
+    sharpshooter:    { icon: <Target size={size} style={{ color: '#4f7fff' }} />,   label: 'Sharpshooter' },
+    pixel_perfect:   { icon: <Palette size={size} style={{ color: '#22d3ee' }} />,  label: 'Pixel Perfect' },
+    speed_demon:     { icon: <Zap size={size} style={{ color: '#f59e0b' }} />,      label: 'Speed Demon' },
+    top_dog:         { icon: <Crown size={size} style={{ color: '#f59e0b' }} />,    label: 'Top Dog' },
+    material_wizard: { icon: <Wand2 size={size} style={{ color: '#8b5cf6' }} />,   label: 'Material Wizard' },
+    perfect_brief:   { icon: <FileText size={size} style={{ color: '#4f7fff' }} />, label: 'Perfect Brief' },
+    early_bird:      { icon: <Sunrise size={size} style={{ color: '#22d3ee' }} />,  label: 'Early Bird' },
+    marathon:        { icon: <Activity size={size} style={{ color: '#22c07a' }} />, label: 'Marathon' },
+  }
+  const info = map[badge]
+  if (!info) return null
+  return (
+    <span
+      title={info.label}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 24, height: 24, borderRadius: 6,
+        background: 'var(--surface2)', border: '1px solid var(--border)',
+      }}
+    >
+      {info.icon}
+    </span>
+  )
 }
 
 const fM = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
@@ -65,9 +91,9 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
     }
   })
 
-  const xpBoard = [...members].sort((a, b) => (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0))
+  const xpBoard      = [...members].sort((a, b) => (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0))
   const revenueBoard = [...members].sort((a, b) => (revenueByAgent[b.id] || 0) - (revenueByAgent[a.id] || 0))
-  const streakBoard = [...members].sort((a, b) => (b.current_streak || 0) - (a.current_streak || 0))
+  const streakBoard  = [...members].sort((a, b) => (b.current_streak || 0) - (a.current_streak || 0))
 
   const boardData = board === 'xp' ? xpBoard : board === 'revenue' ? revenueBoard : streakBoard
 
@@ -79,16 +105,16 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
 
   const rankIcon = (i: number) => {
     if (i === 0) return <Crown size={18} style={{ color: '#f59e0b' }} />
-    if (i === 1) return <span style={{ fontSize: 16 }}>🥈</span>
-    if (i === 2) return <span style={{ fontSize: 16 }}>🥉</span>
+    if (i === 1) return <Medal size={18} style={{ color: '#9299b5' }} />
+    if (i === 2) return <Medal size={18} style={{ color: '#cd7f32' }} />
     return <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text3)', width: 20, textAlign: 'center' }}>#{i + 1}</span>
   }
 
-  const isMe = (m: Member) => m.id === currentProfile.id
-  const myMember = members.find(m => m.id === currentProfile.id)
-  const myRank = xpBoard.findIndex(m => m.id === currentProfile.id) + 1
-  const myXP = myMember?.xp || 0
-  const myLevel = xpToLevel(myXP)
+  const isMe      = (m: Member) => m.id === currentProfile.id
+  const myMember  = members.find(m => m.id === currentProfile.id)
+  const myRank    = xpBoard.findIndex(m => m.id === currentProfile.id) + 1
+  const myXP      = myMember?.xp || 0
+  const myLevel   = xpToLevel(myXP)
   const { progress } = xpForNextLevel(myXP)
 
   return (
@@ -143,8 +169,8 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
             </div>
             {myMember.current_streak > 0 && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: '#f59e0b' }}>
-                  {myMember.current_streak} <Flame size={14} style={{ display: 'inline', color: '#f59e0b', marginBottom: 2 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: '#f59e0b' }}>
+                  {myMember.current_streak} <Flame size={16} style={{ color: '#f59e0b' }} />
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>Day Streak</div>
               </div>
@@ -154,12 +180,9 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
           {/* Badges */}
           {(myMember.badges || []).length > 0 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {(myMember.badges || []).map((b: string) => {
-                const badge = BADGES_MAP[b]
-                return badge ? (
-                  <span key={b} title={badge.label} style={{ fontSize: 20 }}>{badge.icon}</span>
-                ) : null
-              })}
+              {(myMember.badges || []).map((b: string) => (
+                <BadgeIcon key={b} badge={b} />
+              ))}
             </div>
           )}
         </div>
@@ -193,10 +216,10 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
       {/* Leaderboard rows */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {boardData.map((m, i) => {
-          const val = getValue(m)
+          const val       = getValue(m)
           const roleColor = ROLE_COLORS[m.role] || '#5a6080'
-          const initial = (m.name || m.email || '?').charAt(0).toUpperCase()
-          const me = isMe(m)
+          const initial   = (m.name || m.email || '?').charAt(0).toUpperCase()
+          const me        = isMe(m)
 
           return (
             <div
@@ -207,7 +230,6 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
                 background: me ? 'rgba(79,127,255,0.06)' : 'var(--surface)',
                 border: `1px solid ${me ? 'rgba(79,127,255,0.3)' : 'var(--border)'}`,
                 borderRadius: 12,
-                transition: 'transform 0.15s',
               }}
             >
               {/* Rank */}
@@ -243,8 +265,8 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
                     · Lv.{xpToLevel(m.xp || 0)}
                   </span>
                   {m.current_streak > 0 && (
-                    <span style={{ fontSize: 11, color: '#f59e0b' }}>
-                      · {m.current_streak}🔥
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#f59e0b' }}>
+                      · {m.current_streak}<Flame size={10} style={{ color: '#f59e0b' }} />
                     </span>
                   )}
                 </div>
@@ -252,17 +274,16 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
 
               {/* Badges (top 3) */}
               <div style={{ display: 'flex', gap: 4 }}>
-                {(m.badges || []).slice(0, 3).map((b: string) => {
-                  const badge = BADGES_MAP[b]
-                  return badge ? <span key={b} title={badge.label} style={{ fontSize: 16 }}>{badge.icon}</span> : null
-                })}
+                {(m.badges || []).slice(0, 3).map((b: string) => (
+                  <BadgeIcon key={b} badge={b} />
+                ))}
               </div>
 
               {/* Value */}
               <div style={{
                 fontSize: 16, fontWeight: 900,
                 fontFamily: 'JetBrains Mono, monospace',
-                color: i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#f59e0b' : 'var(--text1)',
+                color: i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : 'var(--text1)',
                 flexShrink: 0,
               }}>
                 {val}
