@@ -9,14 +9,20 @@ import type { Profile } from '@/types'
 interface InstallerPortalClientProps {
   profile: Profile
   bids: any[]
+  openBids?: any[]
 }
 
-type Tab = 'pending' | 'accepted' | 'history'
+type Tab = 'open' | 'pending' | 'accepted' | 'history'
 
-export default function InstallerPortalClient({ profile, bids: initialBids }: InstallerPortalClientProps) {
+export default function InstallerPortalClient({ profile, bids: initialBids, openBids: initialOpenBids = [] }: InstallerPortalClientProps) {
   const supabase = createClient()
   const [bids, setBids] = useState<any[]>(initialBids)
-  const [activeTab, setActiveTab] = useState<Tab>('pending')
+  const [openBids] = useState<any[]>(initialOpenBids)
+  const [activeTab, setActiveTab] = useState<Tab>(initialOpenBids.length > 0 ? 'open' : 'pending')
+  const [submittingBidId, setSubmittingBidId] = useState<string | null>(null)
+  const [myBidAmount, setMyBidAmount] = useState('')
+  const [myBidDate, setMyBidDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   // Inline form state for accepting
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
@@ -30,9 +36,27 @@ export default function InstallerPortalClient({ profile, bids: initialBids }: In
   const [declineLoading, setDeclineLoading] = useState(false)
 
   // Categorize bids
-  const pendingBids = bids.filter(b => b.status === 'pending')
+  const pendingBids  = bids.filter(b => b.status === 'pending')
   const acceptedBids = bids.filter(b => b.status === 'accepted')
-  const historyBids = bids.filter(b => b.status === 'declined' || b.status === 'completed')
+  const historyBids  = bids.filter(b => b.status === 'declined' || b.status === 'completed')
+
+  async function submitBid(bidId: string) {
+    if (!myBidAmount || !myBidDate) return
+    setSubmitting(true)
+    const { error } = await supabase.from('installer_bids').update({
+      installer_id: profile.id,
+      bid_amount: parseFloat(myBidAmount),
+      available_date: myBidDate,
+      status: 'pending',
+      updated_at: new Date().toISOString(),
+    }).eq('id', bidId)
+    if (!error) {
+      setSubmittingBidId(null)
+      setMyBidAmount('')
+      setMyBidDate('')
+    }
+    setSubmitting(false)
+  }
 
   // Accept a bid
   const handleAccept = async (bidId: string) => {
@@ -98,9 +122,10 @@ export default function InstallerPortalClient({ profile, bids: initialBids }: In
   }
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'pending', label: 'Pending Bids', count: pendingBids.length },
-    { key: 'accepted', label: 'Accepted', count: acceptedBids.length },
-    { key: 'history', label: 'History', count: historyBids.length },
+    { key: 'open',     label: 'Open Bids',    count: openBids.length },
+    { key: 'pending',  label: 'Pending',       count: pendingBids.length },
+    { key: 'accepted', label: 'Accepted',      count: acceptedBids.length },
+    { key: 'history',  label: 'History',       count: historyBids.length },
   ]
 
   return (
@@ -174,6 +199,90 @@ export default function InstallerPortalClient({ profile, bids: initialBids }: In
           </button>
         ))}
       </div>
+
+      {/* ─── Open Bids ───────────────────────────────────────────────── */}
+      {activeTab === 'open' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {openBids.length === 0 && (
+            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+              <Wrench size={28} color="var(--text3)" style={{ marginBottom: 8 }} />
+              <div style={{ fontSize: 14, color: 'var(--text3)' }}>No open bids available right now.</div>
+            </div>
+          )}
+          {openBids.map(bid => {
+            const proj = bid.project as any
+            const fd   = (proj?.form_data as any) || {}
+            const isBidding = submittingBidId === bid.id
+            return (
+              <div key={bid.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--text1)' }}>
+                      {fd.client || proj?.title || 'Open Job'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{fd.vehicle || proj?.vehicle_desc || '—'}</div>
+                  </div>
+                  <span className="badge badge-cyan" style={{ fontSize: 10, fontWeight: 800 }}>Open</span>
+                </div>
+                <div style={{ padding: '14px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Budget</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700, color: 'var(--green)' }}>
+                      ${bid.budget || bid.bid_amount || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Est. Hours</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700, color: 'var(--cyan)' }}>
+                      {bid.estimated_hours || bid.hours_budget || '—'}h
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Install Date</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
+                      {formatDate(proj?.install_date)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+                  {!isBidding ? (
+                    <button onClick={() => { setSubmittingBidId(bid.id); setMyBidAmount(bid.budget?.toString() || '') }}
+                      style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                      Submit My Bid
+                    </button>
+                  ) : (
+                    <div style={{ padding: 16, background: 'rgba(79,127,255,0.06)', borderRadius: 10, border: '1px solid rgba(79,127,255,0.2)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>Submit Your Bid</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Your Bid Amount ($)</label>
+                          <input type="number" value={myBidAmount} onChange={e => setMyBidAmount(e.target.value)} placeholder="0.00"
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text1)', fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Available Date</label>
+                          <input type="date" value={myBidDate} onChange={e => setMyBidDate(e.target.value)}
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text1)', fontSize: 14 }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => submitBid(bid.id)} disabled={submitting || !myBidAmount || !myBidDate}
+                          style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                          {submitting ? 'Submitting...' : 'Send Bid'}
+                        </button>
+                        <button onClick={() => { setSubmittingBidId(null); setMyBidAmount(''); setMyBidDate('') }}
+                          style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text3)', fontSize: 13, cursor: 'pointer' }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ─── Pending Bids ─────────────────────────────────────────────── */}
       {activeTab === 'pending' && (

@@ -755,11 +755,91 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Linked Design Project fetcher
+function LinkedDesignPanel({ project }: { project: any }) {
+  const supabase = createClient()
+  const [designProjects, setDesignProjects] = useState<any[]>([])
+  const [creating, setCreating] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    supabase.from('design_projects').select('*').eq('project_id', project.id)
+      .then(({ data }) => { if (data) setDesignProjects(data) })
+  }, [project.id])
+
+  async function createDesignProject() {
+    if (!newTitle.trim()) return
+    setLoading(true)
+    const { data, error } = await supabase.from('design_projects').insert({
+      org_id: project.org_id,
+      project_id: project.id,
+      client_name: project.title || 'Job',
+      design_type: 'Full Wrap',
+      description: newTitle.trim(),
+      stage: 'brief',
+    }).select().single()
+    if (!error && data) {
+      setDesignProjects(p => [...p, data])
+      setNewTitle('')
+      setCreating(false)
+    }
+    setLoading(false)
+  }
+
+  const stageColors: Record<string, string> = {
+    brief: '#f59e0b', in_progress: '#4f7fff', proof_sent: '#22d3ee', approved: '#22c07a',
+  }
+
+  return (
+    <Section label="🔗 Linked Design Projects" color="#8b5cf6">
+      {designProjects.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {designProjects.map(dp => (
+            <div key={dp.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{dp.client_name} — {dp.design_type}</div>
+                {dp.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{dp.description}</div>}
+              </div>
+              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${stageColors[dp.stage] || '#5a6080'}18`, color: stageColors[dp.stage] || '#5a6080' }}>
+                {dp.stage.replace('_', ' ')}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>No design projects linked to this job yet.</div>
+      )}
+      {creating ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Design brief / description..."
+            onKeyDown={e => e.key === 'Enter' && createDesignProject()}
+            style={{ flex: 1, ...inp }} />
+          <button onClick={createDesignProject} disabled={loading || !newTitle.trim()}
+            style={{ padding: '8px 14px', borderRadius: 8, background: '#8b5cf6', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            {loading ? '...' : 'Create'}
+          </button>
+          <button onClick={() => setCreating(false)}
+            style={{ padding: '8px 10px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => setCreating(true)}
+          style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', color: '#8b5cf6', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          + Link New Design Project
+        </button>
+      )}
+    </Section>
+  )
+}
+
 // DESIGN TAB
 // ═══════════════════════════════════════════════════════════════════
 function DesignTab({ f, ff, project, profile }: any) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <LinkedDesignPanel project={project} />
       <Section label="🎨 Design & Artwork" color="#8b5cf6">
         <Check label="Design / Artwork Required" checked={f.designNeeded} onChange={v => ff('designNeeded',v)} />
         <Grid cols={2} style={{marginTop:12}}>
