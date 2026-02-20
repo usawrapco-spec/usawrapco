@@ -53,7 +53,15 @@ export default function OnboardingLinkPanel({ profile, projects }: Props) {
     if (selectedProject) payload.project_id = selectedProject
 
     const { error } = await supabase.from('customer_intake_tokens').insert(payload)
-    if (!error) setToken(newToken)
+    if (!error) {
+      setToken(newToken)
+      // Award XP for sending onboarding link
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_onboarding_link', sourceType: 'intake', sourceId: selectedProject || undefined }),
+      }).catch(() => {})
+    }
     setGenerating(false)
   }
 

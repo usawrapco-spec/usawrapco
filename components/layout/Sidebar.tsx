@@ -88,8 +88,8 @@ const NAV: NavItem[] = [
     icon: Factory,
     permission: 'production.read',
     children: [
-      { href: '/timeline',             label: 'Print Schedule' },
-      { href: '/production/printers',  label: 'Printer Maintenance' },
+      { href: '/production/print-schedule', label: 'Print Schedule' },
+      { href: '/production/printers',      label: 'Printer Maintenance' },
     ],
   },
   {

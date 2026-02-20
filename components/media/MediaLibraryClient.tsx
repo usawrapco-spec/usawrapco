@@ -119,6 +119,12 @@ export default function MediaLibraryClient({ profile }: Props) {
       })
 
       await loadFiles()
+      // Award media_upload XP
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'media_upload', sourceType: 'media' }),
+      }).catch(() => {})
     } catch (err) {
       console.error('Upload error:', err)
     }
