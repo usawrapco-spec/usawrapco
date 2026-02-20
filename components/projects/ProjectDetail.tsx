@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
+import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
+import JobChat from '@/components/chat/JobChat'
+import JobImages from '@/components/images/JobImages'
+import ProgressTicks from '@/components/pipeline/ProgressTicks'
 
 interface Teammate { id: string; name: string; full_name?: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -58,7 +62,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ────────────────────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab]         = useState<1|2|3>(1)
+  const [tab, setTab]         = useState<1|2|3|4|5>(1)
   const [tab2Done, setTab2Done] = useState(false)
   const [tab3Done, setTab3Done] = useState(false)
   const [saving, setSaving]   = useState(false)
@@ -263,6 +267,27 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     showToast('🎉 Sent to Production!')
   }
 
+  // ── Build financial data object for FloatingFinancialBar ────────────────────
+  const financialProject = {
+    revenue: fin.sale,
+    profit: fin.profit,
+    gpm: fin.gpm,
+    commission: fin.commission,
+    fin_data: {
+      material_cost: fin.material,
+      labor_cost: fin.labor,
+      design_fee: fin.designFee,
+      cogs: fin.cogs,
+      install_pay: fin.labor,
+      hrs_budget: fin.hrs,
+      material_sqft: v(f.sqft),
+      labor_pct: v(f.laborPct, 10),
+      comm_base: 4.5,
+      comm_inbound: f.leadType === 'inbound' ? 1 : 0,
+      comm_gpm_bonus: fin.gpm > 73 ? 2 : 0,
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   const gpmC = fin.gpm >= 70 ? '#22c07a' : fin.gpm >= 55 ? '#f59e0b' : '#f25a5a'
   const curStage = PIPE_STAGES.find(s => s.key === project.pipe_stage)
@@ -304,24 +329,23 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
         </div>
       </div>
 
-      {/* Financial strip */}
+      {/* Progress Ticks — pipeline overview */}
+      <div style={{ marginBottom: 16 }}>
+        <ProgressTicks currentStage={project.pipe_stage || 'sales_in'} />
+      </div>
+
+      {/* Floating Financial Bar — replaces old stat strip */}
       {canFinance && (
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 20px', marginBottom:16, display:'flex', gap:24, alignItems:'center', flexWrap:'wrap' }}>
-          <Stat label="Sale Price" value={fM(fin.sale)} color="var(--accent)" />
-          <Stat label="COGS" value={fM(fin.cogs)} color="var(--text2)" />
-          <Stat label="Profit" value={fM(fin.profit)} color="var(--green)" />
-          <Stat label="GPM" value={fP(fin.gpm)} color={gpmC} />
-          <Stat label="Commission" value={fM(fin.commission)} color="var(--purple)" />
-          <Stat label="Labor Pay" value={fM(fin.labor)} color="var(--cyan)" />
-          <Stat label="Est Hours" value={`${fin.hrs}h`} color="var(--text2)" />
+        <div style={{ marginBottom: 16 }}>
+          <FloatingFinancialBar project={financialProject} />
         </div>
       )}
 
       {/* Tabs */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
-        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', background:'var(--surface)' }}>
-          {([1,2,3] as const).map(n => {
-            const labels = {1:'Quote & Materials', 2:'Design & Scope', 3:'Logistics & Status'}
+        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', background:'var(--surface)', overflowX:'auto' }}>
+          {([1,2,3,4,5] as const).map(n => {
+            const labels: Record<number, string> = {1:'Quote & Materials', 2:'Design & Scope', 3:'Logistics & Status', 4:'💬 Chat', 5:'📷 Images'}
             const done   = n===2 ? tab2Done : n===3 ? tab3Done : false
             return (
               <button key={n} onClick={() => setTab(n)} style={{
@@ -330,15 +354,17 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                 borderBottom: tab===n ? '2px solid var(--accent)' : '2px solid transparent',
                 background:'transparent',
                 color: tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--text3)',
-                marginBottom:-1,
+                marginBottom:-1, whiteSpace:'nowrap',
               }}>
-                <span style={{
-                  width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:11, fontWeight:900,
-                  background: tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--surface2)',
-                  color: tab===n || done ? '#fff' : 'var(--text3)',
-                  border: `1px solid ${tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--border)'}`,
-                }}>{done && n!==tab ? '✓' : n}</span>
+                {n <= 3 && (
+                  <span style={{
+                    width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:11, fontWeight:900,
+                    background: tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--surface2)',
+                    color: tab===n || done ? '#fff' : 'var(--text3)',
+                    border: `1px solid ${tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--border)'}`,
+                  }}>{done && n!==tab ? '✓' : n}</span>
+                )}
                 {labels[n]}
               </button>
             )
@@ -349,6 +375,23 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           {tab === 1 && <Tab1 f={f} ff={ff} jobType={jobType} setJobType={setJobTypeState} subType={subType} setSubType={setSubTypeState} selectedVehicle={selectedVehicle} setSelectedVehicle={setSelectedVehicle} wrapDetail={wrapDetail} setWrapDetail={setWrapDetail} selectedSides={selectedSides} setSelectedSides={setSelectedSides} selectedPPF={selectedPPF} setSelectedPPF={setSelectedPPF} calcSqft={calcSqft} fin={fin} canFinance={canFinance} teammates={teammates} onNext={() => setTab(2)} onSaveOrder={saveAsSalesOrder} profile={profile} />}
           {tab === 2 && <Tab2 f={f} ff={ff} onComplete={() => { setTab2Done(true); setTab(3) }} />}
           {tab === 3 && <Tab3 f={f} ff={ff} project={project} teammates={teammates} onComplete={() => { setTab3Done(true) }} onAdvance={advancePipeline} onSaveOrder={saveAsSalesOrder} profile={profile} curStage={project.pipe_stage || 'sales_in'} />}
+          {tab === 4 && (
+            <JobChat
+              projectId={project.id}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+              currentUserName={profile.full_name || profile.name}
+            />
+          )}
+          {tab === 5 && (
+            <JobImages
+              projectId={project.id}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+              vehicleType={(project.form_data as any)?.selectedVehicle?.name || ''}
+              wrapScope={(project.form_data as any)?.wrapDetail || ''}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -712,21 +755,8 @@ function Tab3({ f, ff, project, teammates, onComplete, onAdvance, onSaveOrder, p
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Pipeline progress */}
       <Section label="Pipeline Stage">
-        <div style={{ display:'flex', gap:0, marginBottom:16 }}>
-          {PIPE_STAGES.map((s, i) => (
-            <div key={s.key} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', position:'relative' }}>
-              {i > 0 && <div style={{ position:'absolute', left:0, top:16, width:'50%', height:2, background: i<=stageIdx ? s.color : 'var(--border)' }} />}
-              {i < PIPE_STAGES.length-1 && <div style={{ position:'absolute', right:0, top:16, width:'50%', height:2, background: i<stageIdx ? PIPE_STAGES[i+1].color : 'var(--border)' }} />}
-              <div style={{
-                width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:12, fontWeight:900, zIndex:1, marginBottom:6,
-                background: i<=stageIdx ? s.color : 'var(--surface2)',
-                border: `2px solid ${i<=stageIdx ? s.color : 'var(--border)'}`,
-                color: i<=stageIdx ? '#fff' : 'var(--text3)',
-              }}>{i<stageIdx ? '✓' : i+1}</div>
-              <div style={{ fontSize:9, fontWeight:700, color: i===stageIdx ? s.color : 'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'.04em' }}>{s.label}</div>
-            </div>
-          ))}
+        <div style={{ marginBottom: 16 }}>
+          <ProgressTicks currentStage={curStage} />
         </div>
         {stage && (
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', background:`${stage.color}10`, border:`1px solid ${stage.color}30`, borderRadius:10 }}>
