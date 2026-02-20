@@ -140,12 +140,16 @@ export async function checkAndAwardBadges(
   userId: string,
 ): Promise<string[]> {
   try {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('xp, level, current_streak, longest_streak, badges')
-      .eq('id', userId)
-      .single()
+    const [profileRes, closedRes, imageRes, referralRes, earlyRes] = await Promise.all([
+      supabase.from('profiles').select('xp, level, current_streak, longest_streak, badges').eq('id', userId).single(),
+      supabase.from('projects').select('id, gpm').eq('agent_id', userId).eq('status', 'closed'),
+      supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
+      supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', userId),
+      // Speed Demon: project closed 2+ days before scheduled install date
+      supabase.from('projects').select('id, install_date, updated_at').eq('agent_id', userId).eq('status', 'closed').not('install_date', 'is', null),
+    ])
 
+    const profile = profileRes.data
     if (!profile) return []
 
     const existingBadges: string[] = profile.badges || []
@@ -158,10 +162,32 @@ export async function checkAndAwardBadges(
       }
     }
 
+    // Streak & level badges
     if ((profile.longest_streak || 0) >= 7)  addBadge('hot_streak')
     if ((profile.level || 1) >= 25)           addBadge('elite')
 
-    // Count closed deals from projects (handled separately by callers)
+    // Closer — 10 deals closed
+    const closedDeals = closedRes.data || []
+    if (closedDeals.length >= 10) addBadge('closer')
+
+    // Sharpshooter — 5 deals closed with GPM > 50%
+    const highGpmDeals = closedDeals.filter(p => (p.gpm || 0) > 50)
+    if (highGpmDeals.length >= 5) addBadge('sharpshooter')
+
+    // Shutterbug — 50 photos uploaded
+    if ((imageRes.count || 0) >= 50) addBadge('shutterbug')
+
+    // Team Player — 5 cross-division referrals
+    if ((referralRes.count || 0) >= 5) addBadge('team_player')
+
+    // Speed Demon — at least one job completed 2+ days before scheduled install date
+    const earlyJobs = (earlyRes.data || []).filter(p => {
+      if (!p.install_date || !p.updated_at) return false
+      const installDate = new Date(p.install_date).getTime()
+      const closedDate = new Date(p.updated_at).getTime()
+      return installDate - closedDate >= 2 * 86400000
+    })
+    if (earlyJobs.length >= 1) addBadge('speed_demon')
 
     if (newBadges.length > 0) {
       await supabase.from('profiles').update({

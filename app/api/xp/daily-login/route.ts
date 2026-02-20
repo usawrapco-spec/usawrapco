@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { updateLoginStreak } from '@/lib/gamification'
+import { updateLoginStreak, checkAndAwardBadges } from '@/lib/gamification'
 import { xpToLevel } from '@/lib/commission'
 
 export async function POST(req: Request) {
@@ -30,7 +30,10 @@ export async function POST(req: Request) {
     const leveledUp = after && before && (after.level || 1) > (before.level || 1)
     const newLevel  = after?.level || 1
 
-    return Response.json({ ...result, leveledUp: !!leveledUp, newLevel })
+    // Check for streak-based badges (hot_streak at 7 days)
+    const newBadges = await checkAndAwardBadges(admin, user.id)
+
+    return Response.json({ ...result, leveledUp: !!leveledUp, newLevel, newBadges })
   } catch (err) {
     console.error('[xp/daily-login] error:', err)
     return Response.json({ streak: 1, xpAwarded: 0, leveledUp: false, newLevel: 1 })
