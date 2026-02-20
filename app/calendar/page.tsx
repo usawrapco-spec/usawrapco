@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import type { Profile, Project } from '@/types'
-import { CalendarClient } from '@/components/calendar/CalendarClient'
+import CalendarPageClient from '@/components/calendar/CalendarPage'
 
 export default async function CalendarPage() {
   const supabase = createClient()
@@ -30,27 +30,15 @@ export default async function CalendarPage() {
 
   const { data: projects } = await query
 
-  // Fetch installer profiles for availability tracking
-  const { data: installerProfiles } = await supabase
-    .from('profiles')
-    .select('id, name')
-    .eq('org_id', profile.org_id)
-    .eq('role', 'installer')
-    .eq('active', true)
-    .order('name')
-
-  const installers = (installerProfiles || []).map(p => ({ id: p.id, name: p.name }))
-
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
       <Sidebar profile={profile as Profile} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
         <main className="flex-1 overflow-y-auto p-6">
-          <CalendarClient
+          <CalendarPageClient
             profile={profile as Profile}
             projects={(projects as Project[]) || []}
-            installers={installers}
           />
         </main>
       </div>

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import type { Profile } from '@/types'
-import { VehicleCatalogClient } from '@/components/catalog/VehicleCatalogClient'
+import CatalogPageClient from '@/components/catalog/CatalogPage'
 
 export default async function CatalogPage() {
   const supabase = createClient()
@@ -20,7 +20,7 @@ export default async function CatalogPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
         <main className="flex-1 overflow-y-auto p-6">
-          <VehicleCatalogClient profile={profile as Profile} />
+          <CatalogPageClient profile={profile as Profile} />
         </main>
       </div>
     </div>

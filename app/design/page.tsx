@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
-import DesignStudio from '@/components/design/DesignStudio'
+import DesignStudioPageClient from '@/components/design/DesignStudioPage'
 import type { Profile } from '@/types'
 
 export default async function DesignPage() {
@@ -38,39 +38,14 @@ export default async function DesignPage() {
     )
   }
 
-  // Fetch design projects
-  const { data: designProjects } = await supabase
-    .from('design_projects')
-    .select('*, designer:designer_id(id, name), project:project_id(id, name, client_name)')
-    .eq('org_id', profile.org_id)
-    .order('created_at', { ascending: false })
-
-  // Fetch team members for assignment
-  const { data: teamMembers } = await supabase
-    .from('profiles')
-    .select('id, name, role')
-    .eq('org_id', profile.org_id)
-    .in('role', ['designer', 'admin'])
-
-  // Fetch projects for linking
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, name, client_name')
-    .eq('org_id', profile.org_id)
-    .order('created_at', { ascending: false })
-    .limit(50)
-
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
       <Sidebar profile={profile as Profile} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
         <main className="flex-1 overflow-y-auto p-6">
-          <DesignStudio
+          <DesignStudioPageClient
             profile={profile as Profile}
-            designProjects={designProjects || []}
-            teamMembers={teamMembers || []}
-            projects={projects || []}
           />
         </main>
       </div>

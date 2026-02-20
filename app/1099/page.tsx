@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import type { Profile } from '@/types'
-import { TaxCalculatorClient } from '@/components/financial/TaxCalculatorClient'
+import TaxCalculatorPageClient from '@/components/financial/TaxCalculatorPage'
 
 export default async function TaxCalcPage() {
   const supabase = await createClient()
@@ -18,7 +18,7 @@ export default async function TaxCalcPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
         <main className="flex-1 overflow-y-auto p-6">
-          <TaxCalculatorClient profile={profile as Profile} />
+          <TaxCalculatorPageClient profile={profile as Profile} />
         </main>
       </div>
     </div>
