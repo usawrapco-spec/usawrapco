@@ -9,10 +9,12 @@ import {
   startOfWeek, endOfWeek,
   startOfMonth, endOfMonth,
   startOfQuarter, endOfQuarter,
-  subWeeks,
   eachWeekOfInterval,
   eachMonthOfInterval,
 } from 'date-fns'
+import { Search, X, CheckSquare, Trash2 } from 'lucide-react'
+import ApprovalModal from '@/components/approval/ApprovalModal'
+import CloseJobModal from '@/components/projects/CloseJobModal'
 import { clsx } from 'clsx'
 import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
@@ -83,6 +85,14 @@ export function DashboardClient({
   const [filterName, setFilterName] = useState('')
   const [showSaveFilter, setShowSaveFilter] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkStage, setBulkStage] = useState('')
+  const [bulkAgent, setBulkAgent] = useState('')
+  const [bulkInstaller, setBulkInstaller] = useState('')
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [approvalProject, setApprovalProject] = useState<Project | null>(null)
+  const [closeProject, setCloseProject] = useState<Project | null>(null)
   const router = useRouter()
   const supabase = createClient()
   const { toast } = useToast()
@@ -305,6 +315,59 @@ export function DashboardClient({
   const archiveProject = useCallback(async (project: Project) => {
     await updateStatus(project, 'cancelled')
   }, [updateStatus])
+
+  // Bulk selection helpers
+  const toggleSelect = useCallback((id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    if (selected.size === filtered.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map(p => p.id)))
+    }
+  }, [filtered, selected.size])
+
+  // Installer list
+  const installers = useMemo(() => {
+    const map = new Map<string, string>()
+    projects.forEach(p => {
+      if (p.installer_id && (p.installer as any)?.name) map.set(p.installer_id, (p.installer as any).name)
+    })
+    return Array.from(map.entries())
+  }, [projects])
+
+  const bulkApply = useCallback(async () => {
+    if (selected.size === 0) return
+    const ids = Array.from(selected)
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (bulkStage) updates.pipe_stage = bulkStage
+    if (bulkAgent) updates.agent_id = bulkAgent
+    if (bulkInstaller) updates.installer_id = bulkInstaller
+    if (bulkStatus) updates.status = bulkStatus
+    if (Object.keys(updates).length <= 1) { toast('Select an action to apply', 'warning'); return }
+    const { error } = await supabase.from('projects').update(updates).in('id', ids)
+    if (error) { toast(error.message, 'error'); return }
+    setProjects(prev => prev.map(p => ids.includes(p.id) ? { ...p, ...updates } : p))
+    toast(`${ids.length} jobs updated`, 'success')
+    setSelected(new Set())
+    setBulkStage(''); setBulkAgent(''); setBulkInstaller(''); setBulkStatus('')
+  }, [selected, bulkStage, bulkAgent, bulkInstaller, bulkStatus, supabase, toast])
+
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selected)
+    const { error } = await supabase.from('projects').delete().in('id', ids)
+    if (error) { toast(error.message, 'error'); return }
+    setProjects(prev => prev.filter(p => !ids.includes(p.id)))
+    toast(`${ids.length} jobs deleted`, 'success')
+    setSelected(new Set())
+    setConfirmBulkDelete(false)
+  }, [selected, supabase, toast])
 
   const getActions = (project: Project): ActionItem[] => [
     { label: 'Open Project', icon: '📄', onClick: () => router.push(`/projects/${project.id}`) },
@@ -591,7 +654,7 @@ export function DashboardClient({
             <div className="relative">
               <input type="text" className="field text-xs py-1.5 pl-7 w-48" placeholder="Search..."
                 value={search} onChange={e => setSearch(e.target.value)} />
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-text3 text-xs">🔍</span>
+              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-text3" />
               {search && (
                 <button onClick={() => setSearch('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-text3 hover:text-text1 text-xs">✕</button>
@@ -634,7 +697,7 @@ export function DashboardClient({
             ) : filtered.map(project => (
               <div key={project.id}
                 className="card cursor-pointer hover:border-accent/40 transition-all hover:-translate-y-0.5 group relative"
-                onClick={() => router.push(`/projects/${project.id}`)}>
+                onClick={() => setApprovalProject(project)}>
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={e => e.stopPropagation()}>
                   <ActionMenu items={getActions(project)} />
@@ -667,6 +730,10 @@ export function DashboardClient({
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="w-10" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll}
+                      style={{ accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                  </th>
                   <th>Client / Vehicle</th>
                   <th>Type</th>
                   <th>Agent</th>
@@ -687,7 +754,12 @@ export function DashboardClient({
                   </tr>
                 ) : filtered.map(project => (
                   <tr key={project.id} className="cursor-pointer group"
-                    onClick={() => router.push(`/projects/${project.id}`)}>
+                    onClick={() => setApprovalProject(project)}
+                    style={selected.has(project.id) ? { background: 'rgba(79,127,255,0.08)' } : undefined}>
+                    <td onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selected.has(project.id)} onChange={() => toggleSelect(project.id)}
+                        style={{ accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                    </td>
                     <td>
                       <div className="font-700 text-text1 text-sm">
                         {(project.customer as any)?.name || (project.form_data as any)?.clientName || project.title}
@@ -747,6 +819,116 @@ export function DashboardClient({
             <div className="flex gap-3">
               <button className="btn-ghost flex-1" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="btn-danger flex-1" onClick={() => deleteProject(confirmDelete)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {approvalProject && (
+        <ApprovalModal
+          project={approvalProject}
+          profile={profile}
+          onClose={() => setApprovalProject(null)}
+          onUpdate={(updated: any) => {
+            setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
+            setApprovalProject(null)
+          }}
+        />
+      )}
+
+      {/* Close Job Modal */}
+      {closeProject && (
+        <CloseJobModal
+          project={closeProject}
+          profile={profile}
+          onClose={() => setCloseProject(null)}
+          onUpdate={(updated: any) => {
+            setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
+            setCloseProject(null)
+          }}
+        />
+      )}
+
+      {/* Bulk Action Bar */}
+      {selected.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+          background: 'var(--surface)', borderTop: '1px solid var(--border)',
+          padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 16,
+          boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CheckSquare size={16} style={{ color: 'var(--accent)' }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
+              {selected.size} job{selected.size > 1 ? 's' : ''} selected
+            </span>
+          </div>
+
+          <select value={bulkStage} onChange={e => setBulkStage(e.target.value)}
+            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: 'var(--text1)', fontWeight: 600 }}>
+            <option value="">Change Stage</option>
+            <option value="sales_in">Sales Intake</option>
+            <option value="production">Production</option>
+            <option value="install">Install</option>
+            <option value="prod_review">QC Review</option>
+            <option value="sales_close">Sales Close</option>
+            <option value="done">Done</option>
+          </select>
+
+          {agents.length > 0 && (
+            <select value={bulkAgent} onChange={e => setBulkAgent(e.target.value)}
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: 'var(--text1)', fontWeight: 600 }}>
+              <option value="">Assign Agent</option>
+              {agents.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          )}
+
+          {installers.length > 0 && (
+            <select value={bulkInstaller} onChange={e => setBulkInstaller(e.target.value)}
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: 'var(--text1)', fontWeight: 600 }}>
+              <option value="">Assign Installer</option>
+              {installers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          )}
+
+          <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)}
+            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: 'var(--text1)', fontWeight: 600 }}>
+            <option value="">Change Status</option>
+            <option value="estimate">Estimate</option>
+            <option value="active">Active Order</option>
+            <option value="closed">Closed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+
+          <button onClick={() => setConfirmBulkDelete(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', color: 'var(--red)' }}>
+            <Trash2 size={14} /> Delete
+          </button>
+
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button onClick={() => { setSelected(new Set()); setBulkStage(''); setBulkAgent(''); setBulkInstaller(''); setBulkStatus('') }}
+              style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text2)' }}>
+              Cancel
+            </button>
+            <button onClick={bulkApply}
+              style={{ padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer', background: 'var(--accent)', border: 'none', color: '#fff' }}>
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setConfirmBulkDelete(false)}>
+          <div className="card max-w-sm anim-pop-in" onClick={e => e.stopPropagation()}>
+            <div className="text-lg font-800 text-text1 mb-2">Delete {selected.size} Projects?</div>
+            <div className="text-sm text-text3 mb-4">This action cannot be undone. All data for these projects will be permanently removed.</div>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1" onClick={() => setConfirmBulkDelete(false)}>Cancel</button>
+              <button className="btn-danger flex-1" onClick={bulkDelete}>Delete All</button>
             </div>
           </div>
         </div>

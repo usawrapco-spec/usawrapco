@@ -8,6 +8,8 @@ import { canAccess } from '@/types'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
+import ApprovalModal from '@/components/approval/ApprovalModal'
+import CloseJobModal from '@/components/projects/CloseJobModal'
 
 interface PipelineBoardProps {
   profile: Profile
@@ -29,6 +31,8 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
   const [agentFilter, setAgentFilter] = useState('all')
   const [installerFilter, setInstallerFilter] = useState('all')
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [approvalProject, setApprovalProject] = useState<Project | null>(null)
+  const [closeProject, setCloseProject] = useState<Project | null>(null)
   const [sendBackTarget, setSendBackTarget] = useState<string | null>(null)
   const [sendBackReason, setSendBackReason] = useState('')
   const [sendBackNote, setSendBackNote] = useState('')
@@ -228,7 +232,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
 
                   return (
                     <div key={project.id}
-                      onClick={() => setExpandedCard(expanded ? null : project.id)}
+                      onClick={() => setApprovalProject(project)}
                       className={clsx(
                         'rounded-xl p-3 cursor-pointer transition-all duration-200',
                         'border hover:-translate-y-0.5 hover:shadow-lg',
@@ -320,6 +324,32 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
           )
         })}
       </div>
+
+      {/* Approval Modal */}
+      {approvalProject && (
+        <ApprovalModal
+          project={approvalProject}
+          profile={profile}
+          onClose={() => setApprovalProject(null)}
+          onUpdate={(updated) => {
+            setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
+            setApprovalProject(null)
+          }}
+        />
+      )}
+
+      {/* Close Job Modal */}
+      {closeProject && (
+        <CloseJobModal
+          project={closeProject}
+          profile={profile}
+          onClose={() => setCloseProject(null)}
+          onUpdate={(updated) => {
+            setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
+            setCloseProject(null)
+          }}
+        />
+      )}
 
       {/* Send-back modal */}
       {sendBackTarget && (() => {

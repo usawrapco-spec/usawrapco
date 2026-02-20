@@ -25,6 +25,8 @@ export default async function DashboardPage() {
         .from('projects')
         .select(`
             *,
+            agent:agent_id(id, name, email),
+            installer:installer_id(id, name, email),
             customer:customer_id(id, name, email)
         `)
         .eq('org_id', profile.org_id)

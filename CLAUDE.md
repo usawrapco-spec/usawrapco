@@ -29,7 +29,10 @@ Vehicle wrap shop CRM. Next.js 14, TypeScript, Tailwind CSS, Supabase, Vercel.
 profiles, projects, project_members, job_comments, job_images,
 stage_approvals, send_backs, install_sessions, material_tracking,
 customer_intake_tokens, proofing_tokens, designer_bids,
-installer_bids, referrals, stage_checklist, design_projects
+installer_bids, referrals, design_projects, design_project_comments,
+design_project_files, shop_settings, custom_vehicles, custom_line_items,
+vinyl_inventory, vinyl_usage, app_state, customers, design_proofs,
+designer_specialties, orgs, proof_settings, tasks, visibility_settings
 
 ## Pipeline Stages
 sales_in -> production -> install -> prod_review -> sales_close -> done
@@ -46,15 +49,18 @@ sales_in -> production -> install -> prod_review -> sales_close -> done
 - Types: import type { Profile, Project } from '@/types'
 - All components are client components ('use client')
 
-## Pages (v4.2)
+## Pages (v5.0)
 /dashboard, /pipeline, /tasks, /calendar, /inventory, /design,
 /employees, /analytics, /settings, /production, /leaderboard,
 /timeline, /overhead, /1099, /catalog, /installer-portal,
-/projects/[id], /intake/[token], /proof/[token]
+/projects/[id], /projects/[id]/edit, /intake/[token], /proof/[token]
 
 ## Rules
 1. ALWAYS run npm run build before committing
 2. Never break existing functionality
 3. All tables need RLS policies
-4. Version is v4.2 - bump on major changes
-5. Reference HTML prototype (index.html) for feature specs
+4. Version is v5.0
+5. Admin role sees ALL sidebar nav items (bypasses canAccess checks)
+6. All navigation uses Next.js Link or router.push(). No window.open(), no target="_blank"
+7. Use Lucide React icons only, zero emojis in code
+8. .env.local must be in .gitignore. Never commit secrets.

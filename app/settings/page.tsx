@@ -4,7 +4,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { canAccess } from '@/types'
 import type { Profile } from '@/types'
-import { SettingsClient } from '@/components/settings/SettingsClient'
+import SettingsPageClient from '@/components/settings/SettingsPage'
 
 export default async function SettingsPage() {
   const supabase = createClient()
@@ -33,21 +33,14 @@ export default async function SettingsPage() {
     )
   }
 
-  const { data: org } = await supabase
-    .from('orgs')
-    .select('*')
-    .eq('id', profile.org_id)
-    .single()
-
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
       <Sidebar profile={profile as Profile} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
         <main className="flex-1 overflow-y-auto p-6">
-          <SettingsClient
+          <SettingsPageClient
             profile={profile as Profile}
-            org={org}
           />
         </main>
       </div>
