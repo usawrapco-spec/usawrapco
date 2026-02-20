@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
-import { clsx } from 'clsx'
+import { Package, Plus, AlertTriangle, Scissors, Trash2, X, CheckCircle } from 'lucide-react'
 
 interface VinylItem {
   id: string
@@ -11,37 +12,72 @@ interface VinylItem {
   finish: string
   sku: string
   rollWidth: number   // inches
-  totalLength: number // feet
-  usedLength: number  // feet
+  totalLength: number // feet (original)
+  sqftAvailable: number // remaining sqft
   costPerFoot: number
   location: string
-  status: 'in_stock' | 'low' | 'out' | 'on_order'
+  status: 'in_stock' | 'low' | 'out' | 'on_order' | 'consumed'
   notes: string
+  wasteSqft: number
 }
 
-// Default inventory items for demo — in production these come from Supabase
-const DEFAULT_INVENTORY: VinylItem[] = [
-  { id: '1', brand: '3M', color: 'Gloss Black', finish: 'Gloss', sku: '3M-1080-G12', rollWidth: 60, totalLength: 150, usedLength: 45, costPerFoot: 4.50, location: 'Rack A1', status: 'in_stock', notes: '' },
-  { id: '2', brand: '3M', color: 'Satin White', finish: 'Satin', sku: '3M-1080-S10', rollWidth: 60, totalLength: 150, usedLength: 120, costPerFoot: 4.50, location: 'Rack A2', status: 'low', notes: 'Reorder soon' },
-  { id: '3', brand: 'Avery', color: 'Matte Military Green', finish: 'Matte', sku: 'AV-SW900-MG', rollWidth: 60, totalLength: 75, usedLength: 75, costPerFoot: 5.00, location: 'Rack B1', status: 'out', notes: '' },
-  { id: '4', brand: '3M', color: 'Gloss Hot Rod Red', finish: 'Gloss', sku: '3M-1080-G13', rollWidth: 60, totalLength: 150, usedLength: 30, costPerFoot: 4.50, location: 'Rack A3', status: 'in_stock', notes: '' },
-  { id: '5', brand: 'XPEL', color: 'Clear PPF', finish: 'Clear', sku: 'XPEL-ULT-60', rollWidth: 60, totalLength: 100, usedLength: 55, costPerFoot: 8.00, location: 'Rack C1', status: 'in_stock', notes: 'Premium PPF' },
-  { id: '6', brand: 'Avery', color: 'Gloss Metallic Blue', finish: 'Metallic', sku: 'AV-SW900-MB', rollWidth: 60, totalLength: 75, usedLength: 10, costPerFoot: 5.50, location: 'Rack B2', status: 'in_stock', notes: '' },
-  { id: '7', brand: '3M', color: 'Carbon Fiber Black', finish: 'Textured', sku: '3M-1080-CF12', rollWidth: 60, totalLength: 50, usedLength: 42, costPerFoot: 6.00, location: 'Rack A4', status: 'low', notes: '' },
-  { id: '8', brand: 'Hexis', color: 'Gloss Nardo Gray', finish: 'Gloss', sku: 'HX-30G-NG', rollWidth: 54, totalLength: 75, usedLength: 0, costPerFoot: 4.00, location: 'Rack D1', status: 'on_order', notes: 'Arriving next week' },
-]
+function dbToItem(row: Record<string, unknown>): VinylItem {
+  const widthInches = Number(row.width_inches) || 60
+  const totalLenFt  = Number(row.length_ft) || 150
+  const sqftTotal   = (widthInches / 12) * totalLenFt
+  const sqftAvail   = Number(row.sqft_available) ?? sqftTotal
+  const pct         = sqftTotal > 0 ? sqftAvail / sqftTotal : 1
+  let status: VinylItem['status'] = (row.status as VinylItem['status']) || 'in_stock'
+  // Auto-compute status if DB doesn't have it right
+  if (status !== 'consumed' && status !== 'on_order') {
+    if (sqftAvail <= 0) status = 'out'
+    else if (pct < 0.2) status = 'low'
+    else status = 'in_stock'
+  }
+  return {
+    id:           String(row.id),
+    brand:        String(row.brand || ''),
+    color:        String(row.color || ''),
+    finish:       String(row.finish || ''),
+    sku:          String(row.sku || ''),
+    rollWidth:    widthInches,
+    totalLength:  totalLenFt,
+    sqftAvailable: sqftAvail,
+    costPerFoot:  Number(row.cost_per_foot) || 0,
+    location:     String(row.location || ''),
+    status,
+    notes:        String(row.notes || ''),
+    wasteSqft:    Number(row.waste_sqft) || 0,
+  }
+}
 
 interface InventoryClientProps {
   profile: Profile
 }
 
 export function InventoryClient({ profile }: InventoryClientProps) {
-  const [inventory, setInventory] = useState<VinylItem[]>(DEFAULT_INVENTORY)
-  const [search, setSearch] = useState('')
+  const supabase = createClient()
+  const [inventory, setInventory] = useState<VinylItem[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [search, setSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [brandFilter, setBrandFilter] = useState<string>('all')
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [brandFilter, setBrandFilter]   = useState<string>('all')
+  const [showAddModal, setShowAddModal]  = useState(false)
+  const [wasteModal, setWasteModal]     = useState<VinylItem | null>(null)
+  const [remnantModal, setRemnantModal] = useState<VinylItem | null>(null)
+
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('vinyl_inventory')
+      .select('*')
+      .neq('status', 'consumed')
+      .order('created_at', { ascending: false })
+    setInventory((data || []).map(dbToItem))
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
 
   const filtered = useMemo(() => {
     let list = [...inventory]
@@ -59,308 +95,438 @@ export function InventoryClient({ profile }: InventoryClientProps) {
     return list
   }, [inventory, statusFilter, brandFilter, search])
 
-  const brands = Array.from(new Set(inventory.map(v => v.brand)))
-  const totalValue = inventory.reduce((s, v) => s + ((v.totalLength - v.usedLength) * v.costPerFoot), 0)
-  const lowItems = inventory.filter(v => v.status === 'low' || v.status === 'out')
-  const totalRolls = inventory.length
+  const brands       = Array.from(new Set(inventory.map(v => v.brand)))
+  const totalValue   = inventory.reduce((s, v) => s + (v.sqftAvailable * v.costPerFoot), 0)
+  const lowItems     = inventory.filter(v => v.status === 'low' || v.status === 'out')
+  const totalRolls   = inventory.length
   const inStockRolls = inventory.filter(v => v.status === 'in_stock').length
 
-  const statusBadge: Record<string, string> = {
-    in_stock: 'badge-green',
-    low: 'badge-amber',
-    out: 'badge-red',
-    on_order: 'badge-accent',
+  const statusBadgeColor: Record<string, string> = {
+    in_stock: 'var(--green)',
+    low:      'var(--amber)',
+    out:      'var(--red)',
+    on_order: 'var(--accent)',
   }
   const statusLabel: Record<string, string> = {
     in_stock: 'In Stock',
-    low: 'Low',
-    out: 'Out',
+    low:      'Low',
+    out:      'Out',
     on_order: 'On Order',
   }
 
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
-  function updateUsed(id: string, amount: number) {
-    setInventory(prev => prev.map(v => {
-      if (v.id !== id) return v
-      const newUsed = Math.min(Math.max(0, v.usedLength + amount), v.totalLength)
-      const remaining = v.totalLength - newUsed
-      const pct = remaining / v.totalLength
-      let status: VinylItem['status'] = 'in_stock'
-      if (remaining <= 0) status = 'out'
-      else if (pct < 0.2) status = 'low'
-      return { ...v, usedLength: newUsed, status }
-    }))
+  async function handleMarkConsumed(item: VinylItem) {
+    if (!confirm(`Mark "${item.brand} ${item.color}" as fully consumed?`)) return
+    await fetch('/api/inventory/consume-roll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rollId: item.id }),
+    })
+    setInventory(prev => prev.filter(v => v.id !== item.id))
+  }
+
+  async function handleLogWaste(item: VinylItem, wasteSqft: number, reason: string) {
+    const { error } = await supabase
+      .from('vinyl_inventory')
+      .update({ waste_sqft: (item.wasteSqft || 0) + wasteSqft, notes: reason || item.notes })
+      .eq('id', item.id)
+    if (!error) {
+      setInventory(prev => prev.map(v =>
+        v.id === item.id ? { ...v, wasteSqft: (v.wasteSqft || 0) + wasteSqft } : v
+      ))
+    }
+    setWasteModal(null)
   }
 
   return (
-    <div className="max-w-6xl">
+    <div style={{ maxWidth: 1100 }}>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="font-display text-3xl font-900 text-text1"
-            style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            🎨 Vinyl Inventory
+          <h1 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 30, fontWeight: 900, color: 'var(--text1)', marginBottom: 4 }}>
+            Vinyl Inventory
           </h1>
-          <p className="text-sm text-text3 mt-1">
-            Track rolls, materials, and stock levels
-          </p>
+          <p style={{ fontSize: 13, color: 'var(--text3)' }}>Track rolls, materials, and stock levels</p>
         </div>
         <button
-          className="btn-primary"
           onClick={() => setShowAddModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
         >
-          ＋ Add Material
+          <Plus size={15} /> Add Roll
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="card">
-          <div className="text-xs font-700 text-text3 uppercase tracking-wider mb-1">Total Rolls</div>
-          <div className="mono text-2xl font-800 text-text1">{totalRolls}</div>
-          <div className="text-xs text-text3 mt-0.5">{inStockRolls} in stock</div>
-        </div>
-        <div className="card">
-          <div className="text-xs font-700 text-text3 uppercase tracking-wider mb-1">Inventory Value</div>
-          <div className="mono text-2xl font-800 text-green">{fmtMoney(totalValue)}</div>
-          <div className="text-xs text-text3 mt-0.5">Remaining material</div>
-        </div>
-        <div className="card">
-          <div className="text-xs font-700 text-text3 uppercase tracking-wider mb-1">Low / Out</div>
-          <div className={clsx('mono text-2xl font-800', lowItems.length > 0 ? 'text-red' : 'text-green')}>
-            {lowItems.length}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+        {[
+          { label: 'Total Rolls', val: totalRolls, sub: `${inStockRolls} in stock`, color: 'var(--text1)' },
+          { label: 'Inventory Value', val: fmtMoney(totalValue), sub: 'Remaining material', color: 'var(--green)' },
+          { label: 'Low / Out', val: lowItems.length, sub: 'Need reorder', color: lowItems.length > 0 ? 'var(--red)' : 'var(--green)' },
+          { label: 'Brands', val: brands.length, sub: '', color: 'var(--purple)' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 22, fontWeight: 800, color: s.color }}>{s.val}</div>
+            {s.sub && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{s.sub}</div>}
           </div>
-          <div className="text-xs text-text3 mt-0.5">Need reorder</div>
-        </div>
-        <div className="card">
-          <div className="text-xs font-700 text-text3 uppercase tracking-wider mb-1">Brands</div>
-          <div className="mono text-2xl font-800 text-purple">{brands.length}</div>
-        </div>
+        ))}
       </div>
 
       {/* Alerts */}
       {lowItems.length > 0 && (
-        <div className="mb-5 p-4 bg-red/8 border-2 border-red/40 rounded-xl">
-          <div className="text-xs font-900 text-red uppercase tracking-wider mb-2">⚠️ Reorder Alert</div>
-          <div className="flex flex-wrap gap-2">
-            {lowItems.map(v => (
-              <span key={v.id} className="badge badge-red">
-                {v.brand} {v.color} — {v.status === 'out' ? 'OUT' : 'LOW'}
-              </span>
-            ))}
+        <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(242,90,90,0.08)', border: '1px solid rgba(242,90,90,0.35)', borderRadius: 10, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <AlertTriangle size={16} style={{ color: 'var(--red)', flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Reorder Alert</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {lowItems.map(v => (
+                <span key={v.id} style={{ padding: '2px 8px', background: 'rgba(242,90,90,0.12)', color: 'var(--red)', borderRadius: 5, fontSize: 11, fontWeight: 700 }}>
+                  {v.brand} {v.color} — {v.status === 'out' ? 'OUT' : 'LOW'}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            className="field pl-8"
-            placeholder="Search vinyl — color, brand, SKU…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text3">🔍</span>
-        </div>
-        <select className="field w-32" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+        <input
+          type="text"
+          placeholder="Search — color, brand, SKU..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: 1, padding: '9px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' }}
+        />
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          style={{ padding: '9px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, outline: 'none', minWidth: 120 }}
+        >
           <option value="all">All Status</option>
           <option value="in_stock">In Stock</option>
           <option value="low">Low</option>
           <option value="out">Out</option>
           <option value="on_order">On Order</option>
         </select>
-        <select className="field w-28" value={brandFilter} onChange={e => setBrandFilter(e.target.value)}>
+        <select
+          value={brandFilter}
+          onChange={e => setBrandFilter(e.target.value)}
+          style={{ padding: '9px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, outline: 'none', minWidth: 110 }}
+        >
           <option value="all">All Brands</option>
           {brands.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </div>
 
-      {/* Inventory Table */}
-      <div className="card p-0 overflow-hidden">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Material</th>
-              <th>SKU</th>
-              <th>Width</th>
-              <th>Remaining</th>
-              <th>Cost/ft</th>
-              <th>Value</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="text-center py-12 text-text3 text-sm">
-                  {search ? 'No materials matching search.' : 'No inventory items.'}
-                </td>
+      {/* Table */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)', fontSize: 14 }}>Loading inventory...</div>
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['Material', 'SKU', 'Width', 'Remaining', 'Cost/ft', 'Value', 'Location', 'Status', 'Actions'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' }}>{h}</th>
+                ))}
               </tr>
-            ) : filtered.map(v => {
-              const remaining = v.totalLength - v.usedLength
-              const pct = (remaining / v.totalLength) * 100
-              const value = remaining * v.costPerFoot
-              return (
-                <tr key={v.id}>
-                  <td>
-                    <div className="font-700 text-text1 text-sm">{v.brand} {v.color}</div>
-                    <div className="text-xs text-text3">{v.finish}</div>
-                  </td>
-                  <td className="mono text-xs text-text2">{v.sku}</td>
-                  <td className="text-text2 text-sm">{v.rollWidth}"</td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-surface2 rounded-full overflow-hidden">
-                        <div
-                          className={clsx('h-full rounded-full',
-                            pct > 50 ? 'bg-green' : pct > 20 ? 'bg-amber' : 'bg-red'
-                          )}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="mono text-xs font-600 text-text2">
-                        {remaining.toFixed(0)}ft / {v.totalLength}ft
-                      </span>
-                    </div>
-                  </td>
-                  <td className="mono text-sm text-text2">${v.costPerFoot.toFixed(2)}</td>
-                  <td className="mono text-sm font-600 text-green">{fmtMoney(value)}</td>
-                  <td className="text-xs text-text3">{v.location}</td>
-                  <td>
-                    <span className={statusBadge[v.status]}>{statusLabel[v.status]}</span>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="btn-ghost btn-xs"
-                        onClick={() => updateUsed(v.id, 10)}
-                        title="Use 10ft"
-                      >
-                        -10ft
-                      </button>
-                      <button
-                        className="btn-ghost btn-xs"
-                        onClick={() => updateUsed(v.id, -10)}
-                        title="Add 10ft"
-                      >
-                        +10ft
-                      </button>
-                    </div>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: 60, color: 'var(--text3)', fontSize: 13 }}>
+                    {loading ? 'Loading...' : search ? 'No materials matching search.' : 'No inventory items. Add a roll to get started.'}
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              ) : filtered.map((v, i) => {
+                const sqftTotal  = (v.rollWidth / 12) * v.totalLength
+                const pct        = sqftTotal > 0 ? Math.min(100, (v.sqftAvailable / sqftTotal) * 100) : 0
+                const value      = v.sqftAvailable * v.costPerFoot
+                const barColor   = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--amber)' : 'var(--red)'
+                const bColor     = statusBadgeColor[v.status] || 'var(--text3)'
+                return (
+                  <tr key={v.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', background: 'transparent' }}>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{v.brand} {v.color}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{v.finish}</div>
+                    </td>
+                    <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--text2)' }}>{v.sku || '—'}</td>
+                    <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text2)' }}>{v.rollWidth}"</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 60, height: 6, background: 'var(--surface2)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 4 }} />
+                        </div>
+                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--text2)', fontWeight: 600 }}>
+                          {v.sqftAvailable.toFixed(0)} sqft
+                        </span>
+                      </div>
+                      {v.wasteSqft > 0 && (
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Waste: {v.wasteSqft.toFixed(1)} sqft</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: 'var(--text2)' }}>
+                      ${v.costPerFoot.toFixed(2)}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>
+                      {fmtMoney(value)}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text3)' }}>{v.location || '—'}</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <span style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${bColor}18`, color: bColor }}>
+                        {statusLabel[v.status] || v.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          onClick={() => setWasteModal(v)}
+                          title="Log Waste"
+                          style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--amber)', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}
+                        >
+                          Waste
+                        </button>
+                        <button
+                          onClick={() => setRemnantModal(v)}
+                          title="Cut Remnant"
+                          style={{ padding: '4px 6px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--cyan)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Scissors size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleMarkConsumed(v)}
+                          title="Mark Consumed"
+                          style={{ padding: '4px 6px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {/* Add Material Modal */}
+      {/* Add Roll Modal */}
       {showAddModal && (
-        <AddMaterialModal
+        <AddRollModal
+          orgId={profile.org_id}
           onClose={() => setShowAddModal(false)}
-          onAdd={(item) => {
-            setInventory(prev => [...prev, { ...item, id: Date.now().toString() }])
-            setShowAddModal(false)
-          }}
+          onAdded={() => { setShowAddModal(false); load() }}
+        />
+      )}
+
+      {/* Log Waste Modal */}
+      {wasteModal && (
+        <LogWasteModal
+          item={wasteModal}
+          onClose={() => setWasteModal(null)}
+          onSave={(sqft, reason) => handleLogWaste(wasteModal, sqft, reason)}
+        />
+      )}
+
+      {/* Cut Remnant Modal */}
+      {remnantModal && (
+        <CutRemnantModal
+          item={remnantModal}
+          onClose={() => setRemnantModal(null)}
+          onSaved={() => { setRemnantModal(null) }}
         />
       )}
     </div>
   )
 }
 
-function AddMaterialModal({ onClose, onAdd }: {
-  onClose: () => void
-  onAdd: (item: Omit<VinylItem, 'id'>) => void
-}) {
-  const [brand, setBrand] = useState('')
-  const [color, setColor] = useState('')
-  const [finish, setFinish] = useState('Gloss')
-  const [sku, setSku] = useState('')
-  const [rollWidth, setRollWidth] = useState('60')
-  const [totalLength, setTotalLength] = useState('150')
-  const [costPerFoot, setCostPerFoot] = useState('4.50')
-  const [location, setLocation] = useState('')
+// ─── Add Roll Modal ───────────────────────────────────────────────────────────
+function AddRollModal({ orgId, onClose, onAdded }: { orgId: string; onClose: () => void; onAdded: () => void }) {
+  const supabase = createClient()
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    brand: '', color: '', finish: 'Gloss', sku: '',
+    width_inches: '60', length_ft: '150', cost_per_foot: '4.50', location: '', notes: '',
+  })
+
+  async function save() {
+    if (!form.brand || !form.color) return
+    setSaving(true)
+    const widthIn  = parseFloat(form.width_inches) || 60
+    const lenFt    = parseFloat(form.length_ft) || 150
+    const sqftAvailable = (widthIn / 12) * lenFt
+    await supabase.from('vinyl_inventory').insert({
+      ...form,
+      width_inches: widthIn,
+      length_ft: lenFt,
+      sqft_available: sqftAvailable,
+      cost_per_foot: parseFloat(form.cost_per_foot) || 0,
+      status: 'in_stock',
+      org_id: orgId,
+    })
+    setSaving(false)
+    onAdded()
+  }
+
+  const f = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }))
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(0,0,0,0.7)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="card anim-pop-in w-full max-w-md" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="font-display text-xl font-900" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            ＋ Add Material
-          </div>
-          <button onClick={onClose} className="text-text3 hover:text-text1 text-lg">✕</button>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 440, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text1)', fontFamily: 'Barlow Condensed, sans-serif' }}>Add Material Roll</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={18} /></button>
         </div>
-        <div className="p-5 flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="field-label">Brand</label>
-              <input className="field" placeholder="3M, Avery, XPEL…" value={brand} onChange={e => setBrand(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">Color</label>
-              <input className="field" placeholder="Gloss Black" value={color} onChange={e => setColor(e.target.value)} />
-            </div>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Fld label="Brand"><input style={inp} placeholder="3M, Avery, XPEL…" value={form.brand} onChange={e => f('brand', e.target.value)} /></Fld>
+            <Fld label="Color"><input style={inp} placeholder="Gloss Black" value={form.color} onChange={e => f('color', e.target.value)} /></Fld>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="field-label">Finish</label>
-              <select className="field" value={finish} onChange={e => setFinish(e.target.value)}>
-                {['Gloss','Matte','Satin','Metallic','Textured','Clear','Chrome'].map(f =>
-                  <option key={f} value={f}>{f}</option>
-                )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Fld label="Finish">
+              <select style={inp} value={form.finish} onChange={e => f('finish', e.target.value)}>
+                {['Gloss', 'Matte', 'Satin', 'Metallic', 'Textured', 'Clear', 'Chrome'].map(x => <option key={x}>{x}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="field-label">SKU</label>
-              <input className="field" placeholder="3M-1080-G12" value={sku} onChange={e => setSku(e.target.value)} />
-            </div>
+            </Fld>
+            <Fld label="SKU"><input style={inp} placeholder="3M-1080-G12" value={form.sku} onChange={e => f('sku', e.target.value)} /></Fld>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="field-label">Width (in)</label>
-              <input type="number" className="field" value={rollWidth} onChange={e => setRollWidth(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">Length (ft)</label>
-              <input type="number" className="field" value={totalLength} onChange={e => setTotalLength(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">Cost/ft ($)</label>
-              <input type="number" step="0.01" className="field" value={costPerFoot} onChange={e => setCostPerFoot(e.target.value)} />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <Fld label="Width (in)"><input type="number" style={inp} value={form.width_inches} onChange={e => f('width_inches', e.target.value)} /></Fld>
+            <Fld label="Length (ft)"><input type="number" style={inp} value={form.length_ft} onChange={e => f('length_ft', e.target.value)} /></Fld>
+            <Fld label="Cost/ft ($)"><input type="number" step="0.01" style={inp} value={form.cost_per_foot} onChange={e => f('cost_per_foot', e.target.value)} /></Fld>
           </div>
-          <div>
-            <label className="field-label">Location</label>
-            <input className="field" placeholder="Rack A1" value={location} onChange={e => setLocation(e.target.value)} />
+          <Fld label="Location"><input style={inp} placeholder="Rack A1" value={form.location} onChange={e => f('location', e.target.value)} /></Fld>
+          <Fld label="Notes"><input style={inp} placeholder="Optional" value={form.notes} onChange={e => f('notes', e.target.value)} /></Fld>
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '10px', border: '1px solid var(--border)', borderRadius: 8, background: 'transparent', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+            <button onClick={save} disabled={!form.brand || !form.color || saving} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+              {saving ? 'Adding...' : 'Add Roll'}
+            </button>
           </div>
-          <button
-            className="btn-primary mt-2"
-            disabled={!brand || !color}
-            onClick={() => onAdd({
-              brand, color, finish, sku,
-              rollWidth: parseFloat(rollWidth) || 60,
-              totalLength: parseFloat(totalLength) || 150,
-              usedLength: 0,
-              costPerFoot: parseFloat(costPerFoot) || 0,
-              location,
-              status: 'in_stock',
-              notes: '',
-            })}
-          >
-            Add Material →
-          </button>
         </div>
       </div>
     </div>
   )
+}
+
+// ─── Log Waste Modal ──────────────────────────────────────────────────────────
+function LogWasteModal({ item, onClose, onSave }: { item: VinylItem; onClose: () => void; onSave: (sqft: number, reason: string) => void }) {
+  const [sqft, setSqft]     = useState('')
+  const [reason, setReason] = useState('')
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, width: 360, padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)' }}>Log Waste — {item.brand} {item.color}</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={16} /></button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Fld label="Waste (sqft)"><input type="number" style={inp} placeholder="e.g. 3.5" value={sqft} onChange={e => setSqft(e.target.value)} /></Fld>
+          <Fld label="Reason"><input style={inp} placeholder="Trim, mistake, defect..." value={reason} onChange={e => setReason(e.target.value)} /></Fld>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'transparent', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+            <button onClick={() => onSave(parseFloat(sqft) || 0, reason)} disabled={!sqft} style={{ flex: 1, padding: 10, border: 'none', borderRadius: 8, background: 'var(--amber)', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+              Log Waste
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Cut Remnant Modal ────────────────────────────────────────────────────────
+function CutRemnantModal({ item, onClose, onSaved }: { item: VinylItem; onClose: () => void; onSaved: () => void }) {
+  const supabase = createClient()
+  const [saving, setSaving] = useState(false)
+  const [form, setForm]     = useState({ width_inches: '', length_inches: '', location: 'Remnant bin', notes: '' })
+
+  async function save() {
+    const w = parseFloat(form.width_inches)
+    const l = parseFloat(form.length_inches)
+    if (!w || !l) return
+    setSaving(true)
+    const sqft = (w * l) / 144
+    await supabase.from('material_remnants').insert({
+      material_name: `${item.brand} ${item.color}`,
+      material_type: 'vinyl',
+      color:         item.color,
+      finish:        item.finish,
+      width_inches:  w,
+      length_inches: l,
+      sqft,
+      status:        'available',
+      from_roll_id:  item.id,
+      location:      form.location,
+      notes:         form.notes,
+    })
+    setSaving(false)
+    onSaved()
+  }
+
+  const f = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }))
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, width: 380, padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Scissors size={15} style={{ color: 'var(--cyan)' }} /> Cut Remnant
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{item.brand} {item.color}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={16} /></button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Fld label="Width (in)"><input type="number" style={inp} placeholder="e.g. 36" value={form.width_inches} onChange={e => f('width_inches', e.target.value)} /></Fld>
+            <Fld label="Length (in)"><input type="number" style={inp} placeholder="e.g. 60" value={form.length_inches} onChange={e => f('length_inches', e.target.value)} /></Fld>
+          </div>
+          {form.width_inches && form.length_inches && (
+            <div style={{ fontSize: 12, color: 'var(--cyan)', fontWeight: 600 }}>
+              {((parseFloat(form.width_inches) * parseFloat(form.length_inches)) / 144).toFixed(2)} sqft
+            </div>
+          )}
+          <Fld label="Location"><input style={inp} placeholder="Remnant bin" value={form.location} onChange={e => f('location', e.target.value)} /></Fld>
+          <Fld label="Notes"><input style={inp} placeholder="Optional" value={form.notes} onChange={e => f('notes', e.target.value)} /></Fld>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'transparent', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+            <button onClick={save} disabled={!form.width_inches || !form.length_inches || saving} style={{ flex: 1, padding: 10, border: 'none', borderRadius: 8, background: 'var(--cyan)', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+              {saving ? 'Saving...' : 'Save Remnant'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function Fld({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
+const inp: React.CSSProperties = {
+  width: '100%',
+  padding: '9px 12px',
+  background: 'var(--surface2)',
+  border: '1px solid var(--border)',
+  borderRadius: 8,
+  color: 'var(--text1)',
+  fontSize: 13,
+  outline: 'none',
+  boxSizing: 'border-box',
 }

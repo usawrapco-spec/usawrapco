@@ -999,7 +999,70 @@ function ProductionTab({ f, ff, project, profile }: any) {
         </div>
       </Section>
 
+      <RemnantMatchPanel sqft={qSqft} material={f.matSku} />
       <MaterialTracking projectId={project.id} orgId={project.org_id} />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REMNANT MATCH PANEL — Finds usable remnant pieces for this job
+// ═══════════════════════════════════════════════════════════════════
+function RemnantMatchPanel({ sqft, material }: { sqft: number; material: string }) {
+  const [matches, setMatches]   = useState<any[]>([])
+  const [loading, setLoading]   = useState(false)
+  const [searched, setSearched] = useState(false)
+
+  async function find() {
+    if (sqft <= 0) return
+    setLoading(true)
+    const res = await fetch('/api/inventory/match-remnant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sqftNeeded: sqft, material }),
+    })
+    const data = await res.json()
+    setMatches(data.matches || [])
+    setSearched(true)
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ padding: '14px 16px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: searched && matches.length > 0 ? 12 : 0 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Remnant Match</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+            {sqft > 0 ? `Looking for ${sqft} sqft of usable remnants` : 'Enter sqft above to search for remnants'}
+          </div>
+        </div>
+        <button
+          onClick={find}
+          disabled={loading || sqft <= 0}
+          style={{ padding: '7px 14px', background: 'var(--cyan)', color: '#000', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: sqft > 0 ? 'pointer' : 'not-allowed', opacity: sqft > 0 ? 1 : 0.5 }}
+        >
+          {loading ? 'Searching...' : 'Find Remnants'}
+        </button>
+      </div>
+      {searched && matches.length === 0 && (
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>No matching remnants found. Full roll needed.</div>
+      )}
+      {matches.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {matches.slice(0, 3).map((m: any) => (
+            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)' }}>{m.brand} {m.color} — {m.finish}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.sqft_available} sqft available · {m.location || 'No location'}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: m.fit_score >= 75 ? 'var(--green)' : 'var(--amber)', fontFamily: 'JetBrains Mono, monospace' }}>{m.fit_score}%</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)' }}>fit score</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
