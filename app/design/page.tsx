@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import DesignStudioPageClient from '@/components/design/DesignStudioPage'
+import { Lock } from 'lucide-react'
 import type { Profile } from '@/types'
 
 export default async function DesignPage() {
@@ -25,7 +26,7 @@ export default async function DesignPage() {
           <TopBar profile={profile as Profile} />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="text-4xl mb-3">🔒</div>
+              <Lock size={36} className="mx-auto mb-3 text-text3" />
               <div className="text-lg font-700 text-text1">Access Restricted</div>
               <div className="text-sm text-text3 mt-1">You don&apos;t have permission to access Design Studio.</div>
             </div>

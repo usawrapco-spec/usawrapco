@@ -46,10 +46,10 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
       <div>
         {sorted.map(([name, val], i) => {
           const pct = Math.round(val / maxVal * 100)
-          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''
+          const medalColor = i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : ''
           return (
             <div key={name} style={{ display:'grid', gridTemplateColumns:'36px 1fr 90px 120px', alignItems:'center', padding:'10px 16px', borderBottom:'1px solid rgba(255,255,255,.04)', background: i < 3 ? `rgba(${i===0?'255,215,0':i===1?'192,192,192':'205,127,50'},.04)` : 'transparent' }}>
-              <div style={{ fontSize:16, textAlign:'center' }}>{medal || (i+1)}</div>
+              <div style={{ fontSize:13, textAlign:'center', fontFamily:'JetBrains Mono', fontWeight:700, color: medalColor || 'var(--text3)' }}>{i < 3 ? '#' : ''}{i+1}</div>
               <div>
                 <div style={{ fontWeight:700, fontSize:13, color:'var(--text1)' }}>{name}</div>
                 <div style={{ fontSize:10, color:'var(--text3)' }}>{labelFn(name, val)}</div>
@@ -68,21 +68,21 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
   }
 
   const boards = [
-    { title: '💰 Sales Revenue', content: buildBoard(
+    { title: 'Sales Revenue', content: buildBoard(
       j => (j.form_data as any)?.agent, j => j.revenue || 0,
       (n) => { const cnt = filtered.filter(j => (j.form_data as any)?.agent === n).length; return `${cnt} jobs` },
       '#4f7fff', v => fM(v)
     )},
-    { title: '🔧 Installer Earnings', content: buildBoard(
+    { title: 'Installer Earnings', content: buildBoard(
       j => (j.form_data as any)?.installer, j => j.fin_data?.labor || (j.form_data as any)?.selectedVehicle?.pay || 0,
       (n) => { const hrs = filtered.filter(j => (j.form_data as any)?.installer === n).reduce((s,j) => s + (j.fin_data?.hrs || 0), 0); return `${Math.round(hrs)}h logged` },
       '#22d3ee', v => fM(v)
     )},
-    { title: '🤝 Referral Sources', content: buildBoard(
+    { title: 'Referral Sources', content: buildBoard(
       j => (j.form_data as any)?.referralSource || null, j => j.revenue || 0,
       () => '', '#8b5cf6', v => fM(v)
     )},
-    { title: '📈 GPM by Agent', content: buildBoard(
+    { title: 'GPM by Agent', content: buildBoard(
       j => (j.form_data as any)?.agent, j => j.gpm || 0,
       (n) => { const cnt = filtered.filter(j => (j.form_data as any)?.agent === n).length; return `${cnt} jobs (avg)` },
       '#22c07a', v => { const n = filtered.filter(j => (j.form_data as any)?.agent === v.toString()).length; return `${Math.round(v / Math.max(1, n))}%` }
@@ -92,7 +92,7 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
   return (
     <div style={{ maxWidth:1200, margin:'0 auto' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-        <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)' }}>🏆 Leaderboard</div>
+        <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)' }}>Leaderboard</div>
         <div style={{ display:'flex', gap:6 }}>
           {(['week','month','quarter','all'] as const).map(p => (
             <button key={p} onClick={() => setPeriod(p)} style={{

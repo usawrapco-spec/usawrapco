@@ -4,6 +4,11 @@ import { useState, useMemo } from 'react'
 import type { Profile, Project, UserRole } from '@/types'
 import { clsx } from 'clsx'
 import { useRouter } from 'next/navigation'
+import {
+  ClipboardList, Phone, CheckCircle, CheckCircle2, Calendar, Building2, RefreshCw,
+  DollarSign, AlertCircle, Printer, Search, Bell, Wrench, Ruler, RotateCcw,
+  Timer, Camera, Target, Clock, Pin, ListTodo, type LucideIcon,
+} from 'lucide-react'
 
 interface Teammate { id: string; name: string; role: UserRole }
 
@@ -11,7 +16,7 @@ interface GeneratedTask {
   id: string
   type: string
   urgency: 'urgent' | 'today' | 'normal'
-  icon: string
+  Icon: LucideIcon
   desc: string
   sub: string
   person: string
@@ -21,31 +26,31 @@ interface GeneratedTask {
   date: string
 }
 
-const WORKFLOW_GUIDES: Record<string, { num: number; icon: string; label: string; detail: string }[]> = {
+const WORKFLOW_GUIDES: Record<string, { num: number; Icon: LucideIcon; label: string; detail: string }[]> = {
   sales: [
-    { num:1, icon:'📋', label:'Check your task queue daily',      detail:'Start here — urgent items first, then today, then upcoming.' },
-    { num:2, icon:'📞', label:'Follow up on open estimates',       detail:'Call or text clients 48h after sending. Log results in the project.' },
-    { num:3, icon:'✅', label:'Convert estimate to Sales Order',   detail:'Once they say yes — open project, set status to Active, confirm details.' },
-    { num:4, icon:'📅', label:'Schedule install appointment',      detail:'Every active order needs an install date. Book it and enter it in the project.' },
-    { num:5, icon:'🏭', label:'Complete Sales Intake sign-off',    detail:'Open Approval board, find your job, sign off the Sales Intake stage.' },
-    { num:6, icon:'🔄', label:'Monitor job through pipeline',      detail:'Check progress in Approval. You will be notified if anything is sent back.' },
-    { num:7, icon:'💰', label:'Final close sign-off',              detail:'When all stages pass, sign Sales Approval to lock commission.' },
+    { num:1, Icon:ClipboardList, label:'Check your task queue daily',      detail:'Start here — urgent items first, then today, then upcoming.' },
+    { num:2, Icon:Phone,         label:'Follow up on open estimates',       detail:'Call or text clients 48h after sending. Log results in the project.' },
+    { num:3, Icon:CheckCircle,   label:'Convert estimate to Sales Order',   detail:'Once they say yes — open project, set status to Active, confirm details.' },
+    { num:4, Icon:Calendar,      label:'Schedule install appointment',      detail:'Every active order needs an install date. Book it and enter it in the project.' },
+    { num:5, Icon:Building2,     label:'Complete Sales Intake sign-off',    detail:'Open Approval board, find your job, sign off the Sales Intake stage.' },
+    { num:6, Icon:RefreshCw,     label:'Monitor job through pipeline',      detail:'Check progress in Approval. You will be notified if anything is sent back.' },
+    { num:7, Icon:DollarSign,    label:'Final close sign-off',              detail:'When all stages pass, sign Sales Approval to lock commission.' },
   ],
   production: [
-    { num:1, icon:'🔴', label:'Check for sent-back jobs first',    detail:'Red cards in the pipeline need your attention before anything else.' },
-    { num:2, icon:'🖨', label:'Queue and print jobs',             detail:'Jobs in Production stage are ready to print. Check sqft and material.' },
-    { num:3, icon:'📏', label:'Log linear feet printed',          detail:'After printing, enter linft in the sign-off panel for tracking.' },
-    { num:4, icon:'✅', label:'Sign off Production stage',         detail:'Open Approval board, enter linft, click Sign Off Production.' },
-    { num:5, icon:'🔍', label:'Run QC after install',             detail:'When jobs come back for QC, check wrap quality and log final material.' },
-    { num:6, icon:'🔁', label:'Log any reprints',                 detail:'Enter reprint cost in QC sign-off — it will be deducted from job profit.' },
+    { num:1, Icon:AlertCircle,   label:'Check for sent-back jobs first',    detail:'Red cards in the pipeline need your attention before anything else.' },
+    { num:2, Icon:Printer,       label:'Queue and print jobs',              detail:'Jobs in Production stage are ready to print. Check sqft and material.' },
+    { num:3, Icon:Ruler,         label:'Log linear feet printed',           detail:'After printing, enter linft in the sign-off panel for tracking.' },
+    { num:4, Icon:CheckCircle,   label:'Sign off Production stage',         detail:'Open Approval board, enter linft, click Sign Off Production.' },
+    { num:5, Icon:Search,        label:'Run QC after install',              detail:'When jobs come back for QC, check wrap quality and log final material.' },
+    { num:6, Icon:RotateCcw,     label:'Log any reprints',                  detail:'Enter reprint cost in QC sign-off — it will be deducted from job profit.' },
   ],
   installer: [
-    { num:1, icon:'🔔', label:'Check for pending bids',           detail:'Open Tasks or Calendar. A pending bid means you need to accept or decline.' },
-    { num:2, icon:'✅', label:'Accept or decline job bids',        detail:'Click the project, select your name, click Accept.' },
-    { num:3, icon:'🔍', label:'Pre-install vinyl check',          detail:'Day of install: complete the 4-point vinyl checklist before starting.' },
-    { num:4, icon:'⏱', label:'Start your install timer',         detail:'Tap Start Timer in the project. It tracks actual hours for your pay.' },
-    { num:5, icon:'📸', label:'Complete post-install checklist',  detail:'After wrapping: heat applied, edges, no bubbles, seams, clean, photos.' },
-    { num:6, icon:'🔧', label:'Sign off Install stage',           detail:'Enter actual hours, the date, and your name. Click Sign Off Install.' },
+    { num:1, Icon:Bell,          label:'Check for pending bids',            detail:'Open Tasks or Calendar. A pending bid means you need to accept or decline.' },
+    { num:2, Icon:CheckCircle,   label:'Accept or decline job bids',        detail:'Click the project, select your name, click Accept.' },
+    { num:3, Icon:Search,        label:'Pre-install vinyl check',           detail:'Day of install: complete the 4-point vinyl checklist before starting.' },
+    { num:4, Icon:Timer,         label:'Start your install timer',          detail:'Tap Start Timer in the project. It tracks actual hours for your pay.' },
+    { num:5, Icon:Camera,        label:'Complete post-install checklist',   detail:'After wrapping: heat applied, edges, no bubbles, seams, clean, photos.' },
+    { num:6, Icon:Wrench,        label:'Sign off Install stage',            detail:'Enter actual hours, the date, and your name. Click Sign Off Install.' },
   ],
 }
 
@@ -70,33 +75,33 @@ function generateTasks(projects: Project[], teammates: Teammate[]): GeneratedTas
     // Sales tasks
     if (agentId) {
       if (stage === 'sales_in' && hasSendBack) {
-        tasks.push({ id:`sb-sales-${p.id}`, type:'send_back', urgency:'urgent', icon:'🔴',
+        tasks.push({ id:`sb-sales-${p.id}`, type:'send_back', urgency:'urgent', Icon:AlertCircle,
           desc:`${p.title} — sent back, action required`,
           sub:`Reason: ${lastSB!.reason?.substring(0,60)}`,
           person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
       } else if (stage === 'sales_in' && !p.checkout?.sales_in) {
-        tasks.push({ id:`intake-${p.id}`, type:'intake', urgency:'normal', icon:'📋',
+        tasks.push({ id:`intake-${p.id}`, type:'intake', urgency:'normal', Icon:ClipboardList,
           desc:`Complete sales intake — ${p.title}`,
           sub: p.vehicle_desc || p.type,
           person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
       }
 
       if (p.status === 'estimate') {
-        tasks.push({ id:`estimate-${p.id}`, type:'estimate', urgency:'today', icon:'📞',
+        tasks.push({ id:`estimate-${p.id}`, type:'estimate', urgency:'today', Icon:Phone,
           desc:`Follow up on estimate — ${p.title}`,
           sub:`${p.vehicle_desc || ''} · ${p.revenue ? '$' + Math.round(p.revenue).toLocaleString() : 'No price yet'}`,
           person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
       }
 
       if (p.status === 'active' && !iDate) {
-        tasks.push({ id:`appt-${p.id}`, type:'schedule', urgency:'today', icon:'📅',
+        tasks.push({ id:`appt-${p.id}`, type:'schedule', urgency:'today', Icon:Calendar,
           desc:`Schedule install date — ${p.title}`,
           sub:'No install date set on active order',
           person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
       }
 
       if (stage === 'sales_close' && !p.checkout?.sales_close) {
-        tasks.push({ id:`close-${p.id}`, type:'close', urgency:'urgent', icon:'💰',
+        tasks.push({ id:`close-${p.id}`, type:'close', urgency:'urgent', Icon:DollarSign,
           desc:`Final sign-off needed — ${p.title}`,
           sub:'All stages complete — awaiting your close',
           person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
@@ -107,7 +112,7 @@ function generateTasks(projects: Project[], teammates: Teammate[]): GeneratedTas
     if (stage === 'production') {
       const prodPerson = teammates.find(t => t.role === 'production')
       if (prodPerson) {
-        tasks.push({ id:`prod-${p.id}`, type:'production', urgency: hasSendBack ? 'urgent' : 'urgent', icon: hasSendBack ? '🔴' : '🖨',
+        tasks.push({ id:`prod-${p.id}`, type:'production', urgency: hasSendBack ? 'urgent' : 'urgent', Icon: hasSendBack ? AlertCircle : Printer,
           desc: hasSendBack ? `Sent back to production — ${p.title}` : `Print queue — ${p.title}`,
           sub: p.vehicle_desc || '',
           person: prodPerson.name, personId: prodPerson.id, role:'production', projectId: p.id, date: today })
@@ -117,7 +122,7 @@ function generateTasks(projects: Project[], teammates: Teammate[]): GeneratedTas
     if (stage === 'prod_review') {
       const prodPerson = teammates.find(t => t.role === 'production')
       if (prodPerson) {
-        tasks.push({ id:`qc-${p.id}`, type:'qc', urgency:'today', icon:'🔍',
+        tasks.push({ id:`qc-${p.id}`, type:'qc', urgency:'today', Icon:Search,
           desc:`QC review needed — ${p.title}`,
           sub:'Check wrap quality, log final material used',
           person: prodPerson.name, personId: prodPerson.id, role:'production', projectId: p.id, date: today })
@@ -128,18 +133,18 @@ function generateTasks(projects: Project[], teammates: Teammate[]): GeneratedTas
     if (instId) {
       const bid = p.installer_bid
       if (bid?.status === 'pending') {
-        tasks.push({ id:`bid-${p.id}`, type:'bid', urgency:'urgent', icon:'🔔',
+        tasks.push({ id:`bid-${p.id}`, type:'bid', urgency:'urgent', Icon:Bell,
           desc:`Bid pending — accept or decline — ${p.title}`,
           sub:`${p.revenue ? '$' + Math.round(p.revenue).toLocaleString() : ''} · ${iDate || 'No date'}`,
           person: instName, personId: instId, role:'installer', projectId: p.id, date: today })
       }
       if (stage === 'install' && isToday) {
-        tasks.push({ id:`install-today-${p.id}`, type:'install', urgency:'today', icon:'🔧',
+        tasks.push({ id:`install-today-${p.id}`, type:'install', urgency:'today', Icon:Wrench,
           desc:`Install TODAY — ${p.title}`,
           sub: p.vehicle_desc || '',
           person: instName, personId: instId, role:'installer', projectId: p.id, date: today })
       } else if (stage === 'install' && iDate && iDate > today) {
-        tasks.push({ id:`install-upcoming-${p.id}`, type:'install', urgency:'normal', icon:'📋',
+        tasks.push({ id:`install-upcoming-${p.id}`, type:'install', urgency:'normal', Icon:ClipboardList,
           desc:`Upcoming install — ${p.title} on ${iDate}`,
           sub:'Pre-install checklist required day of',
           person: instName, personId: instId, role:'installer', projectId: p.id, date: iDate })
@@ -214,7 +219,7 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-base">{task.icon}</span>
+            <task.Icon size={15} className="shrink-0 text-text3" />
             <span className="text-sm font-700 text-text1">{task.desc}</span>
             {task.urgency === 'urgent' && (
               <span className="badge badge-red text-xs">URGENT</span>
@@ -241,9 +246,9 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
       {/* Header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="font-display text-3xl font-900 text-red"
+          <h1 className="font-display text-3xl font-900 text-text1 flex items-center gap-3"
             style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            ✅ Task Queue
+            <ListTodo size={26} className="text-accent" /> Task Queue
           </h1>
           <p className="text-sm text-text3 mt-1">
             Ordered by priority · Complete top-to-bottom · Click any task to open the job
@@ -273,7 +278,7 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
           </select>
           {urgentCount > 0 && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red/10 border border-red/40 rounded-lg text-sm font-700 text-red">
-              🔴 {urgentCount} urgent
+              <AlertCircle size={14} /> {urgentCount} urgent
             </div>
           )}
         </div>
@@ -283,8 +288,8 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
       {personFilter !== 'all' && selectedPerson && (
         <div className="card mb-5 p-0 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-accent/5 border-b border-border">
-            <div className="text-sm font-800 text-accent">
-              📋 {selectedPerson.name}'s Workflow Guide
+            <div className="text-sm font-800 text-accent flex items-center gap-1.5">
+              <ClipboardList size={14} /> {selectedPerson.name}'s Workflow Guide
             </div>
             <div className="text-xs text-text3 capitalize">{selectedPerson.role}</div>
           </div>
@@ -295,7 +300,7 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
                   {step.num}
                 </div>
                 <div>
-                  <div className="text-sm font-700 text-text1">{step.icon} {step.label}</div>
+                  <div className="text-sm font-700 text-text1 flex items-center gap-1.5"><step.Icon size={13} className="text-text3" /> {step.label}</div>
                   <div className="text-xs text-text3 mt-0.5">{step.detail}</div>
                 </div>
               </div>
@@ -307,7 +312,7 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
       {/* Next action callout */}
       {filtered.length > 0 && personFilter !== 'all' && (
         <div className="mb-5 p-4 bg-accent/8 border-2 border-accent rounded-xl">
-          <div className="text-xs font-900 text-accent uppercase tracking-wider mb-2">🎯 Do This First</div>
+          <div className="text-xs font-900 text-accent uppercase tracking-wider mb-2 flex items-center gap-1.5"><Target size={12} /> Do This First</div>
           <div className="text-base font-800 text-text1">{filtered[0].desc}</div>
           <div className="text-sm text-text3 mt-1">{filtered[0].sub}</div>
         </div>
@@ -316,7 +321,7 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
       {/* Task groups */}
       {filtered.length === 0 ? (
         <div className="card text-center py-16">
-          <div className="text-4xl mb-3">✅</div>
+          <CheckCircle2 size={40} className="mx-auto mb-3 text-green" />
           <div className="text-lg font-700 text-text1">All clear!</div>
           <div className="text-sm text-text3 mt-1">No open tasks right now.</div>
         </div>
@@ -324,8 +329,8 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
         <div className="flex flex-col gap-6">
           {urgent.length > 0 && (
             <div>
-              <div className="text-xs font-900 text-red uppercase tracking-widest mb-3 pl-1">
-                🔴 Urgent — Do Now ({urgent.length})
+              <div className="text-xs font-900 text-red uppercase tracking-widest mb-3 pl-1 flex items-center gap-1.5">
+                <AlertCircle size={12} /> Urgent — Do Now ({urgent.length})
               </div>
               <div className="flex flex-col gap-2">
                 {urgent.map((t, i) => <TaskCard key={t.id} task={t} num={i+1} />)}
@@ -334,8 +339,8 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
           )}
           {today.length > 0 && (
             <div>
-              <div className="text-xs font-900 text-amber uppercase tracking-widest mb-3 pl-1">
-                🟡 Today's Actions ({today.length})
+              <div className="text-xs font-900 text-amber uppercase tracking-widest mb-3 pl-1 flex items-center gap-1.5">
+                <Clock size={12} /> Today's Actions ({today.length})
               </div>
               <div className="flex flex-col gap-2">
                 {today.map((t, i) => <TaskCard key={t.id} task={t} num={urgent.length+i+1} />)}
@@ -344,8 +349,8 @@ export function TasksClient({ profile, projects, teammates }: TasksClientProps) 
           )}
           {normal.length > 0 && (
             <div>
-              <div className="text-xs font-900 text-text3 uppercase tracking-widest mb-3 pl-1">
-                📌 Upcoming ({normal.length})
+              <div className="text-xs font-900 text-text3 uppercase tracking-widest mb-3 pl-1 flex items-center gap-1.5">
+                <Pin size={12} /> Upcoming ({normal.length})
               </div>
               <div className="flex flex-col gap-2">
                 {normal.map((t, i) => <TaskCard key={t.id} task={t} num={urgent.length+today.length+i+1} />)}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Wrench, MessageSquare } from 'lucide-react'
 
 interface PipelineJobCardProps {
   project: any
@@ -165,7 +166,7 @@ export default function PipelineJobCard({ project, department, isGhost, onClick 
               fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
               background: 'rgba(34,211,238,0.1)', color: '#22d3ee',
             }}>
-              🔧 {installer.split(' ')[0]}
+              <Wrench size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> {installer.split(' ')[0]}
             </span>
           )}
         </div>
@@ -180,7 +181,7 @@ export default function PipelineJobCard({ project, department, isGhost, onClick 
             }}
             title="Quick chat"
           >
-            💬
+            <MessageSquare size={13} />
           </button>
         )}
       </div>

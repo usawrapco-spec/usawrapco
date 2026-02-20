@@ -412,14 +412,14 @@ export function DashboardClient({
   }, [selected, supabase, toast])
 
   const getActions = (project: Project): ActionItem[] => [
-    { label: 'Open Project', icon: '📄', onClick: () => router.push(`/projects/${project.id}`) },
-    { label: 'Duplicate', icon: '📋', onClick: () => duplicateProject(project) },
-    { label: 'Mark as Active', icon: '🟢', onClick: () => updateStatus(project, 'active') },
-    { label: 'Mark Estimate', icon: '📝', onClick: () => updateStatus(project, 'estimate') },
-    { label: 'Schedule Install', icon: '📅', onClick: () => updateStatus(project, 'install_scheduled') },
-    { label: 'Close Out', icon: '✅', onClick: () => updateStatus(project, 'closed'), divider: true },
-    { label: 'Archive', icon: '📦', onClick: () => archiveProject(project), divider: true },
-    { label: 'Delete', icon: '🗑', onClick: () => setConfirmDelete(project.id), danger: true },
+    { label: 'Open Project', onClick: () => router.push(`/projects/${project.id}`) },
+    { label: 'Duplicate', onClick: () => duplicateProject(project) },
+    { label: 'Mark as Active', onClick: () => updateStatus(project, 'active') },
+    { label: 'Mark Estimate', onClick: () => updateStatus(project, 'estimate') },
+    { label: 'Schedule Install', onClick: () => updateStatus(project, 'install_scheduled') },
+    { label: 'Close Out', onClick: () => updateStatus(project, 'closed'), divider: true },
+    { label: 'Archive', onClick: () => archiveProject(project), divider: true },
+    { label: 'Delete', onClick: () => setConfirmDelete(project.id), danger: true },
   ]
 
   // Save filter
@@ -767,8 +767,8 @@ export function DashboardClient({
                   <button key={f.name} onClick={() => loadFilter(f)}
                     className="group flex items-center gap-1 px-2 py-1 rounded-lg bg-accent/10 text-accent text-xs font-600 hover:bg-accent/20 transition-colors">
                     {f.name}
-                    <span onClick={e => { e.stopPropagation(); removeSavedFilter(f.name) }}
-                      className="opacity-0 group-hover:opacity-100 text-red hover:text-red ml-0.5">✕</span>
+                    <X size={10} onClick={e => { e.stopPropagation(); removeSavedFilter(f.name) }}
+                      className="opacity-0 group-hover:opacity-100 text-red hover:text-red ml-0.5" />
                   </button>
                 ))}
               </div>
@@ -795,7 +795,7 @@ export function DashboardClient({
               <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-text3" />
               {search && (
                 <button onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text3 hover:text-text1 text-xs">✕</button>
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text3 hover:text-text1"><X size={11} /></button>
               )}
             </div>
 
@@ -803,7 +803,7 @@ export function DashboardClient({
             {(search || agentFilter !== 'all' || typeFilter !== 'all' || filterTab !== 'all') && (
               <div className="relative">
                 <button onClick={() => setShowSaveFilter(!showSaveFilter)}
-                  className="btn-ghost btn-xs">💾 Save</button>
+                  className="btn-ghost btn-xs">Save Filter</button>
                 {showSaveFilter && (
                   <div className="absolute right-0 top-full mt-1 z-40 bg-surface border border-border rounded-xl p-3 shadow-2xl w-52">
                     <input className="field text-xs mb-2" placeholder="Filter name..."
@@ -818,9 +818,9 @@ export function DashboardClient({
             {/* View toggle */}
             <div className="flex border border-border rounded-lg overflow-hidden">
               <button onClick={() => setView('table')}
-                className={clsx('px-2 py-1 text-xs', view === 'table' ? 'bg-accent/20 text-accent' : 'text-text3')}>☰</button>
+                className={clsx('px-2 py-1', view === 'table' ? 'bg-accent/20 text-accent' : 'text-text3')}><FileText size={12} /></button>
               <button onClick={() => setView('cards')}
-                className={clsx('px-2 py-1 text-xs', view === 'cards' ? 'bg-accent/20 text-accent' : 'text-text3')}>▦</button>
+                className={clsx('px-2 py-1', view === 'cards' ? 'bg-accent/20 text-accent' : 'text-text3')}><BarChart3 size={12} /></button>
             </div>
           </div>
         </div>
@@ -856,7 +856,7 @@ export function DashboardClient({
                 </div>
                 {project.install_date && (
                   <div className="mt-2 pt-2 border-t border-border text-xs text-text3 flex items-center gap-1.5">
-                    📅 {format(new Date(project.install_date), 'MMM d, yyyy')}
+                    <Clock size={11} /> {format(new Date(project.install_date), 'MMM d, yyyy')}
                   </div>
                 )}
               </div>
