@@ -14,13 +14,13 @@ interface SendBackModalProps {
 }
 
 const REASONS = [
-  { key: 'vinyl_issue', label: '🔴 Vinyl Issue', desc: 'Defect, wrinkle, tear, or quality problem with material' },
-  { key: 'wrong_dims', label: '📐 Wrong Dimensions', desc: 'Print size doesn\'t match vehicle measurements' },
-  { key: 'color_mismatch', label: '🎨 Color Mismatch', desc: 'Color doesn\'t match proof or brand guidelines' },
-  { key: 'install_quality', label: '🔧 Install Quality', desc: 'Bubbles, lifting edges, misalignment, poor finish' },
-  { key: 'missing_info', label: '📋 Missing Information', desc: 'Required fields, photos, or docs not provided' },
-  { key: 'client_change', label: '👤 Client Change Request', desc: 'Customer requested design or scope changes' },
-  { key: 'other', label: '⚠️ Other', desc: 'Custom reason — provide details below' },
+  { key: 'vinyl_issue',     label: 'Vinyl Issue',          desc: 'Defect, wrinkle, tear, or quality problem with material' },
+  { key: 'wrong_dims',      label: 'Wrong Dimensions',     desc: 'Print size doesn\'t match vehicle measurements' },
+  { key: 'color_mismatch',  label: 'Color Mismatch',       desc: 'Color doesn\'t match proof or brand guidelines' },
+  { key: 'install_quality', label: 'Install Quality',      desc: 'Bubbles, lifting edges, misalignment, poor finish' },
+  { key: 'missing_info',    label: 'Missing Information',  desc: 'Required fields, photos, or docs not provided' },
+  { key: 'client_change',   label: 'Client Change Request',desc: 'Customer requested design or scope changes' },
+  { key: 'other',           label: 'Other',                desc: 'Custom reason — provide details below' },
 ]
 
 const STAGES = [
@@ -99,8 +99,8 @@ export default function SendBackModal({ isOpen, onClose, projectId, orgId, userI
       }} onClick={e => e.stopPropagation()}>
 
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 18, fontWeight: 900, color: '#ef4444' }}>⬅ Send Back Job</div>
-          <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text3)', fontSize:20, cursor:'pointer' }}>✕</button>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#ef4444' }}>Send Back Job</div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text3)', fontSize:20, cursor:'pointer', lineHeight:1 }}>x</button>
         </div>
 
         {/* Send to which stage */}
@@ -173,7 +173,7 @@ export default function SendBackModal({ isOpen, onClose, projectId, orgId, userI
               opacity: (!reason || sending) ? 0.5 : 1,
             }}
           >
-            {sending ? 'Sending back...' : `⬅ Send Back to ${STAGES.find(s => s.key === targetStage)?.label}`}
+            {sending ? 'Sending back...' : `Send Back to ${STAGES.find(s => s.key === targetStage)?.label}`}
           </button>
           <button onClick={onClose} style={{
             padding: '14px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13,

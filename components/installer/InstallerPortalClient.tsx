@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Wrench, Check, X, Clock, DollarSign, Calendar } from 'lucide-react'
+import { Wrench, Check, X, Clock, DollarSign, Calendar, Bell } from 'lucide-react'
 import clsx from 'clsx'
 import type { Profile } from '@/types'
 
@@ -17,7 +17,41 @@ type Tab = 'open' | 'pending' | 'accepted' | 'history'
 export default function InstallerPortalClient({ profile, bids: initialBids, openBids: initialOpenBids = [] }: InstallerPortalClientProps) {
   const supabase = createClient()
   const [bids, setBids] = useState<any[]>(initialBids)
-  const [openBids] = useState<any[]>(initialOpenBids)
+  const [openBids, setOpenBids] = useState<any[]>(initialOpenBids)
+  const [newBidAlert, setNewBidAlert] = useState(false)
+
+  // Realtime subscription for bid updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('installer-bids-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'installer_bids',
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          const updated = payload.new as Record<string, unknown>
+          // Update my bids if this bid belongs to me
+          if (updated.installer_id === profile.id) {
+            setBids(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b))
+          }
+          // Remove from open bids if status changed from open
+          if (updated.status !== 'open') {
+            setOpenBids(prev => prev.filter(b => b.id !== updated.id))
+          }
+        } else if (payload.eventType === 'INSERT') {
+          const newBid = payload.new as Record<string, unknown>
+          if (newBid.status === 'open') {
+            // New open bid available - show alert
+            setNewBidAlert(true)
+            setTimeout(() => setNewBidAlert(false), 5000)
+          }
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [profile.id])
   const [activeTab, setActiveTab] = useState<Tab>(initialOpenBids.length > 0 ? 'open' : 'pending')
   const [submittingBidId, setSubmittingBidId] = useState<string | null>(null)
   const [myBidAmount, setMyBidAmount] = useState('')
@@ -136,6 +170,18 @@ export default function InstallerPortalClient({ profile, bids: initialBids, open
 
   return (
     <div>
+      {/* New bid alert banner */}
+      {newBidAlert && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', marginBottom: 16,
+          background: 'rgba(34,192,122,0.12)', border: '1px solid rgba(34,192,122,0.3)',
+          borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#22c07a',
+        }}>
+          <Bell size={15} />
+          New bid opportunity available! Switch to &quot;Open Bids&quot; tab.
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <div style={{

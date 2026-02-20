@@ -66,7 +66,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text1)', marginBottom: 12 }}>🔧 Installer Assignment</div>
+      <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text1)', marginBottom: 12 }}>Installer Assignment</div>
 
       {/* Accepted */}
       {acceptedBid && (
@@ -163,7 +163,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
               background: selectedInstallers.size > 0 ? '#22d3ee' : 'var(--surface2)',
               color: selectedInstallers.size > 0 ? '#0a2540' : 'var(--text3)',
             }}>
-            {sending ? 'Sending...' : `🔔 Send Bid to ${selectedInstallers.size} Installer${selectedInstallers.size !== 1 ? 's' : ''}`}
+            {sending ? 'Sending...' : `Send Bid to ${selectedInstallers.size} Installer${selectedInstallers.size !== 1 ? 's' : ''}`}
           </button>
         </>
       )}

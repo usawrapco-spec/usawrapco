@@ -215,7 +215,7 @@ export default function QuotedVsActual({ projectId, orgId, project }: QuotedVsAc
           <button onClick={saveActuals} style={{
             padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer',
             background: 'var(--green)', border: 'none', color: '#0d1a10',
-          }}>💾 Save Actuals</button>
+          }}>Save Actuals</button>
         </div>
       )}
     </div>

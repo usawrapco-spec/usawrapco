@@ -165,7 +165,7 @@ export default function MaterialTracking({ projectId, orgId, userId, project }: 
         padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer',
         background: 'var(--accent)', border: 'none', color: '#fff', opacity: saving ? 0.6 : 1,
       }}>
-        {saving ? 'Saving...' : '💾 Save Material Log'}
+        {saving ? 'Saving...' : 'Save Material Log'}
       </button>
     </div>
   )

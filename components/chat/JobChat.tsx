@@ -26,10 +26,10 @@ interface JobChatProps {
 }
 
 const CHANNELS = [
-  { key: 'team', label: '🏢 Team Chat', color: 'purple' },
-  { key: 'designer', label: '🎨 Designer', color: 'pink' },
-  { key: 'installer', label: '🔧 Installer', color: 'orange' },
-  { key: 'client', label: '👤 Client', color: 'cyan' },
+  { key: 'team',      label: 'Team Chat',  color: 'purple' },
+  { key: 'designer',  label: 'Designer',   color: 'pink' },
+  { key: 'installer', label: 'Installer',  color: 'orange' },
+  { key: 'client',    label: 'Client',     color: 'cyan' },
 ];
 
 export default function JobChat({ projectId, orgId, currentUserId, currentUserName = 'You' }: JobChatProps) {

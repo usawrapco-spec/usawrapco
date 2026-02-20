@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import InstallTimer from '@/components/install/InstallTimer'
 import SendBackModal from '@/components/approval/SendBackModal'
+import { FileText, Printer, Wrench, Search, CheckCircle, ChevronLeft, AlertTriangle, Check, type LucideIcon } from 'lucide-react'
 
 interface StageApprovalProps {
   projectId: string
@@ -19,7 +20,7 @@ interface StageApprovalProps {
 const STAGE_CONFIG: Record<string, {
   label: string
   color: string
-  icon: string
+  icon: LucideIcon
   desc: string
   checklist: { key: string; label: string; required: boolean }[]
   requiredFields?: string[]
@@ -27,7 +28,7 @@ const STAGE_CONFIG: Record<string, {
   sales_in: {
     label: 'Sales Intake',
     color: '#4f7fff',
-    icon: '📋',
+    icon: FileText,
     desc: 'Sales rep reviews job, confirms scope & pricing, sends to production.',
     checklist: [
       { key: 'client_info', label: 'Client info complete (name, phone, email)', required: true },
@@ -41,7 +42,7 @@ const STAGE_CONFIG: Record<string, {
   production: {
     label: 'Production',
     color: '#22c07a',
-    icon: '🖨',
+    icon: Printer,
     desc: 'Print, laminate, cut all panels. Log linear feet printed. Confirm material.',
     checklist: [
       { key: 'design_approved', label: 'Design approved by customer', required: true },
@@ -57,7 +58,7 @@ const STAGE_CONFIG: Record<string, {
   install: {
     label: 'Install',
     color: '#22d3ee',
-    icon: '🔧',
+    icon: Wrench,
     desc: 'Installer wraps vehicle, logs actual hours & notes, signs off on work.',
     checklist: [
       { key: 'vinyl_inspected', label: 'Vinyl inspected — no visible defects', required: true },
@@ -76,7 +77,7 @@ const STAGE_CONFIG: Record<string, {
   prod_review: {
     label: 'Production QC',
     color: '#f59e0b',
-    icon: '🔍',
+    icon: Search,
     desc: 'Production manager reviews install quality, logs actuals, approves or sends back.',
     checklist: [
       { key: 'visual_inspection', label: 'Visual inspection passed — no defects visible', required: true },
@@ -90,7 +91,7 @@ const STAGE_CONFIG: Record<string, {
   sales_close: {
     label: 'Sales Close',
     color: '#8b5cf6',
-    icon: '✅',
+    icon: CheckCircle,
     desc: 'Final review, customer delivery, payment collection, job closure.',
     checklist: [
       { key: 'customer_notified', label: 'Customer notified — vehicle is ready', required: true },
@@ -200,8 +201,8 @@ export default function StageApproval({ projectId, orgId, userId, userName, curr
               padding: '12px 16px', borderRadius: 10, marginBottom: 8,
               background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
             }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#ef4444', marginBottom: 4 }}>
-                ⚠️ SENT BACK from {STAGE_CONFIG[sb.from_stage]?.label}
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#ef4444', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={12} /> SENT BACK from {STAGE_CONFIG[sb.from_stage]?.label}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text2)' }}>
                 Reason: <strong>{sb.reason.replace(/_/g, ' ')}</strong>
@@ -233,7 +234,7 @@ export default function StageApproval({ projectId, orgId, userId, userName, curr
                 color: isComplete ? '#fff' : isSentBack ? '#fff' : isCurrent ? cfg.color : 'var(--text3)',
                 boxShadow: isCurrent ? `0 0 16px ${cfg.color}40` : 'none',
               }}>
-                {isComplete ? '✓' : isSentBack ? '!' : cfg.icon}
+                {isComplete ? <Check size={14} /> : isSentBack ? '!' : <cfg.icon size={14} />}
               </div>
               <div style={{
                 fontSize: 9, fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '.04em',
@@ -264,7 +265,7 @@ export default function StageApproval({ projectId, orgId, userId, userName, curr
         }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {config.icon} {config.label}
+              <config.icon size={16} style={{ color: config.color }} /> {config.label}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{config.desc}</div>
           </div>
@@ -355,13 +356,14 @@ export default function StageApproval({ projectId, orgId, userId, userName, curr
               color: '#ef4444', opacity: stageIdx === 0 ? 0.4 : 1,
             }}
           >
-            ⬅ Send Back
+            <ChevronLeft size={13} style={{ display: 'inline', marginRight: 2 }} />
+            Send Back
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {!requiredComplete && (
-              <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>
-                ⚠ Complete all required items
+              <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <AlertTriangle size={11} /> Complete all required items
               </span>
             )}
             <button
@@ -376,7 +378,7 @@ export default function StageApproval({ projectId, orgId, userId, userName, curr
                 boxShadow: requiredComplete ? `0 4px 16px ${config.color}40` : 'none',
               }}
             >
-              {saving ? 'Signing off...' : `✓ Sign Off ${config.label}`}
+              {saving ? 'Signing off...' : `Sign Off ${config.label}`}
             </button>
           </div>
         </div>
