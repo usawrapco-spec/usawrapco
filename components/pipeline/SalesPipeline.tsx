@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import KanbanBoard, { KanbanColumn } from '@/components/pipeline/KanbanBoard'
 import { useRouter } from 'next/navigation'
+import { Inbox, Mail, Phone, CheckCircle2, RefreshCw, DollarSign } from 'lucide-react'
 
 interface SalesPipelineProps {
   orgId: string
@@ -16,42 +17,42 @@ const COLUMNS: KanbanColumn[] = [
     key: 'new_lead',
     label: 'New Leads',
     color: '#4f7fff',
-    icon: '📥',
+    icon: Inbox,
     filterFn: (p) => (p.pipe_stage === 'sales_in' && p.status === 'estimate'),
   },
   {
     key: 'estimate_sent',
     label: 'Estimate Sent',
     color: '#f59e0b',
-    icon: '📧',
+    icon: Mail,
     filterFn: (p) => (p.pipe_stage === 'sales_in' && p.status === 'active'),
   },
   {
     key: 'follow_up',
     label: 'Follow Up',
     color: '#06b6d4',
-    icon: '📞',
+    icon: Phone,
     filterFn: (p) => (p.pipe_stage === 'sales_in' && ['in_production'].includes(p.status)),
   },
   {
     key: 'won',
     label: 'Won — Ready to Hand Off',
     color: '#22c07a',
-    icon: '🎉',
+    icon: CheckCircle2,
     filterFn: (p) => (p.pipe_stage === 'production' && p.status === 'active'),
   },
   {
     key: 'handed_off',
     label: 'In Production / Install',
     color: '#8b5cf6',
-    icon: '🔄',
+    icon: RefreshCw,
     filterFn: (p) => (['install', 'prod_review'].includes(p.pipe_stage)),
   },
   {
     key: 'closing',
     label: 'Closing',
     color: '#a855f7',
-    icon: '💰',
+    icon: DollarSign,
     filterFn: (p) => (p.pipe_stage === 'sales_close' || p.status === 'closing'),
   },
 ]

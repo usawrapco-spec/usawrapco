@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import { clsx } from 'clsx'
+import { Building2, User, CreditCard, Plug, Check, Smartphone, MessageSquare, Folder, BookOpen } from 'lucide-react'
 
 interface SettingsClientProps {
   profile: Profile
@@ -38,10 +39,10 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
   }
 
   const tabs = [
-    { key: 'org' as const, label: 'Organization', icon: '🏢' },
-    { key: 'profile' as const, label: 'My Profile', icon: '👤' },
-    { key: 'billing' as const, label: 'Billing', icon: '💳' },
-    { key: 'integrations' as const, label: 'Integrations', icon: '🔌' },
+    { key: 'org' as const, label: 'Organization', Icon: Building2 },
+    { key: 'profile' as const, label: 'My Profile', Icon: User },
+    { key: 'billing' as const, label: 'Billing', Icon: CreditCard },
+    { key: 'integrations' as const, label: 'Integrations', Icon: Plug },
   ]
 
   return (
@@ -51,14 +52,14 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
         <div>
           <h1 className="font-display text-3xl font-900 text-text1"
             style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            ⚙️ Settings
+            Settings
           </h1>
           <p className="text-sm text-text3 mt-1">
             Manage your organization and preferences
           </p>
         </div>
         {saved && (
-          <span className="text-sm text-green font-600 anim-fade-up">✓ Saved</span>
+          <span className="text-sm text-green font-600 anim-fade-up flex items-center gap-1"><Check size={13} /> Saved</span>
         )}
       </div>
 
@@ -69,13 +70,14 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={clsx(
-              'px-4 py-2.5 text-sm font-600 border-b-2 transition-colors',
+              'px-4 py-2.5 text-sm font-600 border-b-2 transition-colors flex items-center gap-2',
               activeTab === tab.key
                 ? 'border-accent text-accent'
                 : 'border-transparent text-text3 hover:text-text1'
             )}
           >
-            {tab.icon} {tab.label}
+            <tab.Icon size={14} />
+            {tab.label}
           </button>
         ))}
       </div>
@@ -99,7 +101,7 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
                 <input className="field" value={org?.plan || 'starter'} disabled />
               </div>
               <button className="btn-primary" onClick={saveOrg} disabled={saving}>
-                {saving ? 'Saving…' : '💾 Save Organization'}
+                {saving ? 'Saving…' : 'Save Organization'}
               </button>
             </div>
           </div>
@@ -120,7 +122,7 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
                 <input type="number" className="field" defaultValue="70" />
               </div>
               <div className="text-xs text-text3 bg-surface2 rounded-lg p-3">
-                💡 These defaults will be applied to new projects. You can override them per project.
+                These defaults will be applied to new projects. You can override them per project.
               </div>
             </div>
           </div>
@@ -157,7 +159,7 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
                 <div className="text-xs text-text3 mt-1">Email cannot be changed here.</div>
               </div>
               <button className="btn-primary" onClick={saveProfile} disabled={saving}>
-                {saving ? 'Saving…' : '💾 Save Profile'}
+                {saving ? 'Saving…' : 'Save Profile'}
               </button>
             </div>
           </div>
@@ -204,14 +206,14 @@ export function SettingsClient({ profile, org }: SettingsClientProps) {
       {activeTab === 'integrations' && (
         <div className="grid grid-cols-2 gap-5">
           {[
-            { name: 'GoHighLevel', icon: '📱', desc: 'Sync contacts, opportunities, and pipeline', status: 'coming_soon' },
-            { name: 'Slack', icon: '💬', desc: 'Get notifications for pipeline events', status: 'coming_soon' },
-            { name: 'Google Drive', icon: '📁', desc: 'Sync design files and proofs', status: 'coming_soon' },
-            { name: 'QuickBooks', icon: '📒', desc: 'Sync invoices and financial data', status: 'coming_soon' },
+            { name: 'GoHighLevel', Icon: Smartphone, desc: 'Sync contacts, opportunities, and pipeline', status: 'coming_soon' },
+            { name: 'Slack', Icon: MessageSquare, desc: 'Get notifications for pipeline events', status: 'coming_soon' },
+            { name: 'Google Drive', Icon: Folder, desc: 'Sync design files and proofs', status: 'coming_soon' },
+            { name: 'QuickBooks', Icon: BookOpen, desc: 'Sync invoices and financial data', status: 'coming_soon' },
           ].map(int => (
             <div key={int.name} className="card">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{int.icon}</span>
+                <int.Icon size={22} className="text-text2" />
                 <div>
                   <div className="font-700 text-text1">{int.name}</div>
                   <div className="text-xs text-text3">{int.desc}</div>

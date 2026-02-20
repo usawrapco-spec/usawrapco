@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { Profile, Project, UserRole } from '@/types'
 import { clsx } from 'clsx'
+import { Briefcase, Printer, Wrench, Search, CheckCircle, Car, Anchor, Shield, Palette, BarChart2, Trophy, type LucideIcon } from 'lucide-react'
 
 interface Teammate { id: string; name: string; role: UserRole }
 
@@ -85,12 +86,12 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
 
   // Pipeline stage breakdown
   const stageBreakdown = useMemo(() => {
-    const stages = [
-      { key: 'sales_in', label: 'Sales Intake', icon: '💼', color: 'bg-accent' },
-      { key: 'production', label: 'Production', icon: '🖨', color: 'bg-green' },
-      { key: 'install', label: 'Install', icon: '🔧', color: 'bg-cyan' },
-      { key: 'prod_review', label: 'QC Review', icon: '🔍', color: 'bg-amber' },
-      { key: 'sales_close', label: 'Sales Close', icon: '✅', color: 'bg-purple' },
+    const stages: { key: string; label: string; icon: LucideIcon; color: string }[] = [
+      { key: 'sales_in', label: 'Sales Intake', icon: Briefcase, color: 'bg-accent' },
+      { key: 'production', label: 'Production', icon: Printer, color: 'bg-green' },
+      { key: 'install', label: 'Install', icon: Wrench, color: 'bg-cyan' },
+      { key: 'prod_review', label: 'QC Review', icon: Search, color: 'bg-amber' },
+      { key: 'sales_close', label: 'Sales Close', icon: CheckCircle, color: 'bg-purple' },
     ]
     return stages.map(s => ({
       ...s,
@@ -125,11 +126,11 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
 
   // Type breakdown
   const typeBreakdown = useMemo(() => {
-    const types = [
-      { key: 'wrap', label: 'Wraps', icon: '🚗', color: 'text-accent' },
-      { key: 'decking', label: 'Decking', icon: '⛵', color: 'text-cyan' },
-      { key: 'ppf', label: 'PPF/Tint', icon: '🛡', color: 'text-green' },
-      { key: 'design', label: 'Design', icon: '🎨', color: 'text-amber' },
+    const types: { key: string; label: string; icon: LucideIcon; color: string }[] = [
+      { key: 'wrap', label: 'Wraps', icon: Car, color: 'text-accent' },
+      { key: 'decking', label: 'Decking', icon: Anchor, color: 'text-cyan' },
+      { key: 'ppf', label: 'PPF/Tint', icon: Shield, color: 'text-green' },
+      { key: 'design', label: 'Design', icon: Palette, color: 'text-amber' },
     ]
     return types.map(t => ({
       ...t,
@@ -148,7 +149,7 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
         <div>
           <h1 className="font-display text-3xl font-900 text-text1"
             style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            📈 Analytics
+            Analytics
           </h1>
           <p className="text-sm text-text3 mt-1">
             {filtered.length} projects · {closed.length} closed
@@ -221,7 +222,7 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
           <div className="flex flex-col gap-3">
             {stageBreakdown.map(stage => (
               <div key={stage.key} className="flex items-center gap-3">
-                <span className="text-base w-6 text-center">{stage.icon}</span>
+                <stage.icon size={16} className="text-text3 shrink-0" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-700 text-text1">{stage.label}</span>
@@ -250,7 +251,7 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
       <div className="grid grid-cols-3 gap-4 mb-6">
         {/* Agent Leaderboard */}
         <div className="card">
-          <div className="section-label mb-4">🏆 Agent Leaderboard</div>
+          <div className="section-label mb-4 flex items-center gap-2"><Trophy size={13} /> Agent Leaderboard</div>
           {agentStats.length === 0 ? (
             <div className="text-sm text-text3 text-center py-6">No agent data yet.</div>
           ) : (
@@ -285,7 +286,7 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
 
         {/* Installer Leaderboard */}
         <div className="card">
-          <div className="section-label mb-4">🔧 Installer Stats</div>
+          <div className="section-label mb-4 flex items-center gap-2"><Wrench size={13} /> Installer Stats</div>
           {installerStats.length === 0 ? (
             <div className="text-sm text-text3 text-center py-6">No installer data yet.</div>
           ) : (
@@ -315,11 +316,11 @@ export function AnalyticsClient({ profile, projects, teammates }: AnalyticsClien
 
         {/* Project Type Breakdown */}
         <div className="card">
-          <div className="section-label mb-4">📊 By Service Type</div>
+          <div className="section-label mb-4 flex items-center gap-2"><BarChart2 size={13} /> By Service Type</div>
           <div className="flex flex-col gap-3">
             {typeBreakdown.map(t => (
               <div key={t.key} className="flex items-center gap-3 p-2 rounded-lg bg-surface2/50">
-                <span className="text-2xl">{t.icon}</span>
+                <t.icon size={20} className={t.color} />
                 <div className="flex-1">
                   <div className={clsx('text-sm font-700', t.color)}>{t.label}</div>
                   <div className="text-xs text-text3">{t.count} projects</div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import KanbanBoard, { KanbanColumn } from '@/components/pipeline/KanbanBoard'
 import { useRouter } from 'next/navigation'
+import { ClipboardList, Bell, Check, Calendar, Wrench, CheckCircle } from 'lucide-react'
 
 interface InstallPipelineProps {
   orgId: string
@@ -16,42 +17,42 @@ const COLUMNS: KanbanColumn[] = [
     key: 'available',
     label: 'Available Jobs',
     color: '#4f7fff',
-    icon: '📋',
+    icon: ClipboardList,
     filterFn: (p) => p.pipe_stage === 'install' && !getInstaller(p),
   },
   {
     key: 'bid_sent',
     label: 'Bids Sent',
     color: '#f59e0b',
-    icon: '🔔',
+    icon: Bell,
     filterFn: (p) => p.pipe_stage === 'install' && getInstallStatus(p) === 'bid_sent',
   },
   {
     key: 'accepted',
     label: 'Accepted',
     color: '#22c07a',
-    icon: '✓',
+    icon: Check,
     filterFn: (p) => p.pipe_stage === 'install' && getInstaller(p) && getInstallStatus(p) !== 'bid_sent' && getInstallStatus(p) !== 'in_progress' && getInstallStatus(p) !== 'complete',
   },
   {
     key: 'scheduled',
     label: 'Scheduled',
     color: '#06b6d4',
-    icon: '📅',
+    icon: Calendar,
     filterFn: (p) => p.pipe_stage === 'install' && p.install_date && getInstallStatus(p) !== 'in_progress' && getInstallStatus(p) !== 'complete' && getInstaller(p),
   },
   {
     key: 'in_progress',
     label: 'In Progress',
     color: '#ec4899',
-    icon: '🔧',
+    icon: Wrench,
     filterFn: (p) => p.pipe_stage === 'install' && getInstallStatus(p) === 'in_progress',
   },
   {
     key: 'complete',
     label: 'Complete → QC',
     color: '#8b5cf6',
-    icon: '✅',
+    icon: CheckCircle,
     filterFn: (p) => (p.pipe_stage === 'prod_review' || getInstallStatus(p) === 'complete'),
   },
 ]

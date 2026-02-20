@@ -81,7 +81,7 @@ export default function ShopOverheadCalc({ profile }: { profile: Profile }) {
   return (
     <div style={{ maxWidth:900, margin:'0 auto' }}>
       <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)', marginBottom:4 }}>
-        🏭 Shop Overhead Calculator
+        Shop Overhead Calculator
       </div>
       <div style={{ fontSize:12, color:'var(--text3)', marginBottom:20 }}>Enter your monthly fixed costs to see break-even revenue</div>
 

@@ -28,9 +28,9 @@ export default function ProductionHub({ profile }: ProductionHubProps) {
   }, [])
 
   const TABS = [
-    { key: 'material' as const, label: '📏 Material Log', color: '#22d3ee' },
-    { key: 'bonus' as const, label: '💰 Production Bonus', color: '#22c07a' },
-    { key: 'checkout' as const, label: '✅ Checkout', color: '#f59e0b' },
+    { key: 'material' as const, label: 'Material Log', color: '#22d3ee' },
+    { key: 'bonus' as const, label: 'Production Bonus', color: '#22c07a' },
+    { key: 'checkout' as const, label: 'Checkout', color: '#f59e0b' },
   ]
 
   // Derived data
@@ -44,7 +44,7 @@ export default function ProductionHub({ profile }: ProductionHubProps) {
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)', marginBottom:20 }}>
-        ⚙ Production Hub
+        Production Hub
       </div>
 
       {/* Summary Cards */}
@@ -214,7 +214,7 @@ function CheckoutTab({ jobs, supabase }: { jobs: any[]; supabase: any }) {
                   <div key={s} style={{ textAlign:'center', padding:6, background: done ? 'rgba(34,192,122,.1)' : 'var(--surface)', border:`1px solid ${done ? 'rgba(34,192,122,.2)' : 'var(--border)'}`, borderRadius:6 }}>
                     <div style={{ fontSize:9, color: STAGE_LABELS[s].color, fontWeight:700, textTransform:'uppercase' }}>{STAGE_LABELS[s].label}</div>
                     <div style={{ fontSize:10, marginTop:2, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight:700 }}>
-                      {done ? '✅' : active ? '⏳' : '—'}
+                      {done ? 'Done' : active ? 'Now' : '—'}
                     </div>
                   </div>
                 )

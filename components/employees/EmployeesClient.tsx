@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole } from '@/types'
 import { ROLE_PERMISSIONS } from '@/types'
 import { clsx } from 'clsx'
+import { Crown, Briefcase, Printer, Wrench, Palette, User, Search, Check, X, type LucideIcon } from 'lucide-react'
 
 interface EmployeesClientProps {
   profile: Profile
@@ -12,13 +13,13 @@ interface EmployeesClientProps {
   projectCounts?: Record<string, number>
 }
 
-const ROLE_OPTIONS: { role: UserRole; icon: string; label: string; color: string; badgeClass: string }[] = [
-  { role: 'admin',      icon: '\u{1F451}', label: 'Admin',      color: 'text-purple', badgeClass: 'badge-purple' },
-  { role: 'sales',      icon: '\u{1F4BC}', label: 'Sales',      color: 'text-accent',  badgeClass: 'badge-accent' },
-  { role: 'production', icon: '\u{1F5A8}', label: 'Production', color: 'text-green',   badgeClass: 'badge-green' },
-  { role: 'installer',  icon: '\u{1F527}', label: 'Installer',  color: 'text-cyan',    badgeClass: 'badge-accent' },
-  { role: 'designer',   icon: '\u{1F3A8}', label: 'Designer',   color: 'text-amber',   badgeClass: 'badge-amber' },
-  { role: 'customer',   icon: '\u{1F464}', label: 'Customer',   color: 'text-text3',   badgeClass: 'badge-gray' },
+const ROLE_OPTIONS: { role: UserRole; Icon: LucideIcon; label: string; color: string; badgeClass: string }[] = [
+  { role: 'admin',      Icon: Crown,    label: 'Admin',      color: 'text-purple', badgeClass: 'badge-purple' },
+  { role: 'sales',      Icon: Briefcase,label: 'Sales',      color: 'text-accent',  badgeClass: 'badge-accent' },
+  { role: 'production', Icon: Printer,  label: 'Production', color: 'text-green',   badgeClass: 'badge-green' },
+  { role: 'installer',  Icon: Wrench,   label: 'Installer',  color: 'text-cyan',    badgeClass: 'badge-accent' },
+  { role: 'designer',   Icon: Palette,  label: 'Designer',   color: 'text-amber',   badgeClass: 'badge-amber' },
+  { role: 'customer',   Icon: User,     label: 'Customer',   color: 'text-text3',   badgeClass: 'badge-gray' },
 ]
 
 const PERMISSION_LABELS: Record<string, string> = {
@@ -172,8 +173,10 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
   const roleColor = (role: string) =>
     ROLE_OPTIONS.find(r => r.role === role)?.color || 'text-text3'
 
-  const roleIcon = (role: string) =>
-    ROLE_OPTIONS.find(r => r.role === role)?.icon || '\u{1F464}'
+  const RoleIcon = ({ role }: { role: string }) => {
+    const Ic = ROLE_OPTIONS.find(r => r.role === role)?.Icon || User
+    return <Ic size={12} />
+  }
 
   const roleBadge = (role: string) =>
     ROLE_OPTIONS.find(r => r.role === role)?.badgeClass || 'badge-gray'
@@ -220,7 +223,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
               roleFilter === r.role ? 'border-accent bg-accent/5' : 'hover:border-accent/30'
             )}
           >
-            <div className="text-2xl mb-1">{r.icon}</div>
+            <div className={clsx('flex justify-center mb-1', r.color)}><r.Icon size={20} /></div>
             <div className={clsx('text-xl font-900 mono', r.color)}>
               {roleCounts[r.role] || 0}
             </div>
@@ -234,7 +237,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
             roleFilter === 'customer' ? 'border-accent bg-accent/5' : 'hover:border-accent/30'
           )}
         >
-          <div className="text-2xl mb-1">{'\u{1F464}'}</div>
+          <div className="flex justify-center mb-1 text-text3"><User size={20} /></div>
           <div className="text-xl font-900 mono text-text3">
             {roleCounts['customer'] || 0}
           </div>
@@ -252,7 +255,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text3">{'\u{1F50D}'}</span>
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text3" />
         </div>
         {roleFilter !== 'all' && (
           <button
@@ -330,18 +333,18 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
                           disabled={saving}
                           onClick={() => updateRole(member.id, editRole)}
                         >
-                          {saving ? '...' : '\u2713'}
+                          {saving ? '...' : <Check size={12} />}
                         </button>
                         <button
                           className="btn-ghost btn-xs"
                           onClick={() => setEditingId(null)}
                         >
-                          {'\u2715'}
+                          <X size={12} />
                         </button>
                       </div>
                     ) : (
-                      <span className={clsx('badge text-xs font-700 capitalize', roleBadge(member.role))}>
-                        {roleIcon(member.role)} {roleLabel(member.role)}
+                      <span className={clsx('badge text-xs font-700 capitalize flex items-center gap-1', roleBadge(member.role))}>
+                        <RoleIcon role={member.role} /> {roleLabel(member.role)}
                       </span>
                     )}
                   </td>

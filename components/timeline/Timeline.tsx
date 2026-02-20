@@ -48,7 +48,7 @@ export default function Timeline({ profile }: { profile: Profile }) {
   return (
     <div style={{ maxWidth:1400, margin:'0 auto' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-        <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)' }}>📋 Timeline</div>
+        <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)' }}>Timeline</div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <span style={{ fontSize:10, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Group:</span>
           {(['installer','agent','stage'] as const).map(g => (

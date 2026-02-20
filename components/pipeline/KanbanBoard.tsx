@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PipelineJobCard from '@/components/pipeline/PipelineJobCard'
+import type { LucideIcon } from 'lucide-react'
 
 export interface KanbanColumn {
   key: string
   label: string
   color: string
-  icon: string
+  icon: LucideIcon
   filterFn: (project: any) => boolean
 }
 
@@ -102,7 +103,7 @@ export default function KanbanBoard({
             justifyContent: 'space-between',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>{col.icon}</span>
+              <col.icon size={14} color={col.color} />
               <span style={{
                 fontSize: 11,
                 fontWeight: 900,

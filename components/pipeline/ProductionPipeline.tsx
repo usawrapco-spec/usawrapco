@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import KanbanBoard, { KanbanColumn } from '@/components/pipeline/KanbanBoard'
 import { useRouter } from 'next/navigation'
+import { Inbox, Palette, Pencil, Mail, CheckCircle, Printer, Package, ArrowRight } from 'lucide-react'
 
 interface ProductionPipelineProps {
   orgId: string
@@ -16,56 +17,56 @@ const COLUMNS: KanbanColumn[] = [
     key: 'intake',
     label: 'New from Sales',
     color: '#4f7fff',
-    icon: '📥',
+    icon: Inbox,
     filterFn: (p) => p.pipe_stage === 'production' && !getDesignStatus(p),
   },
   {
     key: 'design_needed',
     label: 'Design Needed',
     color: '#ec4899',
-    icon: '🎨',
+    icon: Palette,
     filterFn: (p) => p.pipe_stage === 'production' && getDesignStatus(p) === 'needed',
   },
   {
     key: 'in_design',
     label: 'In Design',
     color: '#f59e0b',
-    icon: '✏️',
+    icon: Pencil,
     filterFn: (p) => p.pipe_stage === 'production' && getDesignStatus(p) === 'in_progress',
   },
   {
     key: 'proof_sent',
     label: 'Proof Sent',
     color: '#06b6d4',
-    icon: '📧',
+    icon: Mail,
     filterFn: (p) => p.pipe_stage === 'production' && getDesignStatus(p) === 'proof_sent',
   },
   {
     key: 'approved',
     label: 'Design Approved',
     color: '#22c07a',
-    icon: '✅',
+    icon: CheckCircle,
     filterFn: (p) => p.pipe_stage === 'production' && getDesignStatus(p) === 'approved',
   },
   {
     key: 'printing',
     label: 'Print & Prep',
     color: '#8b5cf6',
-    icon: '🖨',
+    icon: Printer,
     filterFn: (p) => p.pipe_stage === 'production' && getDesignStatus(p) === 'printing',
   },
   {
     key: 'ready',
     label: 'Ready for Install',
     color: '#22c55e',
-    icon: '📦',
+    icon: Package,
     filterFn: (p) => p.pipe_stage === 'production' && getDesignStatus(p) === 'ready',
   },
   {
     key: 'complete',
     label: 'Sent to Install',
     color: '#6b7280',
-    icon: '→',
+    icon: ArrowRight,
     filterFn: (p) => p.pipe_stage === 'install',
   },
 ]
