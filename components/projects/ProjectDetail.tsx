@@ -254,7 +254,20 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       notes: `Advanced to ${next}`, checklist: f,
     })
 
-    showToast(`✅ Moved to ${PIPE_STAGES.find(s=>s.key===next)?.label || 'Done'}`)
+    // Award XP for key milestones
+    const xpAction = curStageKey === 'install'      ? 'install_completed'
+                   : curStageKey === 'production'   ? 'print_job_completed'
+                   : curStageKey === 'prod_review'  ? 'customer_signoff'
+                   : null
+    if (xpAction) {
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: xpAction, sourceType: 'project', sourceId: project.id }),
+      }).catch(() => {})
+    }
+
+    showToast(`Moved to ${PIPE_STAGES.find(s=>s.key===next)?.label || 'Done'}`)
   }
 
   // ── Close job ──────────────────────────────────────────────────
@@ -266,7 +279,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       stage: 'sales_close', approved_by: profile.id,
       notes: f.closeNotes || 'Job closed', checklist: f,
     })
-    showToast('🎉 Job Closed & Approved!')
+    // Award deal_won XP
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deal_won', sourceType: 'project', sourceId: project.id }),
+    }).catch(() => {})
+    showToast('Job Closed & Approved! +100 XP')
   }
 
   // ── Send back ──────────────────────────────────────────────────
@@ -913,11 +932,25 @@ function DesignTab({ f, ff, project, profile }: any) {
         <Grid cols={3} style={{marginTop:12}}>
           <Field label="Drive / Asset Link"><input style={inp} type="url" value={f.driveLink} onChange={e=>ff('driveLink',e.target.value)} placeholder="https://drive.google.com/..." /></Field>
           <Field label="Approval Status">
-            <select style={sel} value={f.approvalStatus} onChange={e=>ff('approvalStatus',e.target.value)}>
+            <select style={sel} value={f.approvalStatus} onChange={e => {
+              const val = e.target.value
+              ff('approvalStatus', val)
+              if (val === 'approved' && f.approvalStatus !== 'approved') {
+                const hasRevisions = !!(f.revisionNotes || '').trim()
+                fetch('/api/xp/award', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: hasRevisions ? 'design_approved_with_revisions' : 'design_approved_no_revisions',
+                    sourceType: 'project', sourceId: project.id,
+                  }),
+                }).catch(() => {})
+              }
+            }}>
               <option value="">Not Started</option>
               <option value="proof_sent">Proof Sent</option>
               <option value="revisions">Revisions Requested</option>
-              <option value="approved">✅ Design Approved</option>
+              <option value="approved">Design Approved</option>
             </select>
           </Field>
           <Field label="Brand Colors"><input style={inp} value={f.brandColors} onChange={e=>ff('brandColors',e.target.value)} placeholder="PMS 286C Blue, white" /></Field>

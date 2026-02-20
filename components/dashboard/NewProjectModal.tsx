@@ -88,6 +88,12 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
 
     setLoading(false)
     if (err) { setError(err.message); return }
+    // Award create_lead XP
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_lead', sourceType: 'project', sourceId: data?.id }),
+    }).catch(() => {})
     onCreated()
   }
 
