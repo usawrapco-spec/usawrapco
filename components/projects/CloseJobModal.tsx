@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { X, Check, ToggleLeft, ToggleRight, Calculator, TrendingUp, TrendingDown, DollarSign, Clock, Ruler, Printer } from 'lucide-react'
+import { useToast } from '@/components/shared/Toast'
 
 interface CloseJobModalProps {
   project: any
@@ -18,6 +19,7 @@ const v = (val: any, def = 0) => parseFloat(val) || def
 
 export default function CloseJobModal({ project, profile, onClose, onUpdate }: CloseJobModalProps) {
   const supabase = createClient()
+  const { xpToast } = useToast()
   const fd = (project.form_data as any) || {}
   const fin = project.fin_data || {}
 
@@ -168,6 +170,18 @@ export default function CloseJobModal({ project, profile, onClose, onUpdate }: C
         form_data: updatedFormData,
         actuals: actualsData,
       })
+
+      // Award deal_won XP
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deal_won', sourceType: 'project', sourceId: project.id }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'Deal closed!', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
     }
 
     setSaving(false)

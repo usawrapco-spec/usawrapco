@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile, ProjectType } from '@/types'
 import { clsx } from 'clsx'
 import { Car, Anchor, Palette, Shield, X, type LucideIcon } from 'lucide-react'
+import { useToast } from '@/components/shared/Toast'
 
 interface NewProjectModalProps {
   profile: Profile
@@ -37,6 +38,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
   const [revenue, setRevenue] = useState('')
 
   const supabase = createClient()
+  const { xpToast } = useToast()
 
   const TYPE_OPTIONS: { type: ProjectType; Icon: LucideIcon; label: string; desc: string }[] = [
     { type: 'wrap',    Icon: Car,     label: 'Vehicle Wrap',  desc: 'Commercial · Fleet · Marine · Color Change' },
@@ -89,12 +91,17 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
 
     setLoading(false)
     if (err) { setError(err.message); return }
-    // Award create_lead XP
+    // Award create_lead XP and show toast
     fetch('/api/xp/award', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'create_lead', sourceType: 'project', sourceId: data?.id }),
-    }).catch(() => {})
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        if (res?.amount) xpToast(res.amount, 'New estimate created', res.leveledUp, res.newLevel)
+      })
+      .catch(() => {})
     onCreated()
   }
 
