@@ -9,18 +9,17 @@ import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
 import JobChat from '@/components/chat/JobChat'
 import JobImages from '@/components/images/JobImages'
 import ProgressTicks from '@/components/pipeline/ProgressTicks'
-import StageApproval from '@/components/approval/StageApproval'
-import QuotedVsActual from '@/components/approval/QuotedVsActual'
 import MaterialTracking from '@/components/approval/MaterialTracking'
+import QuotedVsActual from '@/components/approval/QuotedVsActual'
+import InstallTimer from '@/components/install/InstallTimer'
 import IntakeLinkGenerator from '@/components/customer/IntakeLinkGenerator'
-import DesignerBidPanel from '@/components/designer/DesignerBidPanel'
-import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
 import ReferralPanel from '@/components/referral/ReferralPanel'
+import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
 
 interface Teammate { id: string; name: string; full_name?: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────
 const COMM_VEHICLES = [
   {name:'Small Car',  pay:500, hrs:14, cat:'Car'},
   {name:'Med Car',    pay:550, hrs:16, cat:'Car'},
@@ -55,26 +54,34 @@ const MAT_RATES = [
   {label:'Avery 900 (PPF)', rate:4.50},
 ]
 const PIPE_STAGES = [
-  {key:'sales_in',    label:'Sales Intake',   color:'#4f7fff'},
-  {key:'production',  label:'Production',     color:'#22c07a'},
-  {key:'install',     label:'Install',        color:'#22d3ee'},
-  {key:'prod_review', label:'QC Review',      color:'#f59e0b'},
-  {key:'sales_close', label:'Sales Close',    color:'#8b5cf6'},
+  {key:'sales_in',    label:'Sales',       icon:'📋', color:'#4f7fff'},
+  {key:'production',  label:'Production',  icon:'🖨', color:'#22c07a'},
+  {key:'install',     label:'Install',     icon:'🔧', color:'#22d3ee'},
+  {key:'prod_review', label:'QC Review',   icon:'🔍', color:'#f59e0b'},
+  {key:'sales_close', label:'Close',       icon:'✅', color:'#8b5cf6'},
 ]
+const SEND_BACK_REASONS: Record<string, string[]> = {
+  production: ['Incorrect scope / coverage', 'Missing design files', 'Price needs adjustment', 'Customer changed specs', 'Installer not assigned', 'Other'],
+  install:    ['Vinyl defect — reprint needed', 'Wrong color / material', 'Dimensions don\'t match vehicle', 'Missing panels', 'Customer postponed', 'Other'],
+  prod_review:['Wrap quality issue — redo section', 'Seams not aligned', 'Bubbles / lifting detected', 'Wrong vehicle wrapped', 'Missing coverage area', 'Other'],
+  sales_close:['GPM below threshold', 'Hours over budget — review', 'Customer dispute', 'Missing install photos', 'Reprint cost not logged', 'Other'],
+}
 
 const fM = (n:number) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)
 const fP = (n:number) => Math.round(n)+'%'
 const v  = (val:any, def=0) => parseFloat(val)||def
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab]         = useState<1|2|3|4|5|6|7>(1)
-  const [tab2Done, setTab2Done] = useState(false)
-  const [tab3Done, setTab3Done] = useState(false)
-  const [saving, setSaving]   = useState(false)
-  const [saved, setSaved]     = useState(false)
-  const [toast, setToast]     = useState('')
+  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'>('chat')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [toast, setToast] = useState('')
+  const [sendBackOpen, setSendBackOpen] = useState<string|null>(null)
+  const [sendBackReason, setSendBackReason] = useState('')
+  const [sendBackNotes, setSendBackNotes] = useState('')
+  const [sendBacks, setSendBacks] = useState<any[]>([])
 
   // Job type state
   const [jobType, setJobTypeState] = useState<'Commercial'|'Marine'|'PPF'>(
@@ -96,238 +103,266 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     (initial.form_data as any)?.selectedPPF || null
   )
 
-  // Form fields
+  // Form fields — ALL sales fields in one object
   const fd = (initial.form_data as any) || {}
   const [f, setF] = useState({
-    // Client
-    client: fd.client || initial.title || '',
-    bizName: fd.bizName || '',
-    phone: fd.phone || '',
-    email: fd.email || '',
-    vehicle: fd.vehicle || initial.vehicle_desc || '',
-    vehicleColor: fd.vehicleColor || '',
-    leadType: fd.leadType || 'inbound',
-    agent: fd.agent || profile.name || '',
-    installer: fd.installer || '',
-    installDate: fd.installDate || initial.install_date || '',
-    // Financials
-    sqft: fd.sqft || '',
-    matRate: fd.matRate || '2.10',
-    margin: fd.margin || '75',
-    laborPct: fd.laborPct || '10',
-    designFee: fd.designFee || '150',
-    misc: fd.misc || '0',
-    salesPrice: fd.salesPrice || '',
-    // Dimensions (box truck / trailer)
-    len: fd.len || '',
-    wid: fd.wid || '8.5',
-    hft: fd.hft || '7',
-    hin: fd.hin || '6',
-    // Marine
-    unitPrice: fd.unitPrice || '28.35',
-    unitQty: fd.unitQty || '',
-    // Tab 2 — Design
-    designNeeded: fd.designNeeded || false,
-    designNotes: fd.designNotes || '',
-    assetStatus: fd.assetStatus || '',
-    designComm: fd.designComm || '',
-    revisionNotes: fd.revisionNotes || '',
-    driveLink: fd.driveLink || '',
-    approvalStatus: fd.approvalStatus || '',
-    brandColors: fd.brandColors || '',
-    printVendor: fd.printVendor || '',
-    // Coverage
-    coverage: fd.coverage || '',
-    exclusions: fd.exclusions || '',
-    warnings: fd.warnings || '',
-    // Tab 3 — Logistics
-    deposit: fd.deposit || false,
-    contractSigned: fd.contractSigned || false,
-    access: fd.access || '',
-    scopeConfirm: fd.scopeConfirm || '',
-    salesNotes: fd.salesNotes || '',
-    internalNotes: fd.internalNotes || '',
+    client: fd.client || initial.title || '', bizName: fd.bizName || '',
+    phone: fd.phone || '', email: fd.email || '',
+    vehicle: fd.vehicle || initial.vehicle_desc || '', vehicleColor: fd.vehicleColor || '',
+    leadType: fd.leadType || 'inbound', agent: fd.agent || profile.name || '',
+    installer: fd.installer || '', installDate: fd.installDate || initial.install_date || '',
+    sqft: fd.sqft || '', matRate: fd.matRate || '2.10', margin: fd.margin || '75',
+    laborPct: fd.laborPct || '10', designFee: fd.designFee || '150',
+    misc: fd.misc || '0', salesPrice: fd.salesPrice || '',
+    len: fd.len || '', wid: fd.wid || '8.5', hft: fd.hft || '7', hin: fd.hin || '6',
+    unitPrice: fd.unitPrice || '28.35', unitQty: fd.unitQty || '',
+    designNeeded: fd.designNeeded || false, designNotes: fd.designNotes || '',
+    assetStatus: fd.assetStatus || '', designComm: fd.designComm || '',
+    revisionNotes: fd.revisionNotes || '', driveLink: fd.driveLink || '',
+    approvalStatus: fd.approvalStatus || '', brandColors: fd.brandColors || '',
+    printVendor: fd.printVendor || '', coverage: fd.coverage || '',
+    exclusions: fd.exclusions || '', warnings: fd.warnings || '',
+    deposit: fd.deposit || false, contractSigned: fd.contractSigned || false,
+    access: fd.access || '', scopeConfirm: fd.scopeConfirm || '',
+    salesNotes: fd.salesNotes || '', internalNotes: fd.internalNotes || '',
+    // Production sign-off fields
+    linftPrinted: fd.linftPrinted || '', matWidth: fd.matWidth || '54',
+    rollsUsed: fd.rollsUsed || '', matSku: fd.matSku || '', printNotes: fd.printNotes || '',
+    // Install sign-off fields
+    vinylOk: fd.vinylOk || false, colorMatch: fd.colorMatch || false,
+    dimsCorrect: fd.dimsCorrect || false, surfacePrepped: fd.surfacePrepped || false,
+    vinylNotes: fd.vinylNotes || '',
+    postHeat: fd.postHeat || false, postEdges: fd.postEdges || false,
+    postNoBubbles: fd.postNoBubbles || false, postSeams: fd.postSeams || false,
+    postCleaned: fd.postCleaned || false, postPhotos: fd.postPhotos || false,
+    actualHrs: fd.actualHrs || '', actualDate: fd.actualDate || '',
+    installerSig: fd.installerSig || '', installNotes: fd.installNotes || '',
+    // QC fields
+    qcPass: fd.qcPass || 'pass', finalLinft: fd.finalLinft || '',
+    reprintCost: fd.reprintCost || '0', qcNotes: fd.qcNotes || '',
+    // Close fields
+    closeNotes: fd.closeNotes || '', finalApproved: fd.finalApproved || false,
   })
 
   const supabase = createClient()
-  const router   = useRouter()
-  const canEdit    = canAccess(profile.role, 'edit_projects')
+  const router = useRouter()
+  const canEdit = canAccess(profile.role, 'edit_projects')
   const canFinance = canAccess(profile.role, 'view_financials')
+  const curStageKey = project.pipe_stage || 'sales_in'
 
-  // ── Derived financials ────────────────────────────────────────────────────
+  // ── Load send-backs ────────────────────────────────────────────
+  useEffect(() => {
+    supabase.from('send_backs').select('*').eq('project_id', project.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setSendBacks(data) })
+  }, [project.id])
+
+  // ── Derived financials ─────────────────────────────────────────
   const calc = useCallback(() => {
-    const sqft    = v(f.sqft)
-    const matRate = v(f.matRate, 2.10)
-    const margin  = v(f.margin, 75) / 100
-    const laborPct = v(f.laborPct, 10) / 100
-    const designFee = v(f.designFee, 150)
-    const misc    = v(f.misc, 0)
-
+    const sqft = v(f.sqft), matRate = v(f.matRate, 2.10)
+    const margin = v(f.margin, 75) / 100, laborPct = v(f.laborPct, 10) / 100
+    const designFee = v(f.designFee, 150), misc = v(f.misc, 0)
     let material = 0, labor = 0, hrs = 0, sale = 0
 
     if (jobType === 'Commercial' && subType === 'Vehicle' && selectedVehicle) {
-      // Vehicle: flat rate
-      material = sqft * matRate
-      labor    = selectedVehicle.pay
-      hrs      = selectedVehicle.hrs
+      material = sqft * matRate; labor = selectedVehicle.pay; hrs = selectedVehicle.hrs
       const cogs = material + labor + designFee + misc
       sale = margin > 0 ? cogs / (1 - margin) : cogs
     } else if (jobType === 'PPF' && selectedPPF) {
-      material = selectedPPF.mat
-      labor    = selectedPPF.pay
-      hrs      = selectedPPF.hrs
-      sale     = selectedPPF.sale
+      material = selectedPPF.mat; labor = selectedPPF.pay; hrs = selectedPPF.hrs; sale = selectedPPF.sale
     } else if (jobType === 'Marine') {
-      const unitPrice = v(f.unitPrice, 28.35)
-      const unitQty   = v(f.unitQty, 0)
-      material = unitPrice * unitQty
+      material = v(f.unitPrice, 28.35) * v(f.unitQty, 0)
       const cogs = material + designFee + misc
-      labor = cogs * laborPct
-      sale  = margin > 0 ? (cogs + labor) / (1 - margin) : cogs + labor
-      hrs   = Math.ceil(labor / 35)
+      labor = cogs * laborPct; sale = margin > 0 ? (cogs + labor) / (1 - margin) : cogs + labor
+      hrs = Math.ceil(labor / 35)
     } else {
-      // Box truck / trailer / custom dims
-      material = sqft * matRate
-      const cogs = material + designFee + misc
-      labor = cogs * laborPct
-      sale  = margin > 0 ? (cogs + labor) / (1 - margin) : cogs + labor
-      hrs   = Math.ceil(labor / 35)
+      material = sqft * matRate; const cogs = material + designFee + misc
+      labor = cogs * laborPct; sale = margin > 0 ? (cogs + labor) / (1 - margin) : cogs + labor
+      hrs = Math.ceil(labor / 35)
     }
-
-    // Manual override
     if (f.salesPrice && v(f.salesPrice) > 0) sale = v(f.salesPrice)
-
-    const cogs   = material + labor + designFee + misc
-    const profit = sale - cogs
-    const gpm    = sale > 0 ? (profit / sale) * 100 : 0
-    const leadType = f.leadType
-    const commRate = leadType === 'outbound' ? 0.10 : leadType === 'presold' ? 0.05 : 0.075
-    const commission = profit * commRate
-
-    return { sale, material, labor, hrs, designFee, misc, cogs, profit, gpm, commission }
+    const cogs = material + labor + designFee + misc
+    const profit = sale - cogs, gpm = sale > 0 ? (profit / sale) * 100 : 0
+    const commRate = f.leadType === 'outbound' ? 0.10 : f.leadType === 'presold' ? 0.05 : 0.075
+    return { sale, material, labor, hrs, designFee, misc, cogs, profit, gpm, commission: profit * commRate }
   }, [f, jobType, subType, selectedVehicle, selectedPPF])
 
   const fin = calc()
 
-  // ── Sqft calculator for dims ───────────────────────────────────────────────
   function calcSqft() {
-    const l = v(f.len), w = v(f.wid), hft = v(f.hft), hin = v(f.hin)
-    const h = hft + hin/12
+    const l = v(f.len), w = v(f.wid), h = v(f.hft) + v(f.hin)/12
     let net = 0
     selectedSides.forEach(s => {
       if (s === 'left' || s === 'right') net += l * h
-      else if (s === 'rear') net += w * h
-      else if (s === 'front') net += w * h
+      else if (s === 'rear' || s === 'front') net += w * h
     })
     if (net > 0) setF(p => ({...p, sqft: Math.round(net).toString()}))
   }
 
   function ff(key: string, val: any) { setF(p => ({...p, [key]: val})) }
 
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // ── Save ───────────────────────────────────────────────────────
   async function save(updates: any = {}) {
     setSaving(true)
     const formData = { ...f, jobType, subType, wrapDetail, selectedVehicle, selectedPPF,
                        selectedSides: Array.from(selectedSides) }
-    const finData  = fin
     const { error } = await supabase.from('projects').update({
-      title:        f.client || project.title,
-      vehicle_desc: f.vehicle,
-      install_date: f.installDate || null,
-      revenue:      fin.sale || null,
-      profit:       fin.profit || null,
-      gpm:          fin.gpm || null,
-      commission:   fin.commission || null,
-      form_data:    formData,
-      fin_data:     finData,
-      updated_at:   new Date().toISOString(),
-      ...updates,
+      title: f.client || project.title, vehicle_desc: f.vehicle,
+      install_date: f.installDate || null, revenue: fin.sale || null,
+      profit: fin.profit || null, gpm: fin.gpm || null, commission: fin.commission || null,
+      form_data: formData, fin_data: fin, updated_at: new Date().toISOString(), ...updates,
     }).eq('id', project.id)
     setSaving(false)
     if (!error) {
       setProject(p => ({...p, ...updates}))
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
     }
   }
 
-  async function advancePipeline() {
+  // ── Pipeline advance with gate check ───────────────────────────
+  async function advanceStage() {
     const order = ['sales_in','production','install','prod_review','sales_close']
-    const cur   = project.pipe_stage || 'sales_in'
-    const idx   = order.indexOf(cur)
-    if (idx < 0) return
-    const next  = idx < order.length-1 ? order[idx+1] : 'done'
-    const newStatus = next === 'done' ? 'closed' : project.status
-    await save({ pipe_stage: next, status: newStatus })
-    showToast(`Moved to ${PIPE_STAGES.find(s=>s.key===next)?.label || 'Done'} ✓`)
-  }
+    const idx = order.indexOf(curStageKey)
+    if (idx < 0 || idx >= order.length - 1) return
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(''), 3000)
-  }
-
-  async function saveAsSalesOrder() {
-    if (!tab2Done) { showToast('⚠ Complete Tab 2 (Design & Scope) first'); setTab(2); return }
-    if (!tab3Done) { showToast('⚠ Complete Tab 3 (Logistics) first'); setTab(3); return }
-    await save({ status: 'active', pipe_stage: 'production' })
-    showToast('🎉 Sent to Production!')
-  }
-
-  // ── Build financial data object for FloatingFinancialBar ────────────────────
-  const financialProject = {
-    revenue: fin.sale,
-    profit: fin.profit,
-    gpm: fin.gpm,
-    commission: fin.commission,
-    fin_data: {
-      material_cost: fin.material,
-      labor_cost: fin.labor,
-      design_fee: fin.designFee,
-      cogs: fin.cogs,
-      install_pay: fin.labor,
-      hrs_budget: fin.hrs,
-      material_sqft: v(f.sqft),
-      labor_pct: v(f.laborPct, 10),
-      comm_base: 4.5,
-      comm_inbound: f.leadType === 'inbound' ? 1 : 0,
-      comm_gpm_bonus: fin.gpm > 73 ? 2 : 0,
+    // Gate checks
+    if (curStageKey === 'sales_in') {
+      if (!f.client) { showToast('⚠ Client name required'); return }
+      if (!f.installer && !f.vehicle) { showToast('⚠ Assign installer or enter vehicle'); return }
     }
+    if (curStageKey === 'production') {
+      if (!f.linftPrinted) { showToast('⚠ Log linear feet printed before advancing'); return }
+    }
+    if (curStageKey === 'install') {
+      if (!f.actualHrs) { showToast('⚠ Log actual install hours'); return }
+      if (!f.installerSig) { showToast('⚠ Installer signature required'); return }
+    }
+    if (curStageKey === 'prod_review') {
+      if (f.qcPass === 'reprint' && !v(f.reprintCost)) { showToast('⚠ Enter reprint cost'); return }
+    }
+
+    const next = order[idx + 1]
+    const newStatus = next === 'done' ? 'closed' as ProjectStatus : project.status
+    await save({ pipe_stage: next, status: newStatus })
+
+    // Log stage approval
+    await supabase.from('stage_approvals').insert({
+      project_id: project.id, org_id: project.org_id,
+      stage: curStageKey, approved_by: profile.id,
+      notes: `Advanced to ${next}`, checklist: f,
+    })
+
+    showToast(`✅ Moved to ${PIPE_STAGES.find(s=>s.key===next)?.label || 'Done'}`)
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  const gpmC = fin.gpm >= 70 ? '#22c07a' : fin.gpm >= 55 ? '#f59e0b' : '#f25a5a'
-  const curStage = PIPE_STAGES.find(s => s.key === project.pipe_stage)
+  // ── Close job ──────────────────────────────────────────────────
+  async function closeJob() {
+    if (!f.finalApproved) { showToast('⚠ Check the final approval box'); return }
+    await save({ pipe_stage: 'done', status: 'closed' as ProjectStatus })
+    await supabase.from('stage_approvals').insert({
+      project_id: project.id, org_id: project.org_id,
+      stage: 'sales_close', approved_by: profile.id,
+      notes: f.closeNotes || 'Job closed', checklist: f,
+    })
+    showToast('🎉 Job Closed & Approved!')
+  }
 
+  // ── Send back ──────────────────────────────────────────────────
+  async function confirmSendBack() {
+    if (!sendBackOpen || !sendBackReason) return
+    const order = ['sales_in','production','install','prod_review','sales_close']
+    const idx = order.indexOf(curStageKey)
+    const prevStage = idx > 0 ? order[idx - 1] : 'sales_in'
+
+    await supabase.from('send_backs').insert({
+      project_id: project.id, org_id: project.org_id,
+      from_stage: curStageKey, to_stage: prevStage,
+      reason: sendBackReason, notes: sendBackNotes, created_by: profile.id,
+    })
+    await save({ pipe_stage: prevStage })
+    setSendBacks(prev => [{ from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason, notes: sendBackNotes, created_at: new Date().toISOString() }, ...prev])
+    setSendBackOpen(null); setSendBackReason(''); setSendBackNotes('')
+    showToast(`↩ Sent back to ${PIPE_STAGES.find(s=>s.key===prevStage)?.label}`)
+  }
+
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // ── Financial bar data ─────────────────────────────────────────
+  const financialProject = {
+    revenue: fin.sale, profit: fin.profit, gpm: fin.gpm, commission: fin.commission,
+    fin_data: { material_cost: fin.material, labor_cost: fin.labor, design_fee: fin.designFee,
+      cogs: fin.cogs, install_pay: fin.labor, hrs_budget: fin.hrs,
+      material_sqft: v(f.sqft), labor_pct: v(f.laborPct, 10),
+      comm_base: 4.5, comm_inbound: f.leadType === 'inbound' ? 1 : 0,
+      comm_gpm_bonus: fin.gpm > 73 ? 2 : 0 }
+  }
+
+  // ── Tab config ─────────────────────────────────────────────────
+  const TABS: {key: typeof tab; label: string; icon: string; stageKey?: string}[] = [
+    { key: 'chat',       label: 'Chat',       icon: '💬' },
+    { key: 'sales',      label: 'Sales',      icon: '📋', stageKey: 'sales_in' },
+    { key: 'design',     label: 'Design',     icon: '🎨' },
+    { key: 'production', label: 'Production', icon: '🖨', stageKey: 'production' },
+    { key: 'install',    label: 'Install',    icon: '🔧', stageKey: 'install' },
+    { key: 'qc',         label: 'QC',         icon: '🔍', stageKey: 'prod_review' },
+    { key: 'close',      label: 'Close',      icon: '💰', stageKey: 'sales_close' },
+  ]
+
+  const stageOrder = ['sales_in','production','install','prod_review','sales_close']
+  const curIdx = stageOrder.indexOf(curStageKey)
+  const latestSendBack = sendBacks[0]
+
+  // ── RENDER ─────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
-      {/* Toast */}
+    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       {toast && (
         <div style={{ position:'fixed', bottom:20, right:20, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 20px', fontSize:13, fontWeight:700, color:'var(--text1)', zIndex:9999, boxShadow:'0 8px 32px rgba(0,0,0,.4)' }}>
           {toast}
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <button onClick={() => router.push('/dashboard')} style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 14px', fontSize:12, fontWeight:700, color:'var(--text2)', cursor:'pointer' }}>
-            ← Back
-          </button>
-          <div>
-            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:22, fontWeight:900, color:'var(--text1)', lineHeight:1 }}>
-              {f.client || 'Untitled Job'}
+      {/* Send Back Modal */}
+      {sendBackOpen && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => setSendBackOpen(null)}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:24, width:460, maxHeight:'80vh', overflow:'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:18, fontWeight:800, color:'var(--red)', marginBottom:16 }}>↩ Send Back from {PIPE_STAGES.find(s=>s.key===curStageKey)?.label}</div>
+            <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:8 }}>Select Reason</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+              {(SEND_BACK_REASONS[curStageKey] || SEND_BACK_REASONS.production).map(r => (
+                <button key={r} onClick={() => setSendBackReason(r)} style={{
+                  padding:'10px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', textAlign:'left',
+                  background: sendBackReason === r ? 'rgba(242,90,90,.15)' : 'var(--surface2)',
+                  border: `1px solid ${sendBackReason === r ? 'rgba(242,90,90,.5)' : 'var(--border)'}`,
+                  color: sendBackReason === r ? 'var(--red)' : 'var(--text2)',
+                }}>{r}</button>
+              ))}
             </div>
-            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-              #{project.id.slice(-8)} · {f.vehicle || 'No vehicle'}
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:6 }}>Notes (optional)</div>
+              <textarea value={sendBackNotes} onChange={e => setSendBackNotes(e.target.value)} placeholder="Additional details..."
+                style={{ width:'100%', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'9px 12px', fontSize:13, color:'var(--text1)', outline:'none', minHeight:60 }} />
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setSendBackOpen(null)} style={{ flex:1, padding:'10px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>Cancel</button>
+              <button onClick={confirmSendBack} disabled={!sendBackReason} style={{ flex:1, padding:'10px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'var(--red)', border:'none', color:'#fff', opacity: sendBackReason ? 1 : 0.4 }}>↩ Confirm Send Back</button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── HEADER ─────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <button onClick={() => router.push('/dashboard')} style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 14px', fontSize:12, fontWeight:700, color:'var(--text2)', cursor:'pointer' }}>← Back</button>
+          <div>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:22, fontWeight:900, color:'var(--text1)', lineHeight:1 }}>{f.client || 'Untitled Job'}</div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>#{project.id.slice(-8)} · {f.vehicle || 'No vehicle'}</div>
+          </div>
+        </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          {/* Pipeline stage badge */}
-          {curStage && (
-            <div style={{ padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:800, background:`${curStage.color}18`, color:curStage.color, border:`1px solid ${curStage.color}40` }}>
-              {curStage.label}
+          {PIPE_STAGES.find(s => s.key === curStageKey) && (
+            <div style={{ padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:800, background:`${PIPE_STAGES.find(s => s.key === curStageKey)!.color}18`, color: PIPE_STAGES.find(s => s.key === curStageKey)!.color, border:`1px solid ${PIPE_STAGES.find(s => s.key === curStageKey)!.color}40` }}>
+              {PIPE_STAGES.find(s => s.key === curStageKey)!.icon} {PIPE_STAGES.find(s => s.key === curStageKey)!.label}
             </div>
           )}
           <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, padding:'9px 18px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1 }}>
@@ -336,114 +371,167 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
         </div>
       </div>
 
-      {/* Progress Ticks — pipeline overview */}
-      <div style={{ marginBottom: 16 }}>
-        <ProgressTicks currentStage={project.pipe_stage || 'sales_in'} />
+      {/* ── PIPELINE PROGRESS ─────────────────────────── */}
+      <div style={{ display:'flex', gap:2, marginBottom:12 }}>
+        {PIPE_STAGES.map((s, i) => {
+          const done = stageOrder.indexOf(s.key) < curIdx
+          const active = s.key === curStageKey
+          return (
+            <div key={s.key} style={{ flex:1, textAlign:'center', padding:'8px 4px', borderRadius:8, background: done ? 'rgba(34,192,122,.12)' : active ? `${s.color}15` : 'var(--surface)', border: `1px solid ${done ? 'rgba(34,192,122,.3)' : active ? `${s.color}40` : 'var(--border)'}` }}>
+              <div style={{ fontSize:16 }}>{done ? '✅' : active ? s.icon : '⭕'}</div>
+              <div style={{ fontSize:9, fontWeight:700, color: done ? '#22c07a' : active ? s.color : 'var(--text3)', textTransform:'uppercase', marginTop:2 }}>{s.label}</div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Floating Financial Bar — replaces old stat strip */}
+      {/* Send-back alert banner */}
+      {latestSendBack && stageOrder.indexOf(latestSendBack.to_stage) >= curIdx && (
+        <div style={{ background:'rgba(242,90,90,.12)', border:'2px solid rgba(242,90,90,.5)', borderRadius:10, padding:'12px 16px', marginBottom:12, display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ fontSize:24 }}>🔴</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:11, fontWeight:900, color:'#ff6b6b', textTransform:'uppercase', letterSpacing:'.07em' }}>SENT BACK — NEEDS ACTION</div>
+            <div style={{ fontSize:13, color:'var(--text1)', fontWeight:700, marginTop:2 }}>{latestSendBack.reason}</div>
+            {latestSendBack.notes && <div style={{ fontSize:11, color:'var(--text2)', marginTop:2, fontStyle:'italic' }}>"{latestSendBack.notes}"</div>}
+          </div>
+        </div>
+      )}
+
+      {/* ── FINANCIAL BAR ─────────────────────────────── */}
       {canFinance && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom:12 }}>
           <FloatingFinancialBar project={financialProject} />
         </div>
       )}
 
-      {/* Tabs */}
+      {/* ── TABS ──────────────────────────────────────── */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
-        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', background:'var(--surface)', overflowX:'auto' }}>
-          {([1,2,3,4,5,6,7] as const).map(n => {
-            const labels: Record<number, string> = {1:'Quote & Materials', 2:'Design & Scope', 3:'Logistics & Status', 4:'🔒 Approval', 5:'📊 Actuals', 6:'💬 Chat', 7:'📷 Images'}
-            const done   = n===2 ? tab2Done : n===3 ? tab3Done : false
+        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', overflowX:'auto' }}>
+          {TABS.map(t => {
+            const isActive = tab === t.key
+            const stageIdx = t.stageKey ? stageOrder.indexOf(t.stageKey) : -1
+            const isDone = stageIdx >= 0 && stageIdx < curIdx
+            const isCurrent = t.stageKey === curStageKey
             return (
-              <button key={n} onClick={() => setTab(n)} style={{
-                display:'flex', alignItems:'center', gap:8, padding:'12px 24px',
-                fontSize:13, fontWeight:700, cursor:'pointer', border:'none',
-                borderBottom: tab===n ? '2px solid var(--accent)' : '2px solid transparent',
-                background:'transparent',
-                color: tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--text3)',
-                marginBottom:-1, whiteSpace:'nowrap',
+              <button key={t.key} onClick={() => setTab(t.key)} style={{
+                display:'flex', alignItems:'center', gap:6, padding:'11px 18px',
+                fontSize:12, fontWeight:700, cursor:'pointer', border:'none',
+                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                background:'transparent', whiteSpace:'nowrap', marginBottom:-1,
+                color: isActive ? 'var(--accent)' : isDone ? '#22c07a' : isCurrent ? 'var(--text1)' : 'var(--text3)',
               }}>
-                {n <= 3 && (
-                  <span style={{
-                    width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:11, fontWeight:900,
-                    background: tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--surface2)',
-                    color: tab===n || done ? '#fff' : 'var(--text3)',
-                    border: `1px solid ${tab===n ? 'var(--accent)' : done ? 'var(--green)' : 'var(--border)'}`,
-                  }}>{done && n!==tab ? '✓' : n}</span>
-                )}
-                {labels[n]}
+                <span style={{ fontSize:14 }}>{isDone ? '✅' : t.icon}</span>
+                {t.label}
+                {isCurrent && !isDone && <span style={{ width:6, height:6, borderRadius:'50%', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)' }} />}
               </button>
             )
           })}
         </div>
 
         <div style={{ padding:24 }}>
-          {tab === 1 && <Tab1 f={f} ff={ff} jobType={jobType} setJobType={setJobTypeState} subType={subType} setSubType={setSubTypeState} selectedVehicle={selectedVehicle} setSelectedVehicle={setSelectedVehicle} wrapDetail={wrapDetail} setWrapDetail={setWrapDetail} selectedSides={selectedSides} setSelectedSides={setSelectedSides} selectedPPF={selectedPPF} setSelectedPPF={setSelectedPPF} calcSqft={calcSqft} fin={fin} canFinance={canFinance} teammates={teammates} onNext={() => setTab(2)} onSaveOrder={saveAsSalesOrder} profile={profile} />}
-          {tab === 2 && <Tab2 f={f} ff={ff} onComplete={() => { setTab2Done(true); setTab(3) }} />}
-          {tab === 3 && <Tab3 f={f} ff={ff} project={project} teammates={teammates} onComplete={() => { setTab3Done(true) }} onAdvance={advancePipeline} onSaveOrder={saveAsSalesOrder} profile={profile} curStage={project.pipe_stage || 'sales_in'} />}
-          {tab === 4 && (
-            <StageApproval
-              projectId={project.id}
-              orgId={project.org_id}
-              userId={profile.id}
-              userName={profile.full_name || profile.name}
-              currentStage={project.pipe_stage || 'sales_in'}
-              project={project}
-              onStageAdvance={(newStage) => {
-                setProject(p => ({ ...p, pipe_stage: newStage }))
-              }}
-            />
-          )}
-          {tab === 5 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <QuotedVsActual
-                projectId={project.id}
-                orgId={project.org_id}
-                project={project}
-              />
-              <MaterialTracking
-                projectId={project.id}
-                orgId={project.org_id}
-                userId={profile.id}
-                project={project}
-              />
+          {/* ═══ CHAT TAB ═══ */}
+          {tab === 'chat' && (
+            <div>
+              <div style={{ marginBottom:16 }}>
+                <JobChat projectId={project.id} orgId={project.org_id} currentUserId={profile.id} currentUserName={profile.full_name || profile.name} />
+              </div>
+              <div style={{ borderTop:'1px solid var(--border)', paddingTop:16 }}>
+                <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', marginBottom:12 }}>📷 Job Photos</div>
+                <JobImages projectId={project.id} orgId={project.org_id} currentUserId={profile.id} vehicleType={(project.form_data as any)?.selectedVehicle?.name || ''} wrapScope={(project.form_data as any)?.wrapDetail || ''} />
+              </div>
             </div>
           )}
-          {tab === 6 && (
-            <JobChat
-              projectId={project.id}
-              orgId={project.org_id}
-              currentUserId={profile.id}
-              currentUserName={profile.full_name || profile.name}
-            />
+
+          {/* ═══ SALES TAB ═══ */}
+          {tab === 'sales' && (
+            <SalesTab f={f} ff={ff} jobType={jobType} setJobType={setJobTypeState} subType={subType} setSubType={setSubTypeState} selectedVehicle={selectedVehicle} setSelectedVehicle={setSelectedVehicle} wrapDetail={wrapDetail} setWrapDetail={setWrapDetail} selectedSides={selectedSides} setSelectedSides={setSelectedSides} selectedPPF={selectedPPF} setSelectedPPF={setSelectedPPF} calcSqft={calcSqft} fin={fin} canFinance={canFinance} teammates={teammates} profile={profile} project={project} />
           )}
-          {tab === 7 && (
-            <JobImages
-              projectId={project.id}
-              orgId={project.org_id}
-              currentUserId={profile.id}
-              vehicleType={(project.form_data as any)?.selectedVehicle?.name || ''}
-              wrapScope={(project.form_data as any)?.wrapDetail || ''}
-            />
+
+          {/* ═══ DESIGN TAB ═══ */}
+          {tab === 'design' && (
+            <DesignTab f={f} ff={ff} project={project} profile={profile} />
+          )}
+
+          {/* ═══ PRODUCTION TAB ═══ */}
+          {tab === 'production' && (
+            <ProductionTab f={f} ff={ff} project={project} profile={profile} />
+          )}
+
+          {/* ═══ INSTALL TAB ═══ */}
+          {tab === 'install' && (
+            <InstallTab f={f} ff={ff} project={project} profile={profile} />
+          )}
+
+          {/* ═══ QC TAB ═══ */}
+          {tab === 'qc' && (
+            <QCTab f={f} ff={ff} fin={fin} project={project} profile={profile} />
+          )}
+
+          {/* ═══ CLOSE TAB ═══ */}
+          {tab === 'close' && (
+            <CloseTab f={f} ff={ff} fin={fin} project={project} profile={profile} sendBacks={sendBacks} />
+          )}
+
+          {/* ── Stage Action Bar ──────────────────────────── */}
+          {tab !== 'chat' && tab !== 'design' && (
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
+              <div>
+                {curStageKey !== 'sales_in' && (
+                  <button onClick={() => setSendBackOpen(curStageKey)} style={{ padding:'9px 18px', borderRadius:9, fontWeight:700, fontSize:12, cursor:'pointer', background:'rgba(242,90,90,.1)', border:'1px solid rgba(242,90,90,.3)', color:'var(--red)' }}>
+                    ↩ Send Back
+                  </button>
+                )}
+              </div>
+              <div style={{ display:'flex', gap:10 }}>
+                <button onClick={() => save()} style={{ padding:'9px 18px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>
+                  💾 Save Progress
+                </button>
+                {tab === 'close' ? (
+                  <button onClick={closeJob} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'#8b5cf6', border:'none', color:'#fff' }}>
+                    🎉 Close & Approve Job
+                  </button>
+                ) : (
+                  <button onClick={advanceStage} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)', border:'none', color:'#fff' }}>
+                    ✓ Sign Off & Advance →
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Send-back history */}
+      {sendBacks.length > 0 && (
+        <div style={{ marginTop:16, background:'var(--surface)', border:'1px solid rgba(242,90,90,.2)', borderRadius:12, padding:16 }}>
+          <div style={{ fontSize:10, fontWeight:900, color:'var(--red)', textTransform:'uppercase', marginBottom:10 }}>↩ Send-Back History ({sendBacks.length})</div>
+          {sendBacks.slice(0, 5).map((sb: any, i: number) => (
+            <div key={i} style={{ padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.04)', fontSize:12 }}>
+              <div style={{ color:'var(--amber)', fontWeight:600 }}>{sb.reason}</div>
+              <div style={{ color:'var(--text3)', fontSize:10, marginTop:2 }}>
+                {sb.from_stage?.replace('_',' ')} → {sb.to_stage?.replace('_',' ')} · {new Date(sb.created_at).toLocaleDateString()}
+                {sb.notes && ` · ${sb.notes}`}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Stat pill ─────────────────────────────────────────────────────────────────
-function Stat({ label, value, color }: { label:string; value:string; color:string }) {
+// ── Shared UI helpers ────────────────────────────────────────────
+function Section({ label, children, color }: { label:string; children:React.ReactNode; color?:string }) {
   return (
     <div>
-      <div style={{ fontSize:9, fontWeight:800, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:2 }}>{label}</div>
-      <div style={{ fontFamily:'JetBrains Mono, monospace', fontSize:15, fontWeight:700, color }}>{value}</div>
+      <div style={{ fontSize:10, fontWeight:900, color: color || 'var(--text3)', textTransform:'uppercase', letterSpacing:'.08em', paddingBottom:8, marginBottom:14, borderBottom:'1px solid var(--border)' }}>{label}</div>
+      {children}
     </div>
   )
 }
-
-// ── Field helpers ─────────────────────────────────────────────────────────────
+function Grid({ cols, children, style }: { cols:number; children:React.ReactNode; style?:React.CSSProperties }) {
+  return <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:12, ...style }}>{children}</div>
+}
 function Field({ label, children }: { label:string; children:React.ReactNode }) {
   return (
     <div>
@@ -452,29 +540,33 @@ function Field({ label, children }: { label:string; children:React.ReactNode }) 
     </div>
   )
 }
-const inp: React.CSSProperties = {
-  width:'100%', background:'var(--surface2)', border:'1px solid var(--border)',
-  borderRadius:8, padding:'9px 12px', fontSize:13, color:'var(--text1)', outline:'none',
-}
+const inp: React.CSSProperties = { width:'100%', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'9px 12px', fontSize:13, color:'var(--text1)', outline:'none' }
 const sel: React.CSSProperties = { ...inp }
+function Check({ label, checked, onChange }: { label:string; checked:boolean; onChange:(v:boolean)=>void }) {
+  return (
+    <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:12, fontWeight:600, color: checked ? 'var(--green)' : 'var(--text2)' }}>
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+      {checked ? '✅' : '⬜'} {label}
+    </label>
+  )
+}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 1 — QUOTE & MATERIALS
-// ═══════════════════════════════════════════════════════════════════════════════
-function Tab1({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, onNext, onSaveOrder, profile }: any) {
+// ═══════════════════════════════════════════════════════════════════
+// SALES TAB — Full quote builder (all existing Tab 1-3 content merged)
+// ═══════════════════════════════════════════════════════════════════
+function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project }: any) {
   const isVehicle = jobType === 'Commercial' && subType === 'Vehicle'
-  const isBox     = jobType === 'Commercial' && subType === 'Box Truck'
+  const isBox = jobType === 'Commercial' && subType === 'Box Truck'
   const isTrailer = jobType === 'Commercial' && subType === 'Trailer'
-  const isMarine  = jobType === 'Marine'
-  const isPPF     = jobType === 'PPF'
-
+  const isMarine = jobType === 'Marine'
+  const isPPF = jobType === 'PPF'
   const installerTeam = teammates.filter((t:any) => ['installer','admin','production'].includes(t.role))
-  const agentTeam     = teammates.filter((t:any) => ['sales','admin'].includes(t.role))
+  const agentTeam = teammates.filter((t:any) => ['sales','admin'].includes(t.role))
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Client Info */}
-      <Section label="Client Info">
+      <Section label="👤 Client Info">
         <Grid cols={3}>
           <Field label="Client Name *"><input style={inp} value={f.client} onChange={e=>ff('client',e.target.value)} placeholder="John Smith" /></Field>
           <Field label="Business Name"><input style={inp} value={f.bizName} onChange={e=>ff('bizName',e.target.value)} placeholder="Smith Plumbing LLC" /></Field>
@@ -483,46 +575,42 @@ function Tab1({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle
           <Field label="Vehicle"><input style={inp} value={f.vehicle} onChange={e=>ff('vehicle',e.target.value)} placeholder="2024 Ford Transit 350" /></Field>
           <Field label="Color"><input style={inp} value={f.vehicleColor} onChange={e=>ff('vehicleColor',e.target.value)} placeholder="White" /></Field>
         </Grid>
-        <Grid cols={3} style={{marginTop:12}}>
+        <Grid cols={4} style={{marginTop:12}}>
           <Field label="Lead Type">
             <select style={sel} value={f.leadType} onChange={e=>ff('leadType',e.target.value)}>
-              <option value="inbound">Inbound</option>
-              <option value="outbound">Outbound</option>
-              <option value="presold">Pre-sold / Referral</option>
+              <option value="inbound">Inbound</option><option value="outbound">Outbound</option><option value="presold">Pre-sold / Referral</option>
             </select>
           </Field>
           <Field label="Agent">
             <select style={sel} value={f.agent} onChange={e=>ff('agent',e.target.value)}>
               <option value="">Select agent</option>
               {agentTeam.map((t:any) => <option key={t.id} value={t.name}>{t.name}</option>)}
-              <option value={profile.name}>{profile.name} (me)</option>
             </select>
           </Field>
-          <Field label="Installer (assign now or later)">
+          <Field label="Installer">
             <select style={sel} value={f.installer} onChange={e=>ff('installer',e.target.value)}>
               <option value="">Unassigned</option>
               {installerTeam.map((t:any) => <option key={t.id} value={t.name}>{t.name}</option>)}
             </select>
           </Field>
+          <Field label="Install Date"><input style={inp} type="date" value={f.installDate} onChange={e=>ff('installDate',e.target.value)} /></Field>
         </Grid>
       </Section>
 
-      {/* Job Type Selector */}
-      <Section label="Job Type">
-        <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+      {/* Job Type */}
+      <Section label="🔧 Job Type">
+        <div style={{ display:'flex', gap:8, marginBottom:12 }}>
           {(['Commercial','Marine','PPF'] as const).map(jt => (
             <button key={jt} onClick={() => setJobType(jt)} style={{
               padding:'8px 20px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', border:'2px solid',
               background: jobType===jt ? 'var(--accent)' : 'var(--surface2)',
               borderColor: jobType===jt ? 'var(--accent)' : 'var(--border)',
               color: jobType===jt ? '#fff' : 'var(--text2)',
-            }}>{jt === 'Commercial' ? '🚗 Vehicle Wrap' : jt === 'Marine' ? '⛵ Marine' : '🛡 PPF'}</button>
+            }}>{jt === 'Commercial' ? '🚗 Wrap' : jt === 'Marine' ? '⛵ Marine' : '🛡 PPF'}</button>
           ))}
         </div>
-
-        {/* Sub-type for Commercial */}
         {jobType === 'Commercial' && (
-          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+          <div style={{ display:'flex', gap:8, marginBottom:12 }}>
             {(['Vehicle','Box Truck','Trailer'] as const).map(st => (
               <button key={st} onClick={() => setSubType(st)} style={{
                 padding:'6px 16px', borderRadius:7, fontWeight:700, fontSize:12, cursor:'pointer', border:'1px solid',
@@ -535,106 +623,84 @@ function Tab1({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle
         )}
       </Section>
 
-      {/* Vehicle selector grid */}
+      {/* Vehicle Grid */}
       {isVehicle && (
         <Section label="Select Vehicle Type">
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:8, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:8, marginBottom:12 }}>
             {COMM_VEHICLES.map(veh => (
               <button key={veh.name} onClick={() => setSelectedVehicle(veh)} style={{
                 padding:'10px 8px', borderRadius:10, cursor:'pointer', textAlign:'center', border:'2px solid',
                 background: selectedVehicle?.name===veh.name ? 'rgba(79,127,255,.12)' : 'var(--surface2)',
                 borderColor: selectedVehicle?.name===veh.name ? 'var(--accent)' : 'var(--border)',
               }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'var(--text1)', marginBottom:2 }}>{veh.name}</div>
+                <div style={{ fontSize:12, fontWeight:700, color:'var(--text1)' }}>{veh.name}</div>
                 <div style={{ fontFamily:'JetBrains Mono', fontSize:11, color:'var(--green)' }}>{fM(veh.pay)}</div>
                 <div style={{ fontSize:10, color:'var(--text3)' }}>{veh.hrs}h</div>
               </button>
             ))}
           </div>
-
-          {/* Wrap detail */}
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:10, fontWeight:800, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Wrap Coverage</div>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              {WRAP_DETAILS.map(d => (
-                <button key={d} onClick={() => setWrapDetail(d)} style={{
-                  padding:'5px 12px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1px solid',
-                  background: wrapDetail===d ? 'var(--accent)' : 'var(--surface2)',
-                  borderColor: wrapDetail===d ? 'var(--accent)' : 'var(--border)',
-                  color: wrapDetail===d ? '#fff' : 'var(--text2)',
-                }}>{d}</button>
-              ))}
-            </div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {WRAP_DETAILS.map(d => (
+              <button key={d} onClick={() => setWrapDetail(d)} style={{
+                padding:'5px 12px', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', border:'1px solid',
+                background: wrapDetail===d ? 'var(--accent)' : 'var(--surface2)',
+                borderColor: wrapDetail===d ? 'var(--accent)' : 'var(--border)',
+                color: wrapDetail===d ? '#fff' : 'var(--text2)',
+              }}>{d}</button>
+            ))}
           </div>
         </Section>
       )}
 
-      {/* Trailer / Box Truck dims */}
+      {/* Box Truck / Trailer */}
       {(isBox || isTrailer) && (
         <Section label={`${subType} Dimensions`}>
-          <div style={{ marginBottom:10 }}>
-            <div style={{ fontSize:10, fontWeight:800, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Quick Length</div>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              {(isBox ? BOX_TRUCK_LENGTHS : TRAILER_LENGTHS).map(l => (
-                <button key={l} onClick={() => { ff('len', l.toString()); setTimeout(calcSqft, 50) }} style={{
-                  padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer', border:'1px solid var(--border)',
-                  background: f.len===l.toString() ? 'var(--accent)' : 'var(--surface2)',
-                  color: f.len===l.toString() ? '#fff' : 'var(--text2)',
-                }}>{l}ft</button>
-              ))}
-            </div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+            {(isBox ? BOX_TRUCK_LENGTHS : TRAILER_LENGTHS).map(l => (
+              <button key={l} onClick={() => { ff('len', l.toString()); setTimeout(calcSqft, 50) }} style={{
+                padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer', border:'1px solid var(--border)',
+                background: f.len===l.toString() ? 'var(--accent)' : 'var(--surface2)',
+                color: f.len===l.toString() ? '#fff' : 'var(--text2)',
+              }}>{l}ft</button>
+            ))}
           </div>
           <Grid cols={4}>
-            <Field label="Length (ft)"><input style={inp} type="number" value={f.len} onChange={e=>ff('len',e.target.value)} onBlur={calcSqft} placeholder="20" /></Field>
-            <Field label="Width (ft)"><input style={inp} type="number" value={f.wid} onChange={e=>ff('wid',e.target.value)} onBlur={calcSqft} placeholder="8.5" /></Field>
-            <Field label="Height ft"><input style={inp} type="number" value={f.hft} onChange={e=>ff('hft',e.target.value)} onBlur={calcSqft} placeholder="7" /></Field>
-            <Field label="Height in"><input style={inp} type="number" value={f.hin} onChange={e=>ff('hin',e.target.value)} onBlur={calcSqft} placeholder="6" /></Field>
+            <Field label="Length (ft)"><input style={inp} type="number" value={f.len} onChange={e=>ff('len',e.target.value)} onBlur={calcSqft} /></Field>
+            <Field label="Width (ft)"><input style={inp} type="number" value={f.wid} onChange={e=>ff('wid',e.target.value)} onBlur={calcSqft} /></Field>
+            <Field label="Height ft"><input style={inp} type="number" value={f.hft} onChange={e=>ff('hft',e.target.value)} onBlur={calcSqft} /></Field>
+            <Field label="Height in"><input style={inp} type="number" value={f.hin} onChange={e=>ff('hin',e.target.value)} onBlur={calcSqft} /></Field>
           </Grid>
-          {/* Sides selector */}
-          <div style={{ marginTop:12 }}>
-            <div style={{ fontSize:10, fontWeight:800, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Sides to Wrap</div>
-            <div style={{ display:'flex', gap:8 }}>
-              {['left','right','rear','front'].map(s => (
-                <label key={s} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:12, fontWeight:700, color: selectedSides.has(s) ? 'var(--accent)' : 'var(--text3)' }}>
-                  <input type="checkbox" checked={selectedSides.has(s)} onChange={() => {
-                    const ns = new Set(selectedSides)
-                    ns.has(s) ? ns.delete(s) : ns.add(s)
-                    setSelectedSides(ns)
-                    setTimeout(calcSqft, 50)
-                  }} />
-                  {s.charAt(0).toUpperCase()+s.slice(1)}
-                </label>
-              ))}
-            </div>
+          <div style={{ display:'flex', gap:8, marginTop:10 }}>
+            {['left','right','rear','front'].map(s => (
+              <label key={s} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:12, fontWeight:700, color: selectedSides.has(s) ? 'var(--accent)' : 'var(--text3)' }}>
+                <input type="checkbox" checked={selectedSides.has(s)} onChange={() => {
+                  const ns = new Set(selectedSides); ns.has(s) ? ns.delete(s) : ns.add(s); setSelectedSides(ns); setTimeout(calcSqft, 50)
+                }} />{s.charAt(0).toUpperCase()+s.slice(1)}
+              </label>
+            ))}
           </div>
         </Section>
       )}
 
       {/* Marine */}
       {isMarine && (
-        <Section label="Marine Dimensions">
-          <div style={{ marginBottom:10 }}>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
-              {MARINE_LENGTHS.map(l => (
-                <button key={l} onClick={() => ff('len', l.toString())} style={{
-                  padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer', border:'1px solid var(--border)',
-                  background: f.len===l.toString() ? 'var(--cyan)' : 'var(--surface2)',
-                  color: f.len===l.toString() ? '#0d0f14' : 'var(--text2)',
-                }}>{l}'</button>
-              ))}
-            </div>
+        <Section label="⛵ Marine">
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+            {MARINE_LENGTHS.map(l => (
+              <button key={l} onClick={() => ff('len', l.toString())} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer', border:'1px solid var(--border)', background: f.len===l.toString() ? 'var(--cyan)' : 'var(--surface2)', color: f.len===l.toString() ? '#0d0f14' : 'var(--text2)' }}>{l}'</button>
+            ))}
           </div>
           <Grid cols={3}>
-            <Field label="$/Linear Ft"><input style={inp} type="number" value={f.unitPrice} onChange={e=>ff('unitPrice',e.target.value)} placeholder="28.35" /></Field>
-            <Field label="Linear Ft to Order"><input style={inp} type="number" value={f.unitQty} onChange={e=>ff('unitQty',e.target.value)} placeholder="0" /></Field>
-            <Field label="Boat Length (ft)"><input style={inp} type="number" value={f.len} onChange={e=>ff('len',e.target.value)} placeholder="24" /></Field>
+            <Field label="$/Linear Ft"><input style={inp} type="number" value={f.unitPrice} onChange={e=>ff('unitPrice',e.target.value)} /></Field>
+            <Field label="Linear Ft"><input style={inp} type="number" value={f.unitQty} onChange={e=>ff('unitQty',e.target.value)} /></Field>
+            <Field label="Boat Length"><input style={inp} type="number" value={f.len} onChange={e=>ff('len',e.target.value)} /></Field>
           </Grid>
         </Section>
       )}
 
       {/* PPF */}
       {isPPF && (
-        <Section label="PPF Package">
+        <Section label="🛡 PPF Package">
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10 }}>
             {PPF_PACKAGES.map(pkg => (
               <button key={pkg.name} onClick={() => setSelectedPPF(pkg)} style={{
@@ -642,8 +708,8 @@ function Tab1({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle
                 background: selectedPPF?.name===pkg.name ? 'rgba(167,139,250,.1)' : 'var(--surface2)',
                 borderColor: selectedPPF?.name===pkg.name ? '#8b5cf6' : 'var(--border)',
               }}>
-                <div style={{ fontSize:13, fontWeight:800, color:'var(--text1)', marginBottom:4 }}>{pkg.name}</div>
-                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:8 }}>{pkg.desc}</div>
+                <div style={{ fontSize:13, fontWeight:800, color:'var(--text1)' }}>{pkg.name}</div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:6 }}>{pkg.desc}</div>
                 <div style={{ fontFamily:'JetBrains Mono', fontSize:14, color:'#8b5cf6', fontWeight:700 }}>{fM(pkg.sale)}</div>
               </button>
             ))}
@@ -652,220 +718,311 @@ function Tab1({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle
       )}
 
       {/* Material & Pricing */}
-      <Section label="Material & Pricing">
+      <Section label="💲 Pricing & Material">
         <Grid cols={3}>
-          {!isPPF && (
-            <Field label="Material Rate">
-              <select style={sel} value={f.matRate} onChange={e=>ff('matRate',e.target.value)}>
-                {MAT_RATES.map(m => <option key={m.rate} value={m.rate}>{m.label} — ${m.rate}/sqft</option>)}
-              </select>
-            </Field>
-          )}
-          <Field label="Net Sqft">
-            <input style={inp} type="number" value={f.sqft} onChange={e=>ff('sqft',e.target.value)} placeholder="0" />
-          </Field>
-          <Field label="Design Fee ($)">
-            <input style={inp} type="number" value={f.designFee} onChange={e=>ff('designFee',e.target.value)} placeholder="150" />
-          </Field>
-          <Field label="Misc Costs ($)">
-            <input style={inp} type="number" value={f.misc} onChange={e=>ff('misc',e.target.value)} placeholder="0" />
-          </Field>
-          {!isVehicle && !isPPF && (
-            <Field label="Labor % of COGS">
-              <input style={inp} type="number" value={f.laborPct} onChange={e=>ff('laborPct',e.target.value)} placeholder="10" min="1" max="40" />
-            </Field>
-          )}
-          <Field label="Target GPM %">
-            <input style={inp} type="number" value={f.margin} onChange={e=>ff('margin',e.target.value)} placeholder="75" min="30" max="90" />
-          </Field>
+          {!isPPF && <Field label="Material Rate"><select style={sel} value={f.matRate} onChange={e=>ff('matRate',e.target.value)}>{MAT_RATES.map(m => <option key={m.rate} value={m.rate}>{m.label} — ${m.rate}/sqft</option>)}</select></Field>}
+          <Field label="Net Sqft"><input style={inp} type="number" value={f.sqft} onChange={e=>ff('sqft',e.target.value)} /></Field>
+          <Field label="Design Fee ($)"><input style={inp} type="number" value={f.designFee} onChange={e=>ff('designFee',e.target.value)} /></Field>
+          <Field label="Misc Costs ($)"><input style={inp} type="number" value={f.misc} onChange={e=>ff('misc',e.target.value)} /></Field>
+          {!isVehicle && !isPPF && <Field label="Labor %"><input style={inp} type="number" value={f.laborPct} onChange={e=>ff('laborPct',e.target.value)} /></Field>}
+          <Field label="Target GPM %"><input style={inp} type="number" value={f.margin} onChange={e=>ff('margin',e.target.value)} /></Field>
         </Grid>
-
-        {/* Manual price override */}
-        <div style={{ marginTop:12, display:'flex', alignItems:'center', gap:12 }}>
-          <Field label="Override Sale Price (optional)">
-            <input style={{...inp, width:200}} type="number" value={f.salesPrice} onChange={e=>ff('salesPrice',e.target.value)} placeholder={fM(fin.sale)+' (calculated)'} />
-          </Field>
+        <div style={{ marginTop:12 }}>
+          <Field label="Override Sale Price"><input style={{...inp, maxWidth:220}} type="number" value={f.salesPrice} onChange={e=>ff('salesPrice',e.target.value)} placeholder={fM(fin.sale)+' (auto)'} /></Field>
         </div>
       </Section>
 
-      {/* Part to wrap / exclusions */}
-      <Section label="Scope">
+      {/* Scope & Logistics */}
+      <Section label="📝 Scope & Notes">
         <Grid cols={2}>
-          <Field label="Parts to Wrap / Coverage">
-            <textarea style={{...inp, minHeight:80}} value={f.coverage} onChange={e=>ff('coverage',e.target.value)} placeholder="Full vehicle, all panels except roof and glass..." />
-          </Field>
-          <Field label="Parts NOT to Wrap / Exclusions">
-            <textarea style={{...inp, minHeight:80}} value={f.exclusions} onChange={e=>ff('exclusions',e.target.value)} placeholder="Mirrors, door handles, roof rails, glass, emblems..." />
-          </Field>
+          <Field label="Parts to Wrap"><textarea style={{...inp, minHeight:70}} value={f.coverage} onChange={e=>ff('coverage',e.target.value)} placeholder="Full vehicle, all panels..." /></Field>
+          <Field label="Exclusions"><textarea style={{...inp, minHeight:70}} value={f.exclusions} onChange={e=>ff('exclusions',e.target.value)} placeholder="Mirrors, handles, roof..." /></Field>
+          <Field label="Sales Notes"><textarea style={{...inp, minHeight:70}} value={f.salesNotes} onChange={e=>ff('salesNotes',e.target.value)} placeholder="Customer requests, follow-ups..." /></Field>
+          <Field label="Internal Notes"><textarea style={{...inp, minHeight:70}} value={f.internalNotes} onChange={e=>ff('internalNotes',e.target.value)} placeholder="Installer notes, shop info..." /></Field>
         </Grid>
+        <div style={{ display:'flex', gap:20, marginTop:12 }}>
+          <Check label="Deposit Collected" checked={f.deposit} onChange={v => ff('deposit',v)} />
+          <Check label="Contract Signed" checked={f.contractSigned} onChange={v => ff('contractSigned',v)} />
+        </div>
       </Section>
 
-      {/* Footer actions */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:8, borderTop:'1px solid var(--border)' }}>
-        <div style={{ fontSize:12, color:'var(--text3)' }}>
-          Save estimate at any time · Complete Tabs 2 & 3 to send to Production
-        </div>
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={() => {}} style={{ padding:'9px 20px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>
-            💾 Save Estimate
-          </button>
-          <button onClick={onNext} style={{ padding:'9px 20px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'var(--green)', border:'none', color:'#0d1a10' }}>
-            Next: Design & Scope →
-          </button>
-        </div>
-      </div>
+      {/* Customer link generator */}
+      <IntakeLinkGenerator projectId={project.id} orgId={project.org_id} clientName={f.client} clientEmail={f.email} />
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 2 — DESIGN & SCOPE
-// ═══════════════════════════════════════════════════════════════════════════════
-function Tab2({ f, ff, onComplete }: any) {
+// ═══════════════════════════════════════════════════════════════════
+// DESIGN TAB
+// ═══════════════════════════════════════════════════════════════════
+function DesignTab({ f, ff, project, profile }: any) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      <Section label="Design & Artwork">
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-          <input type="checkbox" id="designNeeded" checked={f.designNeeded} onChange={e=>ff('designNeeded',e.target.checked)} />
-          <label htmlFor="designNeeded" style={{ fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text1)' }}>Design / Artwork Required?</label>
-        </div>
-        <Grid cols={2}>
-          <Field label="Design Instructions & Placement">
-            <textarea style={{...inp,minHeight:90}} value={f.designNotes} onChange={e=>ff('designNotes',e.target.value)} placeholder="Logo placement, color references, text content, bleed zones..." />
-          </Field>
-          <Field label="File / Asset Status">
-            <textarea style={{...inp,minHeight:90}} value={f.assetStatus} onChange={e=>ff('assetStatus',e.target.value)} placeholder="What files do we have? What's missing?" />
-          </Field>
-          <Field label="Last Customer Communication">
-            <textarea style={{...inp,minHeight:80}} value={f.designComm} onChange={e=>ff('designComm',e.target.value)} placeholder="Summary of last call/email — include date..." />
-          </Field>
-          <Field label="Revision Notes / Change Log">
-            <textarea style={{...inp,minHeight:80}} value={f.revisionNotes} onChange={e=>ff('revisionNotes',e.target.value)} placeholder="Track revision history, customer feedback..." />
-          </Field>
+      <Section label="🎨 Design & Artwork" color="#8b5cf6">
+        <Check label="Design / Artwork Required" checked={f.designNeeded} onChange={v => ff('designNeeded',v)} />
+        <Grid cols={2} style={{marginTop:12}}>
+          <Field label="Design Instructions"><textarea style={{...inp,minHeight:90}} value={f.designNotes} onChange={e=>ff('designNotes',e.target.value)} placeholder="Logo placement, colors, text..." /></Field>
+          <Field label="File / Asset Status"><textarea style={{...inp,minHeight:90}} value={f.assetStatus} onChange={e=>ff('assetStatus',e.target.value)} placeholder="What files do we have?" /></Field>
+          <Field label="Customer Communication"><textarea style={{...inp,minHeight:80}} value={f.designComm} onChange={e=>ff('designComm',e.target.value)} placeholder="Last call/email summary..." /></Field>
+          <Field label="Revision Notes"><textarea style={{...inp,minHeight:80}} value={f.revisionNotes} onChange={e=>ff('revisionNotes',e.target.value)} placeholder="Change log..." /></Field>
         </Grid>
         <Grid cols={3} style={{marginTop:12}}>
-          <Field label="Google Drive / Asset Folder">
-            <input style={inp} type="url" value={f.driveLink} onChange={e=>ff('driveLink',e.target.value)} placeholder="https://drive.google.com/..." />
-          </Field>
+          <Field label="Drive / Asset Link"><input style={inp} type="url" value={f.driveLink} onChange={e=>ff('driveLink',e.target.value)} placeholder="https://drive.google.com/..." /></Field>
           <Field label="Approval Status">
             <select style={sel} value={f.approvalStatus} onChange={e=>ff('approvalStatus',e.target.value)}>
               <option value="">Not Started</option>
-              <option value="proof_sent">Proof Sent — Awaiting Approval</option>
+              <option value="proof_sent">Proof Sent</option>
               <option value="revisions">Revisions Requested</option>
-              <option value="approved">Design Approved ✓</option>
+              <option value="approved">✅ Design Approved</option>
             </select>
           </Field>
-          <Field label="Print Vendor">
-            <input style={inp} value={f.printVendor} onChange={e=>ff('printVendor',e.target.value)} placeholder="Signs By Tomorrow, in-house..." />
-          </Field>
-          <Field label="Brand Colors / Pantone">
-            <input style={inp} value={f.brandColors} onChange={e=>ff('brandColors',e.target.value)} placeholder="PMS 286C Blue, white, black" />
-          </Field>
+          <Field label="Brand Colors"><input style={inp} value={f.brandColors} onChange={e=>ff('brandColors',e.target.value)} placeholder="PMS 286C Blue, white" /></Field>
         </Grid>
       </Section>
 
-      <Section label="Pre-Install Notes">
-        <Field label="Warnings / Pre-existing Conditions">
-          <textarea style={{...inp,minHeight:80}} value={f.warnings} onChange={e=>ff('warnings',e.target.value)} placeholder="Rust spots, old wrap remnants, paint chips, compound curves to note..." />
+      <Section label="⚠ Pre-Install Warnings">
+        <Field label="Vehicle Conditions / Warnings">
+          <textarea style={{...inp,minHeight:80}} value={f.warnings} onChange={e=>ff('warnings',e.target.value)} placeholder="Rust, old wrap remnants, paint chips..." />
         </Field>
       </Section>
 
-      <div style={{ display:'flex', justifyContent:'flex-end', paddingTop:8, borderTop:'1px solid var(--border)' }}>
-        <button onClick={onComplete} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'var(--green)', border:'none', color:'#0d1a10' }}>
-          ✓ Design & Scope Complete — Next: Logistics →
-        </button>
-      </div>
+      {/* Send bid to designer */}
+      <Section label="📤 Designer Bidding">
+        <div style={{ padding:16, background:'var(--surface2)', borderRadius:10, border:'1px solid var(--border)' }}>
+          <div style={{ fontSize:12, color:'var(--text2)', marginBottom:8 }}>Send design package to freelance designers for bidding</div>
+          <button style={{ padding:'8px 16px', borderRadius:8, fontWeight:700, fontSize:12, cursor:'pointer', background:'#8b5cf6', border:'none', color:'#fff' }}>
+            📤 Open Designer Bid Panel
+          </button>
+        </div>
+      </Section>
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 3 — LOGISTICS & STATUS
-// ═══════════════════════════════════════════════════════════════════════════════
-function Tab3({ f, ff, project, teammates, onComplete, onAdvance, onSaveOrder, profile, curStage }: any) {
-  const stage = PIPE_STAGES.find(s => s.key === curStage)
-  const stageIdx = PIPE_STAGES.findIndex(s => s.key === curStage)
+// ═══════════════════════════════════════════════════════════════════
+// PRODUCTION TAB — Material logging, print checklist, sign-off
+// ═══════════════════════════════════════════════════════════════════
+function ProductionTab({ f, ff, project, profile }: any) {
+  const qSqft = v(f.sqft)
+  const estLinft = qSqft > 0 ? Math.ceil(qSqft / (v(f.matWidth, 54) / 12)) : 0
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-      {/* Pipeline progress */}
-      <Section label="Pipeline Stage">
-        <div style={{ marginBottom: 16 }}>
-          <ProgressTicks currentStage={curStage} />
+      <Section label="📏 Material Log — Required to advance" color="#22c07a">
+        <div style={{ padding:14, background:'rgba(34,192,122,.06)', border:'1px solid rgba(34,192,122,.2)', borderRadius:10 }}>
+          <Grid cols={3}>
+            <Field label="Linear Feet Printed *"><input style={inp} type="number" value={f.linftPrinted} onChange={e=>ff('linftPrinted',e.target.value)} placeholder={estLinft ? `~${estLinft} estimated` : '0'} /></Field>
+            <Field label="Material Width (in)"><input style={inp} type="number" value={f.matWidth} onChange={e=>ff('matWidth',e.target.value)} placeholder="54" /></Field>
+            <Field label="Rolls / Sheets Used"><input style={inp} type="number" value={f.rollsUsed} onChange={e=>ff('rollsUsed',e.target.value)} placeholder="1" /></Field>
+          </Grid>
+          <Grid cols={2} style={{marginTop:10}}>
+            <Field label="Material Type / SKU"><input style={inp} value={f.matSku} onChange={e=>ff('matSku',e.target.value)} placeholder="3M IJ180Cv3 Gloss" /></Field>
+            <Field label="Print Notes"><input style={inp} value={f.printNotes} onChange={e=>ff('printNotes',e.target.value)} placeholder="Reprints, color issues..." /></Field>
+          </Grid>
+
+          {/* Buffer calc */}
+          {v(f.linftPrinted) > 0 && qSqft > 0 && (() => {
+            const sqftPrinted = v(f.linftPrinted) * (v(f.matWidth, 54) / 12)
+            const buf = Math.round((sqftPrinted - qSqft) / qSqft * 100)
+            return (
+              <div style={{ marginTop:12, display:'flex', gap:12 }}>
+                <div style={{ padding:'8px 14px', background:'var(--surface)', borderRadius:8, border:'1px solid var(--border)', textAlign:'center' }}>
+                  <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Sqft Printed</div>
+                  <div style={{ fontFamily:'JetBrains Mono', fontSize:16, fontWeight:700, color:'var(--cyan)' }}>{Math.round(sqftPrinted)}</div>
+                </div>
+                <div style={{ padding:'8px 14px', background:'var(--surface)', borderRadius:8, border:'1px solid var(--border)', textAlign:'center' }}>
+                  <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Sqft Quoted</div>
+                  <div style={{ fontFamily:'JetBrains Mono', fontSize:16, fontWeight:700, color:'var(--text1)' }}>{Math.round(qSqft)}</div>
+                </div>
+                <div style={{ padding:'8px 14px', background:'var(--surface)', borderRadius:8, border:`1px solid ${Math.abs(buf) > 10 ? 'rgba(242,90,90,.3)' : 'rgba(34,192,122,.3)'}`, textAlign:'center' }}>
+                  <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Buffer</div>
+                  <div style={{ fontFamily:'JetBrains Mono', fontSize:16, fontWeight:700, color: Math.abs(buf) > 10 ? 'var(--red)' : 'var(--green)' }}>{buf > 0 ? '+' : ''}{buf}%</div>
+                </div>
+              </div>
+            )
+          })()}
         </div>
-        {stage && (
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', background:`${stage.color}10`, border:`1px solid ${stage.color}30`, borderRadius:10 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'var(--text1)' }}>
-              Currently in: <span style={{ color:stage.color }}>{stage.label}</span>
+      </Section>
+
+      <Section label="🖨 Print Checklist">
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <Check label="Files prepped and color-proofed" checked={f.printFilesReady || false} onChange={v => ff('printFilesReady',v)} />
+          <Check label="Material loaded and calibrated" checked={f.printMatLoaded || false} onChange={v => ff('printMatLoaded',v)} />
+          <Check label="Test print verified" checked={f.printTestDone || false} onChange={v => ff('printTestDone',v)} />
+          <Check label="All panels printed and cut" checked={f.printAllPanels || false} onChange={v => ff('printAllPanels',v)} />
+          <Check label="Laminated / over-coated" checked={f.printLaminated || false} onChange={v => ff('printLaminated',v)} />
+          <Check label="Quality check passed" checked={f.printQC || false} onChange={v => ff('printQC',v)} />
+        </div>
+      </Section>
+
+      <MaterialTracking projectId={project.id} orgId={project.org_id} />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INSTALL TAB — Vinyl check, timer, post-install verification
+// ═══════════════════════════════════════════════════════════════════
+function InstallTab({ f, ff, project, profile }: any) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Pre-install vinyl check */}
+      <Section label="📋 Pre-Install Vinyl Check" color="#22d3ee">
+        <div style={{ padding:14, background:'rgba(34,211,238,.06)', border:'1px solid rgba(34,211,238,.2)', borderRadius:10 }}>
+          <div style={{ fontSize:11, color:'var(--text2)', marginBottom:10 }}>Before starting: inspect vinyl condition and confirm below</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
+            <Check label="Vinyl inspected — no defects" checked={f.vinylOk} onChange={v => ff('vinylOk',v)} />
+            <Check label="Color matches approved design" checked={f.colorMatch} onChange={v => ff('colorMatch',v)} />
+            <Check label="Print dimensions correct" checked={f.dimsCorrect} onChange={v => ff('dimsCorrect',v)} />
+            <Check label="Vehicle surface prepped & clean" checked={f.surfacePrepped} onChange={v => ff('surfacePrepped',v)} />
+          </div>
+          <Field label="Vinyl Condition Notes">
+            <textarea style={{...inp, minHeight:60}} value={f.vinylNotes} onChange={e=>ff('vinylNotes',e.target.value)} placeholder="Note any issues — will send back to production if needed..." />
+          </Field>
+        </div>
+      </Section>
+
+      {/* Install Timer */}
+      <Section label="⏱ Install Timer" color="#22c07a">
+        <InstallTimer projectId={project.id} orgId={project.org_id} installerId={profile.id} />
+      </Section>
+
+      {/* Post-install verification */}
+      <Section label="✅ Post-Install Verification" color="#22d3ee">
+        <div style={{ padding:14, background:'rgba(34,211,238,.06)', border:'1px solid rgba(34,211,238,.2)', borderRadius:10 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+            <Check label="Post-heat applied throughout" checked={f.postHeat} onChange={v => ff('postHeat',v)} />
+            <Check label="Edges properly finished & tucked" checked={f.postEdges} onChange={v => ff('postEdges',v)} />
+            <Check label="No bubbles or lifting edges" checked={f.postNoBubbles} onChange={v => ff('postNoBubbles',v)} />
+            <Check label="Seams aligned and hidden" checked={f.postSeams} onChange={v => ff('postSeams',v)} />
+            <Check label="Vehicle cleaned & presentable" checked={f.postCleaned} onChange={v => ff('postCleaned',v)} />
+            <Check label="Photos taken for record" checked={f.postPhotos} onChange={v => ff('postPhotos',v)} />
+          </div>
+          <Grid cols={3}>
+            <Field label="Actual Hours *"><input style={inp} type="number" value={f.actualHrs} onChange={e=>ff('actualHrs',e.target.value)} /></Field>
+            <Field label="Install Date"><input style={inp} type="date" value={f.actualDate} onChange={e=>ff('actualDate',e.target.value)} /></Field>
+            <Field label="Installer Signature *"><input style={inp} value={f.installerSig} onChange={e=>ff('installerSig',e.target.value)} placeholder="Full name" /></Field>
+          </Grid>
+          <div style={{ marginTop:10 }}>
+            <Field label="Final Notes"><textarea style={{...inp, minHeight:60}} value={f.installNotes} onChange={e=>ff('installNotes',e.target.value)} placeholder="Wrap condition, client feedback..." /></Field>
+          </div>
+        </div>
+      </Section>
+
+      <SendBidToInstaller projectId={project.id} orgId={project.org_id} />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// QC TAB — Quality review, quoted vs actual
+// ═══════════════════════════════════════════════════════════════════
+function QCTab({ f, ff, fin, project, profile }: any) {
+  const reprintCost = v(f.reprintCost)
+  const adjProfit = fin.profit - reprintCost
+  const adjGPM = fin.sale > 0 ? (adjProfit / fin.sale) * 100 : 0
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <Section label="🔍 QC Review" color="#f59e0b">
+        <div style={{ padding:14, background:'rgba(245,158,11,.06)', border:'1px solid rgba(245,158,11,.25)', borderRadius:10 }}>
+          <Grid cols={3}>
+            <Field label="QC Result">
+              <select style={sel} value={f.qcPass} onChange={e=>ff('qcPass',e.target.value)}>
+                <option value="pass">✅ Pass — Ship it</option>
+                <option value="reprint">🖨 Reprint Needed</option>
+                <option value="fix">🔧 Minor Fix Needed</option>
+              </select>
+            </Field>
+            <Field label="Final Linear Feet"><input style={inp} type="number" value={f.finalLinft} onChange={e=>ff('finalLinft',e.target.value)} placeholder={f.linftPrinted || '0'} /></Field>
+            <Field label="Reprint Cost ($)"><input style={inp} type="number" value={f.reprintCost} onChange={e=>ff('reprintCost',e.target.value)} placeholder="0" /></Field>
+          </Grid>
+          <div style={{ marginTop:10 }}>
+            <Field label="QC Notes"><textarea style={{...inp, minHeight:60}} value={f.qcNotes} onChange={e=>ff('qcNotes',e.target.value)} placeholder="Wrap quality, seams, corners, bubbles..." /></Field>
+          </div>
+        </div>
+      </Section>
+
+      {/* Adjusted numbers */}
+      {reprintCost > 0 && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+          <div style={{ textAlign:'center', padding:12, background:'var(--surface2)', borderRadius:10, border:'1px solid var(--border)' }}>
+            <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Sale Price</div>
+            <div style={{ fontFamily:'JetBrains Mono', fontSize:18, fontWeight:700, color:'var(--accent)' }}>{fM(fin.sale)}</div>
+          </div>
+          <div style={{ textAlign:'center', padding:12, background:'var(--surface2)', borderRadius:10, border:'1px solid rgba(242,90,90,.3)' }}>
+            <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Reprint Deduct</div>
+            <div style={{ fontFamily:'JetBrains Mono', fontSize:18, fontWeight:700, color:'var(--red)' }}>-{fM(reprintCost)}</div>
+          </div>
+          <div style={{ textAlign:'center', padding:12, background:'var(--surface2)', borderRadius:10, border:'1px solid rgba(34,192,122,.3)' }}>
+            <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Adj Profit</div>
+            <div style={{ fontFamily:'JetBrains Mono', fontSize:18, fontWeight:700, color:'var(--green)' }}>{fM(adjProfit)}</div>
+          </div>
+          <div style={{ textAlign:'center', padding:12, background:'var(--surface2)', borderRadius:10, border:'1px solid var(--border)' }}>
+            <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Adj GPM</div>
+            <div style={{ fontFamily:'JetBrains Mono', fontSize:18, fontWeight:700, color: adjGPM >= 70 ? 'var(--green)' : 'var(--red)' }}>{fP(adjGPM)}</div>
+          </div>
+        </div>
+      )}
+
+      <QuotedVsActual projectId={project.id} orgId={project.org_id} />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLOSE TAB — Final approval, commission lock, referrals
+// ═══════════════════════════════════════════════════════════════════
+function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
+  const reprintCost = v(f.reprintCost)
+  const adjProfit = fin.profit - reprintCost
+  const adjGPM = fin.sale > 0 ? (adjProfit / fin.sale) * 100 : 0
+  const commRate = f.leadType === 'outbound' ? 0.10 : f.leadType === 'presold' ? 0.05 : 0.075
+  const adjComm = adjProfit * commRate
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <Section label="📊 Final Numbers Review" color="#8b5cf6">
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:16 }}>
+          {[
+            { label:'Sale', val: fM(fin.sale), color:'var(--accent)' },
+            { label:'COGS', val: fM(fin.cogs), color:'var(--text2)' },
+            { label:'Profit', val: fM(adjProfit), color:'var(--green)' },
+            { label:'GPM', val: fP(adjGPM), color: adjGPM >= 70 ? 'var(--green)' : 'var(--red)' },
+            { label:'Commission', val: fM(adjComm), color:'var(--purple)' },
+          ].map(s => (
+            <div key={s.label} style={{ textAlign:'center', padding:12, background:'var(--surface2)', borderRadius:10, border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:9, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>{s.label}</div>
+              <div style={{ fontFamily:'JetBrains Mono', fontSize:18, fontWeight:700, color:s.color }}>{s.val}</div>
             </div>
-            <button onClick={onAdvance} style={{ padding:'8px 18px', borderRadius:8, fontWeight:800, fontSize:12, cursor:'pointer', background:stage.color, border:'none', color:'#fff' }}>
-              Advance Stage →
-            </button>
+          ))}
+        </div>
+
+        {reprintCost > 0 && (
+          <div style={{ padding:10, background:'rgba(242,90,90,.08)', border:'1px solid rgba(242,90,90,.2)', borderRadius:8, fontSize:12, color:'var(--red)', marginBottom:12 }}>
+            ⚠ Reprint cost of {fM(reprintCost)} deducted from profit. Commission recalculated.
           </div>
         )}
-      </Section>
 
-      {/* Schedule */}
-      <Section label="Schedule & Logistics">
-        <Grid cols={3}>
-          <Field label="Install Date">
-            <input style={inp} type="date" value={f.installDate} onChange={e=>ff('installDate',e.target.value)} />
-          </Field>
-          <Field label="Vehicle Drop-off / Access">
-            <input style={inp} value={f.access} onChange={e=>ff('access',e.target.value)} placeholder="Drop off Monday 8am, key in lockbox..." />
-          </Field>
-          <Field label="Scope Confirmed With Customer">
-            <input style={inp} value={f.scopeConfirm} onChange={e=>ff('scopeConfirm',e.target.value)} placeholder="Verbal, email, signed contract..." />
-          </Field>
-        </Grid>
-        <div style={{ display:'flex', gap:20, marginTop:12 }}>
-          <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--text1)' }}>
-            <input type="checkbox" checked={f.deposit} onChange={e=>ff('deposit',e.target.checked)} />
-            Deposit Collected
-          </label>
-          <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--text1)' }}>
-            <input type="checkbox" checked={f.contractSigned} onChange={e=>ff('contractSigned',e.target.checked)} />
-            Contract Signed
-          </label>
+        <Field label="Sales Manager Sign-Off Notes">
+          <textarea style={{...inp, minHeight:80}} value={f.closeNotes} onChange={e=>ff('closeNotes',e.target.value)} placeholder="Final approval notes, commission adjustments..." />
+        </Field>
+
+        <div style={{ marginTop:12 }}>
+          <Check label="✅ I approve this job — lock commission and close" checked={f.finalApproved} onChange={v => ff('finalApproved',v)} />
         </div>
       </Section>
 
-      <Section label="Notes">
-        <Grid cols={2}>
-          <Field label="Sales Notes">
-            <textarea style={{...inp,minHeight:80}} value={f.salesNotes} onChange={e=>ff('salesNotes',e.target.value)} placeholder="Customer requests, deal context, follow-up needed..." />
-          </Field>
-          <Field label="Internal Production Notes">
-            <textarea style={{...inp,minHeight:80}} value={f.internalNotes} onChange={e=>ff('internalNotes',e.target.value)} placeholder="Installer notes, shop info, access codes..." />
-          </Field>
-        </Grid>
-      </Section>
+      <ReferralPanel projectId={project.id} orgId={project.org_id} />
 
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:8, borderTop:'1px solid var(--border)' }}>
-        <button onClick={onComplete} style={{ padding:'9px 20px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>
-          ✓ Mark Logistics Complete
-        </button>
-        <button onClick={onSaveOrder} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'var(--accent)', border:'none', color:'#fff' }}>
-          🚀 Send to Production
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Layout helpers ─────────────────────────────────────────────────────────────
-function Section({ label, children }: { label:string; children:React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.08em', paddingBottom:8, marginBottom:14, borderBottom:'1px solid var(--border)' }}>{label}</div>
-      {children}
-    </div>
-  )
-}
-function Grid({ cols, children, style }: { cols:number; children:React.ReactNode; style?:React.CSSProperties }) {
-  return (
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:12, ...style }}>
-      {children}
+      {/* Send-back summary */}
+      {sendBacks.length > 0 && (
+        <Section label={`↩ Send-Backs (${sendBacks.length})`}>
+          <div style={{ fontSize:11, color:'var(--text3)' }}>
+            {sendBacks.length} send-back(s) during this job's lifecycle
+          </div>
+        </Section>
+      )}
     </div>
   )
 }
