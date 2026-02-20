@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Car, Building2 } from 'lucide-react';
+import { useToast } from '@/components/shared/Toast';
 
 interface NewJobModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ const DECK_MATERIALS = ['Composite', 'PVC', 'Hardwood', 'Pressure-Treated', 'Ced
 export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJobCreated }: NewJobModalProps) {
   const [jobType, setJobType] = useState<'wrap' | 'deck'>('wrap');
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
   const [form, setForm] = useState({
     clientName: '',
     clientPhone: '',
@@ -49,7 +51,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
   };
 
   const handleCreate = async () => {
-    if (!form.clientName.trim()) return alert('Client name is required');
+    if (!form.clientName.trim()) { toast('Client name is required', 'warning'); return; }
     setSaving(true);
 
     const jobId = jobType === 'wrap'
@@ -94,7 +96,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
 
     if (error) {
       console.error('Failed to create job:', error);
-      alert('Error creating job. Check console.');
+      toast('Error creating job', 'error');
     } else {
       onJobCreated?.(data);
       onClose();

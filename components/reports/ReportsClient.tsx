@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { FileText, Download, BarChart3, DollarSign, Users, Package, Printer, TrendingUp } from 'lucide-react'
 import type { Profile } from '@/types'
+import { useToast } from '@/components/shared/Toast'
 
 interface Project {
   id: string
@@ -28,6 +29,7 @@ export default function ReportsClient({ profile, projects }: Props) {
   const [selectedProject, setSelectedProject] = useState('')
   const [loading, setLoading]                 = useState<string | null>(null)
   const [period, setPeriod]                   = useState<'week' | 'month' | 'quarter' | 'year'>('month')
+  const { toast } = useToast()
 
   // Period filter
   const now        = new Date()
@@ -45,7 +47,7 @@ export default function ReportsClient({ profile, projects }: Props) {
 
   async function downloadReport(type: string) {
     if (!selectedProject) {
-      alert('Please select a project first')
+      toast('Please select a project first', 'warning')
       return
     }
     setLoading(type)
@@ -61,14 +63,14 @@ export default function ReportsClient({ profile, projects }: Props) {
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 5000)
     } catch {
-      alert('Failed to generate report')
+      toast('Failed to generate report', 'error')
     }
     setLoading(null)
   }
 
   async function viewReport(type: string) {
     if (!selectedProject) {
-      alert('Please select a project first')
+      toast('Please select a project first', 'warning')
       return
     }
     setLoading(`view-${type}`)
@@ -83,7 +85,7 @@ export default function ReportsClient({ profile, projects }: Props) {
         w.document.close()
       }
     } catch {
-      alert('Failed to generate report')
+      toast('Failed to generate report', 'error')
     }
     setLoading(null)
   }
