@@ -10,6 +10,7 @@ import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
 import ApprovalModal from '@/components/approval/ApprovalModal'
 import CloseJobModal from '@/components/projects/CloseJobModal'
+import OnboardingLinkPanel from '@/components/pipeline/OnboardingLinkPanel'
 
 interface PipelineBoardProps {
   profile: Profile
@@ -140,6 +141,9 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
 
   return (
     <div>
+      {/* Onboarding Link Generator — ALWAYS AT TOP per spec */}
+      <OnboardingLinkPanel profile={profile} projects={projects} />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>

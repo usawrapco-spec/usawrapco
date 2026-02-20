@@ -1,23 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import { canAccess } from '@/types'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { TopBar } from '@/components/layout/TopBar'
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard'
 import type { Profile, Project } from '@/types'
 
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
 export default async function PipelinePage() {
   const supabase = createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const admin = getSupabaseAdmin()
+  const { data: profile } = await admin
     .from('profiles').select('*').eq('id', user.id).single()
-
   if (!profile) redirect('/login')
 
-  // Only sales, production, admin see the full pipeline
-  // Installers see only their jobs at install stage
-  let query = supabase
+  const orgId = profile.org_id || ORG_ID
+
+  let query = admin
     .from('projects')
     .select(`
       *,
@@ -25,8 +28,7 @@ export default async function PipelinePage() {
       installer:installer_id(id, name),
       customer:customer_id(id, name)
     `)
-    .eq('org_id', profile.org_id)
-    .eq('status', 'active')
+    .eq('org_id', orgId)
     .neq('pipe_stage', 'done')
 
   if (profile.role === 'installer') {
@@ -36,9 +38,17 @@ export default async function PipelinePage() {
   const { data: projects } = await query
 
   return (
-    <PipelineBoard
-      profile={profile as Profile}
-      initialProjects={(projects as Project[]) || []}
-    />
+    <div className="flex h-screen bg-bg overflow-hidden">
+      <Sidebar profile={profile as Profile} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar profile={profile as Profile} />
+        <main className="flex-1 overflow-y-auto p-6">
+          <PipelineBoard
+            profile={profile as Profile}
+            initialProjects={(projects as Project[]) || []}
+          />
+        </main>
+      </div>
+    </div>
   )
 }

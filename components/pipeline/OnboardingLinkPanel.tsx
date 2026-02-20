@@ -1,0 +1,186 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Link2, Copy, CheckCircle, Send, RefreshCw, Plus, ChevronDown } from 'lucide-react'
+import type { Profile, Project } from '@/types'
+
+interface Props {
+  profile: Profile
+  projects: Project[]
+}
+
+const APP_URL = typeof window !== 'undefined' ? window.location.origin : ''
+
+export default function OnboardingLinkPanel({ profile, projects }: Props) {
+  const [selectedProject, setSelectedProject] = useState<string>('')
+  const [token, setToken]     = useState<string>('')
+  const [generating, setGenerating] = useState(false)
+  const [copied, setCopied]   = useState(false)
+  const [expanded, setExpanded] = useState(true)
+  const supabase = createClient()
+
+  // Show only sales-eligible projects
+  const salesProjects = projects.filter(p =>
+    p.pipe_stage === 'sales_in' || !p.pipe_stage
+  )
+
+  async function generate() {
+    setGenerating(true)
+    setToken('')
+
+    // Create or find existing intake token
+    const { data: existing } = await supabase
+      .from('customer_intake_tokens')
+      .select('token')
+      .eq('project_id', selectedProject || 'none')
+      .eq('org_id', profile.org_id)
+      .single()
+
+    if (existing?.token) {
+      setToken(existing.token)
+      setGenerating(false)
+      return
+    }
+
+    // Create new token
+    const newToken = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+    const payload: Record<string, string> = {
+      token: newToken,
+      org_id: profile.org_id,
+      created_by: profile.id,
+    }
+    if (selectedProject) payload.project_id = selectedProject
+
+    const { error } = await supabase.from('customer_intake_tokens').insert(payload)
+    if (!error) setToken(newToken)
+    setGenerating(false)
+  }
+
+  const portalUrl = token ? `${APP_URL}/intake/${token}` : ''
+
+  async function copyLink() {
+    if (!portalUrl) return
+    await navigator.clipboard.writeText(portalUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const canGenerate = profile.role === 'owner' || profile.role === 'admin' || profile.role === 'sales_agent'
+
+  if (!canGenerate) return null
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(79,127,255,0.08) 0%, rgba(139,92,246,0.08) 100%)',
+      border: '1px solid rgba(79,127,255,0.25)',
+      borderRadius: 12,
+      marginBottom: 20,
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          width: '100%', padding: '12px 16px', background: 'none', border: 'none',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+          textAlign: 'left',
+        }}
+      >
+        <Link2 size={16} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', flex: 1 }}>
+          Generate Customer Onboarding Link
+        </span>
+        <ChevronDown
+          size={14}
+          style={{
+            color: 'var(--text3)',
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform 0.2s',
+          }}
+        />
+      </button>
+
+      {expanded && (
+        <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {/* Project select */}
+            <select
+              value={selectedProject}
+              onChange={e => setSelectedProject(e.target.value)}
+              style={{
+                flex: 1, minWidth: 200, padding: '8px 12px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 8, color: 'var(--text2)', fontSize: 13, outline: 'none',
+              }}
+            >
+              <option value="">No specific job (general intake)</option>
+              {salesProjects.map(p => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+
+            <button
+              onClick={generate}
+              disabled={generating}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: 'var(--accent)', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: generating ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}
+            >
+              {generating ? (
+                <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Generating...</>
+              ) : (
+                <><Plus size={14} /> Generate Link</>
+              )}
+            </button>
+          </div>
+
+          {/* Generated link */}
+          {portalUrl && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 12px', background: 'var(--surface)',
+              border: '1px solid var(--border)', borderRadius: 8,
+            }}>
+              <div style={{
+                flex: 1, fontSize: 12, color: 'var(--accent)',
+                fontFamily: 'JetBrains Mono, monospace',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {portalUrl}
+              </div>
+              <button
+                onClick={copyLink}
+                style={{
+                  padding: '5px 10px', borderRadius: 6, border: 'none',
+                  background: copied ? 'rgba(34,192,122,0.15)' : 'var(--surface2)',
+                  color: copied ? '#22c07a' : 'var(--text2)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {copied ? <><CheckCircle size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
+              </button>
+              <a
+                href={`mailto:?subject=Your%20Project%20Intake&body=Please%20use%20this%20link%20to%20submit%20your%20project%20details%3A%20${encodeURIComponent(portalUrl)}`}
+                style={{
+                  padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text2)',
+                  fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                <Send size={12} /> Email
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
