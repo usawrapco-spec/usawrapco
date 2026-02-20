@@ -140,13 +140,17 @@ export async function checkAndAwardBadges(
   userId: string,
 ): Promise<string[]> {
   try {
-    const [profileRes, closedRes, imageRes, referralRes, earlyRes] = await Promise.all([
-      supabase.from('profiles').select('xp, level, current_streak, longest_streak, badges').eq('id', userId).single(),
+    const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes] = await Promise.all([
+      supabase.from('profiles').select('xp, level, monthly_xp, current_streak, longest_streak, badges').eq('id', userId).single(),
       supabase.from('projects').select('id, gpm').eq('agent_id', userId).eq('status', 'closed'),
       supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
       supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', userId),
       // Speed Demon: project closed 2+ days before scheduled install date
       supabase.from('projects').select('id, install_date, updated_at').eq('agent_id', userId).eq('status', 'closed').not('install_date', 'is', null),
+      // Material Wizard: logged 20+ vinyl/material tracking entries
+      supabase.from('vinyl_usage').select('id', { count: 'exact', head: true }).eq('logged_by', userId),
+      // Top Dog: check if user has highest monthly XP in the org
+      supabase.from('profiles').select('id, monthly_xp').order('monthly_xp', { ascending: false }).limit(1),
     ])
 
     const profile = profileRes.data
@@ -164,6 +168,7 @@ export async function checkAndAwardBadges(
 
     // Streak & level badges
     if ((profile.longest_streak || 0) >= 7)  addBadge('hot_streak')
+    if ((profile.longest_streak || 0) >= 30) addBadge('marathon')
     if ((profile.level || 1) >= 25)           addBadge('elite')
 
     // Closer — 10 deals closed
@@ -188,6 +193,13 @@ export async function checkAndAwardBadges(
       return installDate - closedDate >= 2 * 86400000
     })
     if (earlyJobs.length >= 1) addBadge('speed_demon')
+
+    // Material Wizard — 20+ vinyl/material usage entries logged
+    if ((materialRes.count || 0) >= 20) addBadge('material_wizard')
+
+    // Top Dog — highest monthly XP in the org
+    const topProfile = (topRes.data || [])[0]
+    if (topProfile && topProfile.id === userId && (profile.monthly_xp || 0) > 0) addBadge('top_dog')
 
     if (newBadges.length > 0) {
       await supabase.from('profiles').update({
