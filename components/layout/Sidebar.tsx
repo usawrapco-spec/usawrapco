@@ -114,7 +114,7 @@ const NAV: NavItem[] = [
     permission: 'bids.read',
   },
   {
-    href: '/analytics',
+    href: '/reports',
     label: 'Reports',
     icon: BarChart3,
     permission: 'reports.view',
