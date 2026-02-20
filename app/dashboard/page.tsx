@@ -5,6 +5,7 @@ import { canAccess, isAdminRole } from '@/types'
 import type { Profile, Project } from '@/types'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import DashboardWrapper from '@/components/dashboard/DashboardWrapper'
+import RoleDashboard from '@/components/dashboard/RoleDashboard'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -60,11 +61,17 @@ export default async function DashboardPage() {
             profileId={user.id}
             role={profile.role}
         >
-            <DashboardClient
-                profile={profile as Profile}
-                initialProjects={(projects as Project[]) || []}
-                canSeeFinancials={canSeeFinancials}
-            />
+            <>
+                <RoleDashboard
+                    profile={profile as Profile}
+                    projects={(projects as Project[]) || []}
+                />
+                <DashboardClient
+                    profile={profile as Profile}
+                    initialProjects={(projects as Project[]) || []}
+                    canSeeFinancials={canSeeFinancials}
+                />
+            </>
         </DashboardWrapper>
     )
 }
