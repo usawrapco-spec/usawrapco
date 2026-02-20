@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { X } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -37,6 +38,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
@@ -219,7 +221,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
                       src={msg.image_url}
                       alt="attachment"
                       className="mt-2 rounded-lg max-w-[240px] max-h-[180px] object-cover border border-[#1e2d4a] cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(msg.image_url, '_blank')}
+                      onClick={() => setLightboxUrl(msg.image_url || null)}
                     />
                   )}
                 </div>
@@ -270,6 +272,27 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
           {sending ? '...' : 'Send →'}
         </button>
       </div>
+
+      {/* Image lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Full size"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

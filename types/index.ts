@@ -157,6 +157,29 @@ export interface ProjectFile {
   created_at: string
 }
 
+// ─── Design Project ─────────────────────────────────────────────────────────
+export type DesignProjectStatus = 'brief' | 'in_progress' | 'proof_sent' | 'approved'
+export type DesignType = 'full_wrap' | 'partial_wrap' | 'decal' | 'livery' | 'color_change' | 'other'
+
+export interface DesignProject {
+  id: string
+  org_id: string
+  client_name: string
+  design_type: DesignType
+  description: string | null
+  deadline: string | null
+  status: DesignProjectStatus
+  linked_project_id: string | null
+  created_by: string
+  assigned_to: string | null
+  created_at: string
+  updated_at: string
+  // Joined fields
+  linked_project?: Pick<Project, 'id' | 'title'>
+  creator?: Pick<Profile, 'id' | 'name'>
+  assignee?: Pick<Profile, 'id' | 'name'>
+}
+
 // ─── RBAC helpers ──────────────────────────────────────────────────────────────
 export type Permission =
   | 'view_analytics'

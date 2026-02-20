@@ -1,266 +1,380 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import type { Profile, Project } from '@/types'
+import { useState, useMemo, useCallback } from 'react'
+import type { Profile, Project, DesignProject, DesignProjectStatus, DesignType } from '@/types'
 import { clsx } from 'clsx'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import {
+  Plus, X, Palette, Clock, Send, CheckCircle2,
+  Search, ArrowRight, LinkIcon, CalendarDays, GripVertical,
+} from 'lucide-react'
 
 interface DesignClientProps {
   profile: Profile
   projects: Project[]
+  initialDesignProjects?: DesignProject[]
 }
 
-type DesignStatus = 'pending' | 'in_progress' | 'proof_sent' | 'revision' | 'approved'
+const KANBAN_COLUMNS: { key: DesignProjectStatus; label: string; color: string; icon: React.ReactNode }[] = [
+  { key: 'brief',       label: 'Brief',       color: 'text-text3',  icon: <Clock className="w-4 h-4" /> },
+  { key: 'in_progress', label: 'In Progress', color: 'text-accent', icon: <Palette className="w-4 h-4" /> },
+  { key: 'proof_sent',  label: 'Proof Sent',  color: 'text-cyan',   icon: <Send className="w-4 h-4" /> },
+  { key: 'approved',    label: 'Approved',     color: 'text-green',  icon: <CheckCircle2 className="w-4 h-4" /> },
+]
 
-interface DesignJob {
-  projectId: string
-  projectTitle: string
-  customerName: string
-  vehicleDesc: string
-  type: string
-  designStatus: DesignStatus
-  proofVersion: number
-  lastUpdated: string
-  notes: string
-}
+const DESIGN_TYPES: { value: DesignType; label: string }[] = [
+  { value: 'full_wrap',     label: 'Full Wrap' },
+  { value: 'partial_wrap',  label: 'Partial Wrap' },
+  { value: 'decal',         label: 'Decal / Lettering' },
+  { value: 'livery',        label: 'Fleet Livery' },
+  { value: 'color_change',  label: 'Color Change' },
+  { value: 'other',         label: 'Other' },
+]
 
-const STATUS_CONFIG: Record<DesignStatus, { label: string; badge: string; icon: string }> = {
-  pending:     { label: 'Pending',       badge: 'badge-gray',   icon: '⏳' },
-  in_progress: { label: 'In Progress',  badge: 'badge-accent', icon: '🎨' },
-  proof_sent:  { label: 'Proof Sent',   badge: 'badge-cyan',   icon: '📤' },
-  revision:    { label: 'Revision Req',  badge: 'badge-amber',  icon: '🔄' },
-  approved:    { label: 'Approved',      badge: 'badge-green',  icon: '✅' },
-}
-
-export function DesignClient({ profile, projects }: DesignClientProps) {
+export function DesignClient({ profile, projects, initialDesignProjects = [] }: DesignClientProps) {
   const router = useRouter()
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const supabase = createClient()
+  const [designProjects, setDesignProjects] = useState<DesignProject[]>(initialDesignProjects)
+  const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState('')
-  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  // Generate design jobs from projects
-  const designJobs: DesignJob[] = useMemo(() =>
-    projects.map(p => {
-      // Infer design status from project state
-      let designStatus: DesignStatus = 'pending'
-      if (p.pipe_stage === 'production' || p.pipe_stage === 'install') designStatus = 'approved'
-      else if (p.status === 'active' && p.pipe_stage === 'sales_in') designStatus = 'in_progress'
-      else if (p.status === 'estimate') designStatus = 'pending'
+  // Form state
+  const [formClientName, setFormClientName] = useState('')
+  const [formDesignType, setFormDesignType] = useState<DesignType>('full_wrap')
+  const [formDescription, setFormDescription] = useState('')
+  const [formDeadline, setFormDeadline] = useState('')
+  const [formLinkedJob, setFormLinkedJob] = useState('')
 
-      return {
-        projectId: p.id,
-        projectTitle: p.title,
-        customerName: (p.customer as any)?.name || p.title,
-        vehicleDesc: p.vehicle_desc || '—',
-        type: p.type,
-        designStatus,
-        proofVersion: 1,
-        lastUpdated: p.updated_at,
-        notes: '',
+  const filteredProjects = useMemo(() => {
+    if (!search) return designProjects
+    const q = search.toLowerCase()
+    return designProjects.filter(dp =>
+      dp.client_name.toLowerCase().includes(q) ||
+      dp.description?.toLowerCase().includes(q) ||
+      dp.design_type.toLowerCase().includes(q)
+    )
+  }, [designProjects, search])
+
+  const columnData = useMemo(() => {
+    const result: Record<DesignProjectStatus, DesignProject[]> = {
+      brief: [], in_progress: [], proof_sent: [], approved: [],
+    }
+    filteredProjects.forEach(dp => {
+      result[dp.status].push(dp)
+    })
+    return result
+  }, [filteredProjects])
+
+  const resetForm = useCallback(() => {
+    setFormClientName('')
+    setFormDesignType('full_wrap')
+    setFormDescription('')
+    setFormDeadline('')
+    setFormLinkedJob('')
+  }, [])
+
+  const handleCreate = async () => {
+    if (!formClientName.trim()) return
+    setSaving(true)
+
+    const newProject = {
+      org_id: profile.org_id,
+      client_name: formClientName.trim(),
+      design_type: formDesignType,
+      description: formDescription.trim() || null,
+      deadline: formDeadline || null,
+      status: 'brief' as DesignProjectStatus,
+      linked_project_id: formLinkedJob || null,
+      created_by: profile.id,
+      assigned_to: profile.role === 'designer' ? profile.id : null,
+    }
+
+    const { data, error } = await supabase
+      .from('design_projects')
+      .insert(newProject)
+      .select('*')
+      .single()
+
+    if (!error && data) {
+      setDesignProjects(prev => [data as DesignProject, ...prev])
+
+      // If no linked job, create a task for sales to review
+      if (!formLinkedJob) {
+        await supabase.from('tasks').insert({
+          org_id: profile.org_id,
+          title: `Review standalone design: ${formClientName.trim()}`,
+          description: `A design project was created for "${formClientName.trim()}" without a linked job. Review and send a quote to the client.`,
+          type: 'auto',
+          status: 'open',
+          priority: 'high',
+          created_by: profile.id,
+          source: 'design_studio',
+        })
       }
-    }),
-    [projects]
-  )
 
-  const filtered = useMemo(() => {
-    let list = [...designJobs]
-    if (statusFilter !== 'all') list = list.filter(j => j.designStatus === statusFilter)
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(j =>
-        j.customerName.toLowerCase().includes(q) ||
-        j.vehicleDesc.toLowerCase().includes(q) ||
-        j.projectTitle.toLowerCase().includes(q)
+      setShowModal(false)
+      resetForm()
+    }
+
+    setSaving(false)
+  }
+
+  const moveCard = async (dp: DesignProject, newStatus: DesignProjectStatus) => {
+    const { error } = await supabase
+      .from('design_projects')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', dp.id)
+
+    if (!error) {
+      setDesignProjects(prev =>
+        prev.map(p => p.id === dp.id ? { ...p, status: newStatus } : p)
       )
     }
-    return list
-  }, [designJobs, statusFilter, search])
+  }
 
-  const statusCounts = useMemo(() => {
-    const c: Record<string, number> = {}
-    designJobs.forEach(j => { c[j.designStatus] = (c[j.designStatus] || 0) + 1 })
-    return c
-  }, [designJobs])
+  const getNextStatus = (current: DesignProjectStatus): DesignProjectStatus | null => {
+    const order: DesignProjectStatus[] = ['brief', 'in_progress', 'proof_sent', 'approved']
+    const idx = order.indexOf(current)
+    return idx < order.length - 1 ? order[idx + 1] : null
+  }
 
-  const selectedJob = selectedProject ? designJobs.find(j => j.projectId === selectedProject) : null
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   return (
-    <div className="max-w-6xl">
+    <div>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="font-display text-3xl font-900 text-text1"
+          <h1 className="font-display text-3xl font-900 text-text1 flex items-center gap-2"
             style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            🎨 Design Studio
+            <Palette className="w-7 h-7 text-accent" />
+            Design Studio
           </h1>
           <p className="text-sm text-text3 mt-1">
-            Manage proofs, revisions, and customer approvals
+            Manage design projects, proofs, and approvals
           </p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="btn-primary text-sm flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          New Design Project
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="mb-6 max-w-sm">
+        <div className="relative">
+          <input
+            type="text"
+            className="field pl-9"
+            placeholder="Search design projects..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text3" />
         </div>
       </div>
 
-      {/* Status pipeline */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={clsx(
-            'px-4 py-2 rounded-lg text-sm font-700 transition-all whitespace-nowrap border',
-            statusFilter === 'all' ? 'bg-accent/15 border-accent text-accent' : 'bg-surface border-border text-text3 hover:text-text1'
-          )}
-        >
-          All ({designJobs.length})
-        </button>
-        {(Object.entries(STATUS_CONFIG) as [DesignStatus, typeof STATUS_CONFIG[DesignStatus]][]).map(([key, config]) => (
-          <button
-            key={key}
-            onClick={() => setStatusFilter(statusFilter === key ? 'all' : key)}
-            className={clsx(
-              'px-4 py-2 rounded-lg text-sm font-700 transition-all whitespace-nowrap border',
-              statusFilter === key ? 'bg-accent/15 border-accent text-accent' : 'bg-surface border-border text-text3 hover:text-text1'
-            )}
-          >
-            {config.icon} {config.label} ({statusCounts[key] || 0})
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        {/* Job list */}
-        <div className="col-span-2">
-          {/* Search */}
-          <div className="mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                className="field pl-8"
-                placeholder="Search design jobs…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text3">🔍</span>
+      {/* Kanban board */}
+      <div className="grid grid-cols-4 gap-4 min-h-[60vh]">
+        {KANBAN_COLUMNS.map(col => (
+          <div key={col.key} className="flex flex-col">
+            {/* Column header */}
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <span className={col.color}>{col.icon}</span>
+              <span className="text-sm font-800 text-text1">{col.label}</span>
+              <span className="ml-auto text-xs font-700 text-text3 bg-surface2 px-2 py-0.5 rounded-full mono">
+                {columnData[col.key].length}
+              </span>
             </div>
-          </div>
 
-          {/* Jobs grid */}
-          {filtered.length === 0 ? (
-            <div className="card text-center py-16">
-              <div className="text-4xl mb-3">🎨</div>
-              <div className="text-lg font-700 text-text1">No design jobs</div>
-              <div className="text-sm text-text3 mt-1">Projects will appear here when they need design work.</div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {filtered.map(job => {
-                const config = STATUS_CONFIG[job.designStatus]
-                const isSelected = selectedProject === job.projectId
+            {/* Column body */}
+            <div className="flex-1 bg-surface2/30 rounded-xl p-2 flex flex-col gap-2 border border-border/50">
+              {columnData[col.key].length === 0 && (
+                <div className="flex-1 flex items-center justify-center text-text3 text-xs py-8">
+                  No projects
+                </div>
+              )}
+
+              {columnData[col.key].map(dp => {
+                const next = getNextStatus(dp.status)
                 return (
                   <div
-                    key={job.projectId}
-                    className={clsx(
-                      'card cursor-pointer transition-all hover:-translate-y-0.5',
-                      isSelected ? 'border-accent bg-accent/5' : 'hover:border-accent/30'
-                    )}
-                    onClick={() => setSelectedProject(isSelected ? null : job.projectId)}
+                    key={dp.id}
+                    className="card p-3 hover:border-accent/30 transition-all cursor-default"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-base">{config.icon}</span>
-                          <span className="text-sm font-800 text-text1">{job.customerName}</span>
-                          <span className={config.badge}>{config.label}</span>
-                          <span className="badge badge-gray capitalize">{job.type}</span>
-                        </div>
-                        <div className="text-xs text-text3">{job.vehicleDesc}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs text-text3 mono">v{job.proofVersion}</div>
-                      </div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="text-sm font-800 text-text1 truncate">{dp.client_name}</div>
+                      <GripVertical className="w-3.5 h-3.5 text-text3 shrink-0 mt-0.5" />
                     </div>
-
-                    {/* Expanded detail */}
-                    {isSelected && (
-                      <div className="mt-4 pt-4 border-t border-border anim-fade-up">
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div className="bg-surface2 rounded-lg p-3">
-                            <div className="text-xs font-700 text-text3 uppercase mb-1">Proof Version</div>
-                            <div className="text-lg font-800 text-accent">v{job.proofVersion}</div>
-                          </div>
-                          <div className="bg-surface2 rounded-lg p-3">
-                            <div className="text-xs font-700 text-text3 uppercase mb-1">Design Status</div>
-                            <div className="text-sm font-700 text-text1">{config.label}</div>
-                          </div>
-                          <div className="bg-surface2 rounded-lg p-3">
-                            <div className="text-xs font-700 text-text3 uppercase mb-1">Project Type</div>
-                            <div className="text-sm font-700 text-text1 capitalize">{job.type}</div>
-                          </div>
-                        </div>
-
-                        {/* Design actions */}
-                        <div className="flex gap-2 flex-wrap">
-                          <button className="btn-primary btn-sm">📤 Upload Proof</button>
-                          <button className="btn-ghost btn-sm">📧 Send to Customer</button>
-                          <button className="btn-ghost btn-sm" onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/projects/${job.projectId}`)
-                          }}>
-                            Open Project →
-                          </button>
-                        </div>
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      <span className="badge badge-gray capitalize text-[10px]">
+                        {dp.design_type.replace('_', ' ')}
+                      </span>
+                      {dp.linked_project_id && (
+                        <span className="badge badge-accent text-[10px] flex items-center gap-0.5">
+                          <LinkIcon className="w-2.5 h-2.5" /> Linked
+                        </span>
+                      )}
+                    </div>
+                    {dp.description && (
+                      <p className="text-xs text-text3 mb-2 line-clamp-2">{dp.description}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center gap-1 text-text3">
+                        {dp.deadline && (
+                          <span className="text-[10px] flex items-center gap-0.5">
+                            <CalendarDays className="w-3 h-3" />
+                            {formatDate(dp.deadline)}
+                          </span>
+                        )}
                       </div>
+                      {next && (
+                        <button
+                          onClick={() => moveCard(dp, next)}
+                          className="text-[10px] font-700 text-accent hover:text-accent/80 flex items-center gap-0.5 transition-colors"
+                          title={`Move to ${next.replace('_', ' ')}`}
+                        >
+                          Advance <ArrowRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    {dp.linked_project_id && (
+                      <button
+                        onClick={() => router.push(`/projects/${dp.linked_project_id}`)}
+                        className="text-[10px] font-600 text-text3 hover:text-accent mt-1.5 transition-colors"
+                      >
+                        Open linked job
+                      </button>
                     )}
                   </div>
                 )
               })}
             </div>
-          )}
-        </div>
-
-        {/* Sidebar - Design workflow guide */}
-        <div className="flex flex-col gap-4">
-          <div className="card">
-            <div className="section-label mb-3">📋 Design Workflow</div>
-            <div className="flex flex-col gap-2">
-              {[
-                { num: 1, icon: '📥', label: 'Receive Brief', desc: 'Client details, vehicle info, brand guidelines' },
-                { num: 2, icon: '🎨', label: 'Create Design', desc: 'Mockup in design software, prepare proof' },
-                { num: 3, icon: '📤', label: 'Upload Proof', desc: 'Upload proof file to the project' },
-                { num: 4, icon: '📧', label: 'Send for Approval', desc: 'Customer receives proof link with approve/revise options' },
-                { num: 5, icon: '🔄', label: 'Handle Revisions', desc: 'Customer requests changes, upload new version' },
-                { num: 6, icon: '✅', label: 'Final Approval', desc: 'Customer approves, job moves to production' },
-              ].map(step => (
-                <div key={step.num} className="flex items-start gap-2.5 p-2 rounded-lg bg-surface2/50">
-                  <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-xs font-900 text-accent shrink-0">
-                    {step.num}
-                  </div>
-                  <div>
-                    <div className="text-xs font-700 text-text1">{step.icon} {step.label}</div>
-                    <div className="text-xs text-text3 mt-0.5">{step.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
-
-          {/* Quick stats */}
-          <div className="card">
-            <div className="section-label mb-3">📊 Design Stats</div>
-            <div className="flex flex-col gap-2">
-              {[
-                { label: 'Pending', count: statusCounts['pending'] || 0, color: 'text-text3' },
-                { label: 'In Progress', count: statusCounts['in_progress'] || 0, color: 'text-accent' },
-                { label: 'Proofs Sent', count: statusCounts['proof_sent'] || 0, color: 'text-cyan' },
-                { label: 'Needs Revision', count: statusCounts['revision'] || 0, color: 'text-amber' },
-                { label: 'Approved', count: statusCounts['approved'] || 0, color: 'text-green' },
-              ].map(s => (
-                <div key={s.label} className="flex items-center justify-between py-1">
-                  <span className="text-xs font-600 text-text2">{s.label}</span>
-                  <span className={clsx('mono text-sm font-800', s.color)}>{s.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
+
+      {/* New Design Project Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => { setShowModal(false); resetForm() }}>
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="text-lg font-800 text-text1 flex items-center gap-2"
+                style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
+                <Plus className="w-5 h-5 text-accent" />
+                New Design Project
+              </h2>
+              <button onClick={() => { setShowModal(false); resetForm() }} className="text-text3 hover:text-text1 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="p-5 flex flex-col gap-4">
+              {/* Client Name */}
+              <div>
+                <label className="text-xs font-700 text-text2 uppercase mb-1.5 block">Client Name *</label>
+                <input
+                  type="text"
+                  className="field"
+                  placeholder="e.g. John's Auto Shop"
+                  value={formClientName}
+                  onChange={e => setFormClientName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              {/* Design Type */}
+              <div>
+                <label className="text-xs font-700 text-text2 uppercase mb-1.5 block">Design Type</label>
+                <select
+                  className="field"
+                  value={formDesignType}
+                  onChange={e => setFormDesignType(e.target.value as DesignType)}
+                >
+                  {DESIGN_TYPES.map(dt => (
+                    <option key={dt.value} value={dt.value}>{dt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-700 text-text2 uppercase mb-1.5 block">Description</label>
+                <textarea
+                  className="field min-h-[80px] resize-y"
+                  placeholder="Design brief, brand colors, reference links..."
+                  value={formDescription}
+                  onChange={e => setFormDescription(e.target.value)}
+                />
+              </div>
+
+              {/* Deadline */}
+              <div>
+                <label className="text-xs font-700 text-text2 uppercase mb-1.5 block">Deadline</label>
+                <input
+                  type="date"
+                  className="field"
+                  value={formDeadline}
+                  onChange={e => setFormDeadline(e.target.value)}
+                />
+              </div>
+
+              {/* Linked Job */}
+              <div>
+                <label className="text-xs font-700 text-text2 uppercase mb-1.5 block">
+                  Link to Existing Job <span className="text-text3 normal-case font-500">(optional)</span>
+                </label>
+                <select
+                  className="field"
+                  value={formLinkedJob}
+                  onChange={e => setFormLinkedJob(e.target.value)}
+                >
+                  <option value="">No linked job (standalone)</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} — {(p.customer as any)?.name || 'No customer'}
+                    </option>
+                  ))}
+                </select>
+                {!formLinkedJob && formClientName && (
+                  <p className="text-[10px] text-amber mt-1">
+                    A task will be auto-created for sales to review and send a quote.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex justify-end gap-3 p-5 pt-0">
+              <button
+                onClick={() => { setShowModal(false); resetForm() }}
+                className="btn-ghost text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!formClientName.trim() || saving}
+                className="btn-primary text-sm flex items-center gap-2 disabled:opacity-40"
+              >
+                {saving ? 'Creating...' : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Create Project
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

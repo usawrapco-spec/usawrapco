@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -7,29 +7,48 @@ import { canAccess, type Profile, type Permission } from '@/types'
 import { clsx } from 'clsx'
 import { useState } from 'react'
 import NewProjectModal from '@/components/dashboard/NewProjectModal'
+import {
+  LayoutDashboard,
+  CheckCircle,
+  ListTodo,
+  Calendar,
+  Scissors,
+  Palette,
+  Users,
+  Factory,
+  Trophy,
+  GanttChart,
+  DollarSign,
+  BarChart3,
+  Settings,
+  Car,
+  Plus,
+  LogOut,
+  type LucideIcon,
+} from 'lucide-react'
 
 interface NavItem {
   href: string
   label: string
-  icon: string
+  icon: LucideIcon
   permission?: Permission
   always?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard',   label: 'Dashboard',    icon: 'ðŸ“Š', always: true },
-  { href: '/pipeline',    label: 'Approval',     icon: 'ðŸ”„', permission: 'view_all_projects' },
-  { href: '/tasks',       label: 'Task Queue',   icon: 'âœ…', always: true },
-  { href: '/calendar',    label: 'Calendar',     icon: 'ðŸ“…', always: true },
-  { href: '/inventory',   label: 'Vinyl',        icon: 'ðŸŽ¨', always: true },
-  { href: '/design',      label: 'Design Studio',icon: 'âœï¸', permission: 'access_design_studio' },
-  { href: '/employees',   label: 'Team',         icon: 'ðŸ‘¥', permission: 'manage_users' },
-  { href: '/production',     label: 'Production',    icon: '⚙', always: true },
-    { href: '/leaderboard',    label: 'Leaderboard',   icon: '🏆', always: true },
-    { href: '/timeline',       label: 'Timeline',      icon: '📋', always: true },
-    { href: '/overhead',       label: 'Overhead',      icon: '🏭', always: true },
-    { href: '/analytics',   label: 'Analytics',    icon: 'ðŸ“ˆ', permission: 'view_analytics' },
-  { href: '/settings',    label: 'Settings',     icon: 'âš™ï¸', permission: 'manage_settings' },
+  { href: '/dashboard',   label: 'Dashboard',     icon: LayoutDashboard, always: true },
+  { href: '/pipeline',    label: 'Approval',      icon: CheckCircle,     permission: 'view_all_projects' },
+  { href: '/tasks',       label: 'Task Queue',    icon: ListTodo,        always: true },
+  { href: '/calendar',    label: 'Calendar',       icon: Calendar,        always: true },
+  { href: '/inventory',   label: 'Vinyl',          icon: Scissors,        always: true },
+  { href: '/design',      label: 'Design Studio',  icon: Palette,         permission: 'access_design_studio' },
+  { href: '/employees',   label: 'Team',           icon: Users,           permission: 'manage_users' },
+  { href: '/production',  label: 'Production',     icon: Factory,         always: true },
+  { href: '/leaderboard', label: 'Leaderboard',    icon: Trophy,          always: true },
+  { href: '/timeline',    label: 'Timeline',       icon: GanttChart,      always: true },
+  { href: '/overhead',    label: 'Overhead',       icon: DollarSign,      always: true },
+  { href: '/analytics',   label: 'Analytics',      icon: BarChart3,       permission: 'view_analytics' },
+  { href: '/settings',    label: 'Settings',       icon: Settings,        permission: 'manage_settings' },
 ]
 
 interface SidebarProps {
@@ -63,7 +82,7 @@ export function Sidebar({ profile }: SidebarProps) {
         {/* Logo */}
         <div className="px-4 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <span className="text-lg">ðŸš—</span>
+            <Car className="w-5 h-5 text-accent" />
             <div>
               <div className="text-sm font-900 tracking-tight text-text1 leading-none"
                 style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
@@ -71,7 +90,7 @@ export function Sidebar({ profile }: SidebarProps) {
               </div>
               <div className="text-xs text-text3">
                 Ops Platform
-                <span className="ml-1 text-accent/60 mono text-[9px]">v4.0</span>
+                <span className="ml-1 text-accent/60 mono text-[9px]">v4.1</span>
               </div>
             </div>
           </div>
@@ -80,7 +99,7 @@ export function Sidebar({ profile }: SidebarProps) {
         {/* New Project button */}
         <div className="px-3 py-3 border-b border-border">
           <button onClick={() => setShowNewProject(true)} className="btn-primary w-full text-sm">
-            <span className="text-base">ï¼‹</span> New Estimate
+            <Plus className="w-4 h-4 inline-block -mt-0.5" /> New Estimate
           </button>
         </div>
 
@@ -89,6 +108,7 @@ export function Sidebar({ profile }: SidebarProps) {
           {visibleItems.map(item => {
             const active = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            const Icon = item.icon
             return (
               <Link key={item.href} href={item.href}
                 className={clsx(
@@ -97,7 +117,7 @@ export function Sidebar({ profile }: SidebarProps) {
                     ? 'bg-accent/15 text-accent font-700'
                     : 'text-text2 hover:bg-surface2 hover:text-text1'
                 )}>
-                <span className="text-base w-5 text-center">{item.icon}</span>
+                <Icon className="w-[18px] h-[18px] shrink-0" />
                 {item.label}
               </Link>
             )
@@ -117,7 +137,9 @@ export function Sidebar({ profile }: SidebarProps) {
               </div>
             </div>
             <button onClick={handleSignOut}
-              className="text-text3 hover:text-red transition-colors text-sm" title="Sign out">â†©</button>
+              className="text-text3 hover:text-red transition-colors" title="Sign out">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>
@@ -132,6 +154,3 @@ export function Sidebar({ profile }: SidebarProps) {
     </>
   )
 }
-
-
-
