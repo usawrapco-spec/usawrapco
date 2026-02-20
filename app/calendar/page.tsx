@@ -1,20 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import type { Profile, Project } from '@/types'
 import CalendarPageClient from '@/components/calendar/CalendarPage'
 
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
 export default async function CalendarPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles').select('*').eq('id', user.id).single()
+  const admin = getSupabaseAdmin()
+  const { data: profile } = await admin.from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  let query = supabase
+  const orgId = profile.org_id || ORG_ID
+
+  let query = admin
     .from('projects')
     .select(`
       *,
@@ -22,7 +27,7 @@ export default async function CalendarPage() {
       installer:installer_id(id, name),
       customer:customer_id(id, name)
     `)
-    .eq('org_id', profile.org_id)
+    .eq('org_id', orgId)
     .not('status', 'in', '(closed,cancelled)')
     .order('install_date', { ascending: true })
 

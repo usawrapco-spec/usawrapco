@@ -34,10 +34,11 @@ export default async function AnalyticsPage() {
     )
   }
 
-  const { data: projects } = await supabase
+  const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+  const { data: projects } = await getSupabaseAdmin()
     .from('projects')
     .select(`*, agent:agent_id(id, name), installer:installer_id(id, name)`)
-    .eq('org_id', profile.org_id)
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
   return (
