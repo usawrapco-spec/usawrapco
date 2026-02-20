@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X } from 'lucide-react'
+import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink } from 'lucide-react'
 import type { Profile } from '@/types'
 
 interface Customer {
@@ -33,6 +34,7 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
     city: '', state: '', source: 'inbound', notes: '',
   })
   const supabase = createClient()
+  const router = useRouter()
 
   const filtered = customers.filter(c => {
     const q = search.toLowerCase()
@@ -108,10 +110,14 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
           {filtered.map(c => (
             <div
               key={c.id}
+              onClick={() => router.push(`/customers/${c.id}`)}
               style={{
                 background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 12, padding: '16px',
+                borderRadius: 12, padding: '16px', cursor: 'pointer',
+                transition: 'border-color 0.15s',
               }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(79,127,255,0.4)')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
@@ -150,20 +156,21 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
                   </div>
                 )}
               </div>
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
                 {c.email && (
-                  <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                  <a href={`mailto:${c.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
                     Email
                   </a>
                 )}
                 {c.phone && (
-                  <a href={`tel:${c.phone}`} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                  <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
                     Call
                   </a>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 'auto' }}>
                   {new Date(c.created_at).toLocaleDateString()}
                 </span>
+                <ExternalLink size={11} style={{ color: 'var(--text3)' }} />
               </div>
             </div>
           ))}
