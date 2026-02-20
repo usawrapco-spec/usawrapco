@@ -19,6 +19,7 @@ import { clsx } from 'clsx'
 import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
 import VelocityGauge from '@/components/dashboard/VelocityGauge'
+import ActivityFeed from '@/components/dashboard/ActivityFeed'
 
 interface DashboardClientProps {
   profile: Profile
@@ -732,6 +733,9 @@ export function DashboardClient({
           </div>
         </div>
       )}
+
+      {/* ====== Activity Feed ====== */}
+      <ActivityFeed orgId={profile.org_id} />
 
       {/* ====== Projects panel ====== */}
       <div className="card p-0 overflow-hidden">
