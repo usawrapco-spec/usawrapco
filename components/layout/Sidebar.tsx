@@ -7,6 +7,7 @@ import { hasPermission, type ModulePermission } from '@/lib/permissions'
 import type { Profile } from '@/types'
 import { useState } from 'react'
 import NewProjectModal from '@/components/dashboard/NewProjectModal'
+import GenieFAB from '@/components/genie/GenieFAB'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -87,8 +88,8 @@ const NAV: NavItem[] = [
     icon: Factory,
     permission: 'production.read',
     children: [
-      { href: '/timeline',              label: 'Print Schedule' },
-      { href: '/production/printers',   label: 'Printer Maintenance' },
+      { href: '/timeline',             label: 'Print Schedule' },
+      { href: '/production/printers',  label: 'Printer Maintenance' },
     ],
   },
   {
@@ -101,16 +102,16 @@ const NAV: NavItem[] = [
     ],
   },
   {
-    href: '/installer-portal',
-    label: 'Installer Bids',
-    icon: Hammer,
-    permission: 'bids.read',
-  },
-  {
     href: '/customers',
     label: 'Customers',
     icon: Users,
     permission: 'sales.read',
+  },
+  {
+    href: '/installer-portal',
+    label: 'Installer Bids',
+    icon: Hammer,
+    permission: 'bids.read',
   },
   {
     href: '/analytics',
@@ -191,6 +192,10 @@ export function Sidebar({ profile }: SidebarProps) {
 
   return (
     <>
+      <GenieFAB
+        userName={profile.name ?? profile.email ?? 'Team Member'}
+        userRole={profile.role}
+      />
       <aside style={{
         width: 220,
         background: 'var(--surface)',
