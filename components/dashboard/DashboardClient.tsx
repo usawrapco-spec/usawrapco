@@ -98,7 +98,7 @@ export function DashboardClient({
   const [recentActivity, setRecentActivity] = useState<any[]>([])
   const router = useRouter()
   const supabase = createClient()
-  const { toast, xpToast } = useToast()
+  const { toast } = useToast()
 
   // Greeting + XP/streak computed values
   const greeting = useMemo(() => {
@@ -113,26 +113,6 @@ export function DashboardClient({
   const xpNext  = xpLevel * xpLevel * 50
   const xpPrev  = (xpLevel - 1) * (xpLevel - 1) * 50
   const xpPct   = Math.min(100, Math.round(((xp - xpPrev) / Math.max(1, xpNext - xpPrev)) * 100))
-
-  // Daily login XP (once per day via localStorage guard)
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0]
-    const lastLogin = localStorage.getItem('usawrap_last_xp_login')
-    if (lastLogin === today) return
-
-    fetch('/api/xp/daily-login', { method: 'POST' })
-      .then(r => r.ok ? r.json() : null)
-      .then((data: { xpAwarded?: number; streak?: number; leveledUp?: boolean; newLevel?: number } | null) => {
-        if (!data || !data.xpAwarded || data.xpAwarded <= 0) return
-        localStorage.setItem('usawrap_last_xp_login', today)
-        const label = (data.streak || 0) > 1
-          ? `Daily login · ${data.streak}-day streak!`
-          : 'Daily login bonus'
-        xpToast(data.xpAwarded, label, data.leveledUp, data.newLevel)
-      })
-      .catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Load recent activity feed (job comments)
   useEffect(() => {
