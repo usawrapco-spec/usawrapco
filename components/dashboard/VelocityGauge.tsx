@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { Pencil, Sparkles, X, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'
 
 interface Props {
   totalRevenue:  number
@@ -28,6 +28,8 @@ export default function VelocityGauge({
   const [target, setTarget]           = useState(defaultTarget)
   const [editingTarget, setEditing]   = useState(false)
   const [targetInput, setTargetInput] = useState('')
+  const [forecast, setForecast]       = useState<any>(null)
+  const [forecasting, setForecasting] = useState(false)
 
   const dailyPace = daysElapsed > 0 ? totalRevenue / daysElapsed : 0
   const projected = dailyPace * daysInPeriod
@@ -57,6 +59,25 @@ export default function VelocityGauge({
     const v = parseFloat(targetInput.replace(/[^0-9.]/g, ''))
     if (!isNaN(v) && v > 0) setTarget(v)
     setEditing(false)
+  }
+
+  async function runForecast() {
+    setForecasting(true)
+    try {
+      const res = await fetch('/api/ai/sales-forecast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentRevenue: totalRevenue,
+          monthlyTarget: target,
+          pipeline: { totalValue: pipelineValue, byStage: {} },
+          historicalData: [],
+        }),
+      })
+      const data = await res.json()
+      if (data.forecast) setForecast(data.forecast)
+    } catch {}
+    setForecasting(false)
   }
 
   return (
@@ -184,6 +205,78 @@ export default function VelocityGauge({
           Velocity = {totalOpps} opportunities × {(winRate * 100).toFixed(0)}% win rate × {fM(avgDeal)} avg
           {daysElapsed > 0 && <>&nbsp;·&nbsp;{daysElapsed}d elapsed of {daysInPeriod}</>}
         </div>
+
+        {/* AI Forecast button */}
+        {!forecast && (
+          <button
+            onClick={runForecast}
+            disabled={forecasting}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.3)',
+              color: 'var(--accent)', transition: 'all 0.15s',
+              opacity: forecasting ? 0.7 : 1,
+            }}
+          >
+            <Sparkles size={13} />
+            {forecasting ? 'Forecasting...' : 'AI Forecast'}
+          </button>
+        )}
+
+        {/* AI Forecast panel */}
+        {forecast && (
+          <div style={{
+            background: 'rgba(79,127,255,0.05)', border: '1px solid rgba(79,127,255,0.2)',
+            borderRadius: 10, padding: '12px 14px', position: 'relative',
+          }}>
+            <button
+              onClick={() => setForecast(null)}
+              style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}
+            >
+              <X size={13} />
+            </button>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Sparkles size={11} /> AI Forecast
+            </div>
+            {forecast.summary && (
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, lineHeight: 1.5 }}>
+                {forecast.summary}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
+              {forecast.projected_monthly_revenue != null && (
+                <div style={{ background: 'var(--surface2)', borderRadius: 6, padding: '6px 8px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Projected</div>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>{fM(forecast.projected_monthly_revenue)}</div>
+                </div>
+              )}
+              {forecast.confidence_percent != null && (
+                <div style={{ background: 'var(--surface2)', borderRadius: 6, padding: '6px 8px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Confidence</div>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace' }}>{forecast.confidence_percent}%</div>
+                </div>
+              )}
+              {forecast.velocity_score != null && (
+                <div style={{ background: 'var(--surface2)', borderRadius: 6, padding: '6px 8px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Velocity</div>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--purple)', fontFamily: 'JetBrains Mono, monospace' }}>{forecast.velocity_score}/100</div>
+                </div>
+              )}
+            </div>
+            {forecast.recommended_actions?.length > 0 && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 5 }}>Recommendations</div>
+                {forecast.recommended_actions.slice(0, 2).map((action: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4, fontSize: 11, color: 'var(--text2)' }}>
+                    <CheckCircle size={11} style={{ color: 'var(--green)', flexShrink: 0, marginTop: 1 }} />
+                    {action}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
