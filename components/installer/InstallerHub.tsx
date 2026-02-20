@@ -98,7 +98,7 @@ export default function InstallerHub({ orgId, profileId, installerName }: Instal
       {/* Header */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text1)' }}>🔧 Installer Hub</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text1)' }}>Installer Hub</div>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>{installerName}</div>
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function InstallerHub({ orgId, profileId, installerName }: Instal
             background: tab === t ? 'var(--accent)15' : 'transparent',
             color: tab === t ? 'var(--accent)' : 'var(--text3)',
           }}>
-            {t === 'available' ? `📋 Available (${availableBids.length})` : t === 'my_jobs' ? `🔧 My Jobs (${myJobs.length})` : '💰 Earnings'}
+            {t === 'available' ? `Available (${availableBids.length})` : t === 'my_jobs' ? `My Jobs (${myJobs.length})` : 'Earnings'}
           </button>
         ))}
       </div>

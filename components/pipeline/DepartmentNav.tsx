@@ -4,6 +4,7 @@ import { useState } from 'react'
 import SalesPipeline from '@/components/pipeline/SalesPipeline'
 import ProductionPipeline from '@/components/pipeline/ProductionPipeline'
 import InstallPipeline from '@/components/pipeline/InstallPipeline'
+import { LayoutGrid, Briefcase, Printer, Wrench, type LucideIcon } from 'lucide-react'
 
 interface DepartmentNavProps {
   orgId: string
@@ -13,11 +14,11 @@ interface DepartmentNavProps {
   children?: React.ReactNode  // passes through the original dashboard as "All Jobs"
 }
 
-const DEPARTMENTS = [
-  { key: 'all', label: 'All Jobs', icon: '📊', color: 'var(--text1)' },
-  { key: 'sales', label: 'Sales', icon: '💼', color: '#4f7fff' },
-  { key: 'production', label: 'Production / Design', icon: '🖨', color: '#22c07a' },
-  { key: 'install', label: 'Install', icon: '🔧', color: '#22d3ee' },
+const DEPARTMENTS: { key: string; label: string; icon: LucideIcon; color: string }[] = [
+  { key: 'all',        label: 'All Jobs',            icon: LayoutGrid, color: 'var(--text1)' },
+  { key: 'sales',      label: 'Sales',               icon: Briefcase,  color: '#4f7fff' },
+  { key: 'production', label: 'Production / Design', icon: Printer,    color: '#22c07a' },
+  { key: 'install',    label: 'Install',             icon: Wrench,     color: '#22d3ee' },
 ]
 
 export default function DepartmentNav({ orgId, profileId, role, defaultView, children }: DepartmentNavProps) {
@@ -60,7 +61,7 @@ export default function DepartmentNav({ orgId, profileId, role, defaultView, chi
                 transition: 'all 0.15s ease',
               }}
             >
-              <span style={{ fontSize: 15 }}>{dept.icon}</span>
+              <dept.icon size={14} />
               {dept.label}
             </button>
           )

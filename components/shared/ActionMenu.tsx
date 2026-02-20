@@ -5,7 +5,7 @@ import { clsx } from 'clsx'
 
 export interface ActionItem {
   label: string
-  icon: string
+  icon?: string
   onClick: () => void
   danger?: boolean
   divider?: boolean

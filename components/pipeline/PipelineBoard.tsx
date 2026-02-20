@@ -11,18 +11,19 @@ import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
 import ApprovalModal from '@/components/approval/ApprovalModal'
 import CloseJobModal from '@/components/projects/CloseJobModal'
 import OnboardingLinkPanel from '@/components/pipeline/OnboardingLinkPanel'
+import { Briefcase, Printer, Wrench, Search, CheckCircle, type LucideIcon } from 'lucide-react'
 
 interface PipelineBoardProps {
   profile: Profile
   initialProjects: Project[]
 }
 
-const STAGES: { key: PipeStage; label: string; icon: string; color: string; bg: string }[] = [
-  { key: 'sales_in',    label: 'Sales Intake',  icon: '💼', color: 'text-accent',  bg: 'bg-accent/5' },
-  { key: 'production',  label: 'Production',    icon: '🖨', color: 'text-green',   bg: 'bg-green/5' },
-  { key: 'install',     label: 'Install',       icon: '🔧', color: 'text-cyan',    bg: 'bg-cyan/5' },
-  { key: 'prod_review', label: 'QC Review',     icon: '🔍', color: 'text-amber',   bg: 'bg-amber/5' },
-  { key: 'sales_close', label: 'Sales Close',   icon: '✅', color: 'text-purple',  bg: 'bg-purple/5' },
+const STAGES: { key: PipeStage; label: string; icon: LucideIcon; color: string; bg: string }[] = [
+  { key: 'sales_in',    label: 'Sales Intake',  icon: Briefcase,    color: 'text-accent',  bg: 'bg-accent/5' },
+  { key: 'production',  label: 'Production',    icon: Printer,      color: 'text-green',   bg: 'bg-green/5' },
+  { key: 'install',     label: 'Install',       icon: Wrench,       color: 'text-cyan',    bg: 'bg-cyan/5' },
+  { key: 'prod_review', label: 'QC Review',     icon: Search,       color: 'text-amber',   bg: 'bg-amber/5' },
+  { key: 'sales_close', label: 'Sales Close',   icon: CheckCircle,  color: 'text-purple',  bg: 'bg-purple/5' },
 ]
 
 const STAGE_ORDER: PipeStage[] = ['sales_in','production','install','prod_review','sales_close']
@@ -91,7 +92,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
     setProjects(prev => prev.map(p =>
       p.id === project.id ? { ...p, pipe_stage: newStage, status: newStatus, checkout: newCheckout } : p
     ))
-    toast(isLast ? '🎉 Job closed out!' : `Moved to ${STAGES.find(s => s.key === newStage)?.label}`, 'success')
+    toast(isLast ? 'Job closed out!' : `Moved to ${STAGES.find(s => s.key === newStage)?.label}`, 'success')
   }
 
   async function sendBack(project: Project) {
@@ -149,7 +150,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
         <div>
           <div className="flex items-center gap-3">
             <h2 className="font-display text-2xl font-900" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-              🔄 Approval Pipeline
+              Approval Pipeline
             </h2>
             <span className="flex items-center gap-1.5 text-xs font-700 text-green bg-green/10 border border-green/30 px-2 py-1 rounded-full">
               <span className="live-dot" />LIVE
@@ -163,7 +164,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
         {/* Send-back alert */}
         {sendbackCount > 0 && (
           <div className="flex items-center gap-2 px-4 py-2 bg-red/15 border-2 border-red/60 rounded-xl anim-pulse-red">
-            <span className="text-xl">🔴</span>
+            <span className="w-3 h-3 rounded-full bg-red inline-block" />
             <div>
               <div className="text-sm font-800 text-red">{sendbackCount} job(s) sent back</div>
               <div className="text-xs text-red/70">Action required</div>
@@ -201,7 +202,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                 'flex items-center justify-between mb-3 pb-2 border-b border-white/10',
                 'text-xs font-800 uppercase tracking-wider', stage.color
               )}>
-                <span>{stage.icon} {stage.label}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><stage.icon size={13} />{stage.label}</span>
                 <div className="flex items-center gap-2">
                   {stageValue > 0 && <span className="text-text3 font-600 normal-case">{fmtMoney(stageValue)}</span>}
                   <span className="bg-white/10 px-2 py-0.5 rounded-full">{stageJobs.length}</span>
@@ -219,8 +220,8 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                   const expanded = expandedCard === project.id
 
                   const cardActions: ActionItem[] = [
-                    { label: 'Open Project', icon: '📄', onClick: () => router.push(`/projects/${project.id}`) },
-                    { label: 'Duplicate', icon: '📋', onClick: async () => {
+                    { label: 'Open Project', onClick: () => router.push(`/projects/${project.id}`) },
+                    { label: 'Duplicate', onClick: async () => {
                       const { data } = await supabase.from('projects').insert({
                         org_id: project.org_id, type: project.type,
                         title: `${project.title} (Copy)`, status: 'estimate',
@@ -231,7 +232,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                       }).select().single()
                       if (data) toast('Duplicated — in Sales Intake', 'success')
                     }},
-                    { label: 'Send Back', icon: '↩️', onClick: () => setSendBackTarget(project.id), divider: true },
+                    { label: 'Send Back', onClick: () => setSendBackTarget(project.id), divider: true },
                   ]
 
                   return (
@@ -317,7 +318,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                             'w-full text-xs font-700 py-1.5 px-2 rounded-lg transition-all',
                             hasSendBack ? 'bg-red text-white hover:bg-red/90' : 'bg-accent/20 text-accent hover:bg-accent/30'
                           )}>
-                          {hasSendBack ? '🔴 Resolve & Advance' : `✓ Sign Off ${stage.label}`}
+                          {hasSendBack ? 'Resolve & Advance' : `Sign Off ${stage.label}`}
                         </button>
                       )}
                     </div>
@@ -363,7 +364,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
             onClick={() => setSendBackTarget(null)}>
             <div className="card max-w-md w-full anim-pop-in" onClick={e => e.stopPropagation()}>
-              <div className="text-lg font-800 text-text1 mb-1">↩️ Send Back Job</div>
+              <div className="text-lg font-800 text-text1 mb-1">Send Back Job</div>
               <div className="text-sm text-text3 mb-4">
                 Sending "{(project.customer as any)?.name || project.title}" back to previous stage
               </div>
