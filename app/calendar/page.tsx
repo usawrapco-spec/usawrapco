@@ -30,6 +30,17 @@ export default async function CalendarPage() {
 
   const { data: projects } = await query
 
+  // Fetch installer profiles for availability tracking
+  const { data: installerProfiles } = await supabase
+    .from('profiles')
+    .select('id, name')
+    .eq('org_id', profile.org_id)
+    .eq('role', 'installer')
+    .eq('active', true)
+    .order('name')
+
+  const installers = (installerProfiles || []).map(p => ({ id: p.id, name: p.name }))
+
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
       <Sidebar profile={profile as Profile} />
@@ -39,6 +50,7 @@ export default async function CalendarPage() {
           <CalendarClient
             profile={profile as Profile}
             projects={(projects as Project[]) || []}
+            installers={installers}
           />
         </main>
       </div>

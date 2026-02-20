@@ -40,6 +40,28 @@ export default async function EmployeesPage() {
     .order('role')
     .order('name')
 
+  // Build project counts: count active projects where each member is agent, installer, or customer
+  const projectCounts: Record<string, number> = {}
+  const { data: agentCounts } = await supabase
+    .from('projects')
+    .select('agent_id')
+    .eq('org_id', profile.org_id)
+    .not('status', 'in', '("closed","cancelled")')
+    .not('agent_id', 'is', null)
+  const { data: installerCounts } = await supabase
+    .from('projects')
+    .select('installer_id')
+    .eq('org_id', profile.org_id)
+    .not('status', 'in', '("closed","cancelled")')
+    .not('installer_id', 'is', null)
+
+  agentCounts?.forEach(p => {
+    if (p.agent_id) projectCounts[p.agent_id] = (projectCounts[p.agent_id] || 0) + 1
+  })
+  installerCounts?.forEach(p => {
+    if (p.installer_id) projectCounts[p.installer_id] = (projectCounts[p.installer_id] || 0) + 1
+  })
+
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
       <Sidebar profile={profile as Profile} />
@@ -49,6 +71,7 @@ export default async function EmployeesPage() {
           <EmployeesClient
             profile={profile as Profile}
             initialMembers={(members as Profile[]) || []}
+            projectCounts={projectCounts}
           />
         </main>
       </div>

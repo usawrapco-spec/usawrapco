@@ -24,6 +24,9 @@ import {
   LogOut,
   Plus,
   Truck,
+  Receipt,
+  Car,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -47,6 +50,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/leaderboard',  label: 'Leaderboard',    icon: Trophy,          always: true },
   { href: '/timeline',     label: 'Timeline',       icon: GanttChart,      always: true },
   { href: '/overhead',     label: 'Overhead',       icon: DollarSign,      always: true },
+  { href: '/installer-portal', label: 'Installer Portal', icon: Wrench, permission: 'sign_off_install' },
+  { href: '/1099',         label: '1099 Calc',      icon: Receipt,         permission: 'view_financials' },
+  { href: '/catalog',      label: 'Vehicle Catalog', icon: Car,            always: true },
   { href: '/analytics',    label: 'Analytics',      icon: BarChart3,       permission: 'view_analytics' },
   { href: '/settings',     label: 'Settings',       icon: Settings,        permission: 'manage_settings' },
 ]
@@ -86,7 +92,7 @@ export function Sidebar({ profile }: SidebarProps) {
               </div>
               <div className="text-xs text-text3">
                 Ops Platform
-                <span className="ml-1 text-accent/60 mono text-[9px]">v4.1</span>
+                <span className="ml-1 text-accent/60 mono text-[9px]">v4.2</span>
               </div>
             </div>
           </div>
@@ -106,7 +112,7 @@ export function Sidebar({ profile }: SidebarProps) {
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
           {NAV_ITEMS.map((item) => {
-            if (!item.always && item.permission && !canAccess(profile, item.permission)) return null
+            if (!item.always && item.permission && profile.role !== 'admin' && !canAccess(profile.role, item.permission)) return null
 
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
             const Icon = item.icon

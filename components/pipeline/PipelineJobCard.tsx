@@ -185,6 +185,33 @@ export default function PipelineJobCard({ project, department, isGhost, onClick 
         )}
       </div>
 
+      {/* Bid status badge */}
+      {!isGhost && project.installer_bid && project.installer_bid.status !== 'none' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4, marginTop: 4,
+          padding: '3px 0',
+        }}>
+          <span style={{
+            fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+            background: project.installer_bid.status === 'accepted' ? 'rgba(34,192,122,0.12)' :
+                        project.installer_bid.status === 'pending' ? 'rgba(245,158,11,0.12)' :
+                        'rgba(242,90,90,0.12)',
+            color: project.installer_bid.status === 'accepted' ? '#22c07a' :
+                   project.installer_bid.status === 'pending' ? '#f59e0b' : '#f25a5a',
+            border: `1px solid ${project.installer_bid.status === 'accepted' ? 'rgba(34,192,122,0.25)' :
+                     project.installer_bid.status === 'pending' ? 'rgba(245,158,11,0.25)' : 'rgba(242,90,90,0.25)'}`,
+            textTransform: 'uppercase', letterSpacing: '.04em',
+          }}>
+            BID {project.installer_bid.status}
+          </span>
+          {project.installer_bid.acceptedBy && (
+            <span style={{ fontSize: 8, color: '#22c07a', fontWeight: 700 }}>
+              ✓ Assigned
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Status badge */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6,

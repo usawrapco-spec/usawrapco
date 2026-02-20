@@ -29,7 +29,7 @@ Vehicle wrap shop CRM. Next.js 14, TypeScript, Tailwind CSS, Supabase, Vercel.
 profiles, projects, project_members, job_comments, job_images,
 stage_approvals, send_backs, install_sessions, material_tracking,
 customer_intake_tokens, proofing_tokens, designer_bids,
-installer_bids, referrals, stage_checklist
+installer_bids, referrals, stage_checklist, design_projects
 
 ## Pipeline Stages
 sales_in -> production -> install -> prod_review -> sales_close -> done
@@ -46,14 +46,15 @@ sales_in -> production -> install -> prod_review -> sales_close -> done
 - Types: import type { Profile, Project } from '@/types'
 - All components are client components ('use client')
 
-## Pages (v4.0)
+## Pages (v4.2)
 /dashboard, /pipeline, /tasks, /calendar, /inventory, /design,
 /employees, /analytics, /settings, /production, /leaderboard,
-/timeline, /overhead, /projects/[id], /intake/[token], /proof/[token]
+/timeline, /overhead, /1099, /catalog, /installer-portal,
+/projects/[id], /intake/[token], /proof/[token]
 
 ## Rules
 1. ALWAYS run npm run build before committing
 2. Never break existing functionality
 3. All tables need RLS policies
-4. Version is v4.0 - bump on major changes
+4. Version is v4.2 - bump on major changes
 5. Reference HTML prototype (index.html) for feature specs

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
-import TopBar from '@/components/layout/TopBar'
+import { TopBar } from '@/components/layout/TopBar'
 import DesignStudio from '@/components/design/DesignStudio'
 import type { Profile } from '@/types'
 

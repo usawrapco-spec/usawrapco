@@ -4,7 +4,15 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import type { Profile, Project, ProjectStatus } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
+import {
+  format,
+  startOfWeek, endOfWeek,
+  startOfMonth, endOfMonth,
+  startOfQuarter, endOfQuarter,
+  subWeeks,
+  eachWeekOfInterval,
+  eachMonthOfInterval,
+} from 'date-fns'
 import { clsx } from 'clsx'
 import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
@@ -46,6 +54,7 @@ const PIPE_LABELS: Record<string, string> = {
 
 type FilterTab = 'all' | 'estimate' | 'active' | 'closed'
 type ViewMode = 'table' | 'cards'
+type PeriodKey = 'week' | 'month' | 'quarter' | 'custom'
 
 interface SavedFilter {
   name: string
@@ -53,6 +62,12 @@ interface SavedFilter {
   agent: string
   type: string
   search: string
+}
+
+interface OverheadData {
+  costs: Record<string, number>
+  customRows: { label: string; amount: number }[]
+  avgJobRev: number
 }
 
 export function DashboardClient({
@@ -72,6 +87,14 @@ export function DashboardClient({
   const supabase = createClient()
   const { toast } = useToast()
 
+  // --- Period selector state ---
+  const [period, setPeriod] = useState<PeriodKey>('month')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+
+  // --- Daily burn rate ---
+  const [dailyBurn, setDailyBurn] = useState<number>(0)
+
   // Load saved filters from localStorage
   useEffect(() => {
     try {
@@ -79,6 +102,20 @@ export function DashboardClient({
       if (saved) setSavedFilters(JSON.parse(saved))
     } catch {}
   }, [])
+
+  // Load overhead data for daily burn
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`usawrap_overhead_${profile.org_id}`)
+      if (raw) {
+        const data: OverheadData = JSON.parse(raw)
+        const costTotal = Object.values(data.costs || {}).reduce((s, v) => s + (v || 0), 0)
+        const customTotal = (data.customRows || []).reduce((s, r) => s + (r.amount || 0), 0)
+        const monthlyOverhead = costTotal + customTotal
+        setDailyBurn(monthlyOverhead / 30)
+      }
+    } catch {}
+  }, [profile.org_id])
 
   // Realtime subscription
   useEffect(() => {
@@ -106,6 +143,35 @@ export function DashboardClient({
     return () => { supabase.removeChannel(channel) }
   }, [profile.org_id])
 
+  // --- Period date range ---
+  const periodRange = useMemo<{ start: Date; end: Date }>(() => {
+    const now = new Date()
+    switch (period) {
+      case 'week':
+        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
+      case 'month':
+        return { start: startOfMonth(now), end: endOfMonth(now) }
+      case 'quarter':
+        return { start: startOfQuarter(now), end: endOfQuarter(now) }
+      case 'custom': {
+        const s = customStart ? new Date(customStart) : startOfMonth(now)
+        const e = customEnd ? new Date(customEnd) : endOfMonth(now)
+        return { start: s, end: e }
+      }
+      default:
+        return { start: startOfMonth(now), end: endOfMonth(now) }
+    }
+  }, [period, customStart, customEnd])
+
+  // Helper: does a project fall within the period?
+  const isInPeriod = useCallback((p: Project) => {
+    // Use updated_at for closed projects, created_at otherwise
+    const dateStr = p.status === 'closed' ? (p.updated_at || p.created_at) : p.created_at
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    return d >= periodRange.start && d <= periodRange.end
+  }, [periodRange])
+
   // Filter logic
   const filtered = useMemo(() => {
     let list = [...projects]
@@ -129,16 +195,58 @@ export function DashboardClient({
     return list
   }, [projects, filterTab, agentFilter, typeFilter, search])
 
-  // Stats
-  const closedProjects = projects.filter(p => p.status === 'closed')
-  const activeOrders = projects.filter(p =>
+  // --- Period-filtered stats ---
+  const periodProjects = useMemo(() => projects.filter(isInPeriod), [projects, isInPeriod])
+  const closedProjects = periodProjects.filter(p => p.status === 'closed')
+  const activeOrders = periodProjects.filter(p =>
     ['active','in_production','install_scheduled'].includes(p.status)
   )
-  const estimates = projects.filter(p => p.status === 'estimate')
+  const estimates = periodProjects.filter(p => p.status === 'estimate')
   const totalRevenue = closedProjects.reduce((s, p) => s + (p.revenue || 0), 0)
   const totalProfit = closedProjects.reduce((s, p) => s + (p.profit || 0), 0)
   const avgGpm = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0
   const pipelineValue = activeOrders.reduce((s, p) => s + (p.revenue || 0), 0)
+
+  // --- Revenue chart data ---
+  const revenueChartData = useMemo(() => {
+    const { start, end } = periodRange
+    // Use weeks for week period, months for longer periods
+    const useWeeks = period === 'week' || (end.getTime() - start.getTime() < 45 * 24 * 60 * 60 * 1000)
+
+    if (useWeeks) {
+      const weeks = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 })
+      return weeks.map(weekStart => {
+        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
+        const rev = closedProjects
+          .filter(p => {
+            const d = new Date(p.updated_at || p.created_at)
+            return d >= weekStart && d <= weekEnd
+          })
+          .reduce((s, p) => s + (p.revenue || 0), 0)
+        return {
+          label: format(weekStart, 'MMM d'),
+          value: rev,
+        }
+      })
+    } else {
+      const months = eachMonthOfInterval({ start, end })
+      return months.map(monthStart => {
+        const monthEnd = endOfMonth(monthStart)
+        const rev = closedProjects
+          .filter(p => {
+            const d = new Date(p.updated_at || p.created_at)
+            return d >= monthStart && d <= monthEnd
+          })
+          .reduce((s, p) => s + (p.revenue || 0), 0)
+        return {
+          label: format(monthStart, 'MMM yyyy'),
+          value: rev,
+        }
+      })
+    }
+  }, [periodRange, period, closedProjects])
+
+  const chartMax = useMemo(() => Math.max(...revenueChartData.map(d => d.value), 1), [revenueChartData])
 
   // Unique agents
   const agents = useMemo(() => {
@@ -183,7 +291,7 @@ export function DashboardClient({
       .eq('id', project.id)
     if (error) { toast(error.message, 'error'); return }
     setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status } : p))
-    toast(`Status → ${STATUS_LABELS[status]}`, 'success')
+    toast(`Status -> ${STATUS_LABELS[status]}`, 'success')
   }, [supabase, toast])
 
   const deleteProject = useCallback(async (id: string) => {
@@ -242,17 +350,93 @@ export function DashboardClient({
     { key: 'closed',   label: 'Closed',        count: closedProjects.length },
   ]
 
+  const periodButtons: { key: PeriodKey; label: string }[] = [
+    { key: 'week', label: 'This Week' },
+    { key: 'month', label: 'This Month' },
+    { key: 'quarter', label: 'This Quarter' },
+    { key: 'custom', label: 'Custom' },
+  ]
+
   return (
     <div className="flex flex-col gap-5">
-      {/* Stats strip */}
+
+      {/* ====== Period Selector ====== */}
       {canSeeFinancials && (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="card flex items-center gap-3 py-2.5 px-4">
+          <span style={{
+            fontFamily: 'Barlow Condensed, sans-serif',
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            color: 'var(--text3)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>Period</span>
+          <div style={{
+            display: 'flex',
+            border: '1px solid var(--surface2)',
+            borderRadius: '0.5rem',
+            overflow: 'hidden',
+          }}>
+            {periodButtons.map(pb => (
+              <button
+                key={pb.key}
+                onClick={() => setPeriod(pb.key)}
+                style={{
+                  padding: '0.35rem 0.85rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  background: period === pb.key ? 'var(--accent)' : 'transparent',
+                  color: period === pb.key ? '#fff' : 'var(--text3)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {pb.label}
+              </button>
+            ))}
+          </div>
+          {period === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem' }}>
+              <input
+                type="date"
+                className="field"
+                value={customStart}
+                onChange={e => setCustomStart(e.target.value)}
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.5rem', width: '140px' }}
+              />
+              <span style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>to</span>
+              <input
+                type="date"
+                className="field"
+                value={customEnd}
+                onChange={e => setCustomEnd(e.target.value)}
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.5rem', width: '140px' }}
+              />
+            </div>
+          )}
+          <span style={{
+            marginLeft: 'auto',
+            fontSize: '0.7rem',
+            color: 'var(--text3)',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}>
+            {format(periodRange.start, 'MMM d')} - {format(periodRange.end, 'MMM d, yyyy')}
+          </span>
+        </div>
+      )}
+
+      {/* ====== Stats strip ====== */}
+      {canSeeFinancials && (
+        <div className="grid grid-cols-6 gap-3">
           {[
             { label: 'Revenue', value: fmtMoney(totalRevenue), color: 'text-green', sub: `${closedProjects.length} closed` },
             { label: 'Profit', value: fmtMoney(totalProfit), color: 'text-accent', sub: `${avgGpm.toFixed(0)}% GPM` },
             { label: 'Pipeline', value: fmtMoney(pipelineValue), color: 'text-cyan', sub: `${activeOrders.length} active` },
             { label: 'Estimates', value: estimates.length.toString(), color: 'text-amber', sub: 'open quotes' },
-            { label: 'Total Jobs', value: projects.length.toString(), color: 'text-purple', sub: 'all time' },
+            { label: 'Total Jobs', value: periodProjects.length.toString(), color: 'text-purple', sub: 'in period' },
+            { label: 'Daily Burn', value: fmtMoney(dailyBurn), color: 'text-red', sub: `${fmtMoney(dailyBurn * 30)}/mo overhead` },
           ].map(stat => (
             <div key={stat.label} className="card flex flex-col justify-between">
               <div className="text-xs font-700 text-text3 uppercase tracking-wider">{stat.label}</div>
@@ -263,7 +447,96 @@ export function DashboardClient({
         </div>
       )}
 
-      {/* Projects panel */}
+      {/* ====== Revenue Bar Chart ====== */}
+      {canSeeFinancials && (
+        <div className="card">
+          <div style={{
+            fontFamily: 'Barlow Condensed, sans-serif',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            color: 'var(--text3)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            marginBottom: '1rem',
+          }}>
+            Revenue by {period === 'week' || (periodRange.end.getTime() - periodRange.start.getTime() < 45 * 24 * 60 * 60 * 1000) ? 'Week' : 'Month'}
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: '0.5rem',
+            height: '200px',
+            paddingBottom: '2rem',
+            position: 'relative',
+          }}>
+            {revenueChartData.length === 0 ? (
+              <div style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text3)',
+                fontSize: '0.85rem',
+              }}>
+                No data for this period
+              </div>
+            ) : revenueChartData.map((bar, i) => {
+              const heightPct = chartMax > 0 ? (bar.value / chartMax) * 100 : 0
+              return (
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    height: '100%',
+                    justifyContent: 'flex-end',
+                    position: 'relative',
+                  }}
+                >
+                  {/* Amount label on top */}
+                  <span style={{
+                    fontSize: '0.65rem',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 700,
+                    color: bar.value > 0 ? 'var(--green)' : 'var(--text3)',
+                    marginBottom: '0.25rem',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {bar.value > 0 ? fmtMoney(bar.value) : '$0'}
+                  </span>
+                  {/* Bar */}
+                  <div style={{
+                    width: '100%',
+                    maxWidth: '80px',
+                    height: `${Math.max(heightPct, 2)}%`,
+                    background: bar.value > 0
+                      ? 'linear-gradient(to top, var(--green), rgba(34,192,122,0.6))'
+                      : 'var(--surface2)',
+                    borderRadius: '0.35rem 0.35rem 0 0',
+                    transition: 'height 0.3s ease',
+                    minHeight: '3px',
+                  }} />
+                  {/* Label below */}
+                  <span style={{
+                    position: 'absolute',
+                    bottom: '-1.6rem',
+                    fontSize: '0.6rem',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--text3)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {bar.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ====== Projects panel ====== */}
       <div className="card p-0 overflow-hidden">
         {/* Header bar */}
         <div className="flex items-center border-b border-border flex-wrap gap-0">
@@ -316,7 +589,7 @@ export function DashboardClient({
             )}
 
             <div className="relative">
-              <input type="text" className="field text-xs py-1.5 pl-7 w-48" placeholder="Search…"
+              <input type="text" className="field text-xs py-1.5 pl-7 w-48" placeholder="Search..."
                 value={search} onChange={e => setSearch(e.target.value)} />
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-text3 text-xs">🔍</span>
               {search && (
@@ -332,7 +605,7 @@ export function DashboardClient({
                   className="btn-ghost btn-xs">💾 Save</button>
                 {showSaveFilter && (
                   <div className="absolute right-0 top-full mt-1 z-40 bg-surface border border-border rounded-xl p-3 shadow-2xl w-52">
-                    <input className="field text-xs mb-2" placeholder="Filter name…"
+                    <input className="field text-xs mb-2" placeholder="Filter name..."
                       value={filterName} onChange={e => setFilterName(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && saveFilter()} autoFocus />
                     <button className="btn-primary btn-xs w-full" onClick={saveFilter}>Save Filter</button>
