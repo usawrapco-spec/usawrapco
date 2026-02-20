@@ -142,6 +142,8 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     reprintCost: fd.reprintCost || '0', qcNotes: fd.qcNotes || '',
     // Close fields
     closeNotes: fd.closeNotes || '', finalApproved: fd.finalApproved || false,
+    // Expenses
+    jobExpenses: fd.jobExpenses || [],
   })
 
   const supabase = createClient()
@@ -973,15 +975,85 @@ function QCTab({ f, ff, fin, project, profile }: any) {
 // ═══════════════════════════════════════════════════════════════════
 // CLOSE TAB — Final approval, commission lock, referrals
 // ═══════════════════════════════════════════════════════════════════
+function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void }) {
+  const [desc, setDesc] = useState('')
+  const [amt, setAmt]   = useState('')
+  const expenses: { desc: string; amount: number }[] = f.jobExpenses || []
+
+  function addExpense() {
+    const amount = parseFloat(amt)
+    if (!desc.trim() || isNaN(amount) || amount <= 0) return
+    const next = [...expenses, { desc: desc.trim(), amount }]
+    ff('jobExpenses', next)
+    setDesc(''); setAmt('')
+  }
+
+  function removeExpense(i: number) {
+    ff('jobExpenses', expenses.filter((_, idx) => idx !== i))
+  }
+
+  const total = expenses.reduce((s, e) => s + e.amount, 0)
+
+  return (
+    <Section label="💸 Job Expenses" color="#f59e0b">
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+        Track additional costs (materials, rush fees, permits, etc.) that reduce final profit.
+      </div>
+      {expenses.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          {expenses.map((e, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ flex: 1, fontSize: 13, color: 'var(--text2)' }}>{e.desc}</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
+                -{fM(e.amount)}
+              </span>
+              <button onClick={() => removeExpense(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>✕</button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', marginTop: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)' }}>Total Expenses</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--amber)' }}>{fM(total)}</span>
+          </div>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input
+          value={desc}
+          onChange={e => setDesc(e.target.value)}
+          placeholder="Description (e.g., Reprint, Rush fee)"
+          onKeyDown={e => e.key === 'Enter' && addExpense()}
+          style={{ flex: 2, padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text1)', fontSize: 12, outline: 'none' }}
+        />
+        <input
+          value={amt}
+          onChange={e => setAmt(e.target.value)}
+          placeholder="Amount $"
+          type="number"
+          min="0"
+          onKeyDown={e => e.key === 'Enter' && addExpense()}
+          style={{ width: 110, padding: '8px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text1)', fontSize: 12, outline: 'none' }}
+        />
+        <button onClick={addExpense} style={{ padding: '8px 14px', borderRadius: 7, background: 'var(--amber)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          + Add
+        </button>
+      </div>
+    </Section>
+  )
+}
+
 function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
+  const expenses: { desc: string; amount: number }[] = f.jobExpenses || []
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
   const reprintCost = v(f.reprintCost)
-  const adjProfit = fin.profit - reprintCost
+  const adjProfit = fin.profit - reprintCost - totalExpenses
   const adjGPM = fin.sale > 0 ? (adjProfit / fin.sale) * 100 : 0
   const commRate = f.leadType === 'outbound' ? 0.10 : f.leadType === 'presold' ? 0.05 : 0.075
   const adjComm = adjProfit * commRate
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <ExpensesSection f={f} ff={ff} />
+
       <Section label="📊 Final Numbers Review" color="#8b5cf6">
         <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:16 }}>
           {[
@@ -998,9 +1070,11 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks }: any) {
           ))}
         </div>
 
-        {reprintCost > 0 && (
+        {(reprintCost > 0 || totalExpenses > 0) && (
           <div style={{ padding:10, background:'rgba(242,90,90,.08)', border:'1px solid rgba(242,90,90,.2)', borderRadius:8, fontSize:12, color:'var(--red)', marginBottom:12 }}>
-            ⚠ Reprint cost of {fM(reprintCost)} deducted from profit. Commission recalculated.
+            {reprintCost > 0 && <>⚠ Reprint cost of {fM(reprintCost)} deducted. </>}
+            {totalExpenses > 0 && <>⚠ Job expenses of {fM(totalExpenses)} deducted. </>}
+            Commission recalculated on adjusted profit.
           </div>
         )}
 

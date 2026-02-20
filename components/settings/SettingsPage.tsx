@@ -11,6 +11,7 @@ import {
   Wrench, Gauge, Lock
 } from 'lucide-react'
 import { PermissionsMatrix } from '@/components/settings/PermissionsMatrix'
+import PinGate from '@/components/settings/PinGate'
 
 interface SettingsPageProps {
   profile: any
@@ -1042,6 +1043,7 @@ export function SettingsPage({ profile }: SettingsPageProps) {
 
       {/* ===== TAB 2: Commission Rules ===== */}
       {activeTab === 'commission' && (
+        <PinGate orgId={profile.org_id || 'default'} sectionKey="commission" sectionLabel="Commission Rules">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
           {/* COMMISSION STRUCTURE */}
@@ -1320,6 +1322,7 @@ export function SettingsPage({ profile }: SettingsPageProps) {
           </div>
 
         </div>
+        </PinGate>
       )}
 
       {/* ===== TAB 3: Simulation Data ===== */}
