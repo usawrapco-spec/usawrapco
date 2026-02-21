@@ -140,7 +140,7 @@ export async function checkAndAwardBadges(
   userId: string,
 ): Promise<string[]> {
   try {
-    const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes] = await Promise.all([
+    const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes, proofRes] = await Promise.all([
       supabase.from('profiles').select('xp, level, monthly_xp, current_streak, longest_streak, badges').eq('id', userId).single(),
       supabase.from('projects').select('id, gpm').eq('agent_id', userId).eq('status', 'closed'),
       supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
@@ -151,6 +151,11 @@ export async function checkAndAwardBadges(
       supabase.from('vinyl_usage').select('id', { count: 'exact', head: true }).eq('logged_by', userId),
       // Top Dog: check if user has highest monthly XP in the org
       supabase.from('profiles').select('id, monthly_xp').order('monthly_xp', { ascending: false }).limit(1),
+      // Pixel Perfect: 5+ design proofs approved on first pass (no revisions used)
+      supabase.from('design_proofs').select('id', { count: 'exact', head: true })
+        .eq('designer_id', userId)
+        .eq('customer_status', 'approved')
+        .eq('revisions_used', 0),
     ])
 
     const profile = profileRes.data
@@ -196,6 +201,9 @@ export async function checkAndAwardBadges(
 
     // Material Wizard — 20+ vinyl/material usage entries logged
     if ((materialRes.count || 0) >= 20) addBadge('material_wizard')
+
+    // Pixel Perfect — 5+ proofs approved on first pass (no revisions)
+    if ((proofRes.count || 0) >= 5) addBadge('pixel_perfect')
 
     // Top Dog — highest monthly XP in the org
     const topProfile = (topRes.data || [])[0]
