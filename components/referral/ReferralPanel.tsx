@@ -26,7 +26,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
-  const agents = teammates.filter(t => ['sales', 'admin', 'owner'].includes(t.role))
+  const agents = teammates.filter(t => ['sales_agent', 'admin', 'owner'].includes(t.role))
 
   useEffect(() => {
     const load = async () => {

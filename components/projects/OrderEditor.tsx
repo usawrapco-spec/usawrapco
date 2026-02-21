@@ -200,7 +200,7 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
   }
 
   // ── Teammate filters ───────────────────────────────────────────────
-  const agentTeam = teammates.filter(t => ['sales', 'admin'].includes(t.role))
+  const agentTeam = teammates.filter(t => ['sales_agent', 'admin'].includes(t.role))
   const installerTeam = teammates.filter(t => ['installer', 'admin', 'production'].includes(t.role))
   const designerTeam = teammates.filter(t => ['designer', 'admin'].includes(t.role))
 

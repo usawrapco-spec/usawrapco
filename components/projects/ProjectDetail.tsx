@@ -665,7 +665,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
   const isMarine = jobType === 'Marine'
   const isPPF = jobType === 'PPF'
   const installerTeam = teammates.filter((t:any) => ['installer','admin','production'].includes(t.role))
-  const agentTeam = teammates.filter((t:any) => ['sales','admin'].includes(t.role))
+  const agentTeam = teammates.filter((t:any) => ['sales_agent','admin'].includes(t.role))
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
