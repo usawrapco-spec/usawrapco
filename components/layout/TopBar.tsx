@@ -28,6 +28,10 @@ const PAGE_TITLES: Record<string, string> = {
   '/reports':               'Reports',
   '/mockup':                'Mockup Tool',
   '/customers':             'Customers',
+  '/estimates':             'Estimates',
+  '/sales-orders':          'Sales Orders',
+  '/invoices':              'Invoices',
+  '/portal':                'Customer Portal',
 }
 
 export function TopBar({ profile }: { profile: Profile }) {
@@ -36,6 +40,9 @@ export function TopBar({ profile }: { profile: Profile }) {
     (pathname.startsWith('/projects/') && pathname.endsWith('/edit') ? 'Edit Project' :
      pathname.startsWith('/projects/') ? 'Project Detail' :
      pathname.startsWith('/customers/') ? 'Customer Detail' :
+     pathname.startsWith('/estimates/') ? 'Estimate Detail' :
+     pathname.startsWith('/sales-orders/') ? 'Sales Order Detail' :
+     pathname.startsWith('/invoices/') ? 'Invoice Detail' :
      'USA Wrap Co')
 
   const now = new Date()

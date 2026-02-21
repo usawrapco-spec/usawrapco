@@ -259,6 +259,147 @@ export interface TeamInvite {
   accepted_at: string | null
 }
 
+// ─── Estimate (Quote) ────────────────────────────────────────────────────────
+export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'expired' | 'rejected' | 'void'
+
+export interface Estimate {
+  id: string
+  org_id: string
+  estimate_number: number
+  title: string
+  customer_id: string | null
+  status: EstimateStatus
+  sales_rep_id: string | null
+  production_manager_id: string | null
+  project_manager_id: string | null
+  quote_date: string | null
+  due_date: string | null
+  subtotal: number
+  discount: number
+  tax_rate: number
+  tax_amount: number
+  total: number
+  notes: string | null
+  customer_note: string | null
+  division: 'wraps' | 'decking'
+  form_data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  customer?: Pick<Profile, 'id' | 'name' | 'email'>
+  sales_rep?: Pick<Profile, 'id' | 'name'>
+  line_items?: LineItem[]
+}
+
+export interface LineItem {
+  id: string
+  parent_type: 'estimate' | 'sales_order' | 'invoice'
+  parent_id: string
+  product_type: ProjectType
+  name: string
+  description: string | null
+  quantity: number
+  unit_price: number
+  unit_discount: number
+  total_price: number
+  specs: LineItemSpecs
+  sort_order: number
+  created_at: string
+}
+
+export interface LineItemSpecs {
+  vehicleYear?: string
+  vehicleMake?: string
+  vehicleModel?: string
+  vehicleColor?: string
+  vehicleType?: string
+  wrapType?: string
+  vinylType?: string
+  laminate?: string
+  windowPerf?: boolean
+  vinylArea?: number
+  perfArea?: number
+  complexity?: number
+  materialCost?: number
+  laborCost?: number
+  laborPrice?: number
+  machineCost?: number
+  notes?: string
+  designDetails?: string
+  productionDetails?: string
+  installDetails?: string
+  [key: string]: unknown
+}
+
+export type SalesOrderStatus = 'new' | 'in_progress' | 'completed' | 'on_hold' | 'void'
+
+export interface SalesOrder {
+  id: string
+  org_id: string
+  so_number: number
+  title: string
+  estimate_id: string | null
+  customer_id: string | null
+  status: SalesOrderStatus
+  sales_rep_id: string | null
+  production_manager_id: string | null
+  project_manager_id: string | null
+  designer_id: string | null
+  so_date: string | null
+  due_date: string | null
+  install_date: string | null
+  subtotal: number
+  discount: number
+  tax_rate: number
+  tax_amount: number
+  total: number
+  down_payment_pct: number
+  payment_terms: string | null
+  notes: string | null
+  invoiced: boolean
+  form_data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  customer?: Pick<Profile, 'id' | 'name' | 'email'>
+  sales_rep?: Pick<Profile, 'id' | 'name'>
+  estimate?: Pick<Estimate, 'id' | 'estimate_number'>
+  line_items?: LineItem[]
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
+
+export interface Invoice {
+  id: string
+  org_id: string
+  invoice_number: number
+  title: string
+  sales_order_id: string | null
+  customer_id: string | null
+  status: InvoiceStatus
+  invoice_date: string | null
+  due_date: string | null
+  subtotal: number
+  discount: number
+  tax_rate: number
+  tax_amount: number
+  total: number
+  amount_paid: number
+  balance_due: number
+  notes: string | null
+  form_data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  customer?: Pick<Profile, 'id' | 'name' | 'email'>
+  sales_order?: Pick<SalesOrder, 'id' | 'so_number'>
+  line_items?: LineItem[]
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+}
+
 // ─── Database type stub ────────────────────────────────────────────────────────
 export type Database = {
   public: {
@@ -268,6 +409,10 @@ export type Database = {
       tasks:        { Row: Task;        Insert: Partial<Task>;        Update: Partial<Task> }
       files:        { Row: ProjectFile; Insert: Partial<ProjectFile>; Update: Partial<ProjectFile> }
       team_invites: { Row: TeamInvite;  Insert: Partial<TeamInvite>;  Update: Partial<TeamInvite> }
+      estimates:    { Row: Estimate;    Insert: Partial<Estimate>;    Update: Partial<Estimate> }
+      sales_orders: { Row: SalesOrder;  Insert: Partial<SalesOrder>;  Update: Partial<SalesOrder> }
+      invoices:     { Row: Invoice;     Insert: Partial<Invoice>;     Update: Partial<Invoice> }
+      line_items:   { Row: LineItem;    Insert: Partial<LineItem>;    Update: Partial<LineItem> }
     }
   }
 }

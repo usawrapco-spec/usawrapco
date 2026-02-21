@@ -31,6 +31,8 @@ import {
   Activity,
   Columns2,
   BookOpen,
+  Network,
+  FileText,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -62,9 +64,15 @@ const NAV: NavItem[] = [
     label: 'Sales Pipeline',
     icon: TrendingUp,
     permission: 'sales.read',
+    children: [
+      { href: '/pipeline',      label: 'Pipeline Board' },
+      { href: '/estimates',     label: 'Estimates' },
+      { href: '/sales-orders',  label: 'Sales Orders' },
+      { href: '/invoices',      label: 'Invoices' },
+    ],
   },
   {
-    href: '/projects',
+    href: '/jobs',
     label: 'Jobs',
     icon: Briefcase,
     permission: 'jobs.read',
@@ -137,7 +145,13 @@ const NAV: NavItem[] = [
     permission: 'sales.read',
   },
   {
-    href: '/installer-portal',
+    href: '/network',
+    label: 'Network Map',
+    icon: Network,
+    permission: 'sales.read',
+  },
+  {
+    href: '/bids',
     label: 'Installer Bids',
     icon: Hammer,
     permission: 'bids.read',
@@ -151,7 +165,7 @@ const NAV: NavItem[] = [
   {
     href: '/reports',
     label: 'Reports',
-    icon: BarChart3,
+    icon: FileText,
     permission: 'reports.view',
   },
   {
@@ -266,7 +280,7 @@ export function Sidebar({ profile }: SidebarProps) {
             <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
               Ops Platform
               <span style={{ marginLeft: 4, color: 'var(--accent)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' }}>
-                v5.0
+                v6.0
               </span>
             </div>
           </div>

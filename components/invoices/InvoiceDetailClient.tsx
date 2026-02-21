@@ -1,0 +1,532 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
+  Calendar, User, CreditCard, Download, Clock, AlertTriangle,
+  ExternalLink, Ban,
+} from 'lucide-react'
+import type { Profile, Invoice, InvoiceStatus, LineItem } from '@/types'
+import { isAdminRole } from '@/types'
+import { hasPermission } from '@/lib/permissions'
+import { createClient } from '@/lib/supabase/client'
+
+// ─── Demo data ──────────────────────────────────────────────────────────────────
+const DEMO_INVOICE: Invoice = {
+  id: 'demo-inv-1', org_id: '', invoice_number: 2001, title: 'Ford F-150 Full Wrap',
+  sales_order_id: 'so-demo', customer_id: null, status: 'sent',
+  invoice_date: '2026-02-18', due_date: '2026-03-04',
+  subtotal: 3200, discount: 0, tax_rate: 0.0825, tax_amount: 264, total: 3464,
+  amount_paid: 1000, balance_due: 2464, notes: 'Matte black full wrap with chrome delete',
+  form_data: {}, created_at: '2026-02-18T10:00:00Z', updated_at: '2026-02-18T10:00:00Z',
+  customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
+  sales_order: { id: 'so-demo', so_number: 3001 },
+}
+
+const DEMO_LINE_ITEMS: LineItem[] = [
+  {
+    id: 'li-inv-1', parent_type: 'invoice', parent_id: 'demo-inv-1', product_type: 'wrap',
+    name: 'Full Body Wrap - Matte Black', description: '3M 2080 Matte Black',
+    quantity: 1, unit_price: 2800, unit_discount: 0, total_price: 2800,
+    specs: {
+      vehicleYear: '2024', vehicleMake: 'Ford', vehicleModel: 'F-150',
+      vehicleColor: 'White', wrapType: 'Full Wrap', vinylType: '3M 2080 Matte Black',
+    },
+    sort_order: 0, created_at: '2026-02-18T10:00:00Z',
+  },
+  {
+    id: 'li-inv-2', parent_type: 'invoice', parent_id: 'demo-inv-1', product_type: 'wrap',
+    name: 'Chrome Delete Package', description: 'Gloss black chrome delete - all trim',
+    quantity: 1, unit_price: 400, unit_discount: 0, total_price: 400,
+    specs: {
+      wrapType: 'Chrome Delete', vinylType: '3M 2080 Gloss Black',
+    },
+    sort_order: 1, created_at: '2026-02-18T10:00:00Z',
+  },
+]
+
+const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
+  draft:   { label: 'Draft',   color: 'var(--text3)',  bg: 'rgba(90,96,128,0.15)' },
+  sent:    { label: 'Sent',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.15)' },
+  paid:    { label: 'Paid',    color: 'var(--green)',  bg: 'rgba(34,192,122,0.15)' },
+  overdue: { label: 'Overdue', color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
+  void:    { label: 'Void',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
+}
+
+interface Props {
+  profile: Profile
+  invoice: Invoice | null
+  lineItems: LineItem[]
+  isDemo: boolean
+  invoiceId: string
+}
+
+export default function InvoiceDetailClient({ profile, invoice, lineItems, isDemo, invoiceId }: Props) {
+  const router = useRouter()
+  const supabase = createClient()
+  const inv = invoice || DEMO_INVOICE
+  const items = lineItems.length > 0 ? lineItems : isDemo ? DEMO_LINE_ITEMS : []
+
+  const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
+
+  const [status, setStatus] = useState<InvoiceStatus>(inv.status)
+  const [amountPaid, setAmountPaid] = useState(inv.amount_paid)
+  const [paymentInput, setPaymentInput] = useState('')
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  // Calculated totals
+  const subtotal = useMemo(() => items.reduce((s, li) => s + li.total_price, 0), [items])
+  const discount = inv.discount
+  const taxAmount = useMemo(() => (subtotal - discount) * inv.tax_rate, [subtotal, discount, inv.tax_rate])
+  const total = useMemo(() => subtotal - discount + taxAmount, [subtotal, discount, taxAmount])
+  const balanceDue = useMemo(() => total - amountPaid, [total, amountPaid])
+
+  const fmtCurrency = (n: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+
+  const fmtDate = (d: string | null) => {
+    if (!d) return '--'
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  async function handleStatusChange(newStatus: InvoiceStatus) {
+    if (!canWrite) return
+    setStatus(newStatus)
+    if (!isDemo) {
+      try {
+        const updates: Record<string, unknown> = { status: newStatus }
+        if (newStatus === 'paid') {
+          updates.amount_paid = total
+          updates.balance_due = 0
+          setAmountPaid(total)
+        }
+        await supabase.from('invoices').update(updates).eq('id', invoiceId)
+        showToast(`Status changed to ${STATUS_CONFIG[newStatus].label}`)
+      } catch {
+        showToast('Error updating status')
+      }
+    } else {
+      if (newStatus === 'paid') setAmountPaid(total)
+      showToast(`Demo: Status changed to ${STATUS_CONFIG[newStatus].label}`)
+    }
+  }
+
+  async function handleRecordPayment() {
+    const amount = parseFloat(paymentInput)
+    if (isNaN(amount) || amount <= 0) {
+      showToast('Enter a valid payment amount')
+      return
+    }
+    const newPaid = amountPaid + amount
+    const newBalance = total - newPaid
+    setAmountPaid(newPaid)
+    setPaymentInput('')
+    setShowPaymentForm(false)
+
+    if (newBalance <= 0) {
+      setStatus('paid')
+    }
+
+    if (!isDemo) {
+      try {
+        const updates: Record<string, unknown> = {
+          amount_paid: newPaid,
+          balance_due: Math.max(0, newBalance),
+        }
+        if (newBalance <= 0) updates.status = 'paid'
+        await supabase.from('invoices').update(updates).eq('id', invoiceId)
+        showToast(`Payment of ${fmtCurrency(amount)} recorded`)
+      } catch {
+        showToast('Error recording payment')
+      }
+    } else {
+      showToast(`Demo: Payment of ${fmtCurrency(amount)} recorded`)
+    }
+  }
+
+  function handleExportPdf() {
+    showToast('PDF export coming soon')
+  }
+
+  function handleSendInvoice() {
+    if (status === 'draft') {
+      handleStatusChange('sent')
+    }
+    showToast('Invoice sent to customer')
+  }
+
+  const sc = STATUS_CONFIG[status]
+
+  return (
+    <div>
+      {/* Demo banner */}
+      {isDemo && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
+          background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
+          borderRadius: 10, marginBottom: 20, fontSize: 13, color: 'var(--amber)',
+        }}>
+          <AlertTriangle size={14} />
+          <span>Viewing demo invoice. Run the v6 migration to enable live data.</span>
+        </div>
+      )}
+
+      {/* Top bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => router.push('/invoices')} className="btn-ghost btn-sm">
+            <ArrowLeft size={14} /> Back
+          </button>
+          <div>
+            <span className="mono" style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+              INV-{inv.invoice_number}
+            </span>
+            <span style={{
+              marginLeft: 10, display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
+              borderRadius: 6, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg,
+            }}>
+              {sc.label}
+            </span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canWrite && status === 'draft' && (
+            <button onClick={handleSendInvoice} className="btn-ghost btn-sm">
+              <Send size={13} /> Send Invoice
+            </button>
+          )}
+          {canWrite && status !== 'paid' && status !== 'void' && (
+            <button onClick={handleExportPdf} className="btn-ghost btn-sm">
+              <Download size={13} /> Export PDF
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'flex-start' }}>
+        {/* Left column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Invoice info card */}
+          <div className="card">
+            <div className="section-label">Invoice Details</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label className="field-label">Title</label>
+                <input
+                  value={inv.title}
+                  className="field"
+                  disabled
+                  style={{ opacity: 0.7 }}
+                />
+              </div>
+              <div>
+                <label className="field-label">Customer</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <User size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  <input
+                    value={inv.customer?.name || '--'}
+                    className="field"
+                    disabled
+                    style={{ opacity: 0.7 }}
+                  />
+                </div>
+                {inv.customer?.email && (
+                  <span style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, display: 'block' }}>
+                    {inv.customer.email}
+                  </span>
+                )}
+              </div>
+              <div>
+                <label className="field-label">Invoice Date</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Calendar size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  <input
+                    value={fmtDate(inv.invoice_date)}
+                    className="field"
+                    disabled
+                    style={{ opacity: 0.7 }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="field-label">Due Date</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Clock size={13} style={{
+                    color: status === 'overdue' ? 'var(--red)' : 'var(--accent)',
+                    flexShrink: 0,
+                  }} />
+                  <input
+                    value={fmtDate(inv.due_date)}
+                    className="field"
+                    disabled
+                    style={{ opacity: 0.7 }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sales Order link */}
+            {inv.sales_order && (
+              <div style={{ marginTop: 12 }}>
+                <label className="field-label">Linked Sales Order</label>
+                <button
+                  onClick={() => router.push(`/sales-orders/${inv.sales_order_id}`)}
+                  className="btn-ghost btn-sm"
+                  style={{ gap: 6 }}
+                >
+                  <ExternalLink size={12} />
+                  <span className="mono" style={{ fontSize: 12, color: 'var(--accent)' }}>
+                    SO-{inv.sales_order.so_number}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Line Items (read-only) */}
+          <div className="card">
+            <div className="section-label" style={{ marginBottom: 16 }}>
+              Line Items ({items.length})
+            </div>
+
+            {items.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--text3)', fontSize: 13 }}>
+                No line items on this invoice.
+              </div>
+            ) : (
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 40 }}>#</th>
+                      <th>Item</th>
+                      <th>Description</th>
+                      <th style={{ textAlign: 'right', width: 60 }}>Qty</th>
+                      <th style={{ textAlign: 'right', width: 100 }}>Unit Price</th>
+                      <th style={{ textAlign: 'right', width: 100 }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((li, idx) => (
+                      <tr key={li.id}>
+                        <td>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text1)', fontWeight: 600, fontSize: 13 }}>
+                          {li.name || 'Untitled'}
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--text2)' }}>
+                          {li.description || '--'}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <span className="mono" style={{ fontSize: 13, color: 'var(--text1)' }}>
+                            {li.quantity}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <span className="mono" style={{ fontSize: 13, color: 'var(--text2)' }}>
+                            {fmtCurrency(li.unit_price)}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <span className="mono" style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 600 }}>
+                            {fmtCurrency(li.total_price)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          {inv.notes && (
+            <div className="card">
+              <div className="section-label">Notes</div>
+              <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, margin: 0 }}>
+                {inv.notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Right column: Pricing + Payment + Actions */}
+        <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Pricing summary */}
+          <div className="card">
+            <div className="section-label">Pricing Summary</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <PricingRow label="Subtotal" value={fmtCurrency(subtotal)} />
+              {discount > 0 && (
+                <PricingRow label="Discount" value={`-${fmtCurrency(discount)}`} color="var(--green)" />
+              )}
+              <PricingRow label={`Tax (${(inv.tax_rate * 100).toFixed(2)}%)`} value={fmtCurrency(taxAmount)} />
+              <div style={{ borderTop: '2px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
+                <PricingRow label="Total" value={fmtCurrency(total)} isTotal />
+              </div>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 4 }}>
+                <PricingRow label="Amount Paid" value={fmtCurrency(amountPaid)} color="var(--green)" />
+                <div style={{ marginTop: 8 }}>
+                  <PricingRow
+                    label="Balance Due"
+                    value={fmtCurrency(Math.max(0, balanceDue))}
+                    isTotal
+                    color={balanceDue > 0 ? 'var(--amber)' : 'var(--green)'}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment section */}
+          {canWrite && status !== 'void' && balanceDue > 0 && (
+            <div className="card">
+              <div className="section-label">Record Payment</div>
+              {showPaymentForm ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <label className="field-label">Payment Amount</label>
+                    <div style={{ position: 'relative' }}>
+                      <DollarSign size={13} style={{
+                        position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+                        color: 'var(--text3)', pointerEvents: 'none',
+                      }} />
+                      <input
+                        type="number"
+                        value={paymentInput}
+                        onChange={e => setPaymentInput(e.target.value)}
+                        className="field mono"
+                        placeholder="0.00"
+                        style={{ paddingLeft: 30 }}
+                        min={0}
+                        step={0.01}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={handleRecordPayment}
+                      className="btn-primary btn-sm"
+                      style={{ flex: 1, background: 'var(--green)' }}
+                    >
+                      <CreditCard size={13} /> Record
+                    </button>
+                    <button
+                      onClick={() => { setShowPaymentForm(false); setPaymentInput('') }}
+                      className="btn-ghost btn-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {/* Quick amount buttons */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setPaymentInput(balanceDue.toFixed(2))}
+                      className="btn-ghost btn-xs"
+                      style={{ fontSize: 11 }}
+                    >
+                      Full Balance ({fmtCurrency(balanceDue)})
+                    </button>
+                    <button
+                      onClick={() => setPaymentInput((balanceDue / 2).toFixed(2))}
+                      className="btn-ghost btn-xs"
+                      style={{ fontSize: 11 }}
+                    >
+                      Half ({fmtCurrency(balanceDue / 2)})
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowPaymentForm(true)}
+                  className="btn-primary btn-sm"
+                  style={{ width: '100%', background: 'var(--green)' }}
+                >
+                  <CreditCard size={13} /> Record Payment
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Status actions */}
+          {canWrite && (
+            <div className="card">
+              <div className="section-label">Actions</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {status === 'draft' && (
+                  <button onClick={handleSendInvoice} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
+                    <Send size={13} style={{ color: 'var(--accent)' }} /> Send Invoice
+                  </button>
+                )}
+                {status !== 'sent' && status !== 'void' && status !== 'paid' && (
+                  <button onClick={() => handleStatusChange('sent')} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
+                    <Send size={13} style={{ color: 'var(--accent)' }} /> Mark as Sent
+                  </button>
+                )}
+                {status !== 'paid' && status !== 'void' && (
+                  <button onClick={() => handleStatusChange('paid')} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
+                    <CheckCircle2 size={13} style={{ color: 'var(--green)' }} /> Mark as Paid
+                  </button>
+                )}
+                {status !== 'void' && (
+                  <button onClick={() => handleStatusChange('void')} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
+                    <Ban size={13} style={{ color: 'var(--text3)' }} /> Void Invoice
+                  </button>
+                )}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                  <button onClick={handleExportPdf} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', width: '100%' }}>
+                    <Download size={13} style={{ color: 'var(--accent)' }} /> Export PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="toast" style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text1)' }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Pricing Row ─────────────────────────────────────────────────────────────
+function PricingRow({
+  label, value, isTotal, color,
+}: {
+  label: string; value: string; isTotal?: boolean; color?: string
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{
+        fontSize: isTotal ? 14 : 13,
+        color: isTotal ? 'var(--text1)' : 'var(--text2)',
+        fontWeight: isTotal ? 700 : 400,
+      }}>
+        {label}
+      </span>
+      <span className="mono" style={{
+        fontSize: isTotal ? 18 : 14,
+        color: color || (isTotal ? 'var(--green)' : 'var(--text1)'),
+        fontWeight: isTotal ? 800 : 600,
+      }}>
+        {value}
+      </span>
+    </div>
+  )
+}
