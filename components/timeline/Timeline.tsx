@@ -4,12 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 
-const fM = (n:number) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n)
 
 export default function Timeline({ profile }: { profile: Profile }) {
   const [jobs, setJobs] = useState<any[]>([])
   const [groupBy, setGroupBy] = useState<'installer'|'agent'|'stage'>('installer')
-  const [window, setWindow] = useState<'2w'|'1m'|'3m'>('2w')
+  const [timeWindow, setTimeWindow] = useState<'2w'|'1m'|'3m'>('2w')
   const containerRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
@@ -20,7 +19,7 @@ export default function Timeline({ profile }: { profile: Profile }) {
   }, [])
 
   const today = new Date()
-  const days = window === '2w' ? 14 : window === '1m' ? 30 : 90
+  const days = timeWindow === '2w' ? 14 : timeWindow === '1m' ? 30 : 90
   const dates: Date[] = []
   for (let i = 0; i < days; i++) { const d = new Date(today); d.setDate(d.getDate() + i); dates.push(d) }
 
@@ -62,11 +61,11 @@ export default function Timeline({ profile }: { profile: Profile }) {
           <div style={{ width:1, height:20, background:'var(--border)', margin:'0 4px' }} />
           <span style={{ fontSize:10, color:'var(--text3)', fontWeight:700, textTransform:'uppercase' }}>Window:</span>
           {(['2w','1m','3m'] as const).map(w => (
-            <button key={w} onClick={() => setWindow(w)} style={{
+            <button key={w} onClick={() => setTimeWindow(w)} style={{
               padding:'5px 12px', borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', border:'1px solid',
-              background: window===w ? 'var(--surface2)' : 'transparent',
-              borderColor: window===w ? 'var(--border)' : 'transparent',
-              color: window===w ? 'var(--text1)' : 'var(--text3)',
+              background: timeWindow===w ? 'var(--surface2)' : 'transparent',
+              borderColor: timeWindow===w ? 'var(--border)' : 'transparent',
+              color: timeWindow===w ? 'var(--text1)' : 'var(--text3)',
             }}>{w === '2w' ? '2 Weeks' : w === '1m' ? '1 Month' : '3 Months'}</button>
           ))}
         </div>
