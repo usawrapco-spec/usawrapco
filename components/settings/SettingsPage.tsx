@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { PermissionsMatrix } from '@/components/settings/PermissionsMatrix'
 import PinGate from '@/components/settings/PinGate'
+import VisibilitySettings from '@/components/settings/VisibilitySettings'
 
 interface SettingsPageProps {
   profile: Profile
@@ -91,7 +92,7 @@ const SIM_JOBS = [
 
 export function SettingsPage({ profile }: SettingsPageProps) {
   const supabase = createClient()
-  const [activeTab, setActiveTab] = useState<'defaults' | 'commission' | 'simulation' | 'permissions'>('defaults')
+  const [activeTab, setActiveTab] = useState<'defaults' | 'commission' | 'simulation' | 'permissions' | 'visibility'>('defaults')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loadingSim, setLoadingSim] = useState(false)
@@ -359,10 +360,11 @@ export function SettingsPage({ profile }: SettingsPageProps) {
   }
 
   const tabs = [
-    { key: 'defaults'     as const, label: 'Defaults & Equations', icon: <Settings size={14} /> },
-    { key: 'commission'   as const, label: 'Commission Rules',     icon: <Shield size={14} /> },
-    { key: 'simulation'   as const, label: 'Simulation Data',      icon: <Database size={14} /> },
-    { key: 'permissions'  as const, label: 'Role Permissions',     icon: <Lock size={14} /> },
+    { key: 'defaults'    as const, label: 'Defaults & Equations', icon: <Settings size={14} /> },
+    { key: 'commission'  as const, label: 'Commission Rules',     icon: <Shield size={14} /> },
+    { key: 'simulation'  as const, label: 'Simulation Data',      icon: <Database size={14} /> },
+    { key: 'permissions' as const, label: 'Role Permissions',     icon: <Lock size={14} /> },
+    { key: 'visibility'  as const, label: 'Visibility',           icon: <Activity size={14} /> },
   ]
 
   return (
@@ -1506,6 +1508,13 @@ export function SettingsPage({ profile }: SettingsPageProps) {
             </div>
             <PermissionsMatrix />
           </div>
+        </div>
+      )}
+
+      {/* ===== TAB 5: Visibility ===== */}
+      {activeTab === 'visibility' && (
+        <div style={cardStyle}>
+          <VisibilitySettings orgId={profile.org_id} />
         </div>
       )}
     </div>
