@@ -26,6 +26,10 @@ import {
   Plus,
   Truck,
   ChevronRight,
+  CheckSquare,
+  Calendar,
+  Activity,
+  Columns2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -65,6 +69,18 @@ const NAV: NavItem[] = [
     permission: 'jobs.read',
   },
   {
+    href: '/tasks',
+    label: 'Task Queue',
+    icon: CheckSquare,
+    permission: 'jobs.read',
+  },
+  {
+    href: '/calendar',
+    label: 'Calendar',
+    icon: Calendar,
+    permission: 'jobs.read',
+  },
+  {
     href: '/design',
     label: 'Design Studio',
     icon: Palette,
@@ -81,6 +97,12 @@ const NAV: NavItem[] = [
     label: 'Media Library',
     icon: ImageIcon,
     permission: 'design.read',
+  },
+  {
+    href: '/timeline',
+    label: 'Timeline',
+    icon: Columns2,
+    permission: 'production.read',
   },
   {
     href: '/production',
@@ -112,6 +134,12 @@ const NAV: NavItem[] = [
     label: 'Installer Bids',
     icon: Hammer,
     permission: 'bids.read',
+  },
+  {
+    href: '/analytics',
+    label: 'Analytics',
+    icon: Activity,
+    permission: 'finances.view',
   },
   {
     href: '/reports',
