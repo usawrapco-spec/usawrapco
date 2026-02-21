@@ -77,13 +77,16 @@ export default function ReportsClient({ profile, projects }: Props) {
     try {
       const res  = await fetch(`/api/reports/${type}?projectId=${selectedProject}`)
       const data = await res.json()
-      // Display as formatted print view
-      const html = buildPrintHtml(type, data.report)
-      const w    = window.open('', '_blank')
-      if (w) {
-        w.document.write(html)
-        w.document.close()
-      }
+      // Print via hidden iframe — avoids window.open
+      const html   = buildPrintHtml(type, data.report)
+      const iframe = document.createElement('iframe')
+      iframe.style.cssText = 'position:fixed;width:0;height:0;border:none;opacity:0'
+      document.body.appendChild(iframe)
+      iframe.contentDocument!.write(html)
+      iframe.contentDocument!.close()
+      iframe.contentWindow!.focus()
+      iframe.contentWindow!.print()
+      setTimeout(() => document.body.removeChild(iframe), 5000)
     } catch {
       toast('Failed to generate report', 'error')
     }
@@ -222,8 +225,8 @@ export default function ReportsClient({ profile, projects }: Props) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   }}
                 >
-                  <FileText size={12} />
-                  {loading === `view-${r.id}` ? 'Loading...' : 'View'}
+                  <Printer size={12} />
+                  {loading === `view-${r.id}` ? 'Loading...' : 'Print'}
                 </button>
                 <button
                   onClick={() => downloadReport(r.id)}
@@ -298,6 +301,5 @@ ${rows ? `<h2>Additional Data</h2><table>${rows}</table>` : ''}
 <div style="margin-top:40px;padding-top:16px;border-top:1px solid #ddd;font-size:11px;color:#888">
   USA WRAP CO · Generated ${new Date().toLocaleString()} · Confidential
 </div>
-<script>window.onload = () => window.print()</script>
 </body></html>`
 }

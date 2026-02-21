@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Sparkles, X, Send, RotateCcw, ChevronDown,
   Lightbulb, AlertTriangle, Zap
@@ -59,6 +59,7 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
   const [tab, setTab]             = useState<'chat' | 'tips'>('chat')
   const bottomRef                 = useRef<HTMLDivElement>(null)
   const pathname                  = usePathname()
+  const router                    = useRouter()
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -372,8 +373,8 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
                             {s.message}
                           </div>
                           {s.action_label && s.action_url && (
-                            <a
-                              href={s.action_url}
+                            <button
+                              onClick={() => { setOpen(false); router.push(s.action_url!) }}
                               style={{
                                 display: 'inline-block',
                                 marginTop: 6,
@@ -383,11 +384,12 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
                                 borderRadius: 5,
                                 fontSize: 11,
                                 fontWeight: 700,
-                                textDecoration: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
                               }}
                             >
                               {s.action_label}
-                            </a>
+                            </button>
                           )}
                         </div>
                       </div>

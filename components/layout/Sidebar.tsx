@@ -30,6 +30,7 @@ import {
   Calendar,
   Activity,
   Columns2,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -122,6 +123,12 @@ const NAV: NavItem[] = [
     children: [
       { href: '/inventory/remnants',    label: 'Remnants' },
     ],
+  },
+  {
+    href: '/catalog',
+    label: 'Catalog',
+    icon: BookOpen,
+    permission: 'inventory.read',
   },
   {
     href: '/customers',
