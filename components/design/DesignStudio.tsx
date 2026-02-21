@@ -23,6 +23,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { Profile } from '@/types'
+import { useToast } from '@/components/shared/Toast'
 
 type DesignProject = {
   id: string
@@ -208,6 +209,7 @@ function NewDesignProjectModal({ profile, teamMembers, projects, onClose, onCrea
   onCreated: () => void
 }) {
   const supabase = createClient()
+  const { xpToast } = useToast()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     client_name: '',
@@ -246,6 +248,18 @@ function NewDesignProjectModal({ profile, teamMembers, projects, onClose, onCrea
           message: `New design project created for "${form.client_name}" (${form.design_type}) -- No job linked yet. Sales: please review and send quote if applicable.`,
         })
       }
+
+      // Award create_design XP
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_design', sourceType: 'design_project', sourceId: dp?.id }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'Design created', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
 
       onCreated()
     } catch (err) {

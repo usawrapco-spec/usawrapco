@@ -121,6 +121,14 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('token', token)
+
+    // Award intake_submitted XP to the creating agent via server route
+    fetch('/api/xp/intake-submitted', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    }).catch(() => {})
+
     setSaving(false)
     setSubmitted(true)
   }

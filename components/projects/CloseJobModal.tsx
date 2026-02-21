@@ -182,6 +182,13 @@ export default function CloseJobModal({ project, profile, onClose, onUpdate }: C
           if (res?.amount) xpToast(res.amount, 'Deal closed!', res.leveledUp, res.newLevel)
         })
         .catch(() => {})
+
+      // Also award job_fully_completed XP (separate action, same source)
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'job_fully_completed', sourceType: 'project', sourceId: `${project.id}_completed` }),
+      }).catch(() => {})
     }
 
     setSaving(false)
