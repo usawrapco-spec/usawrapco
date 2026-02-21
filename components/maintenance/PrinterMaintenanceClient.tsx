@@ -123,7 +123,7 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
             {/* Ink bars */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {(['C', 'M', 'Y', 'K'] as const).map(channel => {
-                const level = (data as Record<string, number>)[channel]
+                const level = (data as unknown as Record<string, number>)[channel]
                 const color = channel === 'C' ? '#22d3ee' : channel === 'M' ? '#f25a5a' : channel === 'Y' ? '#f59e0b' : '#9299b5'
                 return (
                   <div key={channel}>

@@ -235,7 +235,7 @@ export default function CustomerProofing({ token }: CustomerProofingProps) {
                       disabled={!feedback.trim() || revisionsLeft <= 0 || saving}
                       style={{
                         flex: 1, padding: '14px 24px', borderRadius: 10, fontWeight: 700, fontSize: 14,
-                        cursor: revisionsLeft > 0 && feedback.trim() ? 'pointer' : 'not-allowed', border: 'none',
+                        cursor: revisionsLeft > 0 && feedback.trim() ? 'pointer' : 'not-allowed',
                         background: '#f59e0b15', color: revisionsLeft > 0 ? '#f59e0b' : '#5a6478',
                         border: '1px solid #f59e0b30',
                       }}>

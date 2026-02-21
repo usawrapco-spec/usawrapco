@@ -159,7 +159,7 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
                     {t.sub} · <span style={{ color: t.role === 'sales' ? '#4f7fff' : t.role === 'production' ? '#22c07a' : '#22d3ee', fontWeight:600 }}>{t.person}</span>
                   </div>
                 </div>
-                <button onClick={() => setDismissed(p => new Set([...p, t.id]))} title="Dismiss" style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', padding:4 }}><X size={13} /></button>
+                <button onClick={() => setDismissed(p => new Set([...Array.from(p), t.id]))} title="Dismiss" style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', padding:4 }}><X size={13} /></button>
               </div>
             )
           })}

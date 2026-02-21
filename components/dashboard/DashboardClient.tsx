@@ -647,7 +647,7 @@ export function DashboardClient({
           pipelineValue={pipelineValue}
           daysElapsed={daysElapsed}
           daysInPeriod={daysInPeriod}
-          periodLabel={period === 'week' ? 'week' : period === 'quarter' ? 'quarter' : period === 'year' ? 'year' : 'month'}
+          periodLabel={period === 'week' ? 'week' : period === 'quarter' ? 'quarter' : 'month'}
         />
       )}
 

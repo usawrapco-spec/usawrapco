@@ -104,7 +104,7 @@ export default function RemnantsClient({ profile }: Props) {
             key={f}
             onClick={() => setFilter(f)}
             style={{
-              padding: '6px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
+              padding: '6px 14px', borderRadius: 7, cursor: 'pointer',
               background: filter === f ? 'var(--accent)' : 'var(--surface)',
               color: filter === f ? '#fff' : 'var(--text3)',
               fontSize: 12, fontWeight: filter === f ? 700 : 400,

@@ -67,7 +67,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
       type:         projectType,
       title:        businessName || clientName,
       status:       'estimate',
-      agent_id:     profile.role === 'sales' || profile.role === 'admin' ? profile.id : null,
+      agent_id:     profile.role === 'sales_agent' || profile.role === 'admin' ? profile.id : null,
       division:     projectType === 'decking' ? 'decking' : 'wraps',
       pipe_stage:   'sales_in',
       vehicle_desc: vDesc,

@@ -28,7 +28,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/reports':               'Reports',
   '/mockup':                'Mockup Tool',
   '/customers':             'Customers',
-  '/catalog':               'Product Catalog',
 }
 
 export function TopBar({ profile }: { profile: Profile }) {

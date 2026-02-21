@@ -71,16 +71,17 @@ Return ONLY valid JSON.`,
 
     // Save analysis to project if projectId provided
     if (projectId && Object.keys(analysis).length > 0) {
-      const admin = getSupabaseAdmin()
-      await admin.from('projects').update({
-        form_data: admin.rpc('jsonb_merge', {
-          base: 'form_data',
-          patch: { brand_analysis: analysis },
-        }),
-      }).eq('id', projectId)
-        .catch(() => {
-          // If the jsonb_merge RPC doesn't exist, just skip saving
-        })
+      try {
+        const admin = getSupabaseAdmin()
+        await admin.from('projects').update({
+          form_data: admin.rpc('jsonb_merge', {
+            base: 'form_data',
+            patch: { brand_analysis: analysis },
+          }),
+        }).eq('id', projectId)
+      } catch {
+        // If the jsonb_merge RPC doesn't exist, just skip saving
+      }
     }
 
     return Response.json({ analysis })

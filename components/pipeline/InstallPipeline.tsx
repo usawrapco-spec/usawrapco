@@ -39,7 +39,7 @@ const COLUMNS: KanbanColumn[] = [
     label: 'Scheduled',
     color: '#06b6d4',
     icon: Calendar,
-    filterFn: (p) => p.pipe_stage === 'install' && p.install_date && getInstallStatus(p) !== 'in_progress' && getInstallStatus(p) !== 'complete' && getInstaller(p),
+    filterFn: (p) => p.pipe_stage === 'install' && !!p.install_date && getInstallStatus(p) !== 'in_progress' && getInstallStatus(p) !== 'complete' && !!getInstaller(p),
   },
   {
     key: 'in_progress',

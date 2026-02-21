@@ -78,33 +78,33 @@ function generateTasks(projects: Project[], teammates: Teammate[]): GeneratedTas
         tasks.push({ id:`sb-sales-${p.id}`, type:'send_back', urgency:'urgent', Icon:AlertCircle,
           desc:`${p.title} — sent back, action required`,
           sub:`Reason: ${lastSB!.reason?.substring(0,60)}`,
-          person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
+          person: agentName, personId: agentId, role:'sales_agent', projectId: p.id, date: today })
       } else if (stage === 'sales_in' && !p.checkout?.sales_in) {
         tasks.push({ id:`intake-${p.id}`, type:'intake', urgency:'normal', Icon:ClipboardList,
           desc:`Complete sales intake — ${p.title}`,
           sub: p.vehicle_desc || p.type,
-          person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
+          person: agentName, personId: agentId, role:'sales_agent', projectId: p.id, date: today })
       }
 
       if (p.status === 'estimate') {
         tasks.push({ id:`estimate-${p.id}`, type:'estimate', urgency:'today', Icon:Phone,
           desc:`Follow up on estimate — ${p.title}`,
           sub:`${p.vehicle_desc || ''} · ${p.revenue ? '$' + Math.round(p.revenue).toLocaleString() : 'No price yet'}`,
-          person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
+          person: agentName, personId: agentId, role:'sales_agent', projectId: p.id, date: today })
       }
 
       if (p.status === 'active' && !iDate) {
         tasks.push({ id:`appt-${p.id}`, type:'schedule', urgency:'today', Icon:Calendar,
           desc:`Schedule install date — ${p.title}`,
           sub:'No install date set on active order',
-          person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
+          person: agentName, personId: agentId, role:'sales_agent', projectId: p.id, date: today })
       }
 
       if (stage === 'sales_close' && !p.checkout?.sales_close) {
         tasks.push({ id:`close-${p.id}`, type:'close', urgency:'urgent', Icon:DollarSign,
           desc:`Final sign-off needed — ${p.title}`,
           sub:'All stages complete — awaiting your close',
-          person: agentName, personId: agentId, role:'sales', projectId: p.id, date: today })
+          person: agentName, personId: agentId, role:'sales_agent', projectId: p.id, date: today })
       }
     }
 

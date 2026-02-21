@@ -473,7 +473,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           {tab === 'chat' && (
             <div>
               <div style={{ marginBottom:16 }}>
-                <JobChat projectId={project.id} orgId={project.org_id} currentUserId={profile.id} currentUserName={profile.full_name || profile.name} />
+                <JobChat projectId={project.id} orgId={project.org_id} currentUserId={profile.id} currentUserName={profile.name} />
               </div>
               <div style={{ borderTop:'1px solid var(--border)', paddingTop:16 }}>
                 <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><Camera size={12} /> Job Photos</div>
@@ -863,6 +863,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
 // Linked Design Project fetcher
 function LinkedDesignPanel({ project }: { project: any }) {
   const supabase = createClient()
+  const { xpToast, badgeToast } = useToast()
   const [designProjects, setDesignProjects] = useState<any[]>([])
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -942,6 +943,7 @@ function LinkedDesignPanel({ project }: { project: any }) {
 // DESIGN TAB
 // ═══════════════════════════════════════════════════════════════════
 function DesignTab({ f, ff, project, profile }: any) {
+  const { xpToast, badgeToast } = useToast()
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <LinkedDesignPanel project={project} />
@@ -1244,6 +1246,7 @@ function QCTab({ f, ff, fin, project, profile }: any) {
 // CLOSE TAB — Final approval, commission lock, referrals
 // ═══════════════════════════════════════════════════════════════════
 function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void }) {
+  const { xpToast, badgeToast } = useToast()
   const [desc, setDesc] = useState('')
   const [amt, setAmt]   = useState('')
   const expenses: { desc: string; amount: number }[] = f.jobExpenses || []

@@ -492,7 +492,7 @@ function InstallerDashboard({ profile, projects }: Props) {
 export default function RoleDashboard({ profile, projects }: Props) {
   const role = profile.role
 
-  if (role === 'sales_agent' || role === 'sales') {
+  if (role === 'sales_agent') {
     return <SalesDashboard profile={profile} projects={projects} />
   }
   if (role === 'production') {

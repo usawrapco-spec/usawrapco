@@ -4,13 +4,17 @@
  * USE ONLY in server-side API routes — NEVER in client components.
  * Lazy-initialized so the build doesn't fail when env vars are absent.
  */
-import { createClient } from '@supabase/supabase-js'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-let _admin: ReturnType<typeof createClient> | null = null
+// Typed as any so all .from() calls return data: any rather than data: never
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _admin: SupabaseClient<any, any, any> | null = null
 
-export function getSupabaseAdmin() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getSupabaseAdmin(): SupabaseClient<any, any, any> {
   if (!_admin) {
-    _admin = createClient(
+    _admin = createClient<any, any, any>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {

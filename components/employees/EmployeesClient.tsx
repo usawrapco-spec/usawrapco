@@ -14,12 +14,12 @@ interface EmployeesClientProps {
 }
 
 const ROLE_OPTIONS: { role: UserRole; Icon: LucideIcon; label: string; color: string; badgeClass: string }[] = [
-  { role: 'admin',      Icon: Crown,    label: 'Admin',      color: 'text-purple', badgeClass: 'badge-purple' },
-  { role: 'sales',      Icon: Briefcase,label: 'Sales',      color: 'text-accent',  badgeClass: 'badge-accent' },
-  { role: 'production', Icon: Printer,  label: 'Production', color: 'text-green',   badgeClass: 'badge-green' },
-  { role: 'installer',  Icon: Wrench,   label: 'Installer',  color: 'text-cyan',    badgeClass: 'badge-accent' },
-  { role: 'designer',   Icon: Palette,  label: 'Designer',   color: 'text-amber',   badgeClass: 'badge-amber' },
-  { role: 'customer',   Icon: User,     label: 'Customer',   color: 'text-text3',   badgeClass: 'badge-gray' },
+  { role: 'admin',       Icon: Crown,    label: 'Admin',       color: 'text-purple', badgeClass: 'badge-purple' },
+  { role: 'sales_agent', Icon: Briefcase,label: 'Sales Agent', color: 'text-accent', badgeClass: 'badge-accent' },
+  { role: 'production',  Icon: Printer,  label: 'Production',  color: 'text-green',  badgeClass: 'badge-green' },
+  { role: 'installer',   Icon: Wrench,   label: 'Installer',   color: 'text-cyan',   badgeClass: 'badge-accent' },
+  { role: 'designer',    Icon: Palette,  label: 'Designer',    color: 'text-amber',  badgeClass: 'badge-amber' },
+  { role: 'viewer',      Icon: User,     label: 'Viewer',      color: 'text-text3',  badgeClass: 'badge-gray' },
 ]
 
 const PERMISSION_LABELS: Record<string, string> = {
@@ -48,14 +48,14 @@ interface NewMemberForm {
   role: UserRole
 }
 
-const EMPTY_FORM: NewMemberForm = { name: '', email: '', phone: '', role: 'sales' }
+const EMPTY_FORM: NewMemberForm = { name: '', email: '', phone: '', role: 'sales_agent' }
 
 export function EmployeesClient({ profile, initialMembers, projectCounts = {} }: EmployeesClientProps) {
   const [members, setMembers] = useState<Profile[]>(initialMembers)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editRole, setEditRole] = useState<UserRole>('sales')
+  const [editRole, setEditRole] = useState<UserRole>('sales_agent')
   const [saving, setSaving] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [newMember, setNewMember] = useState<NewMemberForm>(EMPTY_FORM)
@@ -214,7 +214,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
 
       {/* Role summary cards */}
       <div className="grid grid-cols-6 gap-3 mb-5">
-        {ROLE_OPTIONS.filter(r => r.role !== 'customer').map(r => (
+        {ROLE_OPTIONS.filter(Boolean).map(r => (
           <button
             key={r.role}
             onClick={() => setRoleFilter(roleFilter === r.role ? 'all' : r.role)}
@@ -476,7 +476,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
               value={newMember.role}
               onChange={e => setNewMember(prev => ({ ...prev, role: e.target.value as UserRole }))}
             >
-              {ROLE_OPTIONS.filter(r => r.role !== 'customer').map(r => (
+              {ROLE_OPTIONS.filter(Boolean).map(r => (
                 <option key={r.role} value={r.role}>{r.label}</option>
               ))}
             </select>
