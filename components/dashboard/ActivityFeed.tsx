@@ -28,7 +28,7 @@ export default function ActivityFeed({ orgId }: ActivityFeedProps) {
       const [comments, approvals, recentProjects] = await Promise.all([
         supabase
           .from('job_comments')
-          .select('id, message, channel, created_at, project_id, profiles:user_id(full_name)')
+          .select('id, message, channel, created_at, project_id, profiles:user_id(name)')
           .eq('org_id', orgId)
           .order('created_at', { ascending: false })
           .limit(8),
@@ -51,7 +51,7 @@ export default function ActivityFeed({ orgId }: ActivityFeedProps) {
       // Comments
       if (comments.data) {
         comments.data.forEach((c: any) => {
-          const name = c.profiles?.full_name || 'Someone'
+          const name = c.profiles?.name || 'Someone'
           const chan = c.channel === 'client' ? 'client' : c.channel === 'installer' ? 'installer' : 'team'
           feed.push({
             id: `comment-${c.id}`,

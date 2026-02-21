@@ -12,7 +12,7 @@ interface ChatMessage {
   channel: string;
   created_at: string;
   profiles?: {
-    full_name: string;
+    name: string;
     avatar_url?: string;
     role?: string;
   };
@@ -48,7 +48,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('job_comments')
-        .select('*, profiles:user_id(full_name, avatar_url, role)')
+        .select('*, profiles:user_id(name, avatar_url, role)')
         .eq('project_id', projectId)
         .eq('channel', activeChannel)
         .order('created_at', { ascending: true });
@@ -76,7 +76,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
             // Fetch the full message with profile
             const { data } = await supabase
               .from('job_comments')
-              .select('*, profiles:user_id(full_name, avatar_url, role)')
+              .select('*, profiles:user_id(name, avatar_url, role)')
               .eq('id', payload.new.id)
               .single();
 
@@ -189,7 +189,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
 
         {messages.map((msg) => {
           const isSent = msg.user_id === currentUserId;
-          const senderName = msg.profiles?.full_name || (isSent ? currentUserName : 'Unknown');
+          const senderName = msg.profiles?.name || (isSent ? currentUserName : 'Unknown');
           const senderRole = msg.profiles?.role || '';
 
           return (

@@ -401,7 +401,7 @@ type ChatMessage = {
   channel: string
   created_at: string
   profiles?: {
-    full_name: string
+    name: string
     avatar_url?: string
     role?: string
   } | null
@@ -440,7 +440,7 @@ function DesignChat({ designProjectId, orgId, currentUserId, currentUserName }: 
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('job_comments')
-        .select('*, profiles:user_id(full_name, avatar_url, role)')
+        .select('*, profiles:user_id(name, avatar_url, role)')
         .eq('channel', channel)
         .order('created_at', { ascending: true })
 
@@ -465,7 +465,7 @@ function DesignChat({ designProjectId, orgId, currentUserId, currentUserName }: 
           if (payload.new.channel === channel) {
             const { data } = await supabase
               .from('job_comments')
-              .select('*, profiles:user_id(full_name, avatar_url, role)')
+              .select('*, profiles:user_id(name, avatar_url, role)')
               .eq('id', payload.new.id)
               .single()
 
@@ -567,7 +567,7 @@ function DesignChat({ designProjectId, orgId, currentUserId, currentUserName }: 
 
         {messages.map(msg => {
           const isSent = msg.user_id === currentUserId
-          const senderName = msg.profiles?.full_name || (isSent ? currentUserName : 'Unknown')
+          const senderName = msg.profiles?.name || (isSent ? currentUserName : 'Unknown')
 
           return (
             <div key={msg.id} className={clsx('flex gap-2.5 max-w-[85%]', isSent && 'ml-auto flex-row-reverse')}>
