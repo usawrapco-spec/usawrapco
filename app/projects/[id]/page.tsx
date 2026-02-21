@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect, notFound } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
+import { MobileNav } from '@/components/layout/MobileNav'
 import { ProjectDetail } from '@/components/projects/ProjectDetail'
 import type { Profile, Project } from '@/types'
 
@@ -13,14 +14,12 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Use admin client so RLS never blocks the profile or project fetch
   const admin = getSupabaseAdmin()
 
   const { data: profile } = await admin
     .from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  // Fetch project — use org_id from profile if set, fallback to ORG_ID constant
   const orgId = profile.org_id || ORG_ID
   let projectQuery = admin
     .from('projects')
@@ -47,18 +46,46 @@ export default async function ProjectPage({ params }: { params: { id: string } }
     .eq('org_id', orgId)
     .neq('role', 'viewer')
 
+  // Fetch line items (from estimate/SO linked to this project)
+  let lineItems: any[] = []
+  try {
+    const { data } = await admin
+      .from('line_items')
+      .select('*')
+      .eq('parent_id', params.id)
+      .order('sort_order', { ascending: true })
+    lineItems = data || []
+  } catch {}
+
+  // Fetch activity log
+  let activities: any[] = []
+  try {
+    const { data } = await admin
+      .from('activity_log')
+      .select('*')
+      .eq('job_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(100)
+    activities = data || []
+  } catch {}
+
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
-      <Sidebar profile={profile as Profile} />
+      <div className="hidden md:flex">
+        <Sidebar profile={profile as Profile} />
+      </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
           <ProjectDetail
             profile={profile as Profile}
             project={project as Project}
             teammates={teammates || []}
           />
         </main>
+      </div>
+      <div className="md:hidden">
+        <MobileNav />
       </div>
     </div>
   )

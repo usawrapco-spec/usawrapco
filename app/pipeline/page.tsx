@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopBar } from '@/components/layout/TopBar'
 import { PipelineBoard } from '@/components/pipeline/PipelineBoard'
 import type { Profile, Project } from '@/types'
 
@@ -38,17 +36,9 @@ export default async function PipelinePage() {
   const { data: projects } = await query
 
   return (
-    <div className="flex h-screen bg-bg overflow-hidden">
-      <Sidebar profile={profile as Profile} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-6">
-          <PipelineBoard
-            profile={profile as Profile}
-            initialProjects={(projects as Project[]) || []}
-          />
-        </main>
-      </div>
-    </div>
+    <PipelineBoard
+      profile={profile as Profile}
+      initialProjects={(projects as Project[]) || []}
+    />
   )
 }

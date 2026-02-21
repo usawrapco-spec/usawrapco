@@ -312,6 +312,7 @@ export interface LineItemSpecs {
   vehicleModel?: string
   vehicleColor?: string
   vehicleType?: string
+  vehicleCategory?: string
   wrapType?: string
   vinylType?: string
   laminate?: string
@@ -322,11 +323,24 @@ export interface LineItemSpecs {
   materialCost?: number
   laborCost?: number
   laborPrice?: number
+  laborHours?: number
+  laborRate?: number
   machineCost?: number
+  designFee?: number
+  miscCost?: number
+  flatRate?: number
+  estimatedHours?: number
+  cogs?: number
+  gp?: number
+  gpm?: number
+  commissionRate?: number
+  commissionAmount?: number
   notes?: string
   designDetails?: string
   productionDetails?: string
   installDetails?: string
+  customerDescription?: string
+  optionId?: string
   [key: string]: unknown
 }
 
@@ -398,6 +412,70 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+}
+
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+export type ActorType = 'user' | 'customer' | 'system' | 'ai'
+
+export interface ActivityEntry {
+  id: string
+  org_id: string
+  job_id: string | null
+  estimate_id: string | null
+  customer_id: string | null
+  actor_type: ActorType
+  actor_id: string | null
+  actor_name: string
+  action: string
+  details: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+// ─── Estimate Templates ───────────────────────────────────────────────────────
+export interface EstimateTemplate {
+  id: string
+  org_id: string
+  name: string
+  description: string | null
+  category: string | null
+  line_items: LineItem[]
+  form_data: Record<string, unknown>
+  created_by: string | null
+  use_count: number
+  created_at: string
+  updated_at: string
+}
+
+// ─── Estimate Options (Proposal Mode) ─────────────────────────────────────────
+export interface EstimateOption {
+  id: string
+  estimate_id: string
+  label: string
+  sort_order: number
+  selected: boolean
+  line_item_ids: string[]
+  created_at: string
+}
+
+// ─── Job History (Auto-Quoting) ───────────────────────────────────────────────
+export interface JobHistory {
+  id: string
+  org_id: string
+  vehicle_type: string | null
+  vehicle_year: string | null
+  vehicle_make: string | null
+  vehicle_model: string | null
+  wrap_type: string | null
+  material: string | null
+  sqft: number | null
+  sale_price: number | null
+  cogs: number | null
+  gpm: number | null
+  install_hours: number | null
+  customer_id: string | null
+  completed_at: string | null
+  created_at: string
 }
 
 // ─── Database type stub ────────────────────────────────────────────────────────

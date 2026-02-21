@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import type { Profile, Estimate, LineItem } from '@/types'
 import EstimateDetailClient from '@/components/estimates/EstimateDetailClient'
 
@@ -16,9 +16,10 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
     .from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  let estimate: Estimate | null = null
+  const orgId = profile.org_id || ORG_ID
+
+  let estimate: any = null
   let lineItems: LineItem[] = []
-  let isDemo = false
 
   try {
     const { data, error } = await admin
@@ -32,7 +33,7 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
       .single()
 
     if (error) throw error
-    estimate = data as Estimate
+    estimate = data
 
     // Fetch line items
     const { data: items } = await admin
@@ -45,29 +46,42 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
     lineItems = (items as LineItem[]) || []
   } catch (err) {
     console.error('[estimate detail] fetch error:', err)
-    isDemo = true
   }
 
   // Fetch team members for assignment dropdowns
-  const orgId = profile.org_id || ORG_ID
-  let team: Pick<Profile, 'id' | 'name' | 'role'>[] = []
+  let employees: any[] = []
   try {
-    const { data: teamData } = await admin
+    const { data } = await admin
       .from('profiles')
-      .select('id, name, role')
+      .select('id, name, email, role, division')
       .eq('org_id', orgId)
       .eq('active', true)
-    team = (teamData || []) as Pick<Profile, 'id' | 'name' | 'role'>[]
+    employees = data || []
   } catch {}
+
+  // Fetch customers for customer selector
+  let customers: any[] = []
+  try {
+    const { data } = await admin
+      .from('customers')
+      .select('id, name, email, phone, company, company_name, contact_name')
+      .eq('org_id', orgId)
+      .order('name')
+      .limit(500)
+    customers = data || []
+  } catch {}
+
+  // Build the estimate object with line items attached
+  const fullEstimate = estimate
+    ? { ...estimate, line_items: lineItems }
+    : null
 
   return (
     <EstimateDetailClient
       profile={profile as Profile}
-      estimate={estimate}
-      lineItems={lineItems}
-      team={team}
-      isDemo={isDemo}
-      estimateId={params.id}
+      estimate={fullEstimate}
+      employees={employees}
+      customers={customers}
     />
   )
 }

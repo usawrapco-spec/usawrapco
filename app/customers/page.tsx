@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
+import { MobileNav } from '@/components/layout/MobileNav'
 import type { Profile } from '@/types'
 import CustomersClient from '@/components/customers/CustomersClient'
 
@@ -27,15 +28,20 @@ export default async function CustomersPage() {
 
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
-      <Sidebar profile={profile as Profile} />
+      <div className="hidden md:flex">
+        <Sidebar profile={profile as Profile} />
+      </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
           <CustomersClient
             profile={profile as Profile}
             initialCustomers={customers || []}
           />
         </main>
+      </div>
+      <div className="md:hidden">
+        <MobileNav />
       </div>
     </div>
   )

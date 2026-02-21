@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
+import { MobileNav } from '@/components/layout/MobileNav'
 import { isAdminRole, canAccess } from '@/types'
 import type { Profile } from '@/types'
 import ShopOverheadCalc from '@/components/settings/ShopOverheadCalc'
@@ -21,15 +22,20 @@ export default async function OverheadPage() {
   if (!isAdminRole(profile.role) && !canAccess(profile.role, 'manage_settings')) {
     return (
       <div className="flex h-screen bg-bg overflow-hidden">
-        <Sidebar profile={profile as Profile} />
+        <div className="hidden md:flex">
+          <Sidebar profile={profile as Profile} />
+        </div>
         <div className="flex-1 flex flex-col overflow-hidden">
           <TopBar profile={profile as Profile} />
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
             <div style={{ maxWidth: 400, margin: '60px auto', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 32 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Access Restricted</div>
               <div style={{ fontSize: 13, color: 'var(--text3)' }}>Only admins can view shop expenses.</div>
             </div>
           </main>
+        </div>
+        <div className="md:hidden">
+          <MobileNav />
         </div>
       </div>
     )
@@ -37,12 +43,17 @@ export default async function OverheadPage() {
 
   return (
     <div className="flex h-screen bg-bg overflow-hidden">
-      <Sidebar profile={profile as Profile} />
+      <div className="hidden md:flex">
+        <Sidebar profile={profile as Profile} />
+      </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
           <ShopOverheadCalc profile={profile as Profile} />
         </main>
+      </div>
+      <div className="md:hidden">
+        <MobileNav />
       </div>
     </div>
   )
