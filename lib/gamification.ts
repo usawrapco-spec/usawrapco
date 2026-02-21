@@ -26,6 +26,23 @@ export async function awardXP(
   const amount = XP_VALUES[action]
 
   try {
+    // Deduplication: if sourceId is provided, check we haven't already awarded this action+source
+    if (sourceId) {
+      try {
+        const { data: existing } = await supabase
+          .from('xp_ledger')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('reason', action)
+          .eq('source_id', sourceId)
+          .limit(1)
+          .single()
+        if (existing) return null  // Already awarded
+      } catch {
+        // xp_ledger may not exist — skip dedup check
+      }
+    }
+
     // Fetch current profile
     const { data: profile } = await supabase
       .from('profiles')
