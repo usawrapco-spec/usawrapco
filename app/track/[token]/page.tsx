@@ -18,9 +18,9 @@ const STAGES = [
 export default async function TrackPage({ params }: Props) {
   const admin = getSupabaseAdmin()
 
-  // Look up by customer_intake_tokens
+  // Look up by customer_intake (token is unique per project)
   const { data: intake } = await admin
-    .from('customer_intake_tokens')
+    .from('customer_intake')
     .select('*, project:project_id(*)')
     .eq('token', params.token)
     .single()
