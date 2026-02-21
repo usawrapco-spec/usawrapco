@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const stripe = new Stripe(stripeKey, { apiVersion: '2025-01-27.acacia' })
+    const stripe = new Stripe(stripeKey, { apiVersion: '2026-01-28.clover' })
     const { intakeToken, email, projectId } = await req.json()
 
     if (!intakeToken) {
