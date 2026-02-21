@@ -107,8 +107,8 @@ export function DashboardClient({
     if (h < 17) return 'Good afternoon'
     return 'Good evening'
   }, [])
-  const xp      = (profile as any).xp || 0
-  const streak  = (profile as any).current_streak || 0
+  const xp      = profile.xp || 0
+  const streak  = profile.current_streak || 0
   const xpLevel = Math.floor(Math.sqrt(xp / 50)) + 1
   const xpNext  = xpLevel * xpLevel * 50
   const xpPrev  = (xpLevel - 1) * (xpLevel - 1) * 50

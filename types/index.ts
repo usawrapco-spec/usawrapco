@@ -79,6 +79,14 @@ export interface Profile {
   active: boolean
   division?: string | null
   last_active_date?: string | null
+  // Gamification / XP
+  xp?: number | null
+  level?: number | null
+  current_streak?: number | null
+  longest_streak?: number | null
+  monthly_xp?: number | null
+  weekly_xp?: number | null
+  badges?: string[] | null
   created_at: string
   updated_at: string
 }

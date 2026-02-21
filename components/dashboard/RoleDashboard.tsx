@@ -308,7 +308,7 @@ function DesignerDashboard({ profile, projects }: Props) {
   const inReview     = myDesigns.filter(d => d.status === 'review' || d.status === 'pending_approval')
   const doneDesigns  = myDesigns.filter(d => d.status === 'done' || d.status === 'approved')
 
-  const xp       = (profile as any).xp || 0
+  const xp       = profile.xp || 0
   const level    = Math.floor(Math.sqrt(xp / 50)) + 1
   const xpToNext = (level * level * 50) - xp
 
