@@ -26,7 +26,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
     const load = async () => {
       const { data } = await supabase
         .from('installer_bids')
-        .select('*, installer:installer_id(id, name, full_name)')
+        .select('*, installer:installer_id(id, name)')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
       if (data) setBids(data)
@@ -55,7 +55,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
       bid_expires_at: expiresAt,
     }))
 
-    const { data } = await supabase.from('installer_bids').insert(inserts).select('*, installer:installer_id(id, name, full_name)')
+    const { data } = await supabase.from('installer_bids').insert(inserts).select('*, installer:installer_id(id, name)')
     if (data) setBids(prev => [...data, ...prev])
 
     setSending(false)

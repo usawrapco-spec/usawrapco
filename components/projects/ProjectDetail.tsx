@@ -19,7 +19,7 @@ import IntakeLinkGenerator from '@/components/customer/IntakeLinkGenerator'
 import ReferralPanel from '@/components/referral/ReferralPanel'
 import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
 
-interface Teammate { id: string; name: string; full_name?: string; role: UserRole; email?: string }
+interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
 
 // ── Constants ────────────────────────────────────────────────────

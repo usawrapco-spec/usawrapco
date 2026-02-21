@@ -40,7 +40,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
       // Load existing bids
       const { data: b } = await supabase
         .from('designer_bids')
-        .select('*, designer:designer_id(id, name, full_name, email)')
+        .select('*, designer:designer_id(id, name, email)')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
       if (b) setBids(b)
@@ -92,7 +92,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
       bid_expires_at: expiresAt,
     }))
 
-    const { data } = await supabase.from('designer_bids').insert(inserts).select('*, designer:designer_id(id, name, full_name)')
+    const { data } = await supabase.from('designer_bids').insert(inserts).select('*, designer:designer_id(id, name)')
     if (data) setBids(prev => [...data, ...prev])
 
     // Update production status

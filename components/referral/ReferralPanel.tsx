@@ -32,7 +32,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
     const load = async () => {
       const { data } = await supabase
         .from('referrals')
-        .select('*, referring:referring_agent_id(id, name, full_name), receiving:receiving_agent_id(id, name, full_name)')
+        .select('*, referring:referring_agent_id(id, name), receiving:receiving_agent_id(id, name)')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
       if (data) setReferrals(data)
@@ -65,7 +65,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
       from_division: form.from_division,
       to_division: form.to_division,
       commission_earned: estimated,
-    }).select('*, referring:referring_agent_id(id, name, full_name), receiving:receiving_agent_id(id, name, full_name)')
+    }).select('*, referring:referring_agent_id(id, name), receiving:receiving_agent_id(id, name)')
 
     if (data) setReferrals(prev => [...data, ...prev])
     setSaving(false)
@@ -93,8 +93,8 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
 
       {/* Existing referrals */}
       {referrals.map(ref => {
-        const referring = (ref.referring as any)?.full_name || (ref.referring as any)?.name || 'Unknown'
-        const receiving = (ref.receiving as any)?.full_name || (ref.receiving as any)?.name || 'Unknown'
+        const referring = (ref.referring as any)?.name || 'Unknown'
+        const receiving = (ref.receiving as any)?.name || 'Unknown'
         return (
           <div key={ref.id} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -142,7 +142,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
               <select value={form.referring_agent_id} onChange={e => setForm(p => ({ ...p, referring_agent_id: e.target.value }))}
                 style={sel}>
                 <option value="">Select...</option>
-                {agents.map(a => <option key={a.id} value={a.id}>{a.full_name || a.name}</option>)}
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div>
@@ -150,7 +150,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
               <select value={form.receiving_agent_id} onChange={e => setForm(p => ({ ...p, receiving_agent_id: e.target.value }))}
                 style={sel}>
                 <option value="">Select...</option>
-                {agents.map(a => <option key={a.id} value={a.id}>{a.full_name || a.name}</option>)}
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
           </div>
