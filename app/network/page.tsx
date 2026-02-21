@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopBar } from '@/components/layout/TopBar'
 import type { Profile } from '@/types'
 import NetworkMapClient from '@/components/network/NetworkMapClient'
 
@@ -42,18 +40,10 @@ export default async function NetworkPage() {
   } catch {}
 
   return (
-    <div className="flex h-screen bg-bg overflow-hidden">
-      <Sidebar profile={profile as Profile} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-6">
-          <NetworkMapClient
-            profile={profile as Profile}
-            customers={customers}
-            connections={connections}
-          />
-        </main>
-      </div>
-    </div>
+    <NetworkMapClient
+      profile={profile as Profile}
+      customers={customers}
+      connections={connections}
+    />
   )
 }
