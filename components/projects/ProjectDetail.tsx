@@ -967,7 +967,12 @@ function DesignTab({ f, ff, project, profile }: any) {
                     action: hasRevisions ? 'design_approved_with_revisions' : 'design_approved_no_revisions',
                     sourceType: 'project', sourceId: project.id,
                   }),
-                }).catch(() => {})
+                })
+                  .then(r => r.ok ? r.json() : null)
+                  .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+                    if (res?.amount) xpToast(res.amount, 'Design approved', res.leveledUp, res.newLevel)
+                  })
+                  .catch(() => {})
               }
             }}>
               <option value="">Not Started</option>
@@ -1252,7 +1257,12 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'log_expense', sourceType: 'job_expense' }),
-    }).catch(() => {})
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        if (res?.amount) xpToast(res.amount, 'Expense logged', res.leveledUp, res.newLevel)
+      })
+      .catch(() => {})
   }
 
   function removeExpense(i: number) {
