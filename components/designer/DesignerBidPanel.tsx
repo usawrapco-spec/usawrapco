@@ -123,7 +123,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
         <div style={{ padding: 16, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--green)', textTransform: 'uppercase', marginBottom: 8, display:'flex', alignItems:'center', gap:4 }}><Check size={12} /> Designer Assigned</div>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text1)' }}>
-            {(acceptedBid.designer as any)?.full_name || (acceptedBid.designer as any)?.name}
+            {(acceptedBid.designer as any)?.name}
           </div>
           {acceptedBid.deadline && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Art due: {new Date(acceptedBid.deadline).toLocaleDateString()}</div>
@@ -173,7 +173,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
             }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
-                  {(bid.designer as any)?.full_name || (bid.designer as any)?.name}
+                  {(bid.designer as any)?.name}
                   {bid.is_first_choice && <span style={{ fontSize: 9, color: '#f59e0b', marginLeft: 6, display:'inline-flex', alignItems:'center', gap:3 }}><Star size={9} fill="#f59e0b" /> FIRST CHOICE</span>}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>
@@ -214,7 +214,7 @@ export default function DesignerBidPanel({ projectId, orgId, project, teammates 
               }}>
                 <input type="checkbox" checked={selectedDesigners.has(d.id)} onChange={() => toggleDesigner(d.id)} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{d.full_name || d.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{d.name}</div>
                   <div style={{ fontSize: 10, color: 'var(--text3)' }}>{d.role}</div>
                 </div>
                 <button onClick={e => { e.preventDefault(); setFirstChoice(firstChoice === d.id ? null : d.id) }}

@@ -74,7 +74,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
         <div style={{ padding: 12, background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green)', display:'flex', alignItems:'center', gap:4 }}><Check size={11} /> Installer Assigned</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginTop: 4 }}>
-            {(acceptedBid.installer as any)?.full_name || (acceptedBid.installer as any)?.name}
+            {(acceptedBid.installer as any)?.name}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
             Pay: ${acceptedBid.pay_amount} · {acceptedBid.hours_budget}h budget · Liability: {acceptedBid.liability_accepted ? 'Accepted' : 'Pending'}
@@ -94,7 +94,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
               padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4,
             }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>
-                {(bid.installer as any)?.full_name || (bid.installer as any)?.name}
+                {(bid.installer as any)?.name}
               </div>
               <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 700 }}>Awaiting</span>
             </div>
@@ -136,7 +136,7 @@ export default function SendBidToInstaller({ projectId, orgId, project, teammate
                   <input type="checkbox" disabled={alreadySent} checked={selectedInstallers.has(inst.id)}
                     onChange={() => toggleInstaller(inst.id)} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{inst.full_name || inst.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{inst.name}</div>
                   </div>
                   {alreadySent && <span style={{ fontSize: 9, color: '#f59e0b', fontWeight: 700 }}>Bid Sent</span>}
                 </label>

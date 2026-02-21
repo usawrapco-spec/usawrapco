@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Pencil } from 'lucide-react'
 
 interface QuotedVsActualProps {
   projectId: string
@@ -128,7 +129,8 @@ export default function QuotedVsActual({ projectId, orgId, project }: QuotedVsAc
           border: `1px solid ${editing ? 'var(--accent)' : 'var(--border)'}`,
           color: editing ? '#fff' : 'var(--text2)',
         }}>
-          {editing ? '✎ Editing' : '✎ Edit Actuals'}
+          <Pencil size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+          {editing ? 'Editing' : 'Edit Actuals'}
         </button>
       </div>
 

@@ -52,21 +52,21 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
       // ── SALES TASKS ──
       if (agent) {
         if (stage === 'sales_in' && lastSB?.to_stage === 'sales_in') {
-          tasks.push({ id:`sb-${q.id}`, type:'sales_send_back', person:agent, role:'sales', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`SENT BACK: ${fd.client||q.title} — ${(lastSB.reason||'').substring(0,60)}`, sub:`Was in ${lastSB.from_stage?.replace('_',' ')}`, urgency:'urgent', date:today })
+          tasks.push({ id:`sb-${q.id}`, type:'sales_send_back', person:agent, role:'sales_agent', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`SENT BACK: ${fd.client||q.title} — ${(lastSB.reason||'').substring(0,60)}`, sub:`Was in ${lastSB.from_stage?.replace('_',' ')}`, urgency:'urgent', date:today })
         }
         if (stage === 'sales_in' && !fd.deposit && !fd.contractSigned) {
-          tasks.push({ id:`intake-${q.id}`, type:'sales_intake', person:agent, role:'sales', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Complete Sales Intake: ${fd.client||q.title}`, sub:`Missing deposit or contract`, urgency:'normal', date:today })
+          tasks.push({ id:`intake-${q.id}`, type:'sales_intake', person:agent, role:'sales_agent', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Complete Sales Intake: ${fd.client||q.title}`, sub:`Missing deposit or contract`, urgency:'normal', date:today })
         }
         if (q.status === 'active' && !iDate) {
-          tasks.push({ id:`sched-${q.id}`, type:'sales_schedule', person:agent, role:'sales', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Schedule install date: ${fd.client||q.title}`, sub:`No install date set`, urgency:'today', date:today })
+          tasks.push({ id:`sched-${q.id}`, type:'sales_schedule', person:agent, role:'sales_agent', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Schedule install date: ${fd.client||q.title}`, sub:`No install date set`, urgency:'today', date:today })
         }
         if (q.status === 'estimate') {
           const estDate = q.created_at?.split('T')[0] || ''
           const daysSince = estDate ? Math.floor((Date.now() - new Date(estDate).getTime()) / 86400000) : 0
-          tasks.push({ id:`est-${q.id}`, type:'sales_follow_up', person:agent, role:'sales', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Follow up on estimate: ${fd.client||q.title}`, sub:`${daysSince > 0 ? daysSince+'d ago' : 'Today'} · ${q.revenue ? '$'+Math.round(q.revenue) : ''}`, urgency: daysSince >= 3 ? 'today' : 'normal', date:estDate||today })
+          tasks.push({ id:`est-${q.id}`, type:'sales_follow_up', person:agent, role:'sales_agent', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Follow up on estimate: ${fd.client||q.title}`, sub:`${daysSince > 0 ? daysSince+'d ago' : 'Today'} · ${q.revenue ? '$'+Math.round(q.revenue) : ''}`, urgency: daysSince >= 3 ? 'today' : 'normal', date:estDate||today })
         }
         if (stage === 'sales_close') {
-          tasks.push({ id:`close-${q.id}`, type:'sales_close', person:agent, role:'sales', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Final sign-off needed: ${fd.client||q.title}`, sub:`All stages complete — awaiting close`, urgency:'today', date:today })
+          tasks.push({ id:`close-${q.id}`, type:'sales_close', person:agent, role:'sales_agent', jobId:q.id, client:fd.client||q.title, vehicle:fd.vehicle||'', desc:`Final sign-off needed: ${fd.client||q.title}`, sub:`All stages complete — awaiting close`, urgency:'today', date:today })
         }
       }
 
