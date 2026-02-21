@@ -28,7 +28,7 @@ const DECK_MATERIALS = ['Composite', 'PVC', 'Hardwood', 'Pressure-Treated', 'Ced
 export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJobCreated }: NewJobModalProps) {
   const [jobType, setJobType] = useState<'wrap' | 'deck'>('wrap');
   const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
+  const { toast, xpToast } = useToast();
   const [form, setForm] = useState({
     clientName: '',
     clientPhone: '',
@@ -99,6 +99,17 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
       toast('Error creating job', 'error');
     } else {
       onJobCreated?.(data);
+      // Award create_lead XP
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_lead', sourceType: 'project', sourceId: data?.id }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, 'New job created', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
       onClose();
       // Reset form
       setForm({
