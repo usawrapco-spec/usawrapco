@@ -2243,6 +2243,45 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('job-images', 'job-images', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- SECTION 17: Prospects (Prospecting Center)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS prospects (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id UUID REFERENCES orgs(id),
+  name TEXT NOT NULL,
+  company TEXT,
+  phone TEXT,
+  email TEXT,
+  status TEXT DEFAULT 'warm' CHECK (status IN ('hot','warm','cold','dead','converted')),
+  source TEXT DEFAULT 'other' CHECK (source IN ('cold_call','door_knock','referral','event','social_media','website','other')),
+  assigned_to UUID REFERENCES profiles(id),
+  fleet_size INTEGER,
+  estimated_revenue NUMERIC(12,2) DEFAULT 0,
+  notes TEXT,
+  tags TEXT[] DEFAULT '{}',
+  follow_up_date DATE,
+  last_contact TIMESTAMPTZ,
+  converted_customer_id UUID REFERENCES customers(id),
+  converted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE prospects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Org members manage prospects" ON prospects;
+CREATE POLICY "Org members manage prospects" ON prospects
+  FOR ALL USING (org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_prospects_org ON prospects(org_id);
+CREATE INDEX IF NOT EXISTS idx_prospects_assigned ON prospects(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);
+
+CREATE TRIGGER set_prospects_updated_at
+  BEFORE UPDATE ON prospects
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║  DONE. All tables created. Migration is idempotent.                     ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝

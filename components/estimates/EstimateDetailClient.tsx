@@ -15,6 +15,7 @@ import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from 
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
+import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -244,6 +245,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [prodMgrId, setProdMgrId] = useState(est.production_manager_id || '')
   const [projMgrId, setProjMgrId] = useState(est.project_manager_id || '')
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
 
   // Collapsible sections per line item
   const [expandedSections, setExpandedSections] = useState<Record<string, Record<string, boolean>>>({})
@@ -531,7 +534,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
           {/* Email PDF */}
           <button
-            onClick={() => showToast('Email PDF coming soon')}
+            onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: 'var(--surface)', border: '1px solid var(--border)',
@@ -546,7 +549,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
           {/* Send to Customer */}
           <button
-            onClick={() => { handleStatusChange('sent'); showToast('Estimate sent to customer') }}
+            onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: 'var(--accent)', border: 'none',
@@ -1179,6 +1182,25 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
       )}
+
+      {/* ── Email Compose Modal ──────────────────────────────────────── */}
+      <EmailComposeModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        onSend={async (data: EmailData) => {
+          handleStatusChange('sent')
+          showToast(`Estimate sent to ${data.to}`)
+          setEmailModalOpen(false)
+        }}
+        recipientEmail={est.customer?.email || ''}
+        recipientName={est.customer?.name || ''}
+        senderName={profile.name}
+        senderEmail={profile.email}
+        estimateNumber={String(est.estimate_number)}
+        estimateTotal={totals.total}
+        vehicleDescription={est.title}
+        type={emailModalType}
+      />
 
       {/* ── Toast ──────────────────────────────────────────────────────── */}
       {toast && (

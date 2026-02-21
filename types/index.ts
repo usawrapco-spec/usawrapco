@@ -478,6 +478,33 @@ export interface JobHistory {
   created_at: string
 }
 
+// ─── Prospect ─────────────────────────────────────────────────────────────────
+export type ProspectStatus = 'hot' | 'warm' | 'cold' | 'dead' | 'converted'
+export type ProspectSource = 'cold_call' | 'door_knock' | 'referral' | 'event' | 'social_media' | 'website' | 'other'
+
+export interface Prospect {
+  id: string
+  org_id: string
+  name: string
+  company: string | null
+  phone: string | null
+  email: string | null
+  status: ProspectStatus
+  source: ProspectSource
+  assigned_to: string | null
+  fleet_size: number | null
+  estimated_revenue: number | null
+  notes: string | null
+  tags: string[]
+  follow_up_date: string | null
+  last_contact: string | null
+  converted_customer_id: string | null
+  converted_at: string | null
+  created_at: string
+  updated_at: string
+  assignee?: Pick<Profile, 'id' | 'name'>
+}
+
 // ─── Database type stub ────────────────────────────────────────────────────────
 export type Database = {
   public: {

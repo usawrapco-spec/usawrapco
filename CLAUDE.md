@@ -44,8 +44,9 @@ sales_in -> production -> install -> prod_review -> sales_close -> done
 /dashboard, /pipeline, /inbox, /jobs, /tasks, /calendar, /inventory, /design,
 /mockup, /media, /timeline, /production, /production/print-schedule,
 /production/printers, /inventory/remnants, /catalog, /customers,
-/customers/[id], /network, /bids, /analytics, /reports, /payroll,
-/leaderboard, /employees, /settings, /overhead, /1099,
+/customers/[id], /contacts, /contacts/[id], /prospects, /network,
+/bids, /analytics, /reports, /payroll, /leaderboard, /employees,
+/settings, /overhead, /1099,
 /estimates, /estimates/[id], /sales-orders, /sales-orders/[id],
 /invoices, /invoices/[id], /projects/[id], /projects/[id]/edit,
 /intake/[token], /proof/[token], /signoff/[token], /track/[token],
@@ -71,7 +72,8 @@ job_expenses, card_templates, notifications, activity_log,
 integrations, payments, time_blocks, team_invites,
 customer_communications, contracts, signed_documents,
 referral_codes, referral_tracking, payroll_periods, payroll_entries,
-wrap_knowledge_base, tutorial_progress, onboarding_sessions
+wrap_knowledge_base, tutorial_progress, onboarding_sessions,
+prospects, estimate_templates, estimate_options, job_history
 
 ## Commission Structure
 - Inbound: 4.5% GP (+1% Torq bonus, +2% if GPM >73%) = max 7.5%

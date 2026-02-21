@@ -36,6 +36,8 @@ import {
   MessageSquare,
   DollarSign,
   Inbox,
+  UserPlus,
+  Contact,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -70,11 +72,11 @@ const NAV: NavItem[] = [
   },
   {
     href: '/pipeline',
-    label: 'Sales Pipeline',
+    label: 'Job Board',
     icon: TrendingUp,
     permission: 'sales.read',
     children: [
-      { href: '/pipeline',      label: 'Pipeline Board' },
+      { href: '/pipeline',      label: 'Job Board' },
       { href: '/estimates',     label: 'Estimates' },
       { href: '/sales-orders',  label: 'Sales Orders' },
       { href: '/invoices',      label: 'Invoices' },
@@ -85,6 +87,18 @@ const NAV: NavItem[] = [
     label: 'Jobs',
     icon: Briefcase,
     permission: 'jobs.read',
+  },
+  {
+    href: '/prospects',
+    label: 'Prospects',
+    icon: UserPlus,
+    permission: 'sales.read',
+  },
+  {
+    href: '/contacts',
+    label: 'Contacts',
+    icon: Contact,
+    permission: 'sales.read',
   },
   {
     href: '/tasks',

@@ -11,7 +11,7 @@ import {
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':             'Dashboard',
-  '/pipeline':              'Sales Pipeline',
+  '/pipeline':              'Job Board',
   '/jobs':                  'Jobs',
   '/tasks':                 'Task Queue',
   '/calendar':              'Calendar',
@@ -41,6 +41,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/sales-orders':          'Sales Orders',
   '/invoices':              'Invoices',
   '/payroll':               'Payroll',
+  '/prospects':             'Prospecting Center',
+  '/contacts':              'Contacts',
   '/portal':                'Customer Portal',
 }
 

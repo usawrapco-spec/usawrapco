@@ -27,6 +27,8 @@ import {
   FileText,
   Inbox,
   DollarSign,
+  UserPlus,
+  Contact,
 } from 'lucide-react'
 
 const MAIN_TABS = [
@@ -46,6 +48,8 @@ const MORE_ITEMS = [
   { href: '/production', label: 'Production', icon: Factory },
   { href: '/inventory', label: 'Inventory', icon: Package },
   { href: '/catalog', label: 'Catalog', icon: BookOpen },
+  { href: '/prospects', label: 'Prospects', icon: UserPlus },
+  { href: '/contacts', label: 'Contacts', icon: Contact },
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/network', label: 'Network Map', icon: Network },
   { href: '/bids', label: 'Installer Bids', icon: Hammer },
