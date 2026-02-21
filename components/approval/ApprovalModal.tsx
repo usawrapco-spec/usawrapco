@@ -21,6 +21,7 @@ import {
   Check,
   AlertTriangle,
 } from 'lucide-react'
+import { useToast } from '@/components/shared/Toast'
 
 // ── Types & Constants ──────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ export default function ApprovalModal({
 }: ApprovalModalProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { xpToast } = useToast()
 
   // ── Core state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<PipeStage>(
@@ -382,6 +384,25 @@ export default function ApprovalModal({
     setSuccessMsg(
       `${STAGE_META[stage].label} signed off successfully!`
     )
+
+    // Award stage-specific XP
+    const stageXpAction: Record<string, string> = {
+      production: 'production_brief_completed',
+      install: 'install_completed',
+    }
+    const xpAction = stageXpAction[stage]
+    if (xpAction) {
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: xpAction, sourceType: 'project', sourceId: `${project.id}_${stage}` }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+          if (res?.amount) xpToast(res.amount, STAGE_META[stage].label + ' signed off', res.leveledUp, res.newLevel)
+        })
+        .catch(() => {})
+    }
 
     // Auto-advance tab
     if (next !== 'done' && PIPE_STAGES.includes(next as PipeStage)) {
