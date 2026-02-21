@@ -16,11 +16,11 @@ export default async function SignoffPage({ params }: { params: { token: string 
     .filter('actuals->signoff_token', 'eq', params.token)
     .single()
 
-  // If not found by actuals, try customer_intake_tokens table
+  // If not found by actuals, try customer_intake table
   let intakeData = null
   if (!project) {
     const { data: intake } = await admin
-      .from('customer_intake_tokens')
+      .from('customer_intake')
       .select('*, project:project_id(*)')
       .eq('token', params.token)
       .single()
