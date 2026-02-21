@@ -43,23 +43,19 @@ export async function POST(req: Request) {
       return Response.json({ success: true })
     }
 
-    // Try customer_intake_tokens table
+    // Try customer_intake table (intake form signoff)
     const { data: intake } = await admin
-      .from('customer_intake_tokens')
-      .select('*')
+      .from('customer_intake')
+      .select('id')
       .eq('token', token)
       .single()
 
     if (intake) {
       const now = new Date().toISOString()
-      await admin.from('customer_intake_tokens').update({
-        submitted_at: now,
-        submission_data: {
-          ...(intake.submission_data as Record<string, unknown> || {}),
-          signoff_name: signerName,
-          signoff_agreed: agreed,
-          signoff_at: now,
-        },
+      await admin.from('customer_intake').update({
+        completed: true,
+        completed_at: now,
+        updated_at: now,
       }).eq('token', token)
 
       return Response.json({ success: true })
