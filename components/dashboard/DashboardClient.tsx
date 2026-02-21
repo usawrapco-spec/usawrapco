@@ -357,6 +357,12 @@ export function DashboardClient({
 
   const archiveProject = useCallback(async (project: Project) => {
     await updateStatus(project, 'cancelled')
+    // Award deal_lost XP for closing the loop on a lost deal
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deal_lost', sourceType: 'project', sourceId: project.id }),
+    }).catch(() => {})
   }, [updateStatus])
 
   // Bulk selection helpers
