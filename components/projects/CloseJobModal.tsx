@@ -19,7 +19,7 @@ const v = (val: any, def = 0) => parseFloat(val) || def
 
 export default function CloseJobModal({ project, profile, onClose, onUpdate }: CloseJobModalProps) {
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const fd = (project.form_data as any) || {}
   const fin = project.fin_data || {}
 
@@ -178,8 +178,9 @@ export default function CloseJobModal({ project, profile, onClose, onUpdate }: C
         body: JSON.stringify({ action: 'deal_won', sourceType: 'project', sourceId: project.id }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'Deal closed!', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
 

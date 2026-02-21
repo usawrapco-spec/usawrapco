@@ -81,7 +81,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState('')
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [sendBackOpen, setSendBackOpen] = useState<string|null>(null)
   const [sendBackReason, setSendBackReason] = useState('')
   const [sendBackNotes, setSendBackNotes] = useState('')
@@ -273,8 +273,9 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
         body: JSON.stringify({ action: xpAction, sourceType: 'project', sourceId: project.id }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, stageLabel, res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
     }
@@ -969,8 +970,9 @@ function DesignTab({ f, ff, project, profile }: any) {
                   }),
                 })
                   .then(r => r.ok ? r.json() : null)
-                  .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+                  .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
                     if (res?.amount) xpToast(res.amount, 'Design approved', res.leveledUp, res.newLevel)
+                    if (res?.newBadges?.length) badgeToast(res.newBadges)
                   })
                   .catch(() => {})
               }
@@ -1259,8 +1261,9 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
       body: JSON.stringify({ action: 'log_expense', sourceType: 'job_expense' }),
     })
       .then(r => r.ok ? r.json() : null)
-      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
         if (res?.amount) xpToast(res.amount, 'Expense logged', res.leveledUp, res.newLevel)
+        if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
       .catch(() => {})
   }

@@ -13,7 +13,7 @@ interface DashboardWrapperProps {
 }
 
 export default function DashboardWrapper({ orgId, profileId, role, children }: DashboardWrapperProps) {
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [levelUp, setLevelUp] = useState<number | null>(null)
 
   // Award daily login XP once per day (localStorage guard to persist across refreshes)
@@ -35,6 +35,9 @@ export default function DashboardWrapper({ orgId, profileId, role, children }: D
         }
         if (data.leveledUp && data.newLevel) {
           setLevelUp(data.newLevel)
+        }
+        if ((data as any).newBadges?.length) {
+          badgeToast((data as any).newBadges)
         }
       })
       .catch(() => {})

@@ -113,7 +113,7 @@ export default function ApprovalModal({
 }: ApprovalModalProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
 
   // ── Core state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<PipeStage>(
@@ -398,8 +398,9 @@ export default function ApprovalModal({
         body: JSON.stringify({ action: xpAction, sourceType: 'project', sourceId: `${project.id}_${stage}` }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, STAGE_META[stage].label + ' signed off', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
     }
