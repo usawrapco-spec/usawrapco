@@ -209,7 +209,7 @@ function NewDesignProjectModal({ profile, teamMembers, projects, onClose, onCrea
   onCreated: () => void
 }) {
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     client_name: '',
@@ -256,8 +256,9 @@ function NewDesignProjectModal({ profile, teamMembers, projects, onClose, onCrea
         body: JSON.stringify({ action: 'create_design', sourceType: 'design_project', sourceId: dp?.id }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'Design created', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
 

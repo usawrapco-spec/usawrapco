@@ -20,7 +20,7 @@ export default function OnboardingLinkPanel({ profile, projects }: Props) {
   const [copied, setCopied]   = useState(false)
   const [expanded, setExpanded] = useState(true)
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
 
   // Show only sales-eligible projects
   const salesProjects = projects.filter(p =>
@@ -64,8 +64,9 @@ export default function OnboardingLinkPanel({ profile, projects }: Props) {
         body: JSON.stringify({ action: 'send_onboarding_link', sourceType: 'intake', sourceId: selectedProject || undefined }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'Onboarding link sent', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
     }

@@ -28,7 +28,7 @@ const DECK_MATERIALS = ['Composite', 'PVC', 'Hardwood', 'Pressure-Treated', 'Ced
 export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJobCreated }: NewJobModalProps) {
   const [jobType, setJobType] = useState<'wrap' | 'deck'>('wrap');
   const [saving, setSaving] = useState(false);
-  const { toast, xpToast } = useToast();
+  const { toast, xpToast, badgeToast } = useToast();
   const [form, setForm] = useState({
     clientName: '',
     clientPhone: '',
@@ -106,8 +106,9 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
         body: JSON.stringify({ action: 'create_lead', sourceType: 'project', sourceId: data?.id }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'New job created', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
       onClose();

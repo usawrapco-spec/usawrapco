@@ -39,7 +39,7 @@ function formatBytes(bytes: number) {
 }
 
 export default function MediaLibraryClient({ profile }: Props) {
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [files, setFiles]       = useState<MediaFile[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -128,8 +128,9 @@ export default function MediaLibraryClient({ profile }: Props) {
         body: JSON.stringify({ action: 'media_upload', sourceType: 'media' }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'Media uploaded', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
     } catch (err) {

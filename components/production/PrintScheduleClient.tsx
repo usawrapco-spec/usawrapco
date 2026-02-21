@@ -69,7 +69,7 @@ function formatDate(dateStr: string) {
 
 export default function PrintScheduleClient({ profile, jobs }: Props) {
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [viewDate, setViewDate]     = useState(todayStr())
   const [printJobs, setPrintJobs]   = useState<PrintJob[]>([])
   const [showSchedule, setShowSchedule] = useState(false)
@@ -148,8 +148,9 @@ export default function PrintScheduleClient({ profile, jobs }: Props) {
         body: JSON.stringify({ action: 'print_job_completed', sourceType: 'print_job', sourceId: jobId }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'Print job completed', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
     }

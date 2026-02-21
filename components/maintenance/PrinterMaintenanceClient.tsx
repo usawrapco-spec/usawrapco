@@ -29,7 +29,7 @@ const INK_MOCK = {
 }
 
 export default function PrinterMaintenanceClient({ profile }: Props) {
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [logs, setLogs]     = useState<MaintenanceLog[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -73,8 +73,9 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
       body: JSON.stringify({ action: 'maintenance_logged', sourceType: 'maintenance' }),
     })
       .then(r => r.ok ? r.json() : null)
-      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+      .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
         if (res?.amount) xpToast(res.amount, 'Maintenance logged', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
       .catch(() => {})
     setShowAdd(false)

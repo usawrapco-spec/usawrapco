@@ -17,7 +17,7 @@ type Tab = 'open' | 'pending' | 'accepted' | 'history'
 
 export default function InstallerPortalClient({ profile, bids: initialBids, openBids: initialOpenBids = [] }: InstallerPortalClientProps) {
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
   const [bids, setBids] = useState<any[]>(initialBids)
   const [openBids, setOpenBids] = useState<any[]>(initialOpenBids)
   const [newBidAlert, setNewBidAlert] = useState(false)
@@ -97,8 +97,9 @@ export default function InstallerPortalClient({ profile, bids: initialBids, open
         body: JSON.stringify({ action: 'installer_bid', sourceType: 'installer_bid', sourceId: bidId }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
           if (res?.amount) xpToast(res.amount, 'Bid submitted', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
         .catch(() => {})
     }

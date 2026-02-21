@@ -38,7 +38,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
   const [revenue, setRevenue] = useState('')
 
   const supabase = createClient()
-  const { xpToast } = useToast()
+  const { xpToast, badgeToast } = useToast()
 
   const TYPE_OPTIONS: { type: ProjectType; Icon: LucideIcon; label: string; desc: string }[] = [
     { type: 'wrap',    Icon: Car,     label: 'Vehicle Wrap',  desc: 'Commercial · Fleet · Marine · Color Change' },
@@ -98,8 +98,9 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
       body: JSON.stringify({ action: 'create_lead', sourceType: 'project', sourceId: data?.id }),
     })
       .then(r => r.ok ? r.json() : null)
-      .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+      .then((res: {  amount?: number; leveledUp?: boolean; newLevel?: number; newBadges?: string[] } | null) => {
         if (res?.amount) xpToast(res.amount, 'New estimate created', res.leveledUp, res.newLevel)
+          if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
       .catch(() => {})
     onCreated()
