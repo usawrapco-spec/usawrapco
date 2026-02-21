@@ -140,7 +140,7 @@ export async function checkAndAwardBadges(
   userId: string,
 ): Promise<string[]> {
   try {
-    const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes, proofRes] = await Promise.all([
+    const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes, proofRes, briefRes] = await Promise.all([
       supabase.from('profiles').select('xp, level, monthly_xp, current_streak, longest_streak, badges').eq('id', userId).single(),
       supabase.from('projects').select('id, gpm').eq('agent_id', userId).eq('status', 'closed'),
       supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
@@ -156,6 +156,10 @@ export async function checkAndAwardBadges(
         .eq('designer_id', userId)
         .eq('customer_status', 'approved')
         .eq('revisions_used', 0),
+      // Perfect Brief: 5+ stage approvals (production stage) submitted without send-backs
+      supabase.from('stage_approvals').select('id', { count: 'exact', head: true })
+        .eq('approved_by', userId)
+        .eq('stage', 'production'),
     ])
 
     const profile = profileRes.data
@@ -173,6 +177,7 @@ export async function checkAndAwardBadges(
 
     // Streak & level badges
     if ((profile.longest_streak || 0) >= 7)  addBadge('hot_streak')
+    if ((profile.longest_streak || 0) >= 14) addBadge('early_bird')
     if ((profile.longest_streak || 0) >= 30) addBadge('marathon')
     if ((profile.level || 1) >= 25)           addBadge('elite')
 
@@ -204,6 +209,12 @@ export async function checkAndAwardBadges(
 
     // Pixel Perfect — 5+ proofs approved on first pass (no revisions)
     if ((proofRes.count || 0) >= 5) addBadge('pixel_perfect')
+
+    // Zero Waste — 5+ material usage entries logged (early efficiency badge)
+    if ((materialRes.count || 0) >= 5) addBadge('zero_waste')
+
+    // Perfect Brief — 5+ production stage approvals (consistent quality)
+    if ((briefRes.count || 0) >= 5) addBadge('perfect_brief')
 
     // Top Dog — highest monthly XP in the org
     const topProfile = (topRes.data || [])[0]
