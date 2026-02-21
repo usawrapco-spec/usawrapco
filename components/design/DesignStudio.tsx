@@ -832,8 +832,6 @@ function DesignFiles({ designProjectId, orgId, currentUserId, linkedProjectId }:
                   ) : (
                     <a
                       href={file.image_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="aspect-square flex flex-col items-center justify-center bg-surface2 cursor-pointer"
                     >
                       <FileText size={24} className="text-text3 mb-1" />

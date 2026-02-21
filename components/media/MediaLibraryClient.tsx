@@ -353,8 +353,6 @@ export default function MediaLibraryClient({ profile }: Props) {
               )}
               <a
                 href={selectedFile.public_url}
-                target="_blank"
-                rel="noopener noreferrer"
                 style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content' }}
               >
                 Open full size

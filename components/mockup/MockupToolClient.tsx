@@ -191,8 +191,6 @@ export default function MockupToolClient({ profile }: Props) {
                 <a
                   href={imageUrl}
                   download="mockup.png"
-                  target="_blank"
-                  rel="noopener noreferrer"
                   style={{
                     padding: '8px 16px', borderRadius: 8, border: 'none',
                     background: 'var(--accent)', color: '#fff',
