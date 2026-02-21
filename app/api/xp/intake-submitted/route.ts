@@ -12,23 +12,24 @@ export async function POST(req: Request) {
 
     const admin = getSupabaseAdmin()
 
-    // Look up the intake token to find the creating agent
-    const { data: intakeToken } = await admin
-      .from('customer_intake_tokens')
-      .select('created_by, project_id')
+    // Look up the intake and its project to find the agent
+    const { data: intake } = await admin
+      .from('customer_intake')
+      .select('project_id, project:project_id(agent_id)')
       .eq('token', token)
       .single()
 
-    if (!intakeToken?.created_by) {
+    const agentId = (intake?.project as any)?.agent_id
+    if (!agentId) {
       return Response.json({ ok: false })
     }
 
     const result = await awardXP(
       admin,
-      intakeToken.created_by,
+      agentId,
       'intake_submitted',
       'intake',
-      intakeToken.project_id || token,
+      intake.project_id || token,
     )
 
     return Response.json({ ok: true, result })
