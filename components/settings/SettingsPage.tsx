@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { Profile } from '@/types'
 import {
   Settings, Calculator, Shield, Database, ToggleLeft, ToggleRight,
   Car, Truck, Bus, Ship, DollarSign, TrendingUp, TrendingDown,
@@ -14,7 +15,7 @@ import { PermissionsMatrix } from '@/components/settings/PermissionsMatrix'
 import PinGate from '@/components/settings/PinGate'
 
 interface SettingsPageProps {
-  profile: any
+  profile: Profile
 }
 
 const fM = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
