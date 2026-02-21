@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import DepartmentNav from '@/components/pipeline/DepartmentNav'
 import { useToast } from '@/components/shared/Toast'
-import { Trophy } from 'lucide-react'
+import { Trophy, Zap } from 'lucide-react'
 
 interface DashboardWrapperProps {
   orgId: string
@@ -13,26 +13,32 @@ interface DashboardWrapperProps {
 }
 
 export default function DashboardWrapper({ orgId, profileId, role, children }: DashboardWrapperProps) {
-  const { toast } = useToast()
+  const { xpToast } = useToast()
   const [levelUp, setLevelUp] = useState<number | null>(null)
 
-  // Award daily login XP once per day
+  // Award daily login XP once per day (localStorage guard to persist across refreshes)
   useEffect(() => {
-    const key = `usawrap_login_xp_${new Date().toISOString().split('T')[0]}`
-    if (!sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, '1')
-      fetch('/api/xp/daily-login', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-          if (data.xpAwarded > 0) {
-            toast(`+${data.xpAwarded} XP — Day ${data.streak} streak!`, 'success')
-          }
-          if (data.leveledUp && data.newLevel) {
-            setLevelUp(data.newLevel)
-          }
-        })
-        .catch(() => {})
-    }
+    const today = new Date().toISOString().split('T')[0]
+    const key = `usawrap_login_xp_${today}`
+    if (localStorage.getItem(key)) return
+
+    fetch('/api/xp/daily-login', { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { xpAwarded?: number; streak?: number; leveledUp?: boolean; newLevel?: number } | null) => {
+        if (!data) return
+        localStorage.setItem(key, '1')
+        if ((data.xpAwarded || 0) > 0) {
+          const label = (data.streak || 0) > 1
+            ? `Daily login · ${data.streak}-day streak!`
+            : 'Daily login bonus'
+          xpToast(data.xpAwarded!, label, data.leveledUp, data.newLevel)
+        }
+        if (data.leveledUp && data.newLevel) {
+          setLevelUp(data.newLevel)
+        }
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

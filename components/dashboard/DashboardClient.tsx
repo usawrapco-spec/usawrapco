@@ -20,7 +20,6 @@ import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
 import VelocityGauge from '@/components/dashboard/VelocityGauge'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
-import RoleEarningsPanel from '@/components/dashboard/RoleEarningsPanel'
 
 interface DashboardClientProps {
   profile: Profile
@@ -507,11 +506,6 @@ export function DashboardClient({
           )}
         </div>
       </div>
-
-      {/* ====== Role Earnings Panel ====== */}
-      {!['owner', 'admin'].includes(profile.role) && (
-        <RoleEarningsPanel profile={profile} projects={projects} />
-      )}
 
       {/* ====== Quick Actions ====== */}
       {(() => {
