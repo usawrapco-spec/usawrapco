@@ -161,3 +161,149 @@ export function xpForNextLevel(currentXp: number): { current: number; next: numb
     : 100
   return { current: currentLevelXp, next: nextLevelXp, progress: Math.min(100, progress) }
 }
+
+// ---------------------------------------------------------------------------
+// Payroll & Advanced Commission Structure
+// ---------------------------------------------------------------------------
+
+/**
+ * Commission caps by source type
+ */
+export const COMMISSION_CAPS: Record<string, number> = {
+  inbound: 0.075,   // Max 7.5% on inbound leads
+  outbound: 0.10,   // Max 10% on outbound leads
+  referral: 0.075,
+  walk_in: 0.075,
+  repeat: 0.075,
+  cross_referral: 0.075,
+  presold: 0.05,
+}
+
+/**
+ * Cross-department referral rate (wraps <-> decking referrals)
+ */
+export const CROSS_DEPT_REFERRAL_RATE = 0.025 // 2.5%
+
+/**
+ * Monthly GP tiers — higher tiers unlock better commission rates
+ */
+export const MONTHLY_GP_TIERS = [
+  { tier: 1, minGP: 0,      maxGP: 10000,  rateBonus: 0 },
+  { tier: 2, minGP: 10001,  maxGP: 25000,  rateBonus: 0.005 },   // +0.5%
+  { tier: 3, minGP: 25001,  maxGP: 50000,  rateBonus: 0.01 },    // +1.0%
+  { tier: 4, minGP: 50001,  maxGP: 100000, rateBonus: 0.015 },   // +1.5%
+  { tier: 5, minGP: 100001, maxGP: Infinity, rateBonus: 0.02 },   // +2.0%
+]
+
+/**
+ * Get the monthly GP tier bonus based on cumulative gross profit
+ */
+export function getMonthlyGPTierBonus(monthlyGP: number): number {
+  const tier = MONTHLY_GP_TIERS.find(t => monthlyGP >= t.minGP && monthlyGP <= t.maxGP)
+  return tier?.rateBonus ?? 0
+}
+
+/**
+ * Protection rule: If GPM < 70% on non-PPF jobs, agent gets base rate only (no bonuses)
+ */
+export function isGPMProtected(gpm: number, isPPF: boolean): boolean {
+  if (isPPF) return false // PPF jobs are exempt
+  return gpm < 70
+}
+
+/**
+ * Torq bonus: +1% of gross profit when Torq CRM is used for the deal
+ */
+export const TORQ_BONUS_RATE = 0.01
+
+/**
+ * High GPM bonus: +2% of gross profit when GPM > 73%
+ */
+export const HIGH_GPM_BONUS_RATE = 0.02
+export const HIGH_GPM_THRESHOLD = 73
+
+/**
+ * Calculate enhanced commission with all bonuses and caps
+ */
+export function calculateEnhancedCommission(input: CommissionInput & {
+  isPPF?: boolean
+  usedTorq?: boolean
+  monthlyGPCumulative?: number
+}): CommissionResult & {
+  torqBonus: number
+  highGPMBonus: number
+  gpTierBonus: number
+  cappedRate: number
+  protectionApplied: boolean
+} {
+  const base = calculateCommission(input)
+  const {
+    source,
+    isPPF = false,
+    usedTorq = false,
+    monthlyGPCumulative = 0,
+  } = input
+
+  const protected_ = isGPMProtected(base.grossProfitMargin, isPPF)
+
+  // Torq bonus: +1% GP (only if not protected)
+  const torqBonus = (!protected_ && usedTorq) ? base.netProfit * TORQ_BONUS_RATE : 0
+
+  // High GPM bonus: +2% GP when GPM > 73% (only if not protected)
+  const highGPMBonus = (!protected_ && base.grossProfitMargin > HIGH_GPM_THRESHOLD)
+    ? base.netProfit * HIGH_GPM_BONUS_RATE
+    : 0
+
+  // Monthly GP tier bonus
+  const gpTierRate = getMonthlyGPTierBonus(monthlyGPCumulative)
+  const gpTierBonus = (!protected_) ? base.netProfit * gpTierRate : 0
+
+  // Apply cap
+  const maxRate = COMMISSION_CAPS[source] ?? 0.075
+  const effectiveRate = Math.min(base.agentCommissionRate + gpTierRate, maxRate)
+  const cappedCommission = Math.max(0, base.netProfit * effectiveRate)
+
+  return {
+    ...base,
+    agentCommission: protected_ ? Math.max(0, base.netProfit * (SOURCE_RATES[source] ?? SOURCE_RATES.inbound)) : cappedCommission,
+    torqBonus,
+    highGPMBonus,
+    gpTierBonus,
+    cappedRate: effectiveRate,
+    protectionApplied: protected_,
+  }
+}
+
+/**
+ * WA State payroll formula:
+ * Total Pay = Base Hourly + MAX(0, Commission - Base Hourly)
+ *
+ * This ensures the employee always receives at least their base hourly pay.
+ * Commission is only added as a bonus above the base hourly amount.
+ *
+ * @param baseHourly  - Base hourly pay for the period (default: 40hrs x $20/hr = $800/week)
+ * @param commissionEarned - Total commission earned in the period
+ */
+export function calculatePayroll(
+  baseHourly: number,
+  commissionEarned: number,
+): {
+  basePay: number
+  commission: number
+  bonus: number
+  totalPay: number
+} {
+  const bonus = Math.max(0, commissionEarned - baseHourly)
+  return {
+    basePay: baseHourly,
+    commission: commissionEarned,
+    bonus,
+    totalPay: baseHourly + bonus,
+  }
+}
+
+/**
+ * Default base hourly pay: 40 hours x $20/hr = $800/week
+ */
+export const DEFAULT_BASE_HOURLY_WEEKLY = 40 * 20 // $800
+export const DEFAULT_HOURLY_RATE = 20

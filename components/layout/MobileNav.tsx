@@ -25,16 +25,19 @@ import {
   Columns2,
   BookOpen,
   FileText,
+  Inbox,
+  DollarSign,
 } from 'lucide-react'
 
 const MAIN_TABS = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/inbox', label: 'Inbox', icon: Inbox },
   { href: '/pipeline', label: 'Pipeline', icon: TrendingUp },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
-  { href: '/tasks', label: 'Tasks', icon: CheckSquare },
 ]
 
 const MORE_ITEMS = [
+  { href: '/tasks', label: 'Tasks', icon: CheckSquare },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
   { href: '/design', label: 'Design Studio', icon: Palette },
   { href: '/mockup', label: 'Mockup Tool', icon: Wand2 },
@@ -48,6 +51,7 @@ const MORE_ITEMS = [
   { href: '/bids', label: 'Installer Bids', icon: Hammer },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/reports', label: 'Reports', icon: FileText },
+  { href: '/payroll', label: 'Payroll', icon: DollarSign },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]

@@ -33,6 +33,9 @@ import {
   BookOpen,
   Network,
   FileText,
+  MessageSquare,
+  DollarSign,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -58,6 +61,12 @@ const NAV: NavItem[] = [
     label: 'Dashboard',
     icon: LayoutDashboard,
     always: true,
+  },
+  {
+    href: '/inbox',
+    label: 'Inbox',
+    icon: Inbox,
+    permission: 'sales.read',
   },
   {
     href: '/pipeline',
@@ -169,6 +178,12 @@ const NAV: NavItem[] = [
     permission: 'reports.view',
   },
   {
+    href: '/payroll',
+    label: 'Payroll',
+    icon: DollarSign,
+    permission: 'finances.view',
+  },
+  {
     href: '/leaderboard',
     label: 'Leaderboard',
     icon: Trophy,
@@ -184,6 +199,7 @@ const NAV: NavItem[] = [
       { href: '/settings',   label: 'Defaults' },
       { href: '/overhead',   label: 'Shop Expenses' },
       { href: '/1099',       label: 'Commissions' },
+      { href: '/payroll',    label: 'Payroll' },
     ],
   },
 ]
@@ -280,7 +296,7 @@ export function Sidebar({ profile }: SidebarProps) {
             <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
               Ops Platform
               <span style={{ marginLeft: 4, color: 'var(--accent)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' }}>
-                v6.0
+                v6.1
               </span>
             </div>
           </div>

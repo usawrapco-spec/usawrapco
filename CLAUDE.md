@@ -1,4 +1,4 @@
-﻿# USA WRAP CO — CRM Ops Platform
+# USA WRAP CO — CRM Ops Platform
 
 ## Overview
 Vehicle wrap shop CRM. Next.js 14, TypeScript, Tailwind CSS, Supabase, Vercel.
@@ -25,15 +25,6 @@ Vehicle wrap shop CRM. Next.js 14, TypeScript, Tailwind CSS, Supabase, Vercel.
 --cyan: #22d3ee, --amber: #f59e0b, --purple: #8b5cf6
 --text1: #e8eaed, --text2: #9299b5, --text3: #5a6080
 
-## Database Tables
-profiles, projects, project_members, job_comments, job_images,
-stage_approvals, send_backs, install_sessions, material_tracking,
-customer_intake_tokens, proofing_tokens, designer_bids,
-installer_bids, referrals, design_projects, design_project_comments,
-design_project_files, shop_settings, custom_vehicles, custom_line_items,
-vinyl_inventory, vinyl_usage, app_state, customers, design_proofs,
-designer_specialties, orgs, proof_settings, tasks, visibility_settings
-
 ## Pipeline Stages
 sales_in -> production -> install -> prod_review -> sales_close -> done
 
@@ -49,21 +40,22 @@ sales_in -> production -> install -> prod_review -> sales_close -> done
 - Types: import type { Profile, Project } from '@/types'
 - All components are client components ('use client')
 
-## Pages (v6.0)
-/dashboard, /pipeline, /jobs, /tasks, /calendar, /inventory, /design,
+## Pages (v6.1)
+/dashboard, /pipeline, /inbox, /jobs, /tasks, /calendar, /inventory, /design,
 /mockup, /media, /timeline, /production, /production/print-schedule,
 /production/printers, /inventory/remnants, /catalog, /customers,
-/customers/[id], /network, /bids, /analytics, /reports, /leaderboard,
-/employees, /settings, /overhead, /1099, /estimates, /estimates/[id],
-/sales-orders, /sales-orders/[id], /invoices, /invoices/[id],
-/projects/[id], /projects/[id]/edit, /intake/[token], /proof/[token],
-/signoff/[token], /track/[token], /onboard/[token], /portal,
-/portal/demo, /installer-portal, /login
+/customers/[id], /network, /bids, /analytics, /reports, /payroll,
+/leaderboard, /employees, /settings, /overhead, /1099,
+/estimates, /estimates/[id], /sales-orders, /sales-orders/[id],
+/invoices, /invoices/[id], /projects/[id], /projects/[id]/edit,
+/intake/[token], /proof/[token], /signoff/[token], /track/[token],
+/onboard/[token], /portal, /portal/demo, /installer-portal,
+/estimate/view/[token], /invoice/view/[token], /ref/[code], /demo, /login
 
 ## Core Workflow
 Estimate → Sales Order → Job (Pipeline) → Invoice → Payment
 
-## Database Tables (v6.0)
+## Database Tables (v6.1)
 profiles, projects, project_members, job_comments, job_images,
 stage_approvals, send_backs, install_sessions, material_tracking,
 customer_intake_tokens, proofing_tokens, designer_bids,
@@ -76,13 +68,23 @@ onboarding_tokens, communication_log, files, annotations, feedback,
 approvals, installer_groups, installer_group_members,
 installer_bid_recipients, installer_bid_responses, sales_referrals,
 job_expenses, card_templates, notifications, activity_log,
-integrations, payments, time_blocks, team_invites
+integrations, payments, time_blocks, team_invites,
+customer_communications, contracts, signed_documents,
+referral_codes, referral_tracking, payroll_periods, payroll_entries,
+wrap_knowledge_base, tutorial_progress, onboarding_sessions
+
+## Commission Structure
+- Inbound: 4.5% GP (+1% Torq bonus, +2% if GPM >73%) = max 7.5%
+- Outbound: 7% GP (+1% Torq, +2% GPM bonus) = max 10%
+- Pre-Sold: 5% flat, no bonuses
+- Cross-department referral: 2.5%
+- WA State Payroll: Total Pay = Base Hourly + MAX(0, Commission - Base Hourly)
 
 ## Rules
 1. ALWAYS run npm run build before committing
 2. Never break existing functionality
 3. All tables need RLS policies
-4. Version is v6.0
+4. Version is v6.1
 5. Admin role sees ALL sidebar nav items (bypasses canAccess checks)
 6. All navigation uses Next.js Link or router.push(). No window.open(), no target="_blank"
 7. Use Lucide React icons only, zero emojis in code
