@@ -177,13 +177,36 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     if (!formClientName.trim()) return
     setFormSaving(true)
 
+    // Auto-populate brief from linked job data
+    let briefDescription = formDescription.trim() || null
+    if (formProjectId && !briefDescription) {
+      const linkedJob = jobRefs.find(j => j.id === formProjectId)
+      if (linkedJob) {
+        // Fetch full job data for brief
+        const { data: fullJob } = await supabase.from('projects')
+          .select('vehicle_desc, form_data').eq('id', formProjectId).single()
+        if (fullJob) {
+          const fd = (fullJob.form_data as any) || {}
+          const parts: string[] = []
+          if (fullJob.vehicle_desc) parts.push(`Vehicle: ${fullJob.vehicle_desc}`)
+          if (fd.vehicleColor) parts.push(`Color: ${fd.vehicleColor}`)
+          if (fd.coverage) parts.push(`Coverage: ${fd.coverage}`)
+          if (fd.brandColors) parts.push(`Brand Colors: ${fd.brandColors}`)
+          if (fd.designNotes) parts.push(`Notes: ${fd.designNotes}`)
+          if (fd.exclusions) parts.push(`Exclusions: ${fd.exclusions}`)
+          if (fd.sqft) parts.push(`Est. SqFt: ${fd.sqft}`)
+          if (parts.length > 0) briefDescription = parts.join('\n')
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from('design_projects')
       .insert({
         org_id: profile.org_id,
         client_name: formClientName.trim(),
         design_type: formDesignType,
-        description: formDescription.trim() || null,
+        description: briefDescription,
         deadline: formDeadline || null,
         designer_id: formDesignerId || null,
         project_id: formProjectId || null,
