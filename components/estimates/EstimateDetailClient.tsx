@@ -525,9 +525,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 180, zIndex: 100,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Standard PDF" onClick={() => { setPdfMenuOpen(false); showToast('PDF export coming soon') }} />
-                <MenuButton icon={<DollarSign size={13} />} label="With Pricing" onClick={() => { setPdfMenuOpen(false); showToast('PDF export coming soon') }} />
-                <MenuButton icon={<Layers size={13} />} label="Proposal View" onClick={() => { setPdfMenuOpen(false); showToast('PDF export coming soon') }} />
+                <MenuButton icon={<FileText size={13} />} label="Standard PDF" onClick={() => { setPdfMenuOpen(false); window.print() }} />
+                <MenuButton icon={<DollarSign size={13} />} label="With Pricing" onClick={() => { setPdfMenuOpen(false); window.print() }} />
+                <MenuButton icon={<Layers size={13} />} label="Proposal View" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
           </div>
@@ -1188,8 +1188,28 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         isOpen={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
         onSend={async (data: EmailData) => {
-          handleStatusChange('sent')
-          showToast(`Estimate sent to ${data.to}`)
+          try {
+            if (!isDemo) {
+              const res = await fetch('/api/estimates/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  estimate_id: estimateId,
+                  to: data.to,
+                  subject: data.subject,
+                  message: data.message,
+                  sendVia: data.sendVia,
+                }),
+              })
+              const result = await res.json()
+              showToast(result.message || `Estimate sent to ${data.to}`)
+            } else {
+              showToast(`Demo: Estimate marked as sent`)
+            }
+            handleStatusChange('sent')
+          } catch {
+            showToast('Error sending estimate')
+          }
           setEmailModalOpen(false)
         }}
         recipientEmail={est.customer?.email || ''}
