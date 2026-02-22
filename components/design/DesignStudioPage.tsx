@@ -19,6 +19,10 @@ import {
   Upload,
   Save,
   ChevronRight,
+  Trash2,
+  ExternalLink,
+  Copy,
+  Image,
 } from 'lucide-react'
 
 interface DesignStudioPageProps {
@@ -121,6 +125,15 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   const [chatInput, setChatInput] = useState('')
   const [chatSending, setChatSending] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string; version: number; created_at: string }[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Proof link state
+  const [proofLink, setProofLink] = useState<string | null>(null)
+  const [proofCopied, setProofCopied] = useState(false)
 
   // Load data
   useEffect(() => {
@@ -246,7 +259,11 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     setDrawerDeadline(dp.deadline || '')
     setChatMessages([])
     setChatInput('')
+    setUploadedFiles([])
+    setProofLink(null)
+    setProofCopied(false)
     loadChat(dp.id)
+    loadFiles(dp.id)
   }
 
   function closeDrawer() {
@@ -301,6 +318,124 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     }
 
     setChatSending(false)
+  }
+
+  // Load files for a design project
+  async function loadFiles(designProjectId: string) {
+    const { data } = await supabase
+      .from('design_project_files')
+      .select('id, file_name, file_url, version, created_at')
+      .eq('design_project_id', designProjectId)
+      .order('version', { ascending: false })
+
+    if (data) {
+      setUploadedFiles(data.map(f => ({
+        name: f.file_name,
+        url: f.file_url,
+        version: f.version,
+        created_at: f.created_at,
+      })))
+    } else {
+      setUploadedFiles([])
+    }
+  }
+
+  // Upload file to Supabase Storage
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || !selectedProject) return
+    setUploading(true)
+
+    const nextVersion = uploadedFiles.length > 0 ? Math.max(...uploadedFiles.map(f => f.version)) + 1 : 1
+
+    for (const file of Array.from(e.target.files)) {
+      const ext = file.name.split('.').pop() || 'png'
+      const path = `design/${selectedProject.id}/v${nextVersion}_${Date.now()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('job-images')
+        .upload(path, file, { upsert: false })
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        continue
+      }
+
+      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl || ''
+
+      // Save file record
+      await supabase.from('design_project_files').insert({
+        design_project_id: selectedProject.id,
+        file_name: file.name,
+        file_url: publicUrl,
+        file_type: file.type,
+        file_size: file.size,
+        version: nextVersion,
+        uploaded_by: profile.id,
+      })
+
+      setUploadedFiles(prev => [{
+        name: file.name,
+        url: publicUrl,
+        version: nextVersion,
+        created_at: new Date().toISOString(),
+      }, ...prev])
+    }
+
+    setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // Send Proof: generates a proofing token
+  async function handleSendProof() {
+    if (!selectedProject) return
+
+    // Check for existing token
+    const { data: existingToken } = await supabase
+      .from('proofing_tokens')
+      .select('token')
+      .eq('design_project_id', selectedProject.id)
+      .eq('status', 'pending')
+      .single()
+
+    if (existingToken) {
+      const link = `${window.location.origin}/proof/${existingToken.token}`
+      setProofLink(link)
+      return
+    }
+
+    // Create new token
+    const token = crypto.randomUUID()
+    const { error } = await supabase.from('proofing_tokens').insert({
+      token,
+      design_project_id: selectedProject.id,
+      org_id: profile.org_id,
+      status: 'pending',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+
+    if (!error) {
+      const link = `${window.location.origin}/proof/${token}`
+      setProofLink(link)
+
+      // Update status to proof_sent
+      if (drawerStatus !== 'proof_sent' && drawerStatus !== 'approved') {
+        setDrawerStatus('proof_sent')
+        await supabase.from('design_projects')
+          .update({ status: 'proof_sent', updated_at: new Date().toISOString() })
+          .eq('id', selectedProject.id)
+        setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, status: 'proof_sent' as DesignStatus } : p))
+      }
+
+      // Post comment about proof being sent
+      await supabase.from('job_comments').insert({
+        org_id: profile.org_id,
+        project_id: null,
+        user_id: profile.id,
+        channel: `design_${selectedProject.id}`,
+        message: `Proof link sent: ${link}`,
+      })
+    }
   }
 
   // Save drawer changes
@@ -392,7 +527,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: '#5a6080', fontSize: 14 }}>Loading design projects...</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 16 }}>
           {STAGES.map(stage => {
             const stageProjects = columnData[stage.key]
             return (
@@ -656,17 +791,18 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
           onClick={closeDrawer}
         >
           <div
+            className="w-full sm:w-[480px]"
             style={{
               position: 'fixed',
               top: 0,
               right: 0,
-              width: 480,
               height: '100%',
               background: '#13151c',
               borderLeft: '1px solid #1a1d27',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
+              animation: 'slideInRight 0.2s ease',
             }}
             onClick={e => e.stopPropagation()}
           >
@@ -867,34 +1003,142 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                 </div>
               </div>
 
-              {/* File uploads placeholder */}
+              {/* File Upload + Revisions */}
               <div style={{ borderTop: '1px solid #1a1d27', paddingTop: 16, marginBottom: 16 }}>
                 <div style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: '#5a6080',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  fontFamily: 'Barlow Condensed, sans-serif',
-                  marginBottom: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
+                  fontSize: 12, fontWeight: 700, color: '#5a6080',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 10,
+                  display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   <Upload size={14} style={{ color: '#22d3ee' }} />
-                  Files
+                  Files & Revisions
                 </div>
+
+                {/* Upload area */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf,.ai,.psd,.svg"
+                  multiple
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{
+                    width: '100%', border: '2px dashed #2a2f3d', borderRadius: 10,
+                    padding: '20px 16px', textAlign: 'center', color: '#5a6080',
+                    fontSize: 12, background: 'transparent', cursor: 'pointer',
+                    transition: 'border-color 0.15s', marginBottom: 10,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#4f7fff')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2f3d')}
+                >
+                  {uploading ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <div style={{ width: 16, height: 16, border: '2px solid #4f7fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                      Uploading...
+                    </div>
+                  ) : (
+                    <>
+                      <Upload size={18} style={{ margin: '0 auto 6px', display: 'block', color: '#5a6080' }} />
+                      Click to upload design files
+                    </>
+                  )}
+                </button>
+
+                {/* Revision list */}
+                {uploadedFiles.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {uploadedFiles.map((file, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 10px', background: '#0d0f14', borderRadius: 8,
+                        border: '1px solid #1a1d27',
+                      }}>
+                        <Image size={14} style={{ color: '#22d3ee', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 12, fontWeight: 600, color: '#e8eaed',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{file.name}</div>
+                          <div style={{ fontSize: 10, color: '#5a6080' }}>
+                            v{file.version} -- {new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </div>
+                        </div>
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#4f7fff', flexShrink: 0 }}
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Send Proof Section */}
+              <div style={{ borderTop: '1px solid #1a1d27', paddingTop: 16, marginBottom: 16 }}>
                 <div style={{
-                  border: '2px dashed #1a1d27',
-                  borderRadius: 10,
-                  padding: '24px 16px',
-                  textAlign: 'center',
-                  color: '#5a6080',
-                  fontSize: 12,
+                  fontSize: 12, fontWeight: 700, color: '#5a6080',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 10,
+                  display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  <Upload size={20} style={{ margin: '0 auto 8px', display: 'block', color: '#5a6080' }} />
-                  Drop files here or click to upload
+                  <Send size={14} style={{ color: '#22d3ee' }} />
+                  Send Proof
                 </div>
+                <button
+                  onClick={handleSendProof}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: 8, padding: '10px 16px',
+                    background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.3)',
+                    borderRadius: 8, color: '#22d3ee', fontSize: 13,
+                    fontWeight: 700, cursor: 'pointer', marginBottom: 8,
+                  }}
+                >
+                  <Send size={14} />
+                  Generate Proof Link
+                </button>
+                {proofLink && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 10px', background: 'rgba(34,192,122,0.08)',
+                    border: '1px solid rgba(34,192,122,0.2)', borderRadius: 8,
+                  }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={proofLink}
+                      style={{
+                        flex: 1, background: 'transparent', border: 'none',
+                        color: '#22c07a', fontSize: 11, outline: 'none',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(proofLink)
+                        setProofCopied(true)
+                        setTimeout(() => setProofCopied(false), 2000)
+                      }}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: proofCopied ? '#22c07a' : '#9299b5', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', gap: 4, fontSize: 11,
+                      }}
+                    >
+                      <Copy size={12} />
+                      {proofCopied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Timestamps */}
