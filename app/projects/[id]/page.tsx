@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect, notFound } from 'next/navigation'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopBar } from '@/components/layout/TopBar'
+import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { ProjectDetail } from '@/components/projects/ProjectDetail'
 import type { Profile, Project } from '@/types'
@@ -70,20 +69,15 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   } catch {}
 
   return (
-    <div className="flex h-screen bg-bg overflow-hidden">
-      <div className="hidden md:flex">
-        <Sidebar profile={profile as Profile} />
-      </div>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+      <TopNav profile={profile as Profile} />
+      <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
           <ProjectDetail
             profile={profile as Profile}
             project={project as Project}
             teammates={teammates || []}
           />
         </main>
-      </div>
       <div className="md:hidden">
         <MobileNav />
       </div>

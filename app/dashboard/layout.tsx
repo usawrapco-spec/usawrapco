@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopBar } from '@/components/layout/TopBar'
+import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import type { Profile } from '@/types'
 
@@ -11,13 +10,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Use regular client only to verify the session
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Use admin client to fetch profile — bypasses RLS so it always works
-  // regardless of whether RLS policies are set up correctly on the profiles table
   const { data: profile, error: profileErr } = await getSupabaseAdmin()
     .from('profiles').select('*').eq('id', user.id).single()
 
@@ -38,18 +34,11 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex h-screen bg-bg overflow-hidden">
-      {/* Sidebar hidden on mobile */}
-      <div className="hidden md:flex">
-        <Sidebar profile={profile as Profile} />
-      </div>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
-          {children}
-        </main>
-      </div>
-      {/* Mobile bottom nav */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+      <TopNav profile={profile as Profile} />
+      <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
+        {children}
+      </main>
       <div className="md:hidden">
         <MobileNav />
       </div>
