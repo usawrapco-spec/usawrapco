@@ -275,6 +275,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       body: JSON.stringify({ project_id: project.id, event: 'stage_advanced', from_stage: curStageKey, to_stage: next }),
     }).catch(() => {})
 
+    // Auto-create stage tasks
+    fetch('/api/tasks/auto-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, to_stage: next, project_title: project.title }),
+    }).catch(() => {})
+
     // Award XP for key milestones
     const xpAction = curStageKey === 'install'      ? 'install_completed'
                    : curStageKey === 'production'   ? 'print_job_completed'
