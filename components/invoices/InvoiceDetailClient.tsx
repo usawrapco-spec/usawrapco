@@ -75,6 +75,9 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems, isDem
   const [paymentInput, setPaymentInput] = useState('')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sendMessage, setSendMessage] = useState('')
 
   // Calculated totals
   const subtotal = useMemo(() => items.reduce((s, li) => s + li.total_price, 0), [items])
@@ -152,20 +155,82 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems, isDem
   }
 
   function handleExportPdf() {
-    showToast('PDF export coming soon')
+    window.print()
   }
 
   function handleSendInvoice() {
-    if (status === 'draft') {
-      handleStatusChange('sent')
+    setShowSendModal(true)
+  }
+
+  async function confirmSendInvoice() {
+    setSending(true)
+    try {
+      if (!isDemo) {
+        const res = await fetch('/api/invoices/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoice_id: invoiceId, message: sendMessage }),
+        })
+        const data = await res.json()
+        showToast(data.message || 'Invoice sent')
+        setStatus('sent')
+      } else {
+        showToast('Demo: Invoice marked as sent')
+        setStatus('sent')
+      }
+    } catch {
+      showToast('Error sending invoice')
+    } finally {
+      setSending(false)
+      setShowSendModal(false)
+      setSendMessage('')
     }
-    showToast('Invoice sent to customer')
   }
 
   const sc = STATUS_CONFIG[status]
 
   return (
     <div>
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          nav, header, aside, [data-no-print], .no-print { display: none !important; }
+          body { background: white !important; color: black !important; }
+          .invoice-print-area { background: white !important; color: black !important; border: none !important; }
+        }
+      `}</style>
+
+      {/* Send Invoice Modal */}
+      {showSendModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:28, width:'100%', maxWidth:480 }}>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:20, fontWeight:900, color:'var(--text1)', marginBottom:4 }}>Send Invoice</div>
+            <div style={{ fontSize:12, color:'var(--text3)', marginBottom:16 }}>
+              INV-{inv.invoice_number} · {(inv.customer as any)?.name || 'Customer'}
+              {(inv.customer as any)?.email && <span style={{ color:'var(--accent)', marginLeft:6 }}>{(inv.customer as any).email}</span>}
+            </div>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text3)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+              Custom Message (optional)
+            </label>
+            <textarea
+              value={sendMessage}
+              onChange={e => setSendMessage(e.target.value)}
+              placeholder="Leave blank to use the default invoice message..."
+              rows={4}
+              style={{ width:'100%', padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text1)', fontSize:13, resize:'vertical', outline:'none' }}
+            />
+            <div style={{ display:'flex', gap:8, marginTop:16, justifyContent:'flex-end' }}>
+              <button onClick={() => setShowSendModal(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text2)', fontSize:13, cursor:'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={confirmSendInvoice} disabled={sending} style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'var(--accent)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+                <Send size={13} /> {sending ? 'Sending...' : 'Send Invoice'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Demo banner */}
       {isDemo && (
         <div style={{

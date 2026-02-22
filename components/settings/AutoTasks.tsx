@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { AlertCircle, Clock, Circle, CheckCircle2, ListTodo, X, Check, Calendar, type LucideIcon } from 'lucide-react'
+import { AlertCircle, Clock, Circle, CheckCircle2, ListTodo, X, Check, Calendar, Plus, type LucideIcon } from 'lucide-react'
 import type { Profile } from '@/types'
 
 interface Task {
@@ -17,6 +17,13 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
   const [dbTasks, setDbTasks] = useState<any[]>([])
   const [filter, setFilter] = useState<'all'|'sales'|'production'|'installer'>('all')
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [showCreate, setShowCreate] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newRole, setNewRole] = useState('sales_agent')
+  const [newDue, setNewDue] = useState('')
+  const [newPriority, setNewPriority] = useState('medium')
+  const [creating, setCreating] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -117,6 +124,32 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
     setDbTasks(prev => prev.filter(t => t.id !== taskId))
   }
 
+  async function createTask() {
+    if (!newTitle.trim()) return
+    setCreating(true)
+    const { data, error } = await supabase.from('tasks').insert({
+      org_id: profile.org_id,
+      title: newTitle.trim(),
+      description: newDesc.trim() || null,
+      role: newRole,
+      due_date: newDue || null,
+      priority: newPriority,
+      status: 'pending',
+      source: 'manual',
+      created_by: profile.id,
+    }).select().single()
+    setCreating(false)
+    if (!error && data) {
+      setDbTasks(prev => [data, ...prev])
+      setNewTitle('')
+      setNewDesc('')
+      setNewDue('')
+      setNewRole('sales_agent')
+      setNewPriority('medium')
+      setShowCreate(false)
+    }
+  }
+
   const filteredDbTasks = dbTasks.filter(t => {
     if (filter === 'all') return true
     const roleMap: Record<string, string> = { sales: 'sales_agent', production: 'production', installer: 'installer' }
@@ -145,6 +178,54 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
 
   return (
     <div style={{ maxWidth:900, margin:'0 auto' }}>
+      {/* Create Task Modal */}
+      {showCreate && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:28, width:'100%', maxWidth:480 }}>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:20, fontWeight:900, color:'var(--text1)', marginBottom:16 }}>New Task</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text3)', marginBottom:4, textTransform:'uppercase' }}>Title *</label>
+                <input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Task description..." style={{ width:'100%', padding:'9px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text1)', fontSize:13, outline:'none' }} />
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text3)', marginBottom:4, textTransform:'uppercase' }}>Details</label>
+                <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Optional notes..." style={{ width:'100%', padding:'9px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text1)', fontSize:13, outline:'none' }} />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text3)', marginBottom:4, textTransform:'uppercase' }}>Assign To</label>
+                  <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width:'100%', padding:'9px 10px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text1)', fontSize:12, outline:'none' }}>
+                    <option value="sales_agent">Sales</option>
+                    <option value="production">Production</option>
+                    <option value="installer">Installer</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text3)', marginBottom:4, textTransform:'uppercase' }}>Priority</label>
+                  <select value={newPriority} onChange={e => setNewPriority(e.target.value)} style={{ width:'100%', padding:'9px 10px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text1)', fontSize:12, outline:'none' }}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text3)', marginBottom:4, textTransform:'uppercase' }}>Due Date</label>
+                  <input type="date" value={newDue} onChange={e => setNewDue(e.target.value)} style={{ width:'100%', padding:'9px 10px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text1)', fontSize:12, outline:'none' }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8, marginTop:20, justifyContent:'flex-end' }}>
+              <button onClick={() => setShowCreate(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text2)', fontSize:13, cursor:'pointer' }}>Cancel</button>
+              <button onClick={createTask} disabled={creating || !newTitle.trim()} style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'var(--accent)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6, opacity: creating||!newTitle.trim() ? 0.6 : 1 }}>
+                <Plus size={13} /> {creating ? 'Creating...' : 'Create Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
         <div>
           <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:26, fontWeight:900, color:'var(--text1)', display:'flex', alignItems:'center', gap:8 }}><ListTodo size={24} /> Tasks</div>
@@ -153,6 +234,9 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           {urgentCount > 0 && <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(242,90,90,.15)', color:'#f25a5a', border:'1px solid rgba(242,90,90,.3)', display:'inline-flex', alignItems:'center', gap:4 }}><AlertCircle size={11} /> {urgentCount} urgent</span>}
           {todayCount > 0 && <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:800, background:'rgba(245,158,11,.1)', color:'#f59e0b', border:'1px solid rgba(245,158,11,.2)', display:'inline-flex', alignItems:'center', gap:4 }}><Clock size={11} /> {todayCount} today</span>}
+          <button onClick={() => setShowCreate(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, border:'none', background:'var(--accent)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+            <Plus size={13} /> New Task
+          </button>
         </div>
       </div>
 
