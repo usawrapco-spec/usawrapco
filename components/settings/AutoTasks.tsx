@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { AlertCircle, Clock, Circle, CheckCircle2, ListTodo, X, type LucideIcon } from 'lucide-react'
+import { AlertCircle, Clock, Circle, CheckCircle2, ListTodo, X, Check, Calendar, type LucideIcon } from 'lucide-react'
 import type { Profile } from '@/types'
 
 interface Task {
@@ -14,18 +14,21 @@ interface Task {
 export default function AutoTasks({ profile }: { profile: Profile }) {
   const [jobs, setJobs] = useState<any[]>([])
   const [sendBacks, setSendBacks] = useState<any[]>([])
+  const [dbTasks, setDbTasks] = useState<any[]>([])
   const [filter, setFilter] = useState<'all'|'sales'|'production'|'installer'>('all')
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const supabase = createClient()
 
   useEffect(() => {
     async function load() {
-      const [{ data: j }, { data: sb }] = await Promise.all([
+      const [{ data: j }, { data: sb }, { data: dt }] = await Promise.all([
         supabase.from('projects').select('*').eq('org_id', profile.org_id).neq('status', 'closed'),
         supabase.from('send_backs').select('*').eq('org_id', profile.org_id).order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*, project:project_id(title)').eq('org_id', profile.org_id).neq('status', 'done').order('due_date', { ascending: true }).limit(50),
       ])
       setJobs(j || [])
       setSendBacks(sb || [])
+      setDbTasks(dt || [])
     }
     load()
   }, [])
@@ -109,6 +112,31 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
   const urgentCount = tasks.filter(t => t.urgency === 'urgent').length
   const todayCount = tasks.filter(t => t.urgency === 'today').length
 
+  async function markTaskDone(taskId: string) {
+    await supabase.from('tasks').update({ status: 'done' }).eq('id', taskId)
+    setDbTasks(prev => prev.filter(t => t.id !== taskId))
+  }
+
+  const filteredDbTasks = dbTasks.filter(t => {
+    if (filter === 'all') return true
+    const roleMap: Record<string, string> = { sales: 'sales_agent', production: 'production', installer: 'installer' }
+    return t.role === roleMap[filter]
+  })
+
+  const ROLE_COLOR: Record<string, string> = {
+    sales_agent: '#4f7fff',
+    production: '#22c07a',
+    installer: '#22d3ee',
+  }
+
+  function dueBadge(due: string) {
+    if (!due) return null
+    const diff = Math.floor((new Date(due).getTime() - Date.now()) / 86400000)
+    if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, color: '#f25a5a', bg: 'rgba(242,90,90,.1)' }
+    if (diff === 0) return { label: 'Due today', color: '#f59e0b', bg: 'rgba(245,158,11,.1)' }
+    return { label: `Due in ${diff}d`, color: 'var(--text3)', bg: 'var(--surface2)' }
+  }
+
   const URGENCY_STYLES: Record<string, {bg:string; border:string; Icon:LucideIcon; color:string}> = {
     urgent: { bg:'rgba(242,90,90,.08)', border:'rgba(242,90,90,.3)', Icon:AlertCircle, color:'#f25a5a' },
     today:  { bg:'rgba(245,158,11,.06)', border:'rgba(245,158,11,.25)', Icon:Clock, color:'#f59e0b' },
@@ -140,11 +168,11 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
         ))}
       </div>
 
-      {/* Task list */}
+      {/* Smart task list */}
       {tasks.length === 0 ? (
         <div style={{ textAlign:'center', padding:40, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, color:'var(--text3)' }}>
           <CheckCircle2 size={32} style={{ margin:'0 auto 8px', color:'var(--text3)' }} />
-          <div style={{ fontSize:14, fontWeight:700 }}>All clear! No pending tasks.</div>
+          <div style={{ fontSize:14, fontWeight:700 }}>All clear! No smart tasks pending.</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -156,13 +184,58 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:700, color:'var(--text1)' }}>{t.desc}</div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                    {t.sub} · <span style={{ color: t.role === 'sales' ? '#4f7fff' : t.role === 'production' ? '#22c07a' : '#22d3ee', fontWeight:600 }}>{t.person}</span>
+                    {t.sub} · <span style={{ color: ROLE_COLOR[t.role] || '#4f7fff', fontWeight:600 }}>{t.person}</span>
                   </div>
                 </div>
                 <button onClick={() => setDismissed(p => new Set([...Array.from(p), t.id]))} title="Dismiss" style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', padding:4 }}><X size={13} /></button>
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Assigned Tasks from DB */}
+      {filteredDbTasks.length > 0 && (
+        <div style={{ marginTop:32 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:18, fontWeight:800, color:'var(--text1)' }}>Assigned Tasks</div>
+            <span style={{ fontSize:11, fontWeight:700, background:'var(--surface2)', color:'var(--text3)', padding:'2px 8px', borderRadius:10 }}>{filteredDbTasks.length}</span>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            {filteredDbTasks.map(t => {
+              const badge = dueBadge(t.due_date)
+              const roleColor = ROLE_COLOR[t.role] || '#4f7fff'
+              return (
+                <div key={t.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 16px', display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:13, fontWeight:700, color:'var(--text1)' }}>{t.title}</span>
+                      {t.priority === 'high' && <span style={{ fontSize:10, fontWeight:800, color:'#f25a5a', background:'rgba(242,90,90,.1)', padding:'1px 6px', borderRadius:4 }}>HIGH</span>}
+                    </div>
+                    {t.description && <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{t.description}</div>}
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
+                      {t.project?.title && (
+                        <span style={{ fontSize:10, color:'var(--text3)', background:'var(--surface2)', padding:'2px 7px', borderRadius:4 }}>{t.project.title}</span>
+                      )}
+                      <span style={{ fontSize:10, color: roleColor, fontWeight:700 }}>{t.role?.replace('_', ' ')}</span>
+                      {badge && (
+                        <span style={{ fontSize:10, display:'inline-flex', alignItems:'center', gap:3, color: badge.color, background: badge.bg, padding:'2px 7px', borderRadius:4, fontWeight:700 }}>
+                          <Calendar size={9} /> {badge.label}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => markTaskDone(t.id)}
+                    title="Mark done"
+                    style={{ flexShrink:0, display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:7, border:'1px solid rgba(34,192,122,.3)', background:'rgba(34,192,122,.08)', color:'#22c07a', fontSize:11, fontWeight:700, cursor:'pointer' }}
+                  >
+                    <Check size={12} /> Done
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
