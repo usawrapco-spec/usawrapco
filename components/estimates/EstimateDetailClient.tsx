@@ -216,21 +216,33 @@ interface Props {
   estimate: Estimate | null
   employees: any[]
   customers: any[]
+  isNew?: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function EstimateDetailClient({ profile, estimate, employees, customers }: Props) {
+export default function EstimateDetailClient({ profile, estimate, employees, customers, isNew }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-  const isNewEstimate = searchParams.get('new') === 'true'
+  const isNewEstimate = isNew || searchParams.get('new') === 'true'
 
-  const isDemo = !estimate
-  const est = estimate || DEMO_ESTIMATE
-  const estimateId = est.id
+  const isDemo = !estimate && !isNew
+  const est = isNew ? {
+    ...DEMO_ESTIMATE,
+    id: `new-${Date.now()}`,
+    title: 'New Estimate',
+    estimate_number: 0,
+    subtotal: 0, discount: 0, tax_rate: DEFAULT_TAX_RATE, tax_amount: 0, total: 0,
+    notes: '', customer_note: null, customer: null, sales_rep: null,
+    sales_rep_id: profile.id, org_id: profile.org_id,
+    quote_date: new Date().toISOString().split('T')[0],
+    line_items: [],
+  } : (estimate || DEMO_ESTIMATE)
+  const [savedId, setSavedId] = useState<string | null>(isNew ? null : est.id)
+  const estimateId = savedId || est.id
   const team = employees as Pick<Profile, 'id' | 'name' | 'role'>[]
   const initialLineItems = est.line_items && est.line_items.length > 0
     ? est.line_items
@@ -323,7 +335,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     if (!canWrite || isDemo) { showToast('Demo mode -- cannot save'); return }
     setSaving(true)
     try {
-      const { error } = await supabase.from('estimates').update({
+      const payload = {
         title, notes, customer_note: customerNote, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
         quote_date: quoteDate || null, due_date: dueDate || null,
@@ -331,9 +343,45 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         production_manager_id: prodMgrId || null,
         project_manager_id: projMgrId || null,
         form_data: { ...est.form_data, leadType, proposalOptions: proposalMode ? proposalOptions : undefined },
-      }).eq('id', estimateId)
-      if (error) throw error
-      showToast('Estimate saved')
+      }
+      if (!savedId) {
+        // First save — create estimate in DB
+        const { data, error } = await supabase.from('estimates').insert({
+          org_id: profile.org_id,
+          division: 'wraps',
+          ...payload,
+        }).select().single()
+        if (error) throw error
+        if (data) {
+          setSavedId(data.id)
+          // Save any pending line items
+          const pendingItems = lineItemsList.filter(li => li.id.startsWith('new-'))
+          if (pendingItems.length > 0) {
+            const dbItems = pendingItems.map(li => ({
+              parent_type: 'estimate' as const,
+              parent_id: data.id,
+              product_type: li.product_type,
+              name: li.name, description: li.description,
+              quantity: li.quantity, unit_price: li.unit_price,
+              unit_discount: li.unit_discount, total_price: li.total_price,
+              specs: li.specs, sort_order: li.sort_order,
+            }))
+            const { data: savedItems } = await supabase.from('line_items').insert(dbItems).select()
+            if (savedItems) {
+              setLineItemsList(prev => prev.map((li, i) => {
+                const saved = savedItems[i]
+                return saved ? { ...li, id: saved.id, parent_id: data.id } : li
+              }))
+            }
+          }
+          showToast('Estimate created')
+          router.replace(`/estimates/${data.id}`)
+        }
+      } else {
+        const { error } = await supabase.from('estimates').update(payload).eq('id', savedId)
+        if (error) throw error
+        showToast('Estimate saved')
+      }
     } catch (err) {
       console.error('Save error:', err)
       showToast('Error saving estimate')
@@ -500,7 +548,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
       }}>
         {/* Left: Back + QT number */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={() => router.push('/estimates')}
             style={{
@@ -508,16 +556,17 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               background: 'transparent', border: '1px solid var(--border)',
               borderRadius: 8, padding: '6px 12px', color: 'var(--text2)',
               fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',
+              minHeight: 44, minWidth: 44, justifyContent: 'center',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' }}
           >
             <ArrowLeft size={14} />
-            Back
+            <span className="hidden sm:inline">Back</span>
           </button>
           <div>
             <h1 style={{
-              fontSize: 28, fontWeight: 900, fontFamily: headingFont,
+              fontSize: 24, fontWeight: 900, fontFamily: headingFont,
               color: 'var(--text1)', margin: 0, lineHeight: 1,
               textTransform: 'uppercase', letterSpacing: '0.05em',
             }}>
@@ -528,7 +577,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
 
         {/* Right: Action buttons */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Download PDF dropdown */}
           <div ref={pdfMenuRef} style={{ position: 'relative' }}>
             <button
@@ -652,9 +701,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {/* INFO BANNER                                                      */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       <div style={{ ...cardStyle, marginBottom: 16 }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0,
-        }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 0 }}>
           {/* Column 1: Customer */}
           <div style={{ ...sectionPad, borderRight: '1px solid var(--border)' }}>
             <div style={{ ...fieldLabelStyle, marginBottom: 8 }}>
@@ -823,8 +870,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           <div style={{
             borderTop: '1px solid var(--border)',
             padding: '16px 20px',
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
           }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12 }}>
             <div>
               <label style={fieldLabelStyle}>Title</label>
               <input
@@ -884,6 +931,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════ */}
@@ -1112,8 +1160,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           )}
 
           {/* ── Bottom Summary ───────────────────────────────────────────── */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20,
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_340px]" style={{
+            gap: 20,
             marginTop: 24, alignItems: 'flex-start',
           }}>
             {/* Left: Customer Note */}
@@ -1261,7 +1309,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         senderName={profile.name}
         senderEmail={profile.email}
         estimateNumber={String(est.estimate_number)}
-        estimateTotal={totals.total}
+        estimateTotal={total}
         vehicleDescription={est.title}
         type={emailModalType}
       />
@@ -1533,7 +1581,7 @@ function LineItemCard({
         <div style={{ borderTop: '1px solid var(--border)', padding: '0 16px 16px' }}>
 
           {/* ── Core Fields Row ─────────────────────────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 120px 120px', gap: 10, marginTop: 12 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_80px_120px_120px]" style={{ gap: 10, marginTop: 12 }}>
             <div>
               <label style={fieldLabelStyle}>Product Name</label>
               <input
@@ -1629,6 +1677,90 @@ function LineItemCard({
           {/* ═══════════════════════════════════════════════════════════════ */}
           {/* PRODUCT-TYPE CALCULATORS (conditional on category)           */}
           {/* ═══════════════════════════════════════════════════════════════ */}
+
+          {/* ── Commercial Vehicle Quick-Select Grid ───────────────────── */}
+          {specs.vehicleType && ['small_car', 'med_car', 'full_car', 'sm_truck', 'med_truck', 'full_truck', 'med_van', 'large_van'].includes(specs.vehicleType as string) && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Size -- Quick Select
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9" style={{ gap: 6 }}>
+                {Object.entries(VEHICLE_CATEGORIES).filter(([, cat]) => ['Cars', 'Trucks', 'Vans'].includes(cat.group)).map(([key, cat]) => {
+                  const isSelected = (specs.vehicleType as string) === key
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => { if (canWrite) handleCategoryChange(key) }}
+                      style={{
+                        padding: '8px 4px', borderRadius: 8, cursor: canWrite ? 'pointer' : 'default',
+                        border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                        background: isSelected ? 'rgba(79,127,255,0.1)' : 'var(--surface)',
+                        textAlign: 'center' as const, minHeight: 44,
+                        display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 2,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text2)', lineHeight: 1.2 }}>
+                        {cat.label}
+                      </div>
+                      <div style={{ fontFamily: monoFont, fontSize: 12, fontWeight: 800, color: isSelected ? 'var(--accent)' : 'var(--text1)' }}>
+                        ${cat.flatRate}
+                      </div>
+                      <div style={{ fontSize: 9, color: 'var(--text3)' }}>
+                        {cat.estimatedHours}h
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Custom Product Calculator ──────────────────────────────── */}
+          {specs.vehicleType === 'custom' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Wrench size={12} style={{ color: 'var(--purple)' }} /> Custom Product
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (ft)</label>
+                  <input type="number" value={(specs.customWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value)
+                    const h = (specs.customHeight as number) || 0
+                    updateSpec('customWidth', w)
+                    if (w > 0 && h > 0) setTimeout(() => updateSpec('vinylArea', Math.round(w * h)), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.customHeight as number) || ''} onChange={e => {
+                    const h = Number(e.target.value)
+                    const w = (specs.customWidth as number) || 0
+                    updateSpec('customHeight', h)
+                    if (w > 0 && h > 0) setTimeout(() => updateSpec('vinylArea', Math.round(w * h)), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Total Sqft</label>
+                  <input type="number" value={specs.vinylArea || ''} onChange={e => updateSpec('vinylArea', Number(e.target.value))} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Est. Hours</label>
+                  <input type="number" value={(specs.estimatedHours as number) || ''} onChange={e => updateSpec('estimatedHours', Number(e.target.value))} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Description</label>
+                <input value={(specs.customDescription as string) || ''} onChange={e => updateSpec('customDescription', e.target.value)} placeholder="Describe the custom product..." style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} />
+              </div>
+            </div>
+          )}
 
           {/* ── Box Truck Calculator ──────────────────────────────────── */}
           {specs.vehicleType === 'box_truck' && (

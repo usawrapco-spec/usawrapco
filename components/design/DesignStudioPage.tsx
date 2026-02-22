@@ -697,7 +697,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                   return (
                     <button
                       key={s.key}
-                      onClick={() => setDrawerStage(s.key)}
+                      onClick={() => setDrawerStatus(s.key)}
                       style={{
                         flex: 1,
                         display: 'flex',

@@ -130,6 +130,10 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         ctx.fillStyle = obj.fill
         ctx.font = `${obj.fontWeight || 700} ${obj.fontSize || 24}px Barlow Condensed, sans-serif`
         ctx.fillText(obj.text || 'Text', obj.x, obj.y + (obj.fontSize || 24))
+      } else if (obj.type === 'image' && obj.imageSrc) {
+        const img = new window.Image()
+        img.src = obj.imageSrc
+        try { ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height) } catch {}
       }
 
       // Selection outline
@@ -322,6 +326,56 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     setAiLoading(false)
   }
 
+  // Send proof — exports canvas as PNG and creates a design_proofs record
+  const sendProof = async () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    setSaving(true)
+    try {
+      // Save canvas state first
+      await supabase.from('design_projects').update({
+        canvas_data: JSON.stringify(objects),
+        updated_at: new Date().toISOString(),
+      }).eq('id', design.id)
+
+      // Export canvas to blob
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+      if (!blob) throw new Error('Failed to export canvas')
+
+      // Upload to Supabase storage
+      const fileName = `proofs/${design.id}/${Date.now()}.png`
+      const { error: uploadErr } = await supabase.storage
+        .from('job-images')
+        .upload(fileName, blob, { contentType: 'image/png', upsert: true })
+      if (uploadErr) throw uploadErr
+
+      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(fileName)
+      const publicUrl = urlData?.publicUrl || ''
+
+      // Create proof record if there's a linked project
+      if (design.project_id) {
+        await supabase.from('design_proofs').insert({
+          org_id: profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+          project_id: design.project_id,
+          image_url: publicUrl,
+          designer_notes: `Proof from Design Studio for ${design.client_name}`,
+          sent_by: profile.id,
+        })
+      }
+
+      // Update design status
+      await supabase.from('design_projects').update({
+        status: 'proof_sent',
+      }).eq('id', design.id)
+
+      alert('Proof sent successfully!')
+    } catch (err: any) {
+      console.error('Send proof error:', err)
+      alert('Error sending proof: ' + (err.message || 'Unknown error'))
+    }
+    setSaving(false)
+  }
+
   // Handle image upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -413,6 +467,19 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
             {design.client_name}
           </div>
 
+          <button
+            onClick={sendProof}
+            disabled={saving}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px', borderRadius: 6, border: 'none',
+              background: 'var(--accent)', color: '#fff',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            <Send size={12} />
+            Send Proof
+          </button>
           <button
             onClick={saveCanvas}
             disabled={saving}

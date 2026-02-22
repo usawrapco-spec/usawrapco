@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -29,89 +29,224 @@ import {
   DollarSign,
   UserPlus,
   Contact,
+  Plus,
 } from 'lucide-react'
 
-const MAIN_TABS = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/inbox', label: 'Inbox', icon: Inbox },
-  { href: '/pipeline', label: 'Pipeline', icon: TrendingUp },
-  { href: '/jobs', label: 'Jobs', icon: Briefcase },
+/* ─── Quick create items for the bottom sheet ─────────────────────── */
+const CREATE_ITEMS = [
+  { href: '/estimates?new=true', label: 'New Estimate',  icon: FileText },
+  { href: '/jobs?new=true',      label: 'New Job',       icon: Briefcase },
+  { href: '/customers?new=true', label: 'New Customer',  icon: Users },
+  { href: '/tasks?new=true',     label: 'New Task',      icon: CheckSquare },
+  { href: '/prospects?new=true', label: 'New Prospect',  icon: UserPlus },
 ]
 
+/* ─── More panel items ────────────────────────────────────────────── */
 const MORE_ITEMS = [
-  { href: '/tasks', label: 'Tasks', icon: CheckSquare },
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/design', label: 'Design Studio', icon: Palette },
-  { href: '/mockup', label: 'Mockup Tool', icon: Wand2 },
-  { href: '/media', label: 'Media Library', icon: ImageIcon },
-  { href: '/timeline', label: 'Timeline', icon: Columns2 },
-  { href: '/production', label: 'Production', icon: Factory },
-  { href: '/inventory', label: 'Inventory', icon: Package },
-  { href: '/catalog', label: 'Catalog', icon: BookOpen },
-  { href: '/prospects', label: 'Prospects', icon: UserPlus },
-  { href: '/contacts', label: 'Contacts', icon: Contact },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/network', label: 'Network Map', icon: Network },
-  { href: '/bids', label: 'Installer Bids', icon: Hammer },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/reports', label: 'Reports', icon: FileText },
-  { href: '/payroll', label: 'Payroll', icon: DollarSign },
-  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/inbox',        label: 'Inbox',          icon: Inbox },
+  { href: '/tasks',        label: 'Tasks',          icon: CheckSquare },
+  { href: '/calendar',     label: 'Calendar',       icon: Calendar },
+  { href: '/design',       label: 'Design Studio',  icon: Palette },
+  { href: '/mockup',       label: 'Mockup Tool',    icon: Wand2 },
+  { href: '/media',        label: 'Media Library',  icon: ImageIcon },
+  { href: '/timeline',     label: 'Timeline',       icon: Columns2 },
+  { href: '/production',   label: 'Production',     icon: Factory },
+  { href: '/inventory',    label: 'Inventory',      icon: Package },
+  { href: '/catalog',      label: 'Catalog',        icon: BookOpen },
+  { href: '/prospects',    label: 'Prospects',      icon: UserPlus },
+  { href: '/contacts',     label: 'Contacts',       icon: Contact },
+  { href: '/customers',    label: 'Customers',      icon: Users },
+  { href: '/network',      label: 'Network Map',    icon: Network },
+  { href: '/bids',         label: 'Installer Bids', icon: Hammer },
+  { href: '/analytics',    label: 'Analytics',      icon: BarChart3 },
+  { href: '/reports',      label: 'Reports',        icon: FileText },
+  { href: '/payroll',      label: 'Payroll',        icon: DollarSign },
+  { href: '/leaderboard',  label: 'Leaderboard',    icon: Trophy },
+  { href: '/settings',     label: 'Settings',       icon: Settings },
 ]
 
 export function MobileNav() {
   const pathname = usePathname()
   const router = useRouter()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  // Close sheets on route change
+  useEffect(() => {
+    setMoreOpen(false)
+    setCreateOpen(false)
+  }, [pathname])
+
+  const closeAll = useCallback(() => {
+    setMoreOpen(false)
+    setCreateOpen(false)
+  }, [])
+
+  function isActive(href: string) {
+    return pathname === href || pathname?.startsWith(href + '/')
+  }
 
   return (
     <>
-      {/* More menu overlay */}
-      {moreOpen && (
+      {/* ── Overlay for More or Create sheets ─────────────────── */}
+      {(moreOpen || createOpen) && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 998,
             background: 'rgba(0,0,0,0.6)',
             backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.15s ease',
           }}
-          onClick={() => setMoreOpen(false)}
+          onClick={closeAll}
         />
       )}
 
-      {/* More menu panel */}
-      {moreOpen && (
+      {/* ── Create bottom sheet ───────────────────────────────── */}
+      {createOpen && (
         <div style={{
-          position: 'fixed', bottom: 64, left: 0, right: 0, zIndex: 999,
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 999,
           background: 'var(--surface)',
           borderTop: '1px solid var(--border)',
           borderRadius: '16px 16px 0 0',
-          maxHeight: '60vh',
-          overflowY: 'auto',
-          padding: '12px 8px',
+          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+          animation: 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
+          {/* Handle bar */}
+          <div style={{
+            display: 'flex', justifyContent: 'center', padding: '10px 0 4px',
+          }}>
+            <div style={{
+              width: 36, height: 4, borderRadius: 2,
+              background: 'var(--border)',
+            }} />
+          </div>
+
+          {/* Header */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '4px 12px 12px',
+            padding: '4px 16px 12px',
             borderBottom: '1px solid var(--border)',
-            marginBottom: 8,
           }}>
             <span style={{
-              fontSize: 14, fontWeight: 700, color: 'var(--text1)',
+              fontSize: 15, fontWeight: 700, color: 'var(--text1)',
+              fontFamily: 'Barlow Condensed, sans-serif',
+            }}>
+              Quick Create
+            </span>
+            <button
+              onClick={() => setCreateOpen(false)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text3)', padding: 8,
+                minWidth: 44, minHeight: 44,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Create items */}
+          <div style={{ padding: '8px 12px' }}>
+            {CREATE_ITEMS.map(item => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => { setCreateOpen(false); router.push(item.href) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    width: '100%', padding: '14px 12px', borderRadius: 10,
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text1)', fontSize: 15, fontWeight: 500,
+                    textAlign: 'left', transition: 'background 0.12s',
+                    minHeight: 48,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    background: 'rgba(79,127,255,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <Icon size={18} style={{ color: 'var(--accent)' }} />
+                  </div>
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── More menu panel ───────────────────────────────────── */}
+      {moreOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 999,
+          background: 'var(--surface)',
+          borderTop: '1px solid var(--border)',
+          borderRadius: '16px 16px 0 0',
+          maxHeight: '70vh',
+          overflowY: 'auto',
+          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+          animation: 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}>
+          {/* Handle bar */}
+          <div style={{
+            display: 'flex', justifyContent: 'center', padding: '10px 0 4px',
+            position: 'sticky', top: 0, background: 'var(--surface)',
+            borderRadius: '16px 16px 0 0',
+          }}>
+            <div style={{
+              width: 36, height: 4, borderRadius: 2,
+              background: 'var(--border)',
+            }} />
+          </div>
+
+          {/* Header */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '4px 16px 12px',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 8,
+            position: 'sticky', top: 18, background: 'var(--surface)',
+            zIndex: 1,
+          }}>
+            <span style={{
+              fontSize: 15, fontWeight: 700, color: 'var(--text1)',
               fontFamily: 'Barlow Condensed, sans-serif',
             }}>
               More
             </span>
             <button
               onClick={() => setMoreOpen(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text3)', padding: 8,
+                minWidth: 44, minHeight: 44,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
             >
               <X size={18} />
             </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 4, padding: '0 8px 12px',
+          }}>
             {MORE_ITEMS.map(item => {
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+              const active = isActive(item.href)
               const Icon = item.icon
               return (
                 <Link
@@ -121,14 +256,15 @@ export function MobileNav() {
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                     gap: 4, padding: '12px 8px', borderRadius: 10,
-                    background: isActive ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
                     textDecoration: 'none',
+                    minHeight: 44,
                   }}
                 >
-                  <Icon size={20} style={{ color: isActive ? 'var(--accent)' : 'var(--text3)' }} />
+                  <Icon size={20} style={{ color: active ? 'var(--accent)' : 'var(--text3)' }} />
                   <span style={{
-                    fontSize: 10, fontWeight: isActive ? 700 : 500,
-                    color: isActive ? 'var(--accent)' : 'var(--text2)',
+                    fontSize: 10, fontWeight: active ? 700 : 500,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
                     textAlign: 'center', lineHeight: 1.2,
                   }}>
                     {item.label}
@@ -140,42 +276,104 @@ export function MobileNav() {
         </div>
       )}
 
-      {/* Bottom tab bar */}
+      {/* ── Bottom tab bar ────────────────────────────────────── */}
       <nav style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
         background: 'var(--surface)',
         borderTop: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center',
+        display: 'flex', alignItems: 'flex-end',
         height: 64,
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}>
-        {MAIN_TABS.map(tab => {
-          const isActive = pathname === tab.href || pathname?.startsWith(tab.href + '/')
-          const Icon = tab.icon
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                gap: 2, padding: '8px 0',
-                textDecoration: 'none', minHeight: 44,
-              }}
-            >
-              <Icon size={20} style={{ color: isActive ? 'var(--accent)' : 'var(--text3)' }} />
-              <span style={{
-                fontSize: 10, fontWeight: isActive ? 700 : 500,
-                color: isActive ? 'var(--accent)' : 'var(--text2)',
-              }}>
-                {tab.label}
-              </span>
-            </Link>
-          )
-        })}
+        {/* Home tab */}
+        <Link
+          href="/dashboard"
+          style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: 2, padding: '8px 0',
+            textDecoration: 'none', minHeight: 44,
+          }}
+        >
+          <LayoutDashboard size={20} style={{ color: isActive('/dashboard') ? 'var(--accent)' : 'var(--text3)' }} />
+          <span style={{
+            fontSize: 10, fontWeight: isActive('/dashboard') ? 700 : 500,
+            color: isActive('/dashboard') ? 'var(--accent)' : 'var(--text2)',
+          }}>
+            Home
+          </span>
+        </Link>
+
+        {/* Pipeline tab */}
+        <Link
+          href="/pipeline"
+          style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: 2, padding: '8px 0',
+            textDecoration: 'none', minHeight: 44,
+          }}
+        >
+          <TrendingUp size={20} style={{ color: isActive('/pipeline') ? 'var(--accent)' : 'var(--text3)' }} />
+          <span style={{
+            fontSize: 10, fontWeight: isActive('/pipeline') ? 700 : 500,
+            color: isActive('/pipeline') ? 'var(--accent)' : 'var(--text2)',
+          }}>
+            Pipeline
+          </span>
+        </Link>
+
+        {/* ── Center + New button (raised) ──────────────────── */}
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
+        }}>
+          <button
+            onClick={() => { setMoreOpen(false); setCreateOpen(v => !v) }}
+            style={{
+              width: 52, height: 52,
+              borderRadius: '50%',
+              background: createOpen
+                ? 'linear-gradient(135deg, #3a66e0, var(--accent))'
+                : 'linear-gradient(135deg, var(--accent), #6a9cff)',
+              border: '3px solid var(--surface)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              position: 'absolute',
+              bottom: 8,
+              boxShadow: createOpen
+                ? '0 2px 12px rgba(79,127,255,0.5)'
+                : '0 4px 16px rgba(79,127,255,0.4)',
+              transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease',
+              transform: createOpen ? 'rotate(45deg)' : 'none',
+            }}
+          >
+            <Plus size={24} style={{ color: '#fff', strokeWidth: 2.5 }} />
+          </button>
+        </div>
+
+        {/* Jobs tab */}
+        <Link
+          href="/jobs"
+          style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: 2, padding: '8px 0',
+            textDecoration: 'none', minHeight: 44,
+          }}
+        >
+          <Briefcase size={20} style={{ color: isActive('/jobs') ? 'var(--accent)' : 'var(--text3)' }} />
+          <span style={{
+            fontSize: 10, fontWeight: isActive('/jobs') ? 700 : 500,
+            color: isActive('/jobs') ? 'var(--accent)' : 'var(--text2)',
+          }}>
+            Jobs
+          </span>
+        </Link>
+
         {/* More tab */}
         <button
-          onClick={() => setMoreOpen(v => !v)}
+          onClick={() => { setCreateOpen(false); setMoreOpen(v => !v) }}
           style={{
             flex: 1, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',

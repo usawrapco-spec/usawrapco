@@ -160,3 +160,15 @@
   @apply inline-block w-2 h-2 rounded-full bg-green mr-1.5;
   animation: pulse-glow 1.8s infinite;
 }
+
+/* Bottom sheet slide-up */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Loading spinner */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

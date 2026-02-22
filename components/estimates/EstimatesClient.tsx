@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  Search, Plus, FileText, Send, CheckCircle2, Clock, XCircle,
-  DollarSign, TrendingUp, Filter, ChevronRight, AlertTriangle,
+  Search, Plus, FileText, Send, CheckCircle2,
+  DollarSign, TrendingUp, ChevronRight, AlertTriangle,
 } from 'lucide-react'
 import type { Profile, Estimate, EstimateStatus } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
-import { createClient } from '@/lib/supabase/client'
 
 // ─── Demo data when DB tables don't exist yet ────────────────────────────────
 const DEMO_ESTIMATES: Estimate[] = [
@@ -99,27 +98,14 @@ interface Props {
 
 export default function EstimatesClient({ profile, initialEstimates }: Props) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const supabase = createClient()
   const usingDemo = initialEstimates.length === 0
   const allEstimates = usingDemo ? DEMO_ESTIMATES : initialEstimates
 
-  const [estimates, setEstimates] = useState<Estimate[]>(allEstimates)
+  const [estimates] = useState<Estimate[]>(allEstimates)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<TabFilter>('all')
-  const [creating, setCreating] = useState(false)
 
   const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
-
-  // Auto-create when navigated with ?new=true
-  const didAutoCreate = useRef(false)
-  useEffect(() => {
-    if (searchParams.get('new') === 'true' && canWrite && !didAutoCreate.current) {
-      didAutoCreate.current = true
-      handleCreate()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Filter logic
   const filtered = useMemo(() => {
@@ -147,27 +133,9 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
     return { draft, sent, accepted, totalValue, acceptedValue, total: estimates.length }
   }, [estimates])
 
-  async function handleCreate() {
+  function handleCreate() {
     if (!canWrite) return
-    setCreating(true)
-    try {
-      const { data, error } = await supabase.from('estimates').insert({
-        org_id: profile.org_id,
-        title: 'New Estimate',
-        status: 'draft',
-        sales_rep_id: profile.id,
-        division: 'wraps',
-        quote_date: new Date().toISOString().split('T')[0],
-      }).select().single()
-
-      if (error) throw error
-      if (data) router.push(`/estimates/${data.id}?new=true`)
-    } catch (err) {
-      console.error('Create estimate error:', err)
-      // If table doesn't exist, navigate to demo detail
-      router.push(`/estimates/demo-est-1`)
-    }
-    setCreating(false)
+    router.push('/estimates/new')
   }
 
   const fmtCurrency = (n: number) =>

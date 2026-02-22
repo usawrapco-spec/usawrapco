@@ -17,35 +17,38 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
   if (!profile) redirect('/login')
 
   const orgId = profile.org_id || ORG_ID
+  const isNew = params.id === 'new'
 
   let estimate: any = null
   let lineItems: LineItem[] = []
 
-  try {
-    const { data, error } = await admin
-      .from('estimates')
-      .select(`
-        *,
-        customer:customer_id(id, name, email),
-        sales_rep:sales_rep_id(id, name)
-      `)
-      .eq('id', params.id)
-      .single()
+  if (!isNew) {
+    try {
+      const { data, error } = await admin
+        .from('estimates')
+        .select(`
+          *,
+          customer:customer_id(id, name, email),
+          sales_rep:sales_rep_id(id, name)
+        `)
+        .eq('id', params.id)
+        .single()
 
-    if (error) throw error
-    estimate = data
+      if (error) throw error
+      estimate = data
 
-    // Fetch line items
-    const { data: items } = await admin
-      .from('line_items')
-      .select('*')
-      .eq('parent_type', 'estimate')
-      .eq('parent_id', params.id)
-      .order('sort_order', { ascending: true })
+      // Fetch line items
+      const { data: items } = await admin
+        .from('line_items')
+        .select('*')
+        .eq('parent_type', 'estimate')
+        .eq('parent_id', params.id)
+        .order('sort_order', { ascending: true })
 
-    lineItems = (items as LineItem[]) || []
-  } catch (err) {
-    console.error('[estimate detail] fetch error:', err)
+      lineItems = (items as LineItem[]) || []
+    } catch (err) {
+      console.error('[estimate detail] fetch error:', err)
+    }
   }
 
   // Fetch team members for assignment dropdowns
@@ -82,6 +85,7 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
       estimate={fullEstimate}
       employees={employees}
       customers={customers}
+      isNew={isNew}
     />
   )
 }
