@@ -111,8 +111,14 @@ const NAV: NavItem[] = [
   },
   {
     href: '/inbox',
-    label: 'Inbox',
+    label: 'AI Broker',
     icon: Inbox,
+    permission: 'sales.read',
+  },
+  {
+    href: '/deposit',
+    label: 'Deposits',
+    icon: DollarSign,
     permission: 'sales.read',
   },
   {

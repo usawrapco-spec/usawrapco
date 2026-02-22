@@ -55,6 +55,7 @@ const SETTINGS_ITEMS: DropdownItem[] = [
   { href: '/1099',                  label: '1099 / Payroll',   icon: Receipt },
   { href: '/affiliate',             label: 'Affiliate Program', icon: Users },
   { href: '/timeclock',             label: 'Time Clock',       icon: Clock },
+  { href: '/settings/playbook',     label: 'AI Command Center', icon: Zap },
   { href: '/integrations',          label: 'Integrations',     icon: Zap },
   { href: '/shop',                  label: 'Online Shop',      icon: ShoppingCart },
 ]

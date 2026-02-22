@@ -575,6 +575,91 @@ export interface AIActivity {
   created_at: string
 }
 
+// ─── V.I.N.Y.L. AI Sales Broker ──────────────────────────────────────────────
+
+export type ConversationChannel = 'sms' | 'email' | 'web_chat'
+export type ConversationStatus = 'active' | 'escalated' | 'closed' | 'converted'
+export type LeadStage = 'new' | 'qualifying' | 'quoting' | 'negotiating' | 'deposit_sent' | 'converted' | 'lost'
+export type MessageRole = 'customer' | 'ai' | 'human_agent'
+
+export interface Conversation {
+  id: string
+  org_id: string
+  customer_id: string | null
+  channel: ConversationChannel
+  phone_number: string | null
+  email_address: string | null
+  status: ConversationStatus
+  escalation_reason: string | null
+  escalated_to: string | null
+  ai_enabled: boolean
+  lead_stage: LeadStage
+  vehicle_info: Record<string, unknown>
+  wrap_preferences: Record<string, unknown>
+  quote_data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  customer?: { id: string; name: string; email?: string; phone?: string; company_name?: string }
+  messages?: ConversationMessage[]
+}
+
+export interface ConversationMessage {
+  id: string
+  conversation_id: string
+  role: MessageRole
+  content: string
+  channel: ConversationChannel
+  ai_reasoning: string | null
+  ai_confidence: number | null
+  tokens_used: number | null
+  cost_cents: number | null
+  external_id: string | null
+  created_at: string
+}
+
+export type EscalationRuleType = 'keyword' | 'sentiment' | 'dollar_threshold' | 'explicit_request' | 'confidence'
+
+export interface EscalationRule {
+  id: string
+  org_id: string
+  rule_type: EscalationRuleType
+  rule_config: Record<string, unknown>
+  notify_channel: 'slack' | 'sms'
+  notify_target: string | null
+  is_active: boolean
+  priority: number
+  created_at: string
+}
+
+export type PlaybookCategory = 'greeting' | 'qualification' | 'pricing' | 'objection' | 'upsell' | 'closing' | 'followup' | 'faq' | 'policy' | 'competitor' | 'brand_voice'
+
+export interface PlaybookEntry {
+  id: string
+  org_id: string
+  category: PlaybookCategory
+  trigger_phrase: string | null
+  response_guidance: string
+  is_active: boolean
+  priority: number
+  created_at: string
+  updated_at: string
+}
+
+export interface PricingRule {
+  id: string
+  org_id: string
+  vehicle_category: string
+  wrap_type: string
+  base_price: number
+  price_per_sqft: number
+  max_discount_pct: number
+  rush_multiplier: Record<string, number>
+  complexity_multiplier: Record<string, number>
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 // ─── Database type stub ────────────────────────────────────────────────────────
 export type Database = {
   public: {

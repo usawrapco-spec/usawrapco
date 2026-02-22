@@ -20,6 +20,18 @@ export default async function InboxPage() {
 
   const orgId = profile.org_id || ORG_ID
 
+  // Fetch AI broker conversations
+  let conversations: any[] = []
+  try {
+    const { data } = await admin
+      .from('conversations')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('updated_at', { ascending: false })
+      .limit(100)
+    conversations = data || []
+  } catch {}
+
   // Fetch customers for conversation list
   let customers: any[] = []
   try {
@@ -32,7 +44,7 @@ export default async function InboxPage() {
     customers = data || []
   } catch {}
 
-  // Fetch recent communications
+  // Fetch recent communications (legacy)
   let communications: any[] = []
   try {
     const { data } = await admin
@@ -52,6 +64,7 @@ export default async function InboxPage() {
             profile={profile as Profile}
             customers={customers}
             communications={communications}
+            conversations={conversations}
           />
         </main>
       <div className="md:hidden">
