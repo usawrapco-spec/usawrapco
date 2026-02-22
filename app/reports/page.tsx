@@ -24,7 +24,7 @@ export default async function ReportsPage() {
   // Load recent projects for report generation
   const { data: projects } = await admin
     .from('projects')
-    .select('id, title, vehicle_desc, status, pipe_stage, revenue, profit, created_at, updated_at, agent_id')
+    .select('id, title, vehicle_desc, status, pipe_stage, revenue, profit, created_at, updated_at, agent_id, agent:agent_id(id, name)')
     .eq('org_id', orgId)
     .order('updated_at', { ascending: false })
     .limit(100)
