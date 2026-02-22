@@ -321,7 +321,7 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
   const submitOnboarding = async () => {
     setSubmitting(true)
     try {
-      await supabase.from('customer_intake_tokens').update({
+      await supabase.from('customer_intake').update({
         customer_name: form.contactName,
         customer_email: form.contactEmail,
         customer_phone: form.contactPhone,

@@ -2883,6 +2883,38 @@ DROP POLICY IF EXISTS "purchase_orders_all" ON public.purchase_orders;
 CREATE POLICY "purchase_orders_all" ON public.purchase_orders
   FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- proofing_tokens — Design proof links sent to customers
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.proofing_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL,
+  design_project_id UUID REFERENCES public.design_projects(id),
+  project_id UUID REFERENCES public.projects(id),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','expired')),
+  customer_name TEXT,
+  customer_email TEXT,
+  feedback TEXT,
+  approved_at TIMESTAMPTZ,
+  rejected_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_proofing_token ON public.proofing_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_proofing_dp ON public.proofing_tokens(design_project_id);
+CREATE INDEX IF NOT EXISTS idx_proofing_org ON public.proofing_tokens(org_id);
+
+ALTER TABLE public.proofing_tokens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "proofing_tokens_select" ON public.proofing_tokens;
+CREATE POLICY "proofing_tokens_select" ON public.proofing_tokens FOR SELECT USING (true);
+DROP POLICY IF EXISTS "proofing_tokens_insert" ON public.proofing_tokens;
+CREATE POLICY "proofing_tokens_insert" ON public.proofing_tokens FOR INSERT WITH CHECK (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+DROP POLICY IF EXISTS "proofing_tokens_update" ON public.proofing_tokens;
+CREATE POLICY "proofing_tokens_update" ON public.proofing_tokens FOR UPDATE USING (true);
+
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║  DONE. All tables created. Migration is idempotent.                     ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝
