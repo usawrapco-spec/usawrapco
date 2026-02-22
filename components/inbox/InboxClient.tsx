@@ -592,17 +592,45 @@ export default function InboxClient({ profile, customers, communications }: Prop
     setShowAiSummary(true)
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!composeText.trim() || !selectedCustomerId) return
     setSending(true)
-    // In production this would hit an API route
-    setTimeout(() => {
-      setSending(false)
-      setComposeText('')
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
+
+    try {
+      const customer = conversationCustomers.find(c => c.id === selectedCustomerId)
+      const text = composeText.trim()
+
+      if (composeChannel === 'sms' && customer?.phone) {
+        await fetch('/api/messages/sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: customer.phone, message: text, customer_id: selectedCustomerId }),
+        })
+      } else if (composeChannel === 'email' && customer?.email) {
+        await fetch('/api/messages/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: customer.email, subject: 'Message from USA WRAP CO', body: text, customer_id: selectedCustomerId }),
+        })
+      } else {
+        // Note — log to communication_log directly
+        await supabase.from('communication_log').insert({
+          org_id: profile.org_id,
+          customer_id: selectedCustomerId,
+          type: composeChannel,
+          direction: 'outbound',
+          body: text,
+          sent_by: profile.id,
+          status: 'logged',
+        })
       }
-    }, 300)
+    } catch {}
+
+    setSending(false)
+    setComposeText('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

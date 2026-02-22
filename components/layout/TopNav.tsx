@@ -41,6 +41,7 @@ const REPORTS_ITEMS: DropdownItem[] = [
   { href: '/analytics',  label: 'Analytics',  icon: BarChart3 },
   { href: '/leaderboard',label: 'Leaderboard',icon: Trophy },
   { href: '/payroll',    label: 'Payroll',    icon: DollarSign },
+  { href: '/referrals',  label: 'Referrals',  icon: Users },
 ]
 
 const SETTINGS_ITEMS: DropdownItem[] = [
