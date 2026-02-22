@@ -419,6 +419,7 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
 
       {/* ── FAB Button ───────────────────────────────────────── */}
       <button
+        data-tour="genie-fab"
         onClick={() => setOpen(v => !v)}
         style={{
           position: 'fixed',

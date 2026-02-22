@@ -10,10 +10,11 @@ import {
   Truck, Plus, Search, Bell, Settings, ChevronDown, X,
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
-  Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User,
+  Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
   type LucideIcon,
 } from 'lucide-react'
 import GenieFAB from '@/components/genie/GenieFAB'
+import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
 
 // ─── Dropdown types ───────────────────────────────────────────────────────────
 interface DropdownItem {
@@ -142,6 +143,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   const router   = useRouter()
   const supabase = createClient()
 
+  const { tourOpen, whatsNewOpen, newCommits, startTour, closeTour, closeWhatsNew } = useTour()
+
   const [searchOpen, setSearchOpen]   = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [createOpen, setCreateOpen]   = useState(false)
@@ -268,6 +271,7 @@ export function TopNav({ profile }: { profile: Profile }) {
       {/* ── Quick Create [+] ─────────────────────────────────── */}
       <div ref={createRef} style={{ position: 'relative', flexShrink: 0 }}>
         <button
+          data-tour="new-button"
           onClick={() => { closeAll(); setCreateOpen(v => !v) }}
           style={{
             display: 'flex', alignItems: 'center', gap: 3,
@@ -319,10 +323,12 @@ export function TopNav({ profile }: { profile: Profile }) {
       >
         {NAV_LINKS.map(link => {
           const active = isActive(link.href)
+          const tourId = link.href === '/jobs' ? 'nav-jobs' : link.href === '/inbox' ? 'nav-inbox' : link.href === '/tasks' ? 'nav-tasks' : undefined
           return (
             <Link
               key={link.href}
               href={link.href}
+              data-tour={tourId}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '5px 8px', borderRadius: 6,
@@ -345,6 +351,7 @@ export function TopNav({ profile }: { profile: Profile }) {
         })}
 
         {/* Transactions dropdown */}
+        <div data-tour="transactions">
         <NavDropdown
           label="Transactions"
           items={TRANSACTIONS}
@@ -353,6 +360,7 @@ export function TopNav({ profile }: { profile: Profile }) {
           dropRef={txRef}
           triggerActive={isTxActive}
         />
+        </div>
 
         {/* Reports dropdown */}
         <NavDropdown
@@ -519,6 +527,21 @@ export function TopNav({ profile }: { profile: Profile }) {
           )}
         </div>
 
+        {/* Tour help button */}
+        <button
+          onClick={startTour}
+          title="Product Tour"
+          style={{
+            width: 30, height: 30, borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text3)',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
+        >
+          <HelpCircle size={13} />
+        </button>
+
         {/* Settings dropdown */}
         <div ref={settingsRef} style={{ position: 'relative' }} className="hidden md:block">
           <button
@@ -649,6 +672,8 @@ export function TopNav({ profile }: { profile: Profile }) {
       </div>
     </header>
     <GenieFAB userName={profile.name || profile.email || 'User'} userRole={profile.role} />
+    <ProductTour userName={profile.name || profile.email || 'User'} open={tourOpen} onClose={closeTour} />
+    {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
     </>
   )
 }
