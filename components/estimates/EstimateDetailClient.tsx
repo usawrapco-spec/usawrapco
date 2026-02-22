@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft, Save, Send, CheckCircle2, FileText, Plus,
   Trash2, Car, Paintbrush, ChevronDown, ChevronRight,
@@ -21,8 +21,6 @@ import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComp
 
 const LABOR_RATE = 30
 const DESIGN_FEE_DEFAULT = 150
-const COMMISSION_INBOUND = 0.045
-const COMMISSION_OUTBOUND = 0.07
 const DEFAULT_TAX_RATE = 0.0825
 
 interface VehicleCategory {
@@ -173,7 +171,15 @@ function fmtPercent(n: number): string {
   return `${n.toFixed(1)}%`
 }
 
-function calcGPM(item: LineItem): { sale: number; materialCost: number; laborCost: number; designFee: number; miscCost: number; cogs: number; gp: number; gpm: number; commission: number; commissionRate: number; estimatedHours: number } {
+const COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boolean }> = {
+  inbound:  { base: 0.045, max: 0.075, bonuses: true },
+  outbound: { base: 0.07,  max: 0.10,  bonuses: true },
+  presold:  { base: 0.05,  max: 0.05,  bonuses: false },
+  referral: { base: 0.045, max: 0.075, bonuses: true },
+  walk_in:  { base: 0.045, max: 0.075, bonuses: true },
+}
+
+function calcGPM(item: LineItem, source: string = 'inbound'): { sale: number; materialCost: number; laborCost: number; designFee: number; miscCost: number; cogs: number; gp: number; gpm: number; commission: number; commissionRate: number; estimatedHours: number } {
   const specs = item.specs
   const sale = item.unit_price * item.quantity
   const estimatedHours = (specs.estimatedHours as number) || 0
@@ -184,8 +190,16 @@ function calcGPM(item: LineItem): { sale: number; materialCost: number; laborCos
   const cogs = materialCost + laborCost + designFee + miscCost
   const gp = sale - cogs
   const gpm = sale > 0 ? (gp / sale) * 100 : 0
-  const commissionRate = COMMISSION_INBOUND
-  const commission = gp * commissionRate
+  const rates = COMMISSION_RATES[source] || COMMISSION_RATES.inbound
+  // Protection: if GPM < 65%, base rate only, no bonuses
+  const protected_ = gpm < 65
+  let commissionRate = rates.base
+  // Apply bonuses if eligible and not protected
+  if (!protected_ && rates.bonuses) {
+    if (gpm > 73) commissionRate += 0.02  // +2% high GPM bonus
+    commissionRate = Math.min(commissionRate, rates.max)
+  }
+  const commission = Math.max(0, gp * commissionRate)
   return { sale, materialCost, laborCost, designFee, miscCost, cogs, gp, gpm, commission, commissionRate, estimatedHours }
 }
 
@@ -210,7 +224,9 @@ interface Props {
 
 export default function EstimateDetailClient({ profile, estimate, employees, customers }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+  const isNewEstimate = searchParams.get('new') === 'true'
 
   const isDemo = !estimate
   const est = estimate || DEMO_ESTIMATE
@@ -244,6 +260,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [salesRepId, setSalesRepId] = useState(est.sales_rep_id || '')
   const [prodMgrId, setProdMgrId] = useState(est.production_manager_id || '')
   const [projMgrId, setProjMgrId] = useState(est.project_manager_id || '')
+  const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
@@ -253,6 +270,16 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const pdfMenuRef = useRef<HTMLDivElement>(null)
+
+  // ─── Auto-add first line item for new estimates ────────────────────────────
+  const didAutoAdd = useRef(false)
+  useEffect(() => {
+    if (isNewEstimate && !isDemo && lineItemsList.length === 0 && !didAutoAdd.current) {
+      didAutoAdd.current = true
+      addNewLineItem()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNewEstimate, isDemo])
 
   // ─── Close menus on outside click ───────────────────────────────────────────
   useEffect(() => {
@@ -303,7 +330,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         sales_rep_id: salesRepId || null,
         production_manager_id: prodMgrId || null,
         project_manager_id: projMgrId || null,
-        form_data: { ...est.form_data, proposalOptions: proposalMode ? proposalOptions : undefined },
+        form_data: { ...est.form_data, leadType, proposalOptions: proposalMode ? proposalOptions : undefined },
       }).eq('id', estimateId)
       if (error) throw error
       showToast('Estimate saved')
@@ -816,6 +843,21 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               />
             </div>
             <div>
+              <label style={fieldLabelStyle}>Lead Source</label>
+              <select
+                value={leadType}
+                onChange={e => setLeadType(e.target.value)}
+                disabled={!canWrite}
+                style={fieldSelectStyle}
+              >
+                <option value="inbound">Inbound (4.5-7.5%)</option>
+                <option value="outbound">Outbound (7-10%)</option>
+                <option value="presold">Pre-Sold (5% flat)</option>
+                <option value="referral">Referral (4.5-7.5%)</option>
+                <option value="walk_in">Walk-In (4.5-7.5%)</option>
+              </select>
+            </div>
+            <div>
               <label style={fieldLabelStyle}>Created</label>
               <input
                 value={new Date(est.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -1062,6 +1104,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   }}
                   expandedSections={expandedSections[li.id] || {}}
                   onToggleSection={(section) => toggleSection(li.id, section)}
+                  leadType={leadType}
+                  team={team}
                 />
               ))}
             </div>
@@ -1345,11 +1389,12 @@ function CollapsibleHeader({
 
 function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
-  expandedSections, onToggleSection,
+  expandedSections, onToggleSection, leadType, team,
 }: {
   item: LineItem; index: number; canWrite: boolean
   onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void
   expandedSections: Record<string, boolean>; onToggleSection: (section: string) => void
+  leadType: string; team: Pick<Profile, 'id' | 'name' | 'role'>[]
 }) {
   const latestRef = useRef(item)
   latestRef.current = item
@@ -1390,7 +1435,7 @@ function LineItemCard({
   }
 
   const specs = item.specs as LineItemSpecs
-  const gpm = calcGPM(item)
+  const gpm = calcGPM(item, leadType)
   const badge = gpmBadge(gpm.gpm)
   const vehicleDesc = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel].filter(Boolean).join(' ')
 
@@ -1580,6 +1625,369 @@ function LineItemCard({
               <span>Sqft: <span style={{ ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, color: 'var(--text1)', fontWeight: 600 }}>{specs.vinylArea}</span></span>
             )}
           </div>
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/* PRODUCT-TYPE CALCULATORS (conditional on category)           */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+
+          {/* ── Box Truck Calculator ──────────────────────────────────── */}
+          {specs.vehicleType === 'box_truck' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Car size={12} style={{ color: 'var(--accent)' }} /> Box Truck Dimensions
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Length (ft)</label>
+                  <input type="number" value={(specs.boxLength as number) || ''} onChange={e => {
+                    const l = Number(e.target.value)
+                    const w = (specs.boxWidth as number) || 8
+                    const h = (specs.boxHeight as number) || 7
+                    const cab = (specs.cabWrap as boolean) ? 60 : 0
+                    const sides = 2 * l * h
+                    const back = w * h
+                    const sqft = sides + back + cab
+                    updateSpec('boxLength', l)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', Math.round(sqft))
+                      updateSpec('estimatedHours', Math.round(sqft / 30))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (ft)</label>
+                  <input type="number" value={(specs.boxWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value)
+                    const l = (specs.boxLength as number) || 0
+                    const h = (specs.boxHeight as number) || 7
+                    const cab = (specs.cabWrap as boolean) ? 60 : 0
+                    const sides = 2 * l * h
+                    const back = w * h
+                    const sqft = sides + back + cab
+                    updateSpec('boxWidth', w)
+                    setTimeout(() => { updateSpec('vinylArea', Math.round(sqft)) }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.boxHeight as number) || 7} onChange={e => {
+                    const h = Number(e.target.value)
+                    const l = (specs.boxLength as number) || 0
+                    const w = (specs.boxWidth as number) || 8
+                    const cab = (specs.cabWrap as boolean) ? 60 : 0
+                    const sides = 2 * l * h
+                    const back = w * h
+                    const sqft = sides + back + cab
+                    updateSpec('boxHeight', h)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', Math.round(sqft))
+                      updateSpec('estimatedHours', Math.round(sqft / 30))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Cab Wrap</label>
+                  <button
+                    onClick={() => {
+                      if (!canWrite) return
+                      const newCab = !(specs.cabWrap as boolean)
+                      const cab = newCab ? 60 : 0
+                      const l = (specs.boxLength as number) || 0
+                      const w = (specs.boxWidth as number) || 8
+                      const h = (specs.boxHeight as number) || 7
+                      const sqft = 2 * l * h + w * h + cab
+                      updateSpec('cabWrap', newCab)
+                      setTimeout(() => { updateSpec('vinylArea', Math.round(sqft)) }, 0)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.cabWrap as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.cabWrap as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.cabWrap as boolean) ? 'Yes (+60 sqft)' : 'No'}
+                  </button>
+                </div>
+              </div>
+              {(specs.boxLength as number) > 0 && (
+                <div style={{
+                  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+                  background: 'rgba(79,127,255,0.06)', borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text2)' }}>Sides: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.round(2 * ((specs.boxLength as number) || 0) * ((specs.boxHeight as number) || 7))} sqft</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Back: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.round(((specs.boxWidth as number) || 8) * ((specs.boxHeight as number) || 7))} sqft</span></span>
+                  {(specs.cabWrap as boolean) && <span style={{ color: 'var(--text2)' }}>Cab: <span style={{ fontFamily: monoFont, color: 'var(--green)', fontWeight: 700 }}>60 sqft</span></span>}
+                  <span style={{ color: 'var(--accent)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Trailer Calculator ────────────────────────────────────── */}
+          {specs.vehicleType === 'trailer' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Car size={12} style={{ color: 'var(--amber)' }} /> Trailer Dimensions
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Coverage</label>
+                  <select
+                    value={(specs.trailerCoverage as string) || 'full'}
+                    onChange={e => {
+                      const cov = e.target.value
+                      const mult = cov === 'full' ? 1 : cov === 'three_quarter' ? 0.75 : 0.5
+                      const l = (specs.trailerLength as number) || 0
+                      const h = (specs.trailerHeight as number) || 7.5
+                      const sqft = Math.round(l * h * 2 * mult)
+                      updateSpec('trailerCoverage', cov)
+                      setTimeout(() => {
+                        updateSpec('vinylArea', sqft)
+                        updateSpec('estimatedHours', Math.round(sqft / 25))
+                      }, 0)
+                    }}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="full">Full (100%)</option>
+                    <option value="three_quarter">3/4 (75%)</option>
+                    <option value="half">1/2 (50%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Length (ft)</label>
+                  <input type="number" value={(specs.trailerLength as number) || ''} onChange={e => {
+                    const l = Number(e.target.value)
+                    const h = (specs.trailerHeight as number) || 7.5
+                    const cov = (specs.trailerCoverage as string) || 'full'
+                    const mult = cov === 'full' ? 1 : cov === 'three_quarter' ? 0.75 : 0.5
+                    const sqft = Math.round(l * h * 2 * mult)
+                    updateSpec('trailerLength', l)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', sqft)
+                      updateSpec('estimatedHours', Math.round(sqft / 25))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.trailerHeight as number) || 7.5} onChange={e => {
+                    const h = Number(e.target.value)
+                    const l = (specs.trailerLength as number) || 0
+                    const cov = (specs.trailerCoverage as string) || 'full'
+                    const mult = cov === 'full' ? 1 : cov === 'three_quarter' ? 0.75 : 0.5
+                    const sqft = Math.round(l * h * 2 * mult)
+                    updateSpec('trailerHeight', h)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', sqft)
+                      updateSpec('estimatedHours', Math.round(sqft / 25))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose</label>
+                  <button
+                    onClick={() => { if (canWrite) updateSpec('vNose', !(specs.vNose as boolean)) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.vNose as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.vNose as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.vNose as boolean) ? 'Yes' : 'No'}
+                  </button>
+                </div>
+              </div>
+              {(specs.vNose as boolean) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 8 }}>
+                  <div>
+                    <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose Height (ft)</label>
+                    <input type="number" value={(specs.vNoseHeight as number) || ''} onChange={e => updateSpec('vNoseHeight', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                  </div>
+                  <div>
+                    <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose Length (ft)</label>
+                    <input type="number" value={(specs.vNoseLength as number) || ''} onChange={e => updateSpec('vNoseLength', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                  </div>
+                </div>
+              )}
+              {(specs.trailerLength as number) > 0 && (
+                <div style={{
+                  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+                  background: 'rgba(245,158,11,0.06)', borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text2)' }}>Per Side: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.round(((specs.trailerLength as number) || 0) * ((specs.trailerHeight as number) || 7.5))} sqft</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Coverage: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{((specs.trailerCoverage as string) || 'full').replace('_', ' ')}</span></span>
+                  <span style={{ color: 'var(--amber)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Marine/Decking Calculator ─────────────────────────────── */}
+          {specs.vehicleType === 'marine' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Layers size={12} style={{ color: 'var(--cyan)' }} /> Marine / Decking
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Section</label>
+                  <select
+                    value={(specs.marineSection as string) || 'main_deck'}
+                    onChange={e => updateSpec('marineSection', e.target.value)}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="main_deck">Main Deck</option>
+                    <option value="swim_platform">Swim Platform</option>
+                    <option value="helm_pad">Helm Pad</option>
+                    <option value="bow_pad">Bow Pad</option>
+                    <option value="gunnels">Gunnels</option>
+                    <option value="full_boat">Full Boat</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Linear Feet</label>
+                  <input type="number" value={(specs.linearFeet as number) || ''} onChange={e => {
+                    const lf = Number(e.target.value)
+                    const passes = (specs.marinePasses as number) || 1
+                    const width = (specs.marineWidth as number) || 54
+                    const sqft = Math.round(lf * (width / 12) * passes)
+                    updateSpec('linearFeet', lf)
+                    setTimeout(() => { updateSpec('vinylArea', sqft) }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Passes</label>
+                  <input type="number" value={(specs.marinePasses as number) || 1} onChange={e => {
+                    const passes = Number(e.target.value)
+                    const lf = (specs.linearFeet as number) || 0
+                    const width = (specs.marineWidth as number) || 54
+                    const sqft = Math.round(lf * (width / 12) * passes)
+                    updateSpec('marinePasses', passes)
+                    setTimeout(() => { updateSpec('vinylArea', sqft) }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={1} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 8 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material Width (in)</label>
+                  <input type="number" value={(specs.marineWidth as number) || 54} onChange={e => updateSpec('marineWidth', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Vertical Gunnels</label>
+                  <button
+                    onClick={() => { if (canWrite) updateSpec('verticalGunnels', !(specs.verticalGunnels as boolean)) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.verticalGunnels as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.verticalGunnels as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.verticalGunnels as boolean) ? 'Yes' : 'No'}
+                  </button>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Installer</label>
+                  <select
+                    value={(specs.marineInstaller as string) || ''}
+                    onChange={e => updateSpec('marineInstaller', e.target.value)}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="">Select Installer</option>
+                    {team.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {(specs.linearFeet as number) > 0 && (
+                <div style={{
+                  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+                  background: 'rgba(34,211,238,0.06)', borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text2)' }}>Linear Ft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.linearFeet}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Passes: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.marinePasses as number) || 1}</span></span>
+                  <span style={{ color: 'var(--cyan)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── PPF Calculator ────────────────────────────────────────── */}
+          {specs.vehicleType === 'ppf' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <CircleDot size={12} style={{ color: 'var(--cyan)' }} /> PPF Packages
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {([
+                  { key: 'standard_front', name: 'Standard Front', price: 1200, pay: 400, material: 250, hours: 4 },
+                  { key: 'full_front', name: 'Full Front', price: 2500, pay: 750, material: 500, hours: 6 },
+                  { key: 'track_pack', name: 'Track Pack', price: 4500, pay: 1200, material: 900, hours: 10 },
+                  { key: 'full_body', name: 'Full Body', price: 7000, pay: 2000, material: 1600, hours: 16 },
+                  { key: 'hood_only', name: 'Hood Only', price: 800, pay: 250, material: 150, hours: 2 },
+                  { key: 'rocker_panels', name: 'Rocker Panels', price: 600, pay: 200, material: 100, hours: 2 },
+                  { key: 'headlights', name: 'Headlights', price: 350, pay: 100, material: 50, hours: 1 },
+                  { key: 'door_cups', name: 'Door Cup Guards', price: 200, pay: 60, material: 30, hours: 0.5 },
+                ] as const).map(pkg => {
+                  const isSelected = (specs.ppfPackage as string) === pkg.key
+                  return (
+                    <button
+                      key={pkg.key}
+                      onClick={() => {
+                        if (!canWrite) return
+                        updateSpec('ppfPackage', pkg.key)
+                        const updated = {
+                          ...latestRef.current,
+                          name: item.name || pkg.name,
+                          unit_price: pkg.price,
+                          total_price: (latestRef.current.quantity * pkg.price) - latestRef.current.unit_discount,
+                          specs: {
+                            ...latestRef.current.specs,
+                            ppfPackage: pkg.key,
+                            materialCost: pkg.material,
+                            laborCost: pkg.pay,
+                            laborPrice: pkg.pay,
+                            estimatedHours: pkg.hours,
+                          },
+                        }
+                        onChange(updated)
+                      }}
+                      style={{
+                        padding: '10px 8px', borderRadius: 8, cursor: canWrite ? 'pointer' : 'default',
+                        border: isSelected ? '2px solid var(--cyan)' : '1px solid var(--border)',
+                        background: isSelected ? 'rgba(34,211,238,0.08)' : 'var(--surface)',
+                        textAlign: 'left' as const,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: isSelected ? 'var(--cyan)' : 'var(--text1)', marginBottom: 4 }}>
+                        {pkg.name}
+                      </div>
+                      <div style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: isSelected ? 'var(--cyan)' : 'var(--text1)' }}>
+                        {fmtCurrency(pkg.price)}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+                        {pkg.hours}h / ${pkg.pay} pay
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── Add Description Link ───────────────────────────────────── */}
           {!showDescription && (

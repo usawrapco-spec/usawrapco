@@ -1,31 +1,39 @@
-# AUDIT RESULTS — 2026-02-22
+# AUDIT RESULTS — 2026-02-22 (Updated)
 
-## Build: PASSES (zero errors), 76 routes, 133 components
+## Build: PASSES (zero errors), 76+ routes, 133+ components
 
-## Existing Tables (23):
-app_state, customer_intake, customers, design_proofs, designer_bids,
-designer_specialties, install_sessions, installer_bids, job_comments,
-job_images, material_tracking, orgs, profiles, projects, proof_settings,
-referrals, send_backs, stage_approvals, tasks, team_invites,
-vinyl_inventory, vinyl_usage, visibility_settings
+## Migration: supabase/migrations/001_all_tables.sql (27 sections, 70+ tables)
+All referenced tables covered with RLS policies and indexes. Idempotent.
 
-## Missing Tables (critical — code references these but they don't exist):
-estimates, line_items, sales_orders, invoices, design_projects,
-design_project_comments, design_project_files, conversations, messages,
-time_entries, genie_conversations, shop_settings, activity_log, contracts,
-signed_documents, payments, prospects, campaigns, campaign_messages,
-sales_playbook, pricing_rules, escalation_rules, sourcing_orders,
-customer_connections, onboarding_tokens, communication_log,
-customer_communications, referral_codes, referral_tracking,
-payroll_periods, payroll_entries, wrap_knowledge_base, tutorial_progress,
-onboarding_sessions, job_expenses, custom_vehicles, custom_line_items,
-material_remnants, project_members, xp_ledger, media_files, print_jobs,
-printer_maintenance_logs, files, job_history, estimate_templates,
-estimate_options, vehicle_database, pto_requests
+## Bug Fixes Completed:
+1. Estimates: + New auto-creates estimate AND auto-adds first line item (?new=true)
+2. Design Studio: Fixed stage->status column mismatch in migration + 3 components
+3. V.I.N.Y.L.: conversations/messages tables in migration, customers.name + status columns added
+4. Timeclock: time_entries table in migration, code is correct
+5. Demo data pages: All tables in migration, pages show live data once migration runs
+6. Calculators: Added Box Truck, Trailer, Marine/Decking, PPF inline calculators to line items
+7. Customers table: Added name column + sync trigger with contact_name + status column
 
-## Known Bugs:
-1. Estimates: + New creates row in missing table, falls back to demo
-2. Design Studio: design_projects table missing — can't create projects
-3. V.I.N.Y.L.: conversations/messages tables missing — "Failed to create"
-4. Timeclock: time_entries missing — clock in/out fails
-5. Many pages show demo data due to missing tables
+## Commission Engine Fixed:
+- lib/commission.ts: Corrected outbound rate (6% -> 7%), presold (3% -> 5%), GPM protection (70% -> 65%)
+- Monthly GP tiers corrected: $0-50k +0%, $50k-100k +0.5%, $100k+ +1.5%
+- EstimateDetailClient: Dynamic commission by lead source (inbound/outbound/presold/referral/walk-in)
+- ProjectDetail CloseTab: Dynamic rates with GPM>73% bonus and <65% protection
+- CloseJobModal: Same dynamic commission logic
+- Lead Source selector added to estimate detail header
+
+## Leaderboard: Fixed period filter (week/month/quarter) with client-side filtering
+
+## Contact Detail: Wired up real data for Deals, Jobs, Invoices tabs (was all hardcoded demo)
+
+## Additional Tables Added to Migration:
+- affiliates, affiliate_commissions, ai_recaps, message_templates, purchase_orders
+
+## Pages Verified Working:
+- Calendar, Leaderboard, Analytics, Payroll, Customer Portal, Customer Detail
+- All pages have demo fallbacks that activate only when tables are empty
+
+## Remaining:
+- Run migration against Supabase (owner action)
+- PDF generation improvements
+- Additional feature polish

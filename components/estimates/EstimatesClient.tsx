@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, Plus, FileText, Send, CheckCircle2, Clock, XCircle,
   DollarSign, TrendingUp, Filter, ChevronRight, AlertTriangle,
@@ -99,6 +99,7 @@ interface Props {
 
 export default function EstimatesClient({ profile, initialEstimates }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const usingDemo = initialEstimates.length === 0
   const allEstimates = usingDemo ? DEMO_ESTIMATES : initialEstimates
@@ -109,6 +110,16 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
   const [creating, setCreating] = useState(false)
 
   const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
+
+  // Auto-create when navigated with ?new=true
+  const didAutoCreate = useRef(false)
+  useEffect(() => {
+    if (searchParams.get('new') === 'true' && canWrite && !didAutoCreate.current) {
+      didAutoCreate.current = true
+      handleCreate()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Filter logic
   const filtered = useMemo(() => {
@@ -150,7 +161,7 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
       }).select().single()
 
       if (error) throw error
-      if (data) router.push(`/estimates/${data.id}`)
+      if (data) router.push(`/estimates/${data.id}?new=true`)
     } catch (err) {
       console.error('Create estimate error:', err)
       // If table doesn't exist, navigate to demo detail

@@ -1012,7 +1012,7 @@ function LinkedDesignPanel({ project }: { project: any }) {
       client_name: project.title || 'Job',
       design_type: 'Full Wrap',
       description: newTitle.trim(),
-      stage: 'brief',
+      status: 'brief',
     }).select().single()
     if (!error && data) {
       setDesignProjects(p => [...p, data])
@@ -1036,8 +1036,8 @@ function LinkedDesignPanel({ project }: { project: any }) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{dp.client_name} — {dp.design_type}</div>
                 {dp.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{dp.description}</div>}
               </div>
-              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${stageColors[dp.stage] || '#5a6080'}18`, color: stageColors[dp.stage] || '#5a6080' }}>
-                {dp.stage.replace('_', ' ')}
+              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${stageColors[dp.status] || '#5a6080'}18`, color: stageColors[dp.status] || '#5a6080' }}>
+                {dp.status.replace('_', ' ')}
               </span>
             </div>
           ))}
@@ -1459,8 +1459,17 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks, teammates }: any) {
   const reprintCost = v(f.reprintCost)
   const adjProfit = fin.profit - reprintCost - totalExpenses
   const adjGPM = fin.sale > 0 ? (adjProfit / fin.sale) * 100 : 0
-  const commRate = f.leadType === 'outbound' ? 0.10 : f.leadType === 'presold' ? 0.05 : 0.075
-  const adjComm = adjProfit * commRate
+  // Commission: base + high GPM bonus, capped per source, GPM <65% protection
+  const sourceRates: Record<string, { base: number; max: number }> = {
+    inbound: { base: 0.045, max: 0.075 }, outbound: { base: 0.07, max: 0.10 },
+    presold: { base: 0.05, max: 0.05 }, referral: { base: 0.045, max: 0.075 },
+  }
+  const sr = sourceRates[f.leadType] || sourceRates.inbound
+  const protected_ = adjGPM < 65
+  let commRate = sr.base
+  if (!protected_ && f.leadType !== 'presold' && adjGPM > 73) commRate += 0.02
+  commRate = Math.min(commRate, sr.max)
+  const adjComm = Math.max(0, adjProfit * commRate)
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>

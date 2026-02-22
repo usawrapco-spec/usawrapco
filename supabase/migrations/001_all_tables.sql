@@ -107,6 +107,7 @@ CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE USING (
 CREATE TABLE IF NOT EXISTS public.customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  name            TEXT NOT NULL DEFAULT '',
   contact_name    TEXT NOT NULL DEFAULT '',
   company_name    TEXT,
   company         TEXT,
@@ -115,6 +116,8 @@ CREATE TABLE IF NOT EXISTS public.customers (
   city            TEXT,
   state           TEXT,
   address         TEXT,
+  status          TEXT DEFAULT 'active'
+                  CHECK (status IN ('lead','active','inactive','vip')),
   source          TEXT DEFAULT 'inbound',
   notes           TEXT,
   referral_source TEXT,
@@ -126,8 +129,39 @@ CREATE TABLE IF NOT EXISTS public.customers (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Add name and status columns to existing customers table if missing
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'name') THEN
+    ALTER TABLE public.customers ADD COLUMN name TEXT NOT NULL DEFAULT '';
+    UPDATE public.customers SET name = contact_name WHERE name = '' AND contact_name != '';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'status') THEN
+    ALTER TABLE public.customers ADD COLUMN status TEXT DEFAULT 'active';
+  END IF;
+END $$;
+
+-- Keep name <-> contact_name in sync (code uses both)
+CREATE OR REPLACE FUNCTION public.sync_customer_name()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.name IS NULL OR NEW.name = '' THEN
+    NEW.name = COALESCE(NULLIF(NEW.contact_name, ''), '');
+  END IF;
+  IF NEW.contact_name IS NULL OR NEW.contact_name = '' THEN
+    NEW.contact_name = COALESCE(NULLIF(NEW.name, ''), '');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_customer_name ON public.customers;
+CREATE TRIGGER trg_sync_customer_name
+  BEFORE INSERT OR UPDATE ON public.customers
+  FOR EACH ROW EXECUTE FUNCTION public.sync_customer_name();
+
 CREATE INDEX IF NOT EXISTS idx_customers_org  ON public.customers(org_id);
-CREATE INDEX IF NOT EXISTS idx_customers_name ON public.customers(contact_name);
+CREATE INDEX IF NOT EXISTS idx_customers_name ON public.customers(name);
 
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
@@ -2281,6 +2315,573 @@ CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);
 CREATE TRIGGER set_prospects_updated_at
   BEFORE UPDATE ON prospects
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  18. v6.2 SCHEMA: Vehicle Database, Time Entries, PTO                   ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- ─── Vehicle Database ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.vehicle_database (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  year            TEXT NOT NULL,
+  make            TEXT NOT NULL,
+  model           TEXT NOT NULL,
+  trim            TEXT,
+  body_style      TEXT,
+  sqft_full       NUMERIC,
+  sqft_partial    NUMERIC,
+  sqft_hood       NUMERIC,
+  sqft_roof       NUMERIC,
+  sqft_sides      NUMERIC,
+  template_url    TEXT,
+  template_scale  TEXT DEFAULT '1:20',
+  metadata        JSONB DEFAULT '{}',
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (org_id, year, make, model)
+);
+
+ALTER TABLE public.vehicle_database ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "vehicle_database_all" ON public.vehicle_database;
+CREATE POLICY "vehicle_database_all" ON public.vehicle_database
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_vehicle_db_org    ON public.vehicle_database(org_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_db_search ON public.vehicle_database(org_id, year, make, model);
+
+-- ─── Time Entries (Employee Clock In/Out) ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.time_entries (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  employee_id     UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  clock_in        TIMESTAMPTZ NOT NULL,
+  clock_out       TIMESTAMPTZ,
+  break_minutes   INTEGER DEFAULT 0,
+  total_hours     NUMERIC,
+  regular_hours   NUMERIC,
+  overtime_hours  NUMERIC,
+  notes           TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.time_entries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "time_entries_select" ON public.time_entries;
+CREATE POLICY "time_entries_select" ON public.time_entries FOR SELECT
+  USING (
+    employee_id = auth.uid()
+    OR org_id IN (
+      SELECT org_id FROM public.profiles
+      WHERE id = auth.uid() AND role IN ('owner', 'admin')
+    )
+  );
+
+DROP POLICY IF EXISTS "time_entries_insert" ON public.time_entries;
+CREATE POLICY "time_entries_insert" ON public.time_entries FOR INSERT
+  WITH CHECK (employee_id = auth.uid());
+
+DROP POLICY IF EXISTS "time_entries_update" ON public.time_entries;
+CREATE POLICY "time_entries_update" ON public.time_entries FOR UPDATE
+  USING (
+    employee_id = auth.uid()
+    OR org_id IN (
+      SELECT org_id FROM public.profiles
+      WHERE id = auth.uid() AND role IN ('owner', 'admin')
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_time_entries_employee ON public.time_entries(employee_id, clock_in DESC);
+CREATE INDEX IF NOT EXISTS idx_time_entries_org      ON public.time_entries(org_id, clock_in DESC);
+
+-- ─── PTO Requests ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.pto_requests (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  employee_id     UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  start_date      DATE NOT NULL,
+  end_date        DATE NOT NULL,
+  hours           NUMERIC NOT NULL,
+  type            TEXT NOT NULL CHECK (type IN ('sick','vacation','personal')),
+  status          TEXT DEFAULT 'pending' CHECK (status IN ('pending','approved','denied')),
+  approved_by     UUID REFERENCES public.profiles(id),
+  notes           TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.pto_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "pto_requests_all" ON public.pto_requests;
+CREATE POLICY "pto_requests_all" ON public.pto_requests FOR ALL
+  USING (
+    employee_id = auth.uid()
+    OR org_id IN (
+      SELECT org_id FROM public.profiles
+      WHERE id = auth.uid() AND role IN ('owner', 'admin')
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_pto_employee ON public.pto_requests(employee_id);
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  19. AI BROKER: Conversations, Messages                                 ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- ─── Conversations (V.I.N.Y.L. AI Broker) ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.conversations (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id            UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  customer_id       UUID REFERENCES public.customers(id) ON DELETE SET NULL,
+  channel           TEXT NOT NULL CHECK (channel IN ('sms','email','web_chat')),
+  phone_number      TEXT,
+  email_address     TEXT,
+  status            TEXT DEFAULT 'active' CHECK (status IN ('active','escalated','closed','converted')),
+  escalation_reason TEXT,
+  escalated_to      UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  ai_enabled        BOOLEAN DEFAULT true,
+  lead_stage        TEXT DEFAULT 'new'
+                    CHECK (lead_stage IN ('new','qualifying','quoting','negotiating','deposit_sent','converted','lost')),
+  vehicle_info      JSONB DEFAULT '{}',
+  wrap_preferences  JSONB DEFAULT '{}',
+  quote_data        JSONB DEFAULT '{}',
+  created_at        TIMESTAMPTZ DEFAULT now(),
+  updated_at        TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_org      ON public.conversations(org_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_customer ON public.conversations(customer_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_status   ON public.conversations(status);
+
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "conversations_all" ON public.conversations;
+CREATE POLICY "conversations_all" ON public.conversations
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Messages (V.I.N.Y.L. AI Broker Messages) ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.messages (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  conversation_id  UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  role             TEXT NOT NULL CHECK (role IN ('customer','ai','human_agent')),
+  content          TEXT NOT NULL,
+  channel          TEXT CHECK (channel IN ('sms','email','web_chat')),
+  ai_reasoning     TEXT,
+  ai_confidence    NUMERIC(3,2),
+  tokens_used      INTEGER,
+  cost_cents       INTEGER,
+  external_id      TEXT,
+  created_at       TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON public.messages(conversation_id, created_at);
+
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "messages_all" ON public.messages;
+CREATE POLICY "messages_all" ON public.messages
+  FOR ALL USING (
+    conversation_id IN (
+      SELECT id FROM public.conversations
+      WHERE org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+    )
+  );
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  20. CAMPAIGNS & OUTREACH                                               ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- ─── Campaigns ──────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.campaigns (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id           UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  name             TEXT NOT NULL,
+  industry_target  TEXT,
+  status           TEXT DEFAULT 'draft' CHECK (status IN ('draft','active','paused','completed')),
+  email_sequence   JSONB DEFAULT '[]',
+  auto_reply       BOOLEAN DEFAULT false,
+  stats            JSONB DEFAULT '{"sent":0,"opened":0,"replied":0,"bounced":0,"conversions":0}',
+  created_by       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaigns_org    ON public.campaigns(org_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_status ON public.campaigns(status);
+
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "campaigns_all" ON public.campaigns;
+CREATE POLICY "campaigns_all" ON public.campaigns
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Campaign Messages ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.campaign_messages (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id           UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  campaign_id      UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
+  prospect_id      UUID REFERENCES public.prospects(id) ON DELETE SET NULL,
+  step_number      INTEGER DEFAULT 1,
+  subject          TEXT,
+  body             TEXT,
+  status           TEXT DEFAULT 'queued'
+                   CHECK (status IN ('queued','sent','opened','replied','bounced','failed')),
+  sent_at          TIMESTAMPTZ,
+  opened_at        TIMESTAMPTZ,
+  replied_at       TIMESTAMPTZ,
+  reply_text       TEXT,
+  ai_draft_reply   TEXT,
+  scheduled_for    TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_messages_campaign ON public.campaign_messages(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_messages_prospect ON public.campaign_messages(prospect_id);
+
+ALTER TABLE public.campaign_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "campaign_messages_all" ON public.campaign_messages;
+CREATE POLICY "campaign_messages_all" ON public.campaign_messages
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  21. AI SALES: Playbook, Pricing Rules, Escalation Rules                ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- ─── Sales Playbook ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.sales_playbook (
+  id                 UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id             UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  category           TEXT NOT NULL
+                     CHECK (category IN ('greeting','qualification','pricing','objection',
+                                         'upsell','closing','followup','faq','policy',
+                                         'competitor','brand_voice')),
+  trigger_phrase     TEXT,
+  response_guidance  TEXT NOT NULL,
+  is_active          BOOLEAN DEFAULT true,
+  priority           INTEGER DEFAULT 0,
+  created_at         TIMESTAMPTZ DEFAULT now(),
+  updated_at         TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_playbook_org      ON public.sales_playbook(org_id);
+CREATE INDEX IF NOT EXISTS idx_sales_playbook_category ON public.sales_playbook(org_id, category);
+
+ALTER TABLE public.sales_playbook ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "sales_playbook_all" ON public.sales_playbook;
+CREATE POLICY "sales_playbook_all" ON public.sales_playbook
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Pricing Rules ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.pricing_rules (
+  id                    UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id                UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  vehicle_category      TEXT NOT NULL,
+  wrap_type             TEXT NOT NULL,
+  base_price            NUMERIC(12,2) DEFAULT 0,
+  price_per_sqft        NUMERIC(8,2) DEFAULT 0,
+  max_discount_pct      NUMERIC(5,2) DEFAULT 10,
+  rush_multiplier       JSONB DEFAULT '{}',
+  complexity_multiplier JSONB DEFAULT '{}',
+  is_active             BOOLEAN DEFAULT true,
+  created_at            TIMESTAMPTZ DEFAULT now(),
+  updated_at            TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricing_rules_org ON public.pricing_rules(org_id);
+
+ALTER TABLE public.pricing_rules ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "pricing_rules_all" ON public.pricing_rules;
+CREATE POLICY "pricing_rules_all" ON public.pricing_rules
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Escalation Rules ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.escalation_rules (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  rule_type       TEXT NOT NULL
+                  CHECK (rule_type IN ('keyword','sentiment','dollar_threshold','explicit_request','confidence')),
+  rule_config     JSONB DEFAULT '{}',
+  notify_channel  TEXT CHECK (notify_channel IN ('slack','sms')),
+  notify_target   TEXT,
+  is_active       BOOLEAN DEFAULT true,
+  priority        INTEGER DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_escalation_rules_org ON public.escalation_rules(org_id);
+
+ALTER TABLE public.escalation_rules ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "escalation_rules_all" ON public.escalation_rules;
+CREATE POLICY "escalation_rules_all" ON public.escalation_rules
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  22. SOURCING, PAYMENTS, NOTIFICATIONS, INTEGRATIONS                    ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- ─── Sourcing Orders ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.sourcing_orders (
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id           UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  source_platform  TEXT,
+  rfq_title        TEXT NOT NULL,
+  description      TEXT,
+  quantity         TEXT,
+  specs            TEXT,
+  buyer_name       TEXT,
+  buyer_location   TEXT,
+  category         TEXT,
+  deadline         TIMESTAMPTZ,
+  estimated_value  NUMERIC(12,2) DEFAULT 0,
+  status           TEXT DEFAULT 'new'
+                   CHECK (status IN ('new','monitoring','matched','quoted','accepted',
+                                     'sourcing','manufacturing','shipped','customs',
+                                     'delivered','invoiced','paid')),
+  our_sell_price   NUMERIC(12,2),
+  our_landed_cost  NUMERIC(12,2),
+  created_at       TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sourcing_orders_org    ON public.sourcing_orders(org_id);
+CREATE INDEX IF NOT EXISTS idx_sourcing_orders_status ON public.sourcing_orders(status);
+
+ALTER TABLE public.sourcing_orders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "sourcing_orders_all" ON public.sourcing_orders;
+CREATE POLICY "sourcing_orders_all" ON public.sourcing_orders
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Payments ───────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.payments (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
+  amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+  type        TEXT DEFAULT 'deposit' CHECK (type IN ('deposit','progress','final','refund')),
+  status      TEXT DEFAULT 'pending' CHECK (status IN ('pending','completed','failed','refunded')),
+  method      TEXT,
+  reference   TEXT,
+  metadata    JSONB DEFAULT '{}',
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_org      ON public.payments(org_id);
+CREATE INDEX IF NOT EXISTS idx_payments_customer ON public.payments(customer_id);
+
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "payments_all" ON public.payments;
+CREATE POLICY "payments_all" ON public.payments
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Notifications ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id     UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  type       TEXT NOT NULL DEFAULT 'info',
+  title      TEXT NOT NULL,
+  message    TEXT,
+  read       BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user    ON public.notifications(user_id, read);
+CREATE INDEX IF NOT EXISTS idx_notifications_org     ON public.notifications(org_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON public.notifications(created_at DESC);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "notifications_select" ON public.notifications;
+CREATE POLICY "notifications_select" ON public.notifications FOR SELECT
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
+CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT
+  WITH CHECK (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "notifications_update" ON public.notifications;
+CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE
+  USING (user_id = auth.uid());
+
+-- ─── Integrations ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.integrations (
+  id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id         UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  integration_id TEXT NOT NULL,
+  config         JSONB DEFAULT '{}',
+  enabled        BOOLEAN DEFAULT false,
+  updated_at     TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(org_id, integration_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_integrations_org ON public.integrations(org_id);
+
+ALTER TABLE public.integrations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "integrations_all" ON public.integrations;
+CREATE POLICY "integrations_all" ON public.integrations
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ─── Sales Referrals (Cross-Department) ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.sales_referrals (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id            UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  referrer_id       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  referee_id        UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  project_id        UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  division_from     TEXT,
+  division_to       TEXT,
+  commission_rate   NUMERIC(5,4) DEFAULT 0.025,
+  commission_amount NUMERIC(12,2) DEFAULT 0,
+  status            TEXT DEFAULT 'pending'
+                    CHECK (status IN ('pending','approved','paid','denied')),
+  notes             TEXT,
+  created_at        TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_referrals_org      ON public.sales_referrals(org_id);
+CREATE INDEX IF NOT EXISTS idx_sales_referrals_referrer ON public.sales_referrals(referrer_id);
+
+ALTER TABLE public.sales_referrals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "sales_referrals_all" ON public.sales_referrals;
+CREATE POLICY "sales_referrals_all" ON public.sales_referrals
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  23. REALTIME: Add new tables to publication                            ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+DO $$
+BEGIN
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.messages; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.time_entries; EXCEPTION WHEN OTHERS THEN NULL; END;
+END $$;
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  24. AFFILIATES + COMMISSIONS                                           ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+CREATE TABLE IF NOT EXISTS public.affiliates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  company TEXT,
+  email TEXT,
+  phone TEXT,
+  type TEXT NOT NULL DEFAULT 'dealer' CHECK (type IN ('dealer','manufacturer','reseller','individual')),
+  commission_structure JSONB DEFAULT '{"type":"percent_gp","rate":10}',
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending','active','inactive')),
+  onboarding_completed BOOLEAN DEFAULT false,
+  onboarding_step INTEGER DEFAULT 0,
+  direct_deposit_info JSONB DEFAULT '{}',
+  unique_code TEXT UNIQUE,
+  unique_link TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_affiliates_org ON public.affiliates(org_id);
+CREATE INDEX IF NOT EXISTS idx_affiliates_status ON public.affiliates(org_id, status);
+CREATE INDEX IF NOT EXISTS idx_affiliates_code ON public.affiliates(unique_code);
+
+ALTER TABLE public.affiliates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "affiliates_all" ON public.affiliates;
+CREATE POLICY "affiliates_all" ON public.affiliates
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+CREATE TABLE IF NOT EXISTS public.affiliate_commissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  affiliate_id UUID NOT NULL REFERENCES public.affiliates(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid')),
+  paid_at TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_aff_comm_affiliate ON public.affiliate_commissions(affiliate_id);
+
+ALTER TABLE public.affiliate_commissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "aff_comm_all" ON public.affiliate_commissions;
+CREATE POLICY "aff_comm_all" ON public.affiliate_commissions
+  FOR ALL USING (affiliate_id IN (
+    SELECT id FROM public.affiliates WHERE org_id IN (
+      SELECT org_id FROM public.profiles WHERE id = auth.uid()
+    )
+  ));
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  25. AI RECAPS                                                          ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+CREATE TABLE IF NOT EXISTS public.ai_recaps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE UNIQUE,
+  recap_data JSONB DEFAULT '{}',
+  generated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_recaps_project ON public.ai_recaps(project_id);
+
+ALTER TABLE public.ai_recaps ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ai_recaps_all" ON public.ai_recaps;
+CREATE POLICY "ai_recaps_all" ON public.ai_recaps
+  FOR ALL USING (project_id IN (
+    SELECT id FROM public.projects WHERE org_id IN (
+      SELECT org_id FROM public.profiles WHERE id = auth.uid()
+    )
+  ));
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  26. MESSAGE TEMPLATES                                                  ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+CREATE TABLE IF NOT EXISTS public.message_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'custom' CHECK (category IN ('onboarding','follow_up','status_update','custom')),
+  content TEXT NOT NULL,
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_templates_org ON public.message_templates(org_id);
+
+ALTER TABLE public.message_templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "message_templates_all" ON public.message_templates;
+CREATE POLICY "message_templates_all" ON public.message_templates
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  27. PURCHASE ORDERS                                                    ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+CREATE TABLE IF NOT EXISTS public.purchase_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  vendor TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','ordered','received','cancelled')),
+  line_items JSONB DEFAULT '[]',
+  total NUMERIC DEFAULT 0,
+  notes TEXT,
+  ordered_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_po_org ON public.purchase_orders(org_id);
+CREATE INDEX IF NOT EXISTS idx_po_project ON public.purchase_orders(project_id);
+
+ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "purchase_orders_all" ON public.purchase_orders;
+CREATE POLICY "purchase_orders_all" ON public.purchase_orders
+  FOR ALL USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║  DONE. All tables created. Migration is idempotent.                     ║

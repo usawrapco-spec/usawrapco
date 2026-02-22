@@ -25,7 +25,7 @@ interface DesignStudioPageProps {
   profile: any
 }
 
-type DesignStage = 'brief' | 'in_progress' | 'proof_sent' | 'approved'
+type DesignStatus = 'brief' | 'in_progress' | 'proof_sent' | 'approved'
 
 interface DesignProject {
   id: string
@@ -33,7 +33,7 @@ interface DesignProject {
   client_name: string
   design_type: string
   description: string | null
-  stage: DesignStage
+  status: DesignStatus
   deadline: string | null
   designer_id: string | null
   project_id: string | null
@@ -62,7 +62,7 @@ interface ChatMessage {
   sender_name?: string
 }
 
-const STAGES: { key: DesignStage; label: string; color: string }[] = [
+const STAGES: { key: DesignStatus; label: string; color: string }[] = [
   { key: 'brief',       label: 'Brief',       color: '#f59e0b' },
   { key: 'in_progress', label: 'In Progress', color: '#4f7fff' },
   { key: 'proof_sent',  label: 'Proof Sent',  color: '#22d3ee' },
@@ -75,7 +75,7 @@ const DESIGN_TYPES = [
   'Fleet Design', 'Other',
 ]
 
-function getStageIcon(stage: DesignStage, size = 14) {
+function getStageIcon(stage: DesignStatus, size = 14) {
   switch (stage) {
     case 'brief': return <FileText size={size} />
     case 'in_progress': return <Clock size={size} />
@@ -84,7 +84,7 @@ function getStageIcon(stage: DesignStage, size = 14) {
   }
 }
 
-function getStageColor(stage: DesignStage): string {
+function getStageColor(stage: DesignStatus): string {
   return STAGES.find(s => s.key === stage)?.color || '#5a6080'
 }
 
@@ -108,7 +108,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
   // Drawer state
   const [selectedProject, setSelectedProject] = useState<DesignProject | null>(null)
-  const [drawerStage, setDrawerStage] = useState<DesignStage>('brief')
+  const [drawerStatus, setDrawerStatus] = useState<DesignStatus>('brief')
   const [drawerDesignerId, setDrawerDesignerId] = useState('')
   const [drawerClientName, setDrawerClientName] = useState('')
   const [drawerDesignType, setDrawerDesignType] = useState('')
@@ -158,11 +158,11 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
   // Group by stage
   const columnData = useMemo(() => {
-    const result: Record<DesignStage, DesignProject[]> = {
+    const result: Record<DesignStatus, DesignProject[]> = {
       brief: [], in_progress: [], proof_sent: [], approved: [],
     }
     projects.forEach(dp => {
-      if (result[dp.stage]) result[dp.stage].push(dp)
+      if (result[dp.status]) result[dp.status].push(dp)
     })
     return result
   }, [projects])
@@ -210,7 +210,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
         deadline: formDeadline || null,
         designer_id: formDesignerId || null,
         project_id: formProjectId || null,
-        stage: 'brief',
+        status: 'brief',
       })
       .select('*, designer:designer_id(id, name), project:project_id(id, title)')
       .single()
@@ -238,7 +238,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   // Open drawer
   function openDrawer(dp: DesignProject) {
     setSelectedProject(dp)
-    setDrawerStage(dp.stage)
+    setDrawerStatus(dp.status)
     setDrawerDesignerId(dp.designer_id || '')
     setDrawerClientName(dp.client_name)
     setDrawerDesignType(dp.design_type)
@@ -311,7 +311,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     const { error } = await supabase
       .from('design_projects')
       .update({
-        stage: drawerStage,
+        status: drawerStatus,
         designer_id: drawerDesignerId || null,
         client_name: drawerClientName.trim(),
         design_type: drawerDesignType,
@@ -327,7 +327,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
         p.id === selectedProject.id
           ? {
               ...p,
-              stage: drawerStage,
+              status: drawerStatus,
               designer_id: drawerDesignerId || null,
               client_name: drawerClientName.trim(),
               design_type: drawerDesignType,
@@ -344,7 +344,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   }
 
   const isOverdue = (dp: DesignProject) =>
-    dp.deadline && new Date(dp.deadline) < new Date() && dp.stage !== 'approved'
+    dp.deadline && new Date(dp.deadline) < new Date() && dp.status !== 'approved'
 
   return (
     <div style={{ maxWidth: 1400 }}>
@@ -677,7 +677,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: getStageColor(drawerStage),
+                  background: getStageColor(drawerStatus),
                   flexShrink: 0,
                 }} />
                 <h2 style={{ fontSize: 18, fontWeight: 800, color: '#e8eaed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Barlow Condensed, sans-serif' }}>
@@ -693,7 +693,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
             <div style={{ padding: '12px 20px', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: 6 }}>
                 {STAGES.map(s => {
-                  const isActive = drawerStage === s.key
+                  const isActive = drawerStatus === s.key
                   return (
                     <button
                       key={s.key}

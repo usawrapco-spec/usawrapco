@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, Briefcase, Factory, Hammer, CheckCircle2, DollarSign,
   AlertTriangle, ArrowUpDown, Filter, ChevronRight, Truck,
@@ -290,9 +290,10 @@ function KanbanBoard({ jobs, onJobClick }: { jobs: Project[]; onJobClick: (id: s
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function JobsClient({ profile, initialJobs }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const usingDemo = initialJobs.length === 0
   const allJobs = usingDemo ? DEMO_JOBS : initialJobs
-  const [showNewJob, setShowNewJob] = useState(false)
+  const [showNewJob, setShowNewJob] = useState(searchParams.get('new') === 'true')
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [search, setSearch]     = useState('')

@@ -25,11 +25,11 @@ interface DropdownItem {
 
 // ─── Nav definitions ──────────────────────────────────────────────────────────
 const QUICK_CREATE: DropdownItem[] = [
-  { href: '/estimates?new=1',   label: 'New Estimate',  icon: FileText },
-  { href: '/jobs?new=1',        label: 'New Job',       icon: Briefcase },
-  { href: '/customers?new=1',   label: 'New Customer',  icon: Users },
-  { href: '/tasks?new=1',       label: 'New Task',      icon: CheckSquare },
-  { href: '/prospects?new=1',   label: 'New Prospect',  icon: UserPlus },
+  { href: '/estimates?new=true', label: 'New Estimate',  icon: FileText },
+  { href: '/jobs?new=true',     label: 'New Job',       icon: Briefcase },
+  { href: '/customers?new=true',label: 'New Customer',  icon: Users },
+  { href: '/tasks?new=true',    label: 'New Task',      icon: CheckSquare },
+  { href: '/prospects?new=true',label: 'New Prospect',  icon: UserPlus },
 ]
 
 const TRANSACTIONS: DropdownItem[] = [

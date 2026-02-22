@@ -84,25 +84,39 @@ function BadgeIcon({ badge }: { badge: string }) {
 
 const fM = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
 
+type Period = 'week' | 'month' | 'quarter'
+
+function getPeriodCutoff(period: Period): Date {
+  const now = new Date()
+  if (period === 'week') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  if (period === 'month') return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+}
+
 export default function LeaderboardClient({ currentProfile, members, projects }: Props) {
   const [board, setBoard] = useState<Board>('xp')
+  const [period, setPeriod] = useState<Period>('month')
 
-  // Build revenue board from projects
+  // Filter projects by selected period
+  const cutoff = getPeriodCutoff(period)
+  const filteredProjects = projects.filter(p => new Date(p.updated_at) >= cutoff)
+
+  // Build revenue board from filtered projects
   const revenueByAgent: Record<string, number> = {}
-  projects.forEach(p => {
+  filteredProjects.forEach(p => {
     if (p.agent_id && (p.pipe_stage === 'done' || p.pipe_stage === 'sales_close')) {
       revenueByAgent[p.agent_id] = (revenueByAgent[p.agent_id] || 0) + (p.revenue || 0)
     }
   })
 
-  const xpBoard      = [...members].sort((a, b) => (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0))
+  const xpBoard      = [...members].sort((a, b) => (period === 'week' ? (b.weekly_xp || 0) - (a.weekly_xp || 0) : period === 'month' ? (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0) : (b.xp || 0) - (a.xp || 0)))
   const revenueBoard = [...members].sort((a, b) => (revenueByAgent[b.id] || 0) - (revenueByAgent[a.id] || 0))
   const streakBoard  = [...members].sort((a, b) => (b.current_streak || 0) - (a.current_streak || 0))
 
   const boardData = board === 'xp' ? xpBoard : board === 'revenue' ? revenueBoard : streakBoard
 
   const getValue = (m: Member) => {
-    if (board === 'xp') return `${(m.monthly_xp || m.xp || 0).toLocaleString()} XP`
+    if (board === 'xp') return `${(period === 'week' ? m.weekly_xp || 0 : period === 'month' ? m.monthly_xp || m.xp || 0 : m.xp || 0).toLocaleString()} XP`
     if (board === 'revenue') return fM(revenueByAgent[m.id] || 0)
     return `${m.current_streak || 0} days`
   }
@@ -128,7 +142,29 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
         <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text1)', marginBottom: 4 }}>
           Leaderboard
         </h1>
-        <p style={{ fontSize: 13, color: 'var(--text3)' }}>Monthly competition · {members.length} team members</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>{members.length} team members</span>
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+            {(['week', 'month', 'quarter'] as Period[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+                  border: period === p ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  background: period === p ? 'rgba(79,127,255,0.12)' : 'transparent',
+                  color: period === p ? 'var(--accent)' : 'var(--text3)',
+                  cursor: 'pointer',
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {p === 'week' ? 'Week' : p === 'month' ? 'Month' : 'Quarter'}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* My stats */}
