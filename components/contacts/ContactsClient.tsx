@@ -208,22 +208,23 @@ const DEMO_CONTACTS: Contact[] = [
 
 // ── Map DB customers to Contact shape ────────────────────────────
 function mapDbToContact(c: any): Contact {
+  const meta = c.metadata || {}
   return {
     id: c.id,
-    name: c.name || 'Unknown',
+    name: c.contact_name || c.name || c.company_name || 'Unknown',
     email: c.email || '',
     phone: c.phone || '',
-    company: c.company || '',
-    tags: Array.isArray(c.tags) ? c.tags : (c.tags ? Object.keys(c.tags) : []),
+    company: c.company_name || c.company || '',
+    tags: Array.isArray(meta.tags) ? meta.tags : (Array.isArray(c.tags) ? c.tags : []),
     source: c.referral_source || c.source || 'Other',
-    status: c.status === 'inactive' ? 'inactive' : 'active',
-    lastContact: c.last_activity_date ? new Date(c.last_activity_date) : (c.updated_at ? new Date(c.updated_at) : new Date(c.created_at || Date.now())),
-    lifetimeSpend: parseFloat(c.lifetime_value) || 0,
-    jobCount: parseInt(c.total_jobs) || 0,
-    fleetSize: parseInt(c.fleet_size) || 0,
-    hasEstimate: false,
-    estimateAccepted: false,
-    flaggedForFollowUp: c.flagged_for_follow_up || false,
+    status: meta.status === 'inactive' ? 'inactive' : 'active',
+    lastContact: c.updated_at ? new Date(c.updated_at) : new Date(c.created_at || Date.now()),
+    lifetimeSpend: Number(c.lifetime_spend) || 0,
+    jobCount: Number(meta.total_jobs) || 0,
+    fleetSize: Number(c.fleet_size) || 0,
+    hasEstimate: !!meta.has_estimate,
+    estimateAccepted: !!meta.estimate_accepted,
+    flaggedForFollowUp: !!meta.flagged_for_follow_up,
   }
 }
 

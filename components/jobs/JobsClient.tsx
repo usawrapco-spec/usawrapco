@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { Profile, Project, PipeStage, ProjectType } from '@/types'
 import { isAdminRole } from '@/types'
+import NewJobModal from '@/components/modals/NewJobModal'
 
 // ─── Demo data ────────────────────────────────────────────────────────────────
 const DEMO_JOBS: Project[] = [
@@ -291,6 +292,7 @@ export default function JobsClient({ profile, initialJobs }: Props) {
   const router = useRouter()
   const usingDemo = initialJobs.length === 0
   const allJobs = usingDemo ? DEMO_JOBS : initialJobs
+  const [showNewJob, setShowNewJob] = useState(false)
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [search, setSearch]     = useState('')
@@ -376,7 +378,7 @@ export default function JobsClient({ profile, initialJobs }: Props) {
           </p>
         </div>
         <button
-          onClick={() => router.push('/estimates?new=1')}
+          onClick={() => setShowNewJob(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 16px', borderRadius: 8,
@@ -593,6 +595,16 @@ export default function JobsClient({ profile, initialJobs }: Props) {
             Showing {filtered.length} of {allJobs.length} jobs
           </div>
         </>
+      )}
+
+      {showNewJob && (
+        <NewJobModal
+          isOpen={showNewJob}
+          onClose={() => setShowNewJob(false)}
+          orgId={profile.org_id}
+          currentUserId={profile.id}
+          onJobCreated={() => { setShowNewJob(false); router.refresh() }}
+        />
       )}
     </div>
   )
