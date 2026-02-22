@@ -20,6 +20,7 @@ import { useToast } from '@/components/shared/Toast'
 import { ActionMenu, type ActionItem } from '@/components/shared/ActionMenu'
 import VelocityGauge from '@/components/dashboard/VelocityGauge'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
+import GenieInlineSuggestion from '@/components/genie/GenieInlineSuggestion'
 
 interface DashboardClientProps {
   profile: Profile
@@ -550,6 +551,19 @@ export function DashboardClient({
           </div>
         )
       })()}
+
+      {/* ====== Genie Inline Suggestions ====== */}
+      <GenieInlineSuggestion
+        context={{
+          userName: profile.name,
+          userRole: profile.role,
+          currentPage: '/dashboard',
+          jobCount: projects.length,
+          openJobCount: projects.filter(p => p.status !== 'closed' && p.status !== 'cancelled').length,
+        }}
+        maxSuggestions={2}
+        compact
+      />
 
       {/* ====== Period Selector ====== */}
       {canSeeFinancials && (
