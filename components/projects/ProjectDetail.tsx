@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -77,7 +77,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'>('chat')
+  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'>('chat')
   const [aiRecap, setAiRecap] = useState<any>(null)
   const [aiRecapLoading, setAiRecapLoading] = useState(false)
   const [showAiRecap, setShowAiRecap] = useState(false)
@@ -261,6 +261,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       notes: `Advanced to ${next}`, checklist: f,
     })
 
+    // Log to activity log
+    fetch('/api/activity-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, action: 'stage_advanced', details: { from_stage: curStageKey, to_stage: next } }),
+    }).catch(() => {})
+
     // Award XP for key milestones
     const xpAction = curStageKey === 'install'      ? 'install_completed'
                    : curStageKey === 'production'   ? 'print_job_completed'
@@ -323,6 +330,12 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     })
     await save({ pipe_stage: prevStage })
     setSendBacks(prev => [{ from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason, notes: sendBackNotes, created_at: new Date().toISOString() }, ...prev])
+    // Log to activity log
+    fetch('/api/activity-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, action: 'stage_sent_back', details: { from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason } }),
+    }).catch(() => {})
     setSendBackOpen(null); setSendBackReason(''); setSendBackNotes('')
     showToast(`Sent back to ${PIPE_STAGES.find(s=>s.key===prevStage)?.label}`)
   }
@@ -366,6 +379,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     { key: 'close',      label: 'Close',      Icon: DollarSign, stageKey: 'sales_close' },
     { key: 'expenses',   label: 'Expenses',   Icon: Receipt },
     { key: 'purchasing', label: 'Purchasing', Icon: ShoppingCart },
+    { key: 'activity',   label: 'Activity',   Icon: Activity },
   ]
 
   const stageOrder = ['sales_in','production','install','prod_review','sales_close']
@@ -594,8 +608,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             <PurchasingTab projectId={project.id} orgId={project.org_id} project={project} />
           )}
 
+          {/* ═══ ACTIVITY TAB ═══ */}
+          {tab === 'activity' && (
+            <ActivityLogTab projectId={project.id} />
+          )}
+
           {/* ── Stage Action Bar ──────────────────────────── */}
-          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && (
+          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && (
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (
@@ -1609,6 +1628,84 @@ function PurchasingTab({ projectId, orgId, project }: { projectId: string; orgId
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Activity Log Tab ─────────────────────────────────────────────
+function ActivityLogTab({ projectId }: { projectId: string }) {
+  const [logs, setLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/activity-log?project_id=${projectId}`)
+      .then(r => r.json())
+      .then(d => { setLogs(d.logs || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [projectId])
+
+  function relTime(ts: string) {
+    const diff = Date.now() - new Date(ts).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    const d = Math.floor(h / 24)
+    return `${d}d ago`
+  }
+
+  const ACTION_ICONS: Record<string, string> = {
+    stage_advanced: '→',
+    stage_sent_back: '←',
+    job_created: '+',
+    job_closed: '✓',
+    note_added: '✎',
+    file_uploaded: '↑',
+    expense_added: '$',
+    po_created: '📦',
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>Loading activity...</div>
+
+  if (logs.length === 0) return (
+    <div style={{ textAlign: 'center', padding: 40 }}>
+      <Activity size={32} style={{ color: 'var(--text3)', marginBottom: 12 }} />
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)' }}>No activity recorded yet</div>
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Actions taken on this job will appear here</div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {logs.map((log, i) => (
+        <div key={log.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < logs.length - 1 ? '1px solid var(--border)' : 'none' }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+            background: log.action === 'stage_advanced' ? 'rgba(34,192,122,0.15)' : log.action === 'stage_sent_back' ? 'rgba(242,90,90,0.15)' : 'rgba(79,127,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, color: log.action === 'stage_advanced' ? 'var(--green)' : log.action === 'stage_sent_back' ? 'var(--red)' : 'var(--accent)',
+          }}>
+            {ACTION_ICONS[log.action] || '·'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 500 }}>
+              <span style={{ fontWeight: 700, color: 'var(--text1)' }}>{log.actor?.name || 'System'}</span>
+              {' '}{log.action?.replace(/_/g, ' ')}
+              {log.details?.from_stage && log.details?.to_stage && (
+                <span style={{ color: 'var(--text3)', fontSize: 12 }}> · {log.details.from_stage} → {log.details.to_stage}</span>
+              )}
+            </div>
+            {log.details?.reason && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 2 }}>Reason: {log.details.reason}</div>
+            )}
+            {log.details?.note && (
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{log.details.note}</div>
+            )}
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{relTime(log.created_at)}</div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
