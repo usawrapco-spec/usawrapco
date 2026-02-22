@@ -6,6 +6,7 @@ import type { Profile, Project, PipeStage } from '@/types'
 import { clsx } from 'clsx'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Printer, Wrench, Search, CheckCircle, type LucideIcon } from 'lucide-react'
+import OnboardingLinkPanel from './OnboardingLinkPanel'
 
 interface PipelineBoardProps {
   profile: Profile
@@ -72,6 +73,9 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
 
   return (
     <div>
+      {/* Onboarding Link Generator — TOP of pipeline per spec */}
+      <OnboardingLinkPanel profile={profile} projects={projects} />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
