@@ -268,6 +268,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       body: JSON.stringify({ project_id: project.id, action: 'stage_advanced', details: { from_stage: curStageKey, to_stage: next } }),
     }).catch(() => {})
 
+    // Fire integrations webhook (GHL, Slack)
+    fetch('/api/webhooks/stage-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, event: 'stage_advanced', from_stage: curStageKey, to_stage: next }),
+    }).catch(() => {})
+
     // Award XP for key milestones
     const xpAction = curStageKey === 'install'      ? 'install_completed'
                    : curStageKey === 'production'   ? 'print_job_completed'
@@ -313,6 +320,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
         if (res?.amount) xpToast(res.amount, 'Deal closed!', res.leveledUp, res.newLevel)
       })
       .catch(() => {})
+    // Fire integrations webhook
+    fetch('/api/webhooks/stage-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, event: 'job_closed' }),
+    }).catch(() => {})
+    // Log activity
+    fetch('/api/activity-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, action: 'job_closed', details: { notes: f.closeNotes } }),
+    }).catch(() => {})
     showToast('Job Closed & Approved!')
   }
 
@@ -335,6 +354,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, action: 'stage_sent_back', details: { from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason } }),
+    }).catch(() => {})
+
+    // Fire integrations webhook (Slack)
+    fetch('/api/webhooks/stage-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, event: 'send_back', from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason }),
     }).catch(() => {})
     setSendBackOpen(null); setSendBackReason(''); setSendBackNotes('')
     showToast(`Sent back to ${PIPE_STAGES.find(s=>s.key===prevStage)?.label}`)
