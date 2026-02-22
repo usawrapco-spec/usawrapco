@@ -45,15 +45,17 @@ const REPORTS_ITEMS: DropdownItem[] = [
 ]
 
 const SETTINGS_ITEMS: DropdownItem[] = [
-  { href: '/settings',          label: 'General',          icon: Settings },
-  { href: '/employees',         label: 'Team & Roles',     icon: Users },
-  { href: '/settings/vehicles', label: 'Vehicle Database', icon: Truck },
-  { href: '/overhead',          label: 'Shop Expenses',    icon: DollarSign },
-  { href: '/1099',              label: 'Commissions',      icon: Receipt },
-  { href: '/affiliate',         label: 'Affiliate Program', icon: Users },
-  { href: '/timeclock',         label: 'Time Clock',       icon: Clock },
-  { href: '/integrations',      label: 'Integrations',     icon: Zap },
-  { href: '/shop',              label: 'Online Shop',      icon: ShoppingCart },
+  { href: '/settings',              label: 'General',          icon: Settings },
+  { href: '/settings/defaults',     label: 'Defaults & Pricing', icon: Settings },
+  { href: '/settings/commissions',  label: 'Commission Rates',  icon: Receipt },
+  { href: '/employees',             label: 'Team & Roles',     icon: Users },
+  { href: '/settings/vehicles',     label: 'Vehicle Database', icon: Truck },
+  { href: '/overhead',              label: 'Shop Expenses',    icon: DollarSign },
+  { href: '/1099',                  label: '1099 / Payroll',   icon: Receipt },
+  { href: '/affiliate',             label: 'Affiliate Program', icon: Users },
+  { href: '/timeclock',             label: 'Time Clock',       icon: Clock },
+  { href: '/integrations',          label: 'Integrations',     icon: Zap },
+  { href: '/shop',                  label: 'Online Shop',      icon: ShoppingCart },
 ]
 
 // ─── Nav links (center) ───────────────────────────────────────────────────────
