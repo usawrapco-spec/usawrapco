@@ -41,6 +41,12 @@ export const BADGE_LABELS: Record<string, string> = {
   perfect_brief:   'Perfect Brief',
 }
 
+interface LevelUpItem {
+  id: number
+  newLevel: number
+  amount: number
+}
+
 interface ToastContextValue {
   toast: (message: string, type?: ToastItem['type'], action?: ToastItem['action']) => void
   xpToast: (amount: number, label?: string, leveledUp?: boolean, newLevel?: number) => void
@@ -56,6 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const [xpToasts, setXPToasts] = useState<XPToastItem[]>([])
   const [badgeToasts, setBadgeToasts] = useState<BadgeToastItem[]>([])
+  const [levelUp, setLevelUp] = useState<LevelUpItem | null>(null)
 
   const toast = useCallback((
     message: string,
@@ -76,6 +83,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = ++toastId
     setXPToasts(prev => [...prev, { id, amount, label, leveledUp, newLevel }])
     setTimeout(() => setXPToasts(prev => prev.filter(t => t.id !== id)), 3000)
+
+    // Show full-screen level-up modal
+    if (leveledUp && newLevel) {
+      const luId = ++toastId
+      setLevelUp({ id: luId, newLevel, amount })
+      setTimeout(() => setLevelUp(prev => prev?.id === luId ? null : prev), 5000)
+    }
   }, [])
 
   const badgeToast = useCallback((badges: string[]) => {
@@ -199,6 +213,92 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
+
+      {/* Level-Up Celebration Modal */}
+      {levelUp && (
+        <div
+          onClick={() => setLevelUp(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 99999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
+            animation: 'fadeIn 0.3s ease',
+            cursor: 'pointer',
+          }}
+        >
+          {/* Confetti particles */}
+          {Array.from({ length: 40 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                left: `${Math.random() * 100}%`,
+                top: '-10px',
+                width: `${6 + Math.random() * 8}px`,
+                height: `${6 + Math.random() * 8}px`,
+                borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                background: ['#4f7fff', '#22c07a', '#f59e0b', '#8b5cf6', '#22d3ee', '#f25a5a', '#ff6b6b', '#fbbf24'][i % 8],
+                animation: `confettiFall ${2 + Math.random() * 2}s ease-in forwards`,
+                animationDelay: `${Math.random() * 0.5}s`,
+                opacity: 0.9,
+              }}
+            />
+          ))}
+
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(145deg, #1a1040 0%, #0d0f14 50%, #0a1628 100%)',
+              border: '2px solid rgba(139,92,246,0.5)',
+              borderRadius: 24, padding: '48px 40px', textAlign: 'center',
+              maxWidth: 400, width: '90%',
+              boxShadow: '0 0 80px rgba(139,92,246,0.3), 0 0 200px rgba(79,127,255,0.15)',
+              animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          >
+            {/* Level badge */}
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%', margin: '0 auto 20px',
+              background: 'linear-gradient(135deg, #8b5cf6, #4f7fff)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 40px rgba(139,92,246,0.5)',
+              animation: 'pulse 1.5s infinite',
+            }}>
+              <span style={{
+                fontSize: 32, fontWeight: 900, color: '#fff',
+                fontFamily: 'JetBrains Mono, monospace',
+              }}>
+                {levelUp.newLevel}
+              </span>
+            </div>
+
+            <div style={{
+              fontSize: 14, fontWeight: 800, color: '#8b5cf6',
+              textTransform: 'uppercase', letterSpacing: 4, marginBottom: 8,
+            }}>
+              Level Up
+            </div>
+
+            <div style={{
+              fontSize: 28, fontWeight: 900, color: '#fff',
+              fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 8,
+            }}>
+              You reached Level {levelUp.newLevel}!
+            </div>
+
+            <div style={{
+              fontSize: 16, fontWeight: 700, color: 'rgba(245,158,11,0.9)',
+              fontFamily: 'JetBrains Mono, monospace', marginBottom: 20,
+            }}>
+              +{levelUp.amount} XP
+            </div>
+
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
+              Click anywhere to dismiss
+            </div>
+          </div>
+        </div>
+      )}
     </ToastContext.Provider>
   )
 }

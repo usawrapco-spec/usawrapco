@@ -120,6 +120,19 @@ export default function MediaLibraryClient({ profile }: Props) {
         ai_tags: [],
       })
 
+      // Trigger AI auto-tagging in background
+      const insertedData = await supabase.from('media_files')
+        .select('id')
+        .eq('storage_path', path)
+        .single()
+      if (insertedData.data?.id && file.type?.startsWith('image/')) {
+        fetch('/api/ai/auto-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mediaFileId: insertedData.data.id, imageUrl: publicUrl }),
+        }).then(() => loadFiles()).catch(() => {})
+      }
+
       await loadFiles()
       // Award media_upload XP
       fetch('/api/xp/award', {
