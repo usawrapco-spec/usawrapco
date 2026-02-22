@@ -13,6 +13,7 @@ import {
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User,
   type LucideIcon,
 } from 'lucide-react'
+import GenieFAB from '@/components/genie/GenieFAB'
 
 // ─── Dropdown types ───────────────────────────────────────────────────────────
 interface DropdownItem {
@@ -145,6 +146,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen]     = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [notifsLoaded, setNotifsLoaded] = useState(false)
 
   const createRef   = useRef<HTMLDivElement>(null)
   const txRef       = useRef<HTMLDivElement>(null)
@@ -178,6 +181,31 @@ export function TopNav({ profile }: { profile: Profile }) {
     if (searchOpen && searchRef.current) searchRef.current.focus()
   }, [searchOpen])
 
+  useEffect(() => {
+    fetch('/api/notifications')
+      .then(r => r.json())
+      .then(d => { setNotifications(d.notifications || []); setNotifsLoaded(true) })
+      .catch(() => setNotifsLoaded(true))
+  }, [])
+
+  async function markAllRead() {
+    const ids = notifications.map(n => n.id).filter(id => !String(id).startsWith('sb-') && !String(id).startsWith('od-'))
+    if (ids.length) {
+      await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
+    }
+    setNotifications([])
+  }
+
+  function relTime(ts: string) {
+    const diff = Date.now() - new Date(ts).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+  }
+
   function closeAll() {
     setCreateOpen(false); setTxOpen(false); setRptOpen(false)
     setSettingsOpen(false); setProfileOpen(false); setNotifOpen(false)
@@ -198,6 +226,7 @@ export function TopNav({ profile }: { profile: Profile }) {
   const isSettingsActive = ['/settings', '/employees', '/overhead', '/1099'].some(h => isActive(h))
 
   return (
+    <>
     <header style={{
       height: 52,
       background: 'var(--surface)',
@@ -427,15 +456,17 @@ export function TopNav({ profile }: { profile: Profile }) {
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
           >
             <Bell size={13} />
-            <span style={{
-              position: 'absolute', top: -3, right: -3,
-              width: 14, height: 14, borderRadius: '50%',
-              background: 'var(--red)', color: '#fff',
-              fontSize: 8, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              3
-            </span>
+            {notifications.length > 0 && (
+              <span style={{
+                position: 'absolute', top: -3, right: -3,
+                width: 14, height: 14, borderRadius: '50%',
+                background: 'var(--red)', color: '#fff',
+                fontSize: 8, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {notifications.length > 9 ? '9+' : notifications.length}
+              </span>
+            )}
           </button>
           {notifOpen && (
             <div style={{
@@ -449,26 +480,34 @@ export function TopNav({ profile }: { profile: Profile }) {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Notifications</span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+                <button
+                  onClick={markAllRead}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}
+                >
                   Mark all read
                 </button>
               </div>
-              {[
-                { text: 'Proof approved by client', time: '5 min ago' },
-                { text: 'New installer bid received', time: '1 hour ago' },
-                { text: 'Invoice INV-2001 overdue', time: '3 hours ago' },
-              ].map((n, i) => (
-                <div key={i} style={{
-                  padding: '9px 14px', borderBottom: '1px solid var(--border)',
-                  cursor: 'pointer', transition: 'background 0.12s',
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <div style={{ fontSize: 12, color: 'var(--text1)', marginBottom: 2 }}>{n.text}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)' }}>{n.time}</div>
-                </div>
-              ))}
+              {!notifsLoaded ? (
+                <div style={{ padding: '16px 14px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>Loading...</div>
+              ) : notifications.length === 0 ? (
+                <div style={{ padding: '16px 14px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>No new notifications</div>
+              ) : (
+                notifications.map((n, i) => (
+                  <div key={n.id ?? i} style={{
+                    padding: '9px 14px', borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer', transition: 'background 0.12s',
+                  }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div style={{ fontSize: 12, color: 'var(--text1)', marginBottom: 2 }}>{n.title || n.message}</div>
+                    {n.title && n.message && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{n.message}</div>
+                    )}
+                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>{n.created_at ? relTime(n.created_at) : ''}</div>
+                  </div>
+                ))
+              )}
               <div style={{ padding: '9px 14px', textAlign: 'center' }}>
                 <span style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>View All</span>
               </div>
@@ -605,5 +644,7 @@ export function TopNav({ profile }: { profile: Profile }) {
         </div>
       </div>
     </header>
+    <GenieFAB userName={profile.name || profile.email || 'User'} userRole={profile.role} />
+    </>
   )
 }

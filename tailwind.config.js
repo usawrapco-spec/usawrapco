@@ -10,8 +10,8 @@ module.exports = {
       colors: {
         // USA Wrap Co brand palette — mirrors the HTML app
         bg:       '#0d0f14',
-        surface:  '#151820',
-        surface2: '#1c202b',
+        surface:  '#13151c',
+        surface2: '#1a1d27',
         border:   '#2a2f3d',
         accent:   '#4f7fff',
         green:    '#22c07a',
@@ -19,9 +19,9 @@ module.exports = {
         amber:    '#f59e0b',
         purple:   '#8b5cf6',
         red:      '#f25a5a',
-        text1:    '#f1f5f9',
-        text2:    '#94a3b8',
-        text3:    '#475569',
+        text1:    '#e8eaed',
+        text2:    '#9299b5',
+        text3:    '#5a6080',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

@@ -2454,10 +2454,124 @@ CREATE POLICY "Employees view own payroll"
   USING (employee_id = auth.uid());
 
 
--- ── Verify all tables created ────────────────────────────────
+-- ============================================================
+-- v6.3 Additional Tables (Phase 1–4 features)
+-- ============================================================
+
+-- ── Affiliates ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS affiliates (
+  id                  UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id              UUID REFERENCES orgs(id) ON DELETE CASCADE,
+  name                TEXT NOT NULL,
+  company             TEXT,
+  email               TEXT,
+  phone               TEXT,
+  type                TEXT NOT NULL DEFAULT 'dealer'
+                      CHECK (type IN ('dealer','manufacturer','reseller','individual')),
+  commission_structure JSONB DEFAULT '{"type":"percent_gp","rate":10}',
+  status              TEXT NOT NULL DEFAULT 'active'
+                      CHECK (status IN ('pending','active','inactive')),
+  onboarding_completed BOOLEAN DEFAULT false,
+  onboarding_step     INTEGER DEFAULT 0,
+  direct_deposit_info JSONB DEFAULT '{}',
+  unique_code         TEXT UNIQUE,
+  unique_link         TEXT,
+  notes               TEXT,
+  created_at          TIMESTAMPTZ DEFAULT now(),
+  updated_at          TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE affiliates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Org members manage affiliates"
+  ON affiliates FOR ALL
+  USING (org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid()));
+CREATE INDEX IF NOT EXISTS idx_affiliates_org ON affiliates(org_id);
+CREATE INDEX IF NOT EXISTS idx_affiliates_code ON affiliates(unique_code);
+
+-- ── Affiliate Commissions ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS affiliate_commissions (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  affiliate_id    UUID REFERENCES affiliates(id) ON DELETE CASCADE,
+  project_id      UUID REFERENCES projects(id) ON DELETE SET NULL,
+  amount          NUMERIC NOT NULL DEFAULT 0,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending','paid')),
+  paid_at         TIMESTAMPTZ,
+  notes           TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE affiliate_commissions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Org members manage affiliate commissions"
+  ON affiliate_commissions FOR ALL
+  USING (
+    affiliate_id IN (
+      SELECT id FROM affiliates
+      WHERE org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid())
+    )
+  );
+CREATE INDEX IF NOT EXISTS idx_aff_comm_affiliate ON affiliate_commissions(affiliate_id);
+CREATE INDEX IF NOT EXISTS idx_aff_comm_project ON affiliate_commissions(project_id);
+
+-- ── Purchase Orders ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS purchase_orders (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES orgs(id) ON DELETE CASCADE,
+  project_id  UUID REFERENCES projects(id) ON DELETE SET NULL,
+  vendor      TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'draft'
+              CHECK (status IN ('draft','ordered','received','cancelled')),
+  line_items  JSONB DEFAULT '[]',
+  total       NUMERIC DEFAULT 0,
+  notes       TEXT,
+  ordered_at  TIMESTAMPTZ,
+  received_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Org members manage purchase orders"
+  ON purchase_orders FOR ALL
+  USING (org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid()));
+CREATE INDEX IF NOT EXISTS idx_po_org ON purchase_orders(org_id);
+CREATE INDEX IF NOT EXISTS idx_po_project ON purchase_orders(project_id);
+
+-- ── AI Recaps ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ai_recaps (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  project_id   UUID REFERENCES projects(id) ON DELETE CASCADE UNIQUE,
+  recap_data   JSONB DEFAULT '{}',
+  generated_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE ai_recaps ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Org members view ai recaps"
+  ON ai_recaps FOR ALL
+  USING (
+    project_id IN (
+      SELECT id FROM projects
+      WHERE org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid())
+    )
+  );
+
+-- ── Message Templates ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS message_templates (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES orgs(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  category    TEXT NOT NULL DEFAULT 'custom'
+              CHECK (category IN ('onboarding','follow_up','status_update','custom')),
+  content     TEXT NOT NULL,
+  created_by  UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Org members manage templates"
+  ON message_templates FOR ALL
+  USING (org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid()));
+CREATE INDEX IF NOT EXISTS idx_templates_org ON message_templates(org_id);
+
+-- ── Verify ───────────────────────────────────────────────────
 DO $$
 BEGIN
-  RAISE NOTICE 'v6.2 schema migration complete.';
-  RAISE NOTICE 'Tables created: vehicle_database, time_entries, pto_requests, payroll_periods, payroll_entries';
+  RAISE NOTICE 'v6.3 schema migration complete.';
+  RAISE NOTICE 'Tables: affiliates, affiliate_commissions, purchase_orders, ai_recaps, message_templates';
+  RAISE NOTICE 'v6.2 tables: vehicle_database, time_entries, pto_requests, payroll_periods, payroll_entries';
 END
 $$;

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import { isAdminRole } from '@/types'
 import {
@@ -184,8 +185,11 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
 // ── Main Component ───────────────────────────────────────────
 export default function ProspectsClient({ profile, initialProspects }: ProspectsClientProps) {
+  const supabase = createClient()
   const [prospects, setProspects] = useState<Prospect[]>(() => {
     if (initialProspects && initialProspects.length > 0) return initialProspects as Prospect[]
     return DEMO_PROSPECTS
@@ -643,6 +647,8 @@ export default function ProspectsClient({ profile, initialProspects }: Prospects
           onAdd={(p) => { setProspects(prev => [p, ...prev]); setShowAdd(false) }}
           isAdmin={isAdmin}
           currentAgent={profile.name?.split(' ')[0] || profile.name || 'Agent'}
+          orgId={profile.org_id || ORG_ID}
+          userId={profile.id}
         />
       )}
 
@@ -823,12 +829,15 @@ function ProspectCard({ prospect: p, onDetail, onConvert }: {
 }
 
 // ── Add Prospect Modal ───────────────────────────────────────
-function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent }: {
+function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId }: {
   onClose: () => void
   onAdd: (p: Prospect) => void
   isAdmin: boolean
   currentAgent: string
+  orgId: string
+  userId: string
 }) {
+  const supabase = createClient()
   const [form, setForm] = useState({
     name: '', company: '', phone: '', email: '',
     source: 'Cold Call' as ProspectSource,
@@ -836,12 +845,15 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent }: {
     fleet_size: '', estimated_revenue: '',
     notes: '', agent_name: currentAgent,
   })
+  const [saving, setSaving] = useState(false)
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!form.name.trim() || !form.company.trim()) return
+    setSaving(true)
+    const today = new Date().toISOString().split('T')[0]
 
-    const newProspect: Prospect = {
-      id: 'new-' + Date.now(),
+    const insert = {
+      org_id: orgId,
       name: form.name,
       company: form.company,
       phone: form.phone,
@@ -851,14 +863,21 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent }: {
       fleet_size: form.fleet_size || 'unknown',
       estimated_revenue: Number(form.estimated_revenue) || 0,
       notes: form.notes,
-      agent_id: form.agent_name.toLowerCase() + '-1',
+      agent_id: userId,
       agent_name: form.agent_name,
-      last_contact: '2026-02-21',
-      follow_up_date: null,
+      last_contact: today,
       activities: [],
-      created_at: '2026-02-21',
     }
-    onAdd(newProspect)
+
+    const { data, error } = await supabase.from('prospects').insert(insert).select().single()
+    setSaving(false)
+    if (error || !data) {
+      // fallback to local-only
+      const newProspect: Prospect = { ...insert, id: 'local-' + Date.now(), follow_up_date: null, created_at: today }
+      onAdd(newProspect)
+      return
+    }
+    onAdd(data as Prospect)
   }
 
   return (
@@ -1030,12 +1049,12 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent }: {
           }}>
             Cancel
           </button>
-          <button onClick={handleSubmit} style={{
+          <button onClick={handleSubmit} disabled={saving} style={{
             padding: '8px 20px', borderRadius: 8,
             border: 'none', background: 'var(--accent)',
-            color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1,
           }}>
-            Add Prospect
+            {saving ? 'Saving...' : 'Add Prospect'}
           </button>
         </div>
       </div>
@@ -1051,24 +1070,44 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
   onDelete: (id: string) => void
   onUpdate: (p: Prospect) => void
 }) {
+  const supabase = createClient()
   const [editing, setEditing] = useState(false)
   const [followUp, setFollowUp] = useState(prospect.follow_up_date || '')
   const [editForm, setEditForm] = useState({ ...prospect })
   const cfg = STATUS_CONFIG[prospect.status]
 
-  function handleSaveEdit() {
+  async function handleSaveEdit() {
     const updated: Prospect = {
       ...editForm,
       estimated_revenue: Number(editForm.estimated_revenue) || 0,
       follow_up_date: followUp || null,
     }
+    // Persist to DB if real ID
+    if (!prospect.id.startsWith('local-')) {
+      await supabase.from('prospects').update({
+        name: updated.name, company: updated.company, phone: updated.phone,
+        email: updated.email, status: updated.status, source: updated.source,
+        fleet_size: updated.fleet_size, estimated_revenue: updated.estimated_revenue,
+        notes: updated.notes, follow_up_date: updated.follow_up_date,
+      }).eq('id', prospect.id)
+    }
     onUpdate(updated)
     setEditing(false)
   }
 
-  function handleSaveFollowUp() {
+  async function handleSaveFollowUp() {
     const updated: Prospect = { ...prospect, follow_up_date: followUp || null }
+    if (!prospect.id.startsWith('local-')) {
+      await supabase.from('prospects').update({ follow_up_date: updated.follow_up_date }).eq('id', prospect.id)
+    }
     onUpdate(updated)
+  }
+
+  async function handleDelete() {
+    if (!prospect.id.startsWith('local-')) {
+      await supabase.from('prospects').delete().eq('id', prospect.id)
+    }
+    onDelete(prospect.id)
   }
 
   return (
@@ -1357,7 +1396,7 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
                 <Pencil size={12} /> Edit
               </button>
             )}
-            <button onClick={() => onDelete(prospect.id)} style={{
+            <button onClick={handleDelete} style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '8px 14px', borderRadius: 8,
               border: '1px solid rgba(242,90,90,0.3)', background: 'rgba(242,90,90,0.08)',

@@ -92,7 +92,13 @@ const SIM_JOBS = [
 
 export function SettingsPage({ profile }: SettingsPageProps) {
   const supabase = createClient()
-  const [activeTab, setActiveTab] = useState<'defaults' | 'commission' | 'simulation' | 'permissions' | 'visibility'>('defaults')
+  const [activeTab, setActiveTab] = useState<'defaults' | 'commission' | 'simulation' | 'permissions' | 'visibility' | 'templates'>('defaults')
+  const [templates, setTemplates] = useState<any[]>([])
+  const [tplLoading, setTplLoading] = useState(false)
+  const [tplName, setTplName] = useState('')
+  const [tplCategory, setTplCategory] = useState('custom')
+  const [tplContent, setTplContent] = useState('')
+  const [tplSaving, setTplSaving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loadingSim, setLoadingSim] = useState(false)
@@ -359,12 +365,42 @@ export function SettingsPage({ profile }: SettingsPageProps) {
     padding: 20,
   }
 
+  // Load templates when tab opens
+  useEffect(() => {
+    if (activeTab !== 'templates') return
+    setTplLoading(true)
+    fetch('/api/templates').then(r => r.json()).then(d => {
+      setTemplates(d.templates || [])
+      setTplLoading(false)
+    }).catch(() => setTplLoading(false))
+  }, [activeTab])
+
+  async function createTemplate() {
+    if (!tplName.trim() || !tplContent.trim()) return
+    setTplSaving(true)
+    const r = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: tplName, category: tplCategory, content: tplContent }),
+    })
+    const d = await r.json()
+    if (d.template) setTemplates(prev => [d.template, ...prev])
+    setTplName(''); setTplContent(''); setTplCategory('custom')
+    setTplSaving(false)
+  }
+
+  async function deleteTemplate(id: string) {
+    await fetch('/api/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setTemplates(prev => prev.filter(t => t.id !== id))
+  }
+
   const tabs = [
     { key: 'defaults'    as const, label: 'Defaults & Equations', icon: <Settings size={14} /> },
     { key: 'commission'  as const, label: 'Commission Rules',     icon: <Shield size={14} /> },
     { key: 'simulation'  as const, label: 'Simulation Data',      icon: <Database size={14} /> },
     { key: 'permissions' as const, label: 'Role Permissions',     icon: <Lock size={14} /> },
     { key: 'visibility'  as const, label: 'Visibility',           icon: <Activity size={14} /> },
+    { key: 'templates'   as const, label: 'Message Templates',    icon: <FileText size={14} /> },
   ]
 
   return (
@@ -1515,6 +1551,98 @@ export function SettingsPage({ profile }: SettingsPageProps) {
       {activeTab === 'visibility' && (
         <div style={cardStyle}>
           <VisibilitySettings orgId={profile.org_id} />
+        </div>
+      )}
+
+      {/* ===== TAB 6: Message Templates ===== */}
+      {activeTab === 'templates' && (
+        <div style={cardStyle}>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 20, fontWeight: 900, color: '#e8eaed', margin: '0 0 4px' }}>Message Templates</h2>
+            <p style={{ fontSize: 12, color: '#5a6080', margin: 0 }}>Pre-written messages for customer follow-ups, status updates, and onboarding.</p>
+          </div>
+
+          {/* Create form */}
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 24 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#e8eaed', marginBottom: 12 }}>New Template</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Template Name</label>
+                <input
+                  value={tplName}
+                  onChange={e => setTplName(e.target.value)}
+                  placeholder="e.g. Job Ready for Pickup"
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: '#e8eaed', fontSize: 13, outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Category</label>
+                <select
+                  value={tplCategory}
+                  onChange={e => setTplCategory(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: '#e8eaed', fontSize: 13, outline: 'none' }}
+                >
+                  <option value="custom">Custom</option>
+                  <option value="onboarding">Onboarding</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="status_update">Status Update</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Message Content</label>
+              <textarea
+                value={tplContent}
+                onChange={e => setTplContent(e.target.value)}
+                placeholder="Hi {customer_name}, your wrap is ready! Come pick up your {vehicle_type} at..."
+                rows={4}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: '#e8eaed', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <div style={{ fontSize: 10, color: '#5a6080', marginTop: 4 }}>Variables: {'{customer_name}'}, {'{vehicle_type}'}, {'{job_title}'}, {'{install_date}'}</div>
+            </div>
+            <button
+              onClick={createTemplate}
+              disabled={tplSaving || !tplName.trim() || !tplContent.trim()}
+              style={{ padding: '8px 18px', borderRadius: 8, background: '#4f7fff', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: tplSaving ? 0.6 : 1 }}
+            >
+              {tplSaving ? 'Saving...' : '+ Save Template'}
+            </button>
+          </div>
+
+          {/* Templates list */}
+          {tplLoading ? (
+            <div style={{ textAlign: 'center', padding: 32, color: '#5a6080', fontSize: 13 }}>Loading templates...</div>
+          ) : templates.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 32, color: '#5a6080', fontSize: 13 }}>No templates yet. Create your first one above.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {templates.map(t => (
+                <div key={t.id} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#e8eaed' }}>{t.name}</span>
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
+                        background: t.category === 'onboarding' ? 'rgba(34,192,122,0.15)' : t.category === 'follow_up' ? 'rgba(245,158,11,0.15)' : t.category === 'status_update' ? 'rgba(79,127,255,0.15)' : 'rgba(90,96,128,0.2)',
+                        color: t.category === 'onboarding' ? '#22c07a' : t.category === 'follow_up' ? '#f59e0b' : t.category === 'status_update' ? '#4f7fff' : '#9299b5',
+                      }}>
+                        {t.category.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => deleteTemplate(t.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a6080', padding: 2 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#f25a5a')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#5a6080')}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#9299b5', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{t.content}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
