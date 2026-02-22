@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
   contact_name    TEXT NOT NULL DEFAULT '',
+  name            TEXT GENERATED ALWAYS AS (contact_name) STORED,
   company_name    TEXT,
   company         TEXT,
   email           TEXT,
