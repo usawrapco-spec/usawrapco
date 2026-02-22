@@ -13,10 +13,12 @@ export default function Timeline({ profile }: { profile: Profile }) {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('projects').select('*').eq('org_id', profile.org_id)
+    supabase.from('projects').select('*, agent:agent_id(id, name), installer:installer_id(id, name)')
+      .eq('org_id', profile.org_id)
       .neq('status', 'closed').order('install_date', { ascending: true })
       .then(({ data }) => setJobs(data || []))
-  }, [])
+      .catch(() => setJobs([]))
+  }, [profile.org_id])
 
   const today = new Date()
   const days = timeWindow === '2w' ? 14 : timeWindow === '1m' ? 30 : 90

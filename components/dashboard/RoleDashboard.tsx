@@ -55,7 +55,7 @@ function SectionCard({ title, icon: Icon, color, children }: { title: string; ic
 function SalesDashboard({ profile, projects }: Props) {
   const myProjects = projects.filter(p => p.agent_id === profile.id)
   const closedThisMonth = myProjects.filter(p =>
-    p.status === 'closed' && new Date(p.updated_at || '') >= monthStart
+    p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart
   )
   const activeProjects = myProjects.filter(p =>
     ['active', 'in_production', 'install_scheduled', 'installed', 'qc', 'closing'].includes(p.status)
@@ -85,7 +85,7 @@ function SalesDashboard({ profile, projects }: Props) {
 
   // Rank: compare against all agents' closed revenue
   const agentRevMap: Record<string, number> = {}
-  projects.filter(p => p.status === 'closed' && new Date(p.updated_at || '') >= monthStart).forEach(p => {
+  projects.filter(p => p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart).forEach(p => {
     if (p.agent_id) agentRevMap[p.agent_id] = (agentRevMap[p.agent_id] || 0) + (p.revenue || 0)
   })
   const sorted = Object.values(agentRevMap).sort((a, b) => b - a)
@@ -203,7 +203,7 @@ function ProductionDashboard({ profile, projects }: Props) {
 
   // Production bonus calc: 5% × (profit − design fee)
   const closedThisMonth = projects.filter(p =>
-    p.status === 'closed' && new Date(p.updated_at || '') >= monthStart
+    p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart
   )
   const prodBonus = closedThisMonth.reduce((s, p) => {
     const designFee = (p.form_data as any)?.designFee || 150
@@ -416,7 +416,7 @@ function InstallerDashboard({ profile, projects }: Props) {
   }).sort((a, b) => new Date(a.install_date!).getTime() - new Date(b.install_date!).getTime())
 
   const completedThisMonth = myInstalls.filter(p =>
-    p.status === 'closed' && new Date(p.updated_at || '') >= monthStart
+    p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart
   )
 
   const earnedThisMonth = completedThisMonth.reduce((s, p) => {
