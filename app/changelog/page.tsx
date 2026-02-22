@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
-import ProductionBriefClient from '@/components/production/ProductionBriefClient'
 import type { Profile } from '@/types'
+import ChangelogClient from '@/components/changelog/ChangelogClient'
 
-export default async function ProductionBriefPage({ params }: { params: { id: string } }) {
+export default async function ChangelogPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -15,23 +15,13 @@ export default async function ProductionBriefPage({ params }: { params: { id: st
   const { data: profile } = await admin.from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  const { data: project } = await admin
-    .from('projects')
-    .select('*')
-    .eq('id', params.id)
-    .single()
-
-  if (!project) notFound()
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-      <div className="no-print">
-        <TopNav profile={profile as Profile} />
-      </div>
+      <TopNav profile={profile as Profile} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
-        <ProductionBriefClient project={project} profile={profile as Profile} />
+        <ChangelogClient />
       </main>
-      <div className="md:hidden no-print">
+      <div className="md:hidden">
         <MobileNav />
       </div>
     </div>
