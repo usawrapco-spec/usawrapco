@@ -243,14 +243,22 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
                         </button>
                       )}
                     </div>
-                    {dp.linked_project_id && (
+                    <div className="flex items-center gap-2 mt-1.5">
                       <button
-                        onClick={() => router.push(`/projects/${dp.linked_project_id}`)}
-                        className="text-[10px] font-600 text-text3 hover:text-accent mt-1.5 transition-colors"
+                        onClick={() => router.push(`/design/${dp.id}`)}
+                        className="text-[10px] font-700 text-green hover:text-green/80 transition-colors"
                       >
-                        Open linked job
+                        Open Canvas
                       </button>
-                    )}
+                      {dp.linked_project_id && (
+                        <button
+                          onClick={() => router.push(`/projects/${dp.linked_project_id}`)}
+                          className="text-[10px] font-600 text-text3 hover:text-accent transition-colors"
+                        >
+                          Open linked job
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )
               })}

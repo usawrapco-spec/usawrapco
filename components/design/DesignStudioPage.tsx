@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Plus,
@@ -88,6 +89,7 @@ function getStageColor(stage: DesignStage): string {
 }
 
 export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
+  const router = useRouter()
   const supabase = createClient()
   const [projects, setProjects] = useState<DesignProject[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
@@ -879,13 +881,34 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
               </div>
             </div>
 
-            {/* Save Button (fixed at bottom) */}
-            <div style={{ padding: '12px 20px', borderTop: '1px solid #1a1d27', flexShrink: 0 }}>
+            {/* Action buttons (fixed at bottom) */}
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #1a1d27', flexShrink: 0, display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => router.push(`/design/${selectedProject.id}`)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '10px 20px',
+                  background: '#22c07a',
+                  color: '#0d1a10',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <Palette size={16} />
+                Open Canvas
+              </button>
               <button
                 onClick={saveDrawer}
                 disabled={drawerSaving}
                 style={{
-                  width: '100%',
+                  flex: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -902,7 +925,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                 }}
               >
                 <Save size={16} />
-                {drawerSaving ? 'Saving...' : 'Save Changes'}
+                {drawerSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
