@@ -206,12 +206,36 @@ const DEMO_CONTACTS: Contact[] = [
   },
 ]
 
+// ── Map DB customers to Contact shape ────────────────────────────
+function mapDbToContact(c: any): Contact {
+  return {
+    id: c.id,
+    name: c.name || 'Unknown',
+    email: c.email || '',
+    phone: c.phone || '',
+    company: c.company || '',
+    tags: Array.isArray(c.tags) ? c.tags : (c.tags ? Object.keys(c.tags) : []),
+    source: c.referral_source || c.source || 'Other',
+    status: c.status === 'inactive' ? 'inactive' : 'active',
+    lastContact: c.last_activity_date ? new Date(c.last_activity_date) : (c.updated_at ? new Date(c.updated_at) : new Date(c.created_at || Date.now())),
+    lifetimeSpend: parseFloat(c.lifetime_value) || 0,
+    jobCount: parseInt(c.total_jobs) || 0,
+    fleetSize: parseInt(c.fleet_size) || 0,
+    hasEstimate: false,
+    estimateAccepted: false,
+    flaggedForFollowUp: c.flagged_for_follow_up || false,
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────
 export default function ContactsClient({ profile, initialContacts }: ContactsClientProps) {
   const router = useRouter()
 
-  // Use demo data (replace with initialContacts mapping when DB is ready)
-  const [contacts] = useState<Contact[]>(DEMO_CONTACTS)
+  // Use real data from DB, fall back to demo data if DB is empty
+  const liveContacts = initialContacts && initialContacts.length > 0
+    ? initialContacts.map(mapDbToContact)
+    : DEMO_CONTACTS
+  const [contacts, setContacts] = useState<Contact[]>(liveContacts)
 
   // Filters
   const [search, setSearch] = useState('')

@@ -1065,7 +1065,7 @@ function ProductionTab({ f, ff, project, profile }: any) {
       </Section>
 
       <RemnantMatchPanel sqft={qSqft} material={f.matSku} />
-      <MaterialTracking projectId={project.id} orgId={project.org_id} />
+      <MaterialTracking projectId={project.id} orgId={project.org_id} userId={profile.id} project={project} />
     </div>
   )
 }
@@ -1237,7 +1237,7 @@ function QCTab({ f, ff, fin, project, profile }: any) {
         </div>
       )}
 
-      <QuotedVsActual projectId={project.id} orgId={project.org_id} />
+      <QuotedVsActual projectId={project.id} orgId={project.org_id} project={project} />
     </div>
   )
 }
