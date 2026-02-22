@@ -11,6 +11,7 @@ import {
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User,
+  Globe, TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import GenieFAB from '@/components/genie/GenieFAB'
@@ -61,10 +62,12 @@ const SETTINGS_ITEMS: DropdownItem[] = [
 // ─── Nav links (center) ───────────────────────────────────────────────────────
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Home',     icon: LayoutDashboard },
+  { href: '/engine',    label: 'Engine',   icon: TrendingUp },
+  { href: '/workflow',  label: 'Workflow',icon: Briefcase },
+  { href: '/sourcing',  label: 'Sourcing', icon: Globe },
   { href: '/jobs',      label: 'Jobs',     icon: Briefcase },
   { href: '/inbox',     label: 'Inbox',    icon: Inbox },
   { href: '/tasks',     label: 'Tasks',    icon: CheckSquare },
-  { href: '/calendar',  label: 'Calendar', icon: Calendar },
   { href: '/contacts',  label: 'Contacts', icon: Users },
   { href: '/design',    label: 'Design',   icon: Palette },
   { href: '/wrapup',    label: 'WrapUp',   icon: Truck },

@@ -38,6 +38,10 @@ import {
   Inbox,
   UserPlus,
   Contact,
+  Workflow,
+  Globe,
+  Mail,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -65,6 +69,47 @@ const NAV: NavItem[] = [
     always: true,
   },
   {
+    href: '/engine',
+    label: 'Revenue Engine',
+    icon: TrendingUp,
+    always: true,
+  },
+  {
+    href: '/workflow',
+    label: 'Job Workflow',
+    icon: Workflow,
+    always: true,
+  },
+  {
+    href: '/prospects',
+    label: 'Prospects',
+    icon: UserPlus,
+    permission: 'sales.read',
+  },
+  {
+    href: '/campaigns',
+    label: 'Campaigns',
+    icon: Mail,
+    permission: 'sales.read',
+  },
+  {
+    href: '/sourcing',
+    label: 'Sourcing',
+    icon: Globe,
+    permission: 'sales.read',
+    children: [
+      { href: '/sourcing/monitor',    label: 'RFQ Monitor' },
+      { href: '/sourcing/suppliers',  label: 'Suppliers' },
+      { href: '/sourcing/orders',     label: 'Orders' },
+    ],
+  },
+  {
+    href: '/ventures',
+    label: 'Ventures',
+    icon: Lightbulb,
+    permission: 'sales.read',
+  },
+  {
     href: '/inbox',
     label: 'Inbox',
     icon: Inbox,
@@ -73,7 +118,7 @@ const NAV: NavItem[] = [
   {
     href: '/pipeline',
     label: 'Job Board',
-    icon: TrendingUp,
+    icon: Briefcase,
     permission: 'sales.read',
     children: [
       { href: '/pipeline',      label: 'Job Board' },
@@ -87,12 +132,6 @@ const NAV: NavItem[] = [
     label: 'Jobs',
     icon: Briefcase,
     permission: 'jobs.read',
-  },
-  {
-    href: '/prospects',
-    label: 'Prospects',
-    icon: UserPlus,
-    permission: 'sales.read',
   },
   {
     href: '/contacts',

@@ -479,18 +479,29 @@ export interface JobHistory {
 }
 
 // ─── Prospect ─────────────────────────────────────────────────────────────────
-export type ProspectStatus = 'hot' | 'warm' | 'cold' | 'dead' | 'converted'
-export type ProspectSource = 'cold_call' | 'door_knock' | 'referral' | 'event' | 'social_media' | 'website' | 'other'
+export type ProspectStatus = 'new' | 'contacted' | 'replied' | 'interested' | 'converted' | 'dead' | 'hot' | 'warm' | 'cold'
+export type ProspectSource = 'google_places' | 'cold_call' | 'door_knock' | 'referral' | 'event' | 'social_media' | 'website' | 'other'
 
 export interface Prospect {
   id: string
   org_id: string
   name: string
+  business_name: string | null
   company: string | null
+  industry: string | null
+  address: string | null
   phone: string | null
   email: string | null
+  website: string | null
+  linkedin: string | null
+  instagram: string | null
+  facebook: string | null
+  google_rating: number | null
+  google_maps_url: string | null
   status: ProspectStatus
   source: ProspectSource
+  score: number | null
+  campaign_id: string | null
   assigned_to: string | null
   fleet_size: number | null
   estimated_revenue: number | null
@@ -498,11 +509,70 @@ export interface Prospect {
   tags: string[]
   follow_up_date: string | null
   last_contact: string | null
+  last_contacted_at: string | null
   converted_customer_id: string | null
   converted_at: string | null
   created_at: string
   updated_at: string
   assignee?: Pick<Profile, 'id' | 'name'>
+}
+
+// ─── Campaign ─────────────────────────────────────────────────────────────────
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+
+export interface CampaignStep {
+  step_number: number
+  subject: string
+  body: string
+  delay_days: number
+}
+
+export interface Campaign {
+  id: string
+  org_id: string
+  name: string
+  industry_target: string | null
+  status: CampaignStatus
+  email_sequence: CampaignStep[]
+  auto_reply: boolean
+  stats: {
+    sent: number
+    opened: number
+    replied: number
+    bounced: number
+    conversions: number
+  }
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CampaignMessage {
+  id: string
+  org_id: string
+  campaign_id: string
+  prospect_id: string
+  step_number: number
+  subject: string
+  body: string
+  status: 'queued' | 'sent' | 'opened' | 'replied' | 'bounced' | 'failed'
+  sent_at: string | null
+  opened_at: string | null
+  replied_at: string | null
+  reply_text: string | null
+  ai_draft_reply: string | null
+  scheduled_for: string | null
+  created_at: string
+}
+
+export interface AIActivity {
+  id: string
+  org_id: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  details: Record<string, unknown>
+  created_at: string
 }
 
 // ─── Database type stub ────────────────────────────────────────────────────────
