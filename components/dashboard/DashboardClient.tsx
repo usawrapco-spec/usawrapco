@@ -565,6 +565,32 @@ export function DashboardClient({
         compact
       />
 
+      {/* ====== AI Broker Widget ====== */}
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 12, border: '1px solid rgba(34,211,238,0.15)', background: 'rgba(34,211,238,0.03)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 6px #22d3ee' }} />
+            <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#22d3ee' }}>V.I.N.Y.L. AI Broker</span>
+          </div>
+          <button onClick={() => router.push('/inbox')} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            View Inbox
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Active Convos', value: '—', color: 'var(--accent)' },
+            { label: 'Quotes Sent', value: '—', color: 'var(--amber)' },
+            { label: 'Deposits Today', value: '$0', color: 'var(--green)' },
+            { label: 'Response Time', value: '<10s', color: 'var(--purple)' },
+          ].map(s => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 600, color: s.color }}>{s.value}</span>
+              <span style={{ fontSize: 10, color: 'var(--text3)' }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ====== Period Selector ====== */}
       {canSeeFinancials && (
         <div className="card flex items-center gap-3 py-2.5 px-4">
