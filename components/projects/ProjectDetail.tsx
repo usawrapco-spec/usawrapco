@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -77,7 +77,10 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'>('chat')
+  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'>('chat')
+  const [aiRecap, setAiRecap] = useState<any>(null)
+  const [aiRecapLoading, setAiRecapLoading] = useState(false)
+  const [showAiRecap, setShowAiRecap] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState('')
@@ -326,6 +329,22 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
+  // ── AI Recap ────────────────────────────────────────────────────
+  async function fetchAiRecap() {
+    setAiRecapLoading(true)
+    setShowAiRecap(true)
+    try {
+      const res = await fetch('/api/ai/job-recap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, project }),
+      })
+      const data = await res.json()
+      if (data.recap) setAiRecap(data.recap)
+    } catch {}
+    setAiRecapLoading(false)
+  }
+
   // ── Financial bar data ─────────────────────────────────────────
   const financialProject = {
     revenue: fin.sale, profit: fin.profit, gpm: fin.gpm, commission: fin.commission,
@@ -346,6 +365,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     { key: 'qc',         label: 'QC',         Icon: Search, stageKey: 'prod_review' },
     { key: 'close',      label: 'Close',      Icon: DollarSign, stageKey: 'sales_close' },
     { key: 'expenses',   label: 'Expenses',   Icon: Receipt },
+    { key: 'purchasing', label: 'Purchasing', Icon: ShoppingCart },
   ]
 
   const stageOrder = ['sales_in','production','install','prod_review','sales_close']
@@ -405,11 +425,63 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
               {(() => { const ps = PIPE_STAGES.find(s => s.key === curStageKey)!; return <><ps.Icon size={12} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />{ps.label}</>})()}
             </div>
           )}
+          <button onClick={fetchAiRecap} disabled={aiRecapLoading} title="AI Job Recap" style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(79,127,255,.15)', color:'var(--accent)', border:'1px solid rgba(79,127,255,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+            <Sparkles size={14} />{aiRecapLoading ? 'Analyzing…' : 'AI Recap'}
+          </button>
           <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, padding:'9px 18px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1 }}>
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </button>
         </div>
       </div>
+
+      {/* ── AI RECAP PANEL ────────────────────────────── */}
+      {showAiRecap && (
+        <div style={{ background:'rgba(79,127,255,.06)', border:'1px solid rgba(79,127,255,.25)', borderRadius:12, padding:16, marginBottom:12 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:aiRecapLoading?0:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <Sparkles size={16} color="var(--accent)" />
+              <span style={{ fontSize:13, fontWeight:800, color:'var(--accent)' }}>AI Job Recap</span>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={fetchAiRecap} style={{ display:'flex', alignItems:'center', gap:4, background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:11 }}><RefreshCw size={12} />Refresh</button>
+              <button onClick={() => setShowAiRecap(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)' }}><X size={14} /></button>
+            </div>
+          </div>
+          {aiRecapLoading && <div style={{ fontSize:12, color:'var(--text3)', animation:'pulse 1s infinite' }}>Analyzing job data…</div>}
+          {!aiRecapLoading && aiRecap && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div style={{ gridColumn:'1/-1', padding:12, background:'var(--surface)', borderRadius:8, border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>Summary</div>
+                <div style={{ fontSize:13, color:'var(--text1)', lineHeight:1.5 }}>{aiRecap.summary}</div>
+              </div>
+              <div style={{ padding:12, background:'var(--surface)', borderRadius:8, border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>Next Action</div>
+                <div style={{ fontSize:12, color:'var(--green)', fontWeight:700 }}>{aiRecap.next_best_action}</div>
+              </div>
+              <div style={{ padding:12, background:'var(--surface)', borderRadius:8, border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>Who Needs to Act</div>
+                <div style={{ fontSize:12, color:'var(--cyan)', fontWeight:700 }}>{aiRecap.who_needs_to_respond}</div>
+              </div>
+              {aiRecap.blockers?.length > 0 && (
+                <div style={{ gridColumn:'1/-1', padding:12, background:'rgba(242,90,90,.06)', borderRadius:8, border:'1px solid rgba(242,90,90,.2)' }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:'var(--red)', textTransform:'uppercase', marginBottom:4 }}>Blockers</div>
+                  {aiRecap.blockers.map((b: string, i: number) => <div key={i} style={{ fontSize:12, color:'var(--text2)', marginBottom:2 }}>• {b}</div>)}
+                </div>
+              )}
+              {aiRecap.draft_customer_message && (
+                <div style={{ gridColumn:'1/-1', padding:12, background:'rgba(34,211,238,.06)', borderRadius:8, border:'1px solid rgba(34,211,238,.2)' }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:'var(--cyan)', textTransform:'uppercase', marginBottom:4 }}>Suggested Customer Message</div>
+                  <div style={{ fontSize:12, color:'var(--text2)', fontStyle:'italic', lineHeight:1.5 }}>"{aiRecap.draft_customer_message}"</div>
+                </div>
+              )}
+              <div style={{ gridColumn:'1/-1', display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ width:10, height:10, borderRadius:'50%', background: aiRecap.health === 'green' ? 'var(--green)' : aiRecap.health === 'red' ? 'var(--red)' : 'var(--amber)' }} />
+                <span style={{ fontSize:11, color:'var(--text3)' }}>{aiRecap.health_reason}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── PIPELINE PROGRESS ─────────────────────────── */}
       <div style={{ display:'flex', gap:2, marginBottom:12 }}>
@@ -517,8 +589,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             <JobExpenses projectId={project.id} orgId={project.org_id} currentUserId={profile.id} />
           )}
 
+          {/* ═══ PURCHASING TAB ═══ */}
+          {tab === 'purchasing' && (
+            <PurchasingTab projectId={project.id} orgId={project.org_id} project={project} />
+          )}
+
           {/* ── Stage Action Bar ──────────────────────────── */}
-          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && (
+          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && (
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (
@@ -1380,6 +1457,158 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks, teammates }: any) {
           </div>
         </Section>
       )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PURCHASING TAB — Purchase Orders tied to this job
+// ═══════════════════════════════════════════════════════════════════
+function PurchasingTab({ projectId, orgId, project }: { projectId: string; orgId: string; project: any }) {
+  const supabase = createClient()
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ vendor: '', description: '', quantity: '1', unit_cost: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
+
+  function showMsg(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase.from('purchase_orders').select('*').eq('project_id', projectId).order('created_at', { ascending: false })
+    setOrders(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [projectId])
+
+  async function createPO() {
+    if (!form.vendor || !form.unit_cost) { showMsg('Vendor and cost required'); return }
+    setSaving(true)
+    const qty = parseFloat(form.quantity) || 1
+    const unitCost = parseFloat(form.unit_cost) || 0
+    const lineItems = [{ description: form.description || form.vendor, quantity: qty, unit_cost: unitCost, total: qty * unitCost }]
+    const total = qty * unitCost
+
+    const { error } = await supabase.from('purchase_orders').insert({
+      project_id: projectId, org_id: orgId,
+      vendor: form.vendor, status: 'draft',
+      line_items: lineItems, total,
+      notes: form.notes,
+    })
+    if (!error) {
+      showMsg('Purchase order created')
+      setShowForm(false)
+      setForm({ vendor: '', description: '', quantity: '1', unit_cost: '', notes: '' })
+      load()
+    } else {
+      showMsg('Error creating PO: ' + error.message)
+    }
+    setSaving(false)
+  }
+
+  async function updateStatus(id: string, status: string) {
+    await supabase.from('purchase_orders').update({ status }).eq('id', id)
+    load()
+  }
+
+  const totalSpend = orders.reduce((s, o) => s + (o.total || 0), 0)
+  const STATUS_COLORS: Record<string, string> = { draft: '#9299b5', ordered: '#4f7fff', received: '#22c07a', cancelled: '#f25a5a' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {toast && <div style={{ position: 'fixed', bottom: 20, right: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 20px', fontSize: 13, fontWeight: 700, color: 'var(--text1)', zIndex: 9999 }}>{toast}</div>}
+
+      {/* Header with total */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text1)', fontFamily: 'Barlow Condensed, sans-serif' }}>Purchase Orders</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Materials and supplies for this job</div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {orders.length > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700 }}>Total Spend</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 800, color: 'var(--amber)' }}>
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalSpend)}
+              </div>
+            </div>
+          )}
+          <button onClick={() => setShowForm(!showForm)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            <ShoppingCart size={14} />New PO
+          </button>
+        </div>
+      </div>
+
+      {/* New PO Form */}
+      {showForm && (
+        <div style={{ background: 'rgba(79,127,255,.06)', border: '1px solid rgba(79,127,255,.25)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.07em' }}>New Purchase Order</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Vendor *</div>
+              <input value={form.vendor} onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} placeholder="e.g. Fellers, Avery, Local Supplier" style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' }} /></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Description</div>
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. 3M IJ180Cv3 Gloss 54in x 50ft" style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' }} /></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Quantity</div>
+              <input type="number" min="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' }} /></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Unit Cost ($) *</div>
+              <input type="number" min="0" step="0.01" value={form.unit_cost} onChange={e => setForm(f => ({ ...f, unit_cost: e.target.value }))} placeholder="0.00" style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' }} /></div>
+          </div>
+          <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Notes</div>
+            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Special instructions, delivery notes..." style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none', minHeight: 60, resize: 'none' }} /></div>
+          {form.quantity && form.unit_cost && (
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>
+              Total: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((parseFloat(form.quantity) || 1) * (parseFloat(form.unit_cost) || 0))}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: '9px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text2)', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+            <button onClick={createPO} disabled={saving} style={{ flex: 2, padding: '9px', borderRadius: 8, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: saving ? 0.7 : 1 }}>{saving ? 'Creating…' : 'Create Purchase Order'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* PO List */}
+      {loading && <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Loading…</div>}
+      {!loading && orders.length === 0 && !showForm && (
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+          <ShoppingCart size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+          <div style={{ fontSize: 13 }}>No purchase orders yet</div>
+          <div style={{ fontSize: 11, marginTop: 4 }}>Create a PO to track materials and supplies for this job</div>
+        </div>
+      )}
+      {orders.map(o => {
+        const lines: any[] = o.line_items || []
+        return (
+          <div key={o.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{o.vendor}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{new Date(o.created_at).toLocaleDateString()}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ fontFamily: 'JetBrains Mono', fontSize: 16, fontWeight: 800, color: 'var(--amber)' }}>
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(o.total || 0)}
+                </div>
+                <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${STATUS_COLORS[o.status] || '#9299b5'}18`, color: STATUS_COLORS[o.status] || '#9299b5' }}>{o.status}</span>
+              </div>
+            </div>
+            {lines.map((l: any, i: number) => (
+              <div key={i} style={{ fontSize: 12, color: 'var(--text2)', padding: '4px 0', borderBottom: i < lines.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                {l.description} × {l.quantity} @ ${l.unit_cost} = ${l.total}
+              </div>
+            ))}
+            {o.notes && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, fontStyle: 'italic' }}>{o.notes}</div>}
+            <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+              {o.status === 'draft' && <button onClick={() => updateStatus(o.id, 'ordered')} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(79,127,255,.15)', color: 'var(--accent)', border: '1px solid rgba(79,127,255,.3)' }}>Mark Ordered</button>}
+              {o.status === 'ordered' && <button onClick={() => updateStatus(o.id, 'received')} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(34,192,122,.15)', color: 'var(--green)', border: '1px solid rgba(34,192,122,.3)' }}>Mark Received</button>}
+              {o.status !== 'cancelled' && o.status !== 'received' && <button onClick={() => updateStatus(o.id, 'cancelled')} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(242,90,90,.1)', color: 'var(--red)', border: '1px solid rgba(242,90,90,.3)' }}>Cancel</button>}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
