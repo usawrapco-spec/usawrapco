@@ -939,7 +939,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {/* ══════════════════════════════════════════════════════════════════ */}
       <div style={{
         display: 'flex', gap: 0, borderBottom: '2px solid var(--border)',
-        marginBottom: 16,
+        marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
@@ -1236,7 +1236,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         <PlaceholderTab icon={<Image size={28} />} label="Assets" description="File uploads, photos, and assets for this estimate." />
       )}
       {activeTab === 'notes' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 16 }}>
           <div style={{ ...cardStyle }}>
             <div style={{ ...sectionPad }}>
               <label style={fieldLabelStyle}>Internal Notes</label>
@@ -1771,7 +1771,7 @@ function LineItemCard({
               <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                 <Car size={12} style={{ color: 'var(--accent)' }} /> Box Truck Dimensions
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
                 <div>
                   <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Length (ft)</label>
                   <input type="number" value={(specs.boxLength as number) || ''} onChange={e => {
@@ -1868,7 +1868,7 @@ function LineItemCard({
               <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                 <Car size={12} style={{ color: 'var(--amber)' }} /> Trailer Dimensions
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
                 <div>
                   <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Coverage</label>
                   <select
@@ -1938,7 +1938,7 @@ function LineItemCard({
                 </div>
               </div>
               {(specs.vNose as boolean) && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 8 }}>
+                <div className="grid grid-cols-2" style={{ gap: 10, marginTop: 8 }}>
                   <div>
                     <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose Height (ft)</label>
                     <input type="number" value={(specs.vNoseHeight as number) || ''} onChange={e => updateSpec('vNoseHeight', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
@@ -1971,7 +1971,7 @@ function LineItemCard({
               <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                 <Layers size={12} style={{ color: 'var(--cyan)' }} /> Marine / Decking
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10 }}>
                 <div>
                   <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Section</label>
                   <select
@@ -2011,7 +2011,7 @@ function LineItemCard({
                   }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={1} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 8 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, marginTop: 8 }}>
                 <div>
                   <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material Width (in)</label>
                   <input type="number" value={(specs.marineWidth as number) || 54} onChange={e => updateSpec('marineWidth', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
@@ -2064,7 +2064,7 @@ function LineItemCard({
               <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                 <CircleDot size={12} style={{ color: 'var(--cyan)' }} /> PPF Packages
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                 {([
                   { key: 'standard_front', name: 'Standard Front', price: 1200, pay: 400, material: 250, hours: 4 },
                   { key: 'full_front', name: 'Full Front', price: 2500, pay: 750, material: 500, hours: 6 },
@@ -2241,7 +2241,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Paintbrush size={11} style={{ color: 'var(--purple)' }} /> Material Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material Cost</label>
                       <input type="number" value={specs.materialCost || ''} onChange={e => updateSpec('materialCost', Number(e.target.value))} onBlur={handleBlur} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.01} />
@@ -2266,7 +2266,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Wrench size={11} style={{ color: 'var(--amber)' }} /> Labor Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Est. Hours</label>
                       <input type="number" value={(specs.estimatedHours as number) || ''} onChange={e => updateSpec('estimatedHours', Number(e.target.value))} onBlur={handleBlur} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
@@ -2303,7 +2303,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Settings size={11} style={{ color: 'var(--cyan)' }} /> Machine Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Machine Cost</label>
                       <input type="number" value={specs.machineCost || ''} onChange={e => updateSpec('machineCost', Number(e.target.value))} onBlur={handleBlur} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.01} />
@@ -2352,7 +2352,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <TrendingUp size={11} style={{ color: 'var(--green)' }} /> Price Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Unit Price</label>
                       <div style={{ ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, padding: '7px 10px', fontSize: 12, color: 'var(--text1)', background: 'var(--surface2)', borderRadius: 6, border: '1px solid var(--border)' }}>
@@ -2403,7 +2403,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Car size={11} style={{ color: 'var(--accent)' }} /> Vehicle Info
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
                       <input value={specs.vehicleYear || ''} onChange={e => updateSpec('vehicleYear', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="2024" />
@@ -2424,7 +2424,7 @@ function LineItemCard({
                 </div>
 
                 {/* Notes */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
                   <div>
                     <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Internal Notes</label>
                     <textarea
