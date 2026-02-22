@@ -321,9 +321,7 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
   const submitOnboarding = async () => {
     setSubmitting(true)
     try {
-      await supabase.from('customer_intake').insert({
-        token,
-        org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+      await supabase.from('customer_intake_tokens').update({
         customer_name: form.contactName,
         customer_email: form.contactEmail,
         customer_phone: form.contactPhone,
@@ -348,7 +346,7 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
           referralSource: form.referralSource,
           referredBy: form.referredBy,
         },
-      })
+      }).eq('token', token)
     } catch (err) {
       console.error('Onboarding submit error:', err)
     }
