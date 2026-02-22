@@ -51,6 +51,8 @@ const SETTINGS_ITEMS: DropdownItem[] = [
   { href: '/1099',              label: 'Commissions',      icon: Receipt },
   { href: '/affiliate',         label: 'Affiliate Program', icon: Users },
   { href: '/timeclock',         label: 'Time Clock',       icon: Clock },
+  { href: '/integrations',      label: 'Integrations',     icon: Zap },
+  { href: '/shop',              label: 'Online Shop',      icon: ShoppingCart },
 ]
 
 // ─── Nav links (center) ───────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ const NAV_LINKS = [
   { href: '/calendar',  label: 'Calendar', icon: Calendar },
   { href: '/contacts',  label: 'Contacts', icon: Users },
   { href: '/design',    label: 'Design',   icon: Palette },
+  { href: '/wrapup',    label: 'WrapUp',   icon: Truck },
 ]
 
 // ─── Dropdown component ───────────────────────────────────────────────────────
