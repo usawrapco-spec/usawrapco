@@ -186,10 +186,10 @@ function ProductionDashboard({ profile, projects }: Props) {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('vinyl_inventory').select('*').then(({ data }) => {
+    supabase.from('vinyl_inventory').select('*').eq('org_id', profile.org_id).then(({ data }) => {
       if (data) setInventory(data)
     })
-  }, [])
+  }, [profile.org_id])
 
   const productionJobs = projects.filter(p =>
     p.pipe_stage === 'production' || p.status === 'in_production'

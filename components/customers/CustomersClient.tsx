@@ -48,7 +48,7 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
   async function save() {
     if (!form.contact_name.trim()) return
     setSaving(true)
-    const { data, error } = await supabase.from('customers').insert(form).select().single()
+    const { data, error } = await supabase.from('customers').insert({ ...form, org_id: profile.org_id }).select().single()
     if (!error && data) {
       setCustomers(prev => [data as Customer, ...prev])
       setShowAdd(false)

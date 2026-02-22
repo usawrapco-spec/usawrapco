@@ -999,9 +999,9 @@ function LinkedDesignPanel({ project }: { project: any }) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase.from('design_projects').select('*').eq('project_id', project.id)
+    supabase.from('design_projects').select('*').eq('project_id', project.id).eq('org_id', project.org_id)
       .then(({ data }) => { if (data) setDesignProjects(data) })
-  }, [project.id])
+  }, [project.id, project.org_id])
 
   async function createDesignProject() {
     if (!newTitle.trim()) return

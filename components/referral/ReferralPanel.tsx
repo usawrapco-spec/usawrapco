@@ -20,7 +20,7 @@ export default function ReferralPanel({ projectId, orgId, project, teammates }: 
     referral_type: 'percentage' as 'percentage' | 'flat',
     referral_rate: 2.5,
     flat_amount: 100,
-    from_division: project.division || 'wrap',
+    from_division: project.division || 'wraps',
     to_division: 'decking',
   })
   const [saving, setSaving] = useState(false)
