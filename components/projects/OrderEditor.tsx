@@ -80,8 +80,8 @@ const v = (val: unknown, def = 0): number => parseFloat(String(val)) || def
 // ── Shared styles ────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
   width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
-  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: 'var(--text1)', outline: 'none',
-  fontFamily: 'inherit',
+  borderRadius: 8, padding: '10px 12px', fontSize: 13, color: 'var(--text1)', outline: 'none',
+  fontFamily: 'inherit', minHeight: 44,
 }
 const sel: React.CSSProperties = { ...inp, cursor: 'pointer' }
 const monoNum: React.CSSProperties = { fontFamily: 'JetBrains Mono, monospace' }
@@ -562,6 +562,7 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
         display: 'flex', gap: 4, marginBottom: 20,
         background: 'var(--surface)', borderRadius: 12,
         padding: 4, border: '1px solid var(--border)',
+        overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
           { key: 'quote' as const, label: 'Quote & Materials', icon: <DollarSign size={15} /> },
@@ -587,10 +588,10 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
       </div>
 
       {/* ── MAIN LAYOUT: Content + Sidebar ──────────────────────────── */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
 
         {/* ── LEFT: Tab content ──────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }} className="w-full lg:w-auto">
 
           {/* ═══════════════════════════════════════════════════════════ */}
           {/* TAB 1: QUOTE & MATERIALS                                  */}
@@ -1555,8 +1556,7 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
         </div>
 
         {/* ── RIGHT: Pricing Sidebar ─────────────────────────────────── */}
-        <div style={{
-          width: 320, flexShrink: 0, position: 'sticky', top: 16,
+        <div className="w-full lg:w-80 lg:flex-shrink-0 lg:sticky lg:top-4" style={{
           maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
         }}>
           <div style={{
@@ -1843,14 +1843,19 @@ function Section({ label, icon, children, color }: {
   )
 }
 
+const GRID_COLS_MAP: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+}
+
 function Grid({ cols, children, style }: {
   cols: number; children: React.ReactNode; style?: React.CSSProperties
 }) {
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gap: 12, ...style,
-    }}>
+    <div className={`grid ${GRID_COLS_MAP[cols] || GRID_COLS_MAP[3]}`} style={{ gap: 12, ...style }}>
       {children}
     </div>
   )
