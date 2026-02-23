@@ -40,6 +40,7 @@ export default function ProductsCatalog({ profile }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCat, setFilterCat] = useState('')
+  const [activeTab, setActiveTab] = useState<'wrap' | 'decking'>('wrap')
 
   useEffect(() => {
     loadProducts()
@@ -87,7 +88,7 @@ export default function ProductsCatalog({ profile }: Props) {
     const newProduct = {
       org_id: profile.org_id,
       name: 'New Product',
-      category: 'wrap',
+      category: activeTab === 'decking' ? 'decking' : 'wrap',
       description: '',
       default_price: 0,
       default_hours: 0,
@@ -141,10 +142,18 @@ export default function ProductsCatalog({ profile }: Props) {
   }
 
   const filtered = products.filter(p => {
+    // Tab filter: decking tab shows only decking, wrap tab shows everything else
+    if (activeTab === 'decking' && p.category !== 'decking') return false
+    if (activeTab === 'wrap' && p.category === 'decking') return false
     if (searchTerm && !p.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
     if (filterCat && p.category !== filterCat) return false
     return true
   })
+
+  // Filter category options based on active tab
+  const tabCategories = PRODUCT_CATEGORIES.filter(c =>
+    activeTab === 'decking' ? c.value === 'decking' : c.value !== 'decking'
+  )
 
   const inp: React.CSSProperties = {
     width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
@@ -207,6 +216,36 @@ export default function ProductsCatalog({ profile }: Props) {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
+        {([
+          { key: 'wrap' as const, label: 'WRAP & PPF' },
+          { key: 'decking' as const, label: 'DECKING' },
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveTab(tab.key); setFilterCat('') }}
+            style={{
+              padding: '10px 24px',
+              fontSize: 13,
+              fontWeight: 800,
+              fontFamily: headingFont,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: activeTab === tab.key ? 'var(--accent)' : 'var(--text3)',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
+              cursor: 'pointer',
+              transition: 'color 0.15s, border-color 0.15s',
+              marginBottom: -1,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search + Filter */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <div style={{ position: 'relative', flex: 1 }}>
@@ -220,7 +259,7 @@ export default function ProductsCatalog({ profile }: Props) {
         </div>
         <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...sel, width: 160 }}>
           <option value="">All Categories</option>
-          {PRODUCT_CATEGORIES.map(c => (
+          {tabCategories.map(c => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
