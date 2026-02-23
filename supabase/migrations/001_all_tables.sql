@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   avatar_url      TEXT,
   role            TEXT NOT NULL DEFAULT 'viewer'
                   CHECK (role IN ('owner','admin','sales_agent','designer','production','installer','viewer')),
+  is_owner        BOOLEAN NOT NULL DEFAULT false,
   active          BOOLEAN NOT NULL DEFAULT true,
   permissions     JSONB NOT NULL DEFAULT '{}',
   division        TEXT DEFAULT 'both',

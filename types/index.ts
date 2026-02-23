@@ -133,6 +133,7 @@ export interface Profile {
   id: string
   org_id: string
   role: UserRole
+  is_owner?: boolean
   name: string
   email: string
   phone: string | null
