@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Save, Send, CheckCircle2, FileText, Plus,
   Trash2, Car, Paintbrush, ChevronDown, ChevronRight,
@@ -225,9 +225,8 @@ interface Props {
 
 export default function EstimateDetailClient({ profile, estimate, employees, customers, isNew }: Props) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
-  const isNewEstimate = isNew || searchParams.get('new') === 'true'
+  const isNewEstimate = !!isNew
 
   const isDemo = !estimate && !isNew
   const est = isNew ? {
