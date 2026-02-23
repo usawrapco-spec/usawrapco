@@ -16,6 +16,29 @@ import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
+import vehiclesData from '@/lib/data/vehicles.json'
+
+// ─── Vehicle Database ────────────────────────────────────────────────────────────
+
+interface VehicleEntry {
+  year: number; make: string; model: string; sqft: number
+  basePrice: number; installHours: number; tier: string
+}
+
+const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
+const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
+
+function getModelsForMake(make: string): string[] {
+  return [...new Set(VEHICLES_DB.filter(v => v.make === make).map(v => v.model))].sort()
+}
+
+function findVehicle(make: string, model: string, year?: string): VehicleEntry | null {
+  const y = year ? parseInt(year) : null
+  let match = y
+    ? VEHICLES_DB.find(v => v.make === make && v.model === model && v.year === y)
+    : VEHICLES_DB.find(v => v.make === make && v.model === model)
+  return match || null
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -1620,6 +1643,211 @@ function CollapsibleHeader({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VEHICLE AUTOCOMPLETE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function VehicleAutocomplete({
+  specs, updateSpec, handleBlur, canWrite, onVehicleSelect,
+}: {
+  specs: LineItemSpecs
+  updateSpec: (key: string, value: unknown) => void
+  handleBlur: () => void
+  canWrite: boolean
+  onVehicleSelect: (v: VehicleEntry) => void
+}) {
+  const [makeOpen, setMakeOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
+  const [makeFilter, setMakeFilter] = useState('')
+  const [modelFilter, setModelFilter] = useState('')
+  const makeRef = useRef<HTMLDivElement>(null)
+  const modelRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (makeRef.current && !makeRef.current.contains(e.target as Node)) setMakeOpen(false)
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const currentMake = (specs.vehicleMake as string) || ''
+  const currentModel = (specs.vehicleModel as string) || ''
+
+  const filteredMakes = makeFilter
+    ? ALL_MAKES.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
+    : ALL_MAKES
+
+  const availableModels = currentMake ? getModelsForMake(currentMake) : []
+  const filteredModels = modelFilter
+    ? availableModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase()))
+    : availableModels
+
+  function selectMake(make: string) {
+    updateSpec('vehicleMake', make)
+    setMakeOpen(false)
+    setMakeFilter('')
+    // Clear model when make changes
+    if (make !== currentMake) {
+      updateSpec('vehicleModel', '')
+    }
+  }
+
+  function selectModel(model: string) {
+    updateSpec('vehicleModel', model)
+    setModelOpen(false)
+    setModelFilter('')
+    // Auto-populate from vehicle DB
+    const v = findVehicle(currentMake, model, specs.vehicleYear as string)
+    if (v) onVehicleSelect(v)
+    handleBlur()
+  }
+
+  const dropdownStyle: React.CSSProperties = {
+    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+    background: 'var(--surface)', border: '1px solid var(--border)',
+    borderRadius: 8, marginTop: 2, maxHeight: 200, overflowY: 'auto',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+  }
+  const optionStyle: React.CSSProperties = {
+    padding: '7px 12px', fontSize: 12, color: 'var(--text1)', cursor: 'pointer',
+    borderBottom: '1px solid var(--border)',
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Car size={11} style={{ color: 'var(--accent)' }} /> Vehicle Info
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
+        {/* Year - free type */}
+        <div>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
+          <input
+            value={specs.vehicleYear || ''}
+            onChange={e => updateSpec('vehicleYear', e.target.value)}
+            onBlur={() => {
+              // Re-lookup vehicle on year change
+              if (currentMake && currentModel) {
+                const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
+                if (v) onVehicleSelect(v)
+              }
+              handleBlur()
+            }}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite}
+            placeholder="2024"
+          />
+        </div>
+
+        {/* Make - autocomplete */}
+        <div ref={makeRef} style={{ position: 'relative' }}>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
+          <input
+            value={makeOpen ? makeFilter : currentMake}
+            onChange={e => { setMakeFilter(e.target.value); if (!makeOpen) setMakeOpen(true) }}
+            onFocus={() => setMakeOpen(true)}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite}
+            placeholder="Search makes..."
+          />
+          {makeOpen && filteredMakes.length > 0 && (
+            <div style={dropdownStyle}>
+              {filteredMakes.map(m => (
+                <div key={m} style={optionStyle}
+                  onMouseDown={() => selectMake(m)}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  {m}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Model - autocomplete filtered by make */}
+        <div ref={modelRef} style={{ position: 'relative' }}>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Model</label>
+          <input
+            value={modelOpen ? modelFilter : currentModel}
+            onChange={e => { setModelFilter(e.target.value); if (!modelOpen) setModelOpen(true) }}
+            onFocus={() => { if (currentMake) setModelOpen(true) }}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite || !currentMake}
+            placeholder={currentMake ? 'Search models...' : 'Select make first'}
+          />
+          {modelOpen && filteredModels.length > 0 && (
+            <div style={dropdownStyle}>
+              {filteredModels.map(m => {
+                const v = findVehicle(currentMake, m)
+                return (
+                  <div key={m} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onMouseDown={() => selectModel(m)}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span>{m}</span>
+                    {v && v.sqft > 0 && (
+                      <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
+                        {v.sqft}sqft · ${v.basePrice}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Color - free type */}
+        <div>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Color</label>
+          <input
+            value={specs.vehicleColor || ''}
+            onChange={e => updateSpec('vehicleColor', e.target.value)}
+            onBlur={handleBlur}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite}
+            placeholder="White"
+          />
+        </div>
+      </div>
+
+      {/* Auto-populated info badge */}
+      {currentMake && currentModel && (() => {
+        const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
+        if (!v || v.sqft === 0) return null
+        return (
+          <div style={{
+            display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
+            background: 'rgba(34,192,122,0.06)', borderRadius: 6,
+            border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+              PVO Data
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+              {v.sqft} sqft
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+              ${v.basePrice}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+              {v.installHours}hrs
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+              {v.tier.replace('_', ' ')}
+            </span>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // LINE ITEM CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2586,30 +2814,25 @@ function LineItemCard({
               transition: 'max-height 0.2s ease',
             }}>
               <div style={{ padding: '8px 0' }}>
-                {/* Vehicle Info */}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Car size={11} style={{ color: 'var(--accent)' }} /> Vehicle Info
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
-                      <input value={specs.vehicleYear || ''} onChange={e => updateSpec('vehicleYear', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="2024" />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
-                      <input value={specs.vehicleMake || ''} onChange={e => updateSpec('vehicleMake', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="Ford" />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Model</label>
-                      <input value={specs.vehicleModel || ''} onChange={e => updateSpec('vehicleModel', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="F-150" />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Color</label>
-                      <input value={specs.vehicleColor || ''} onChange={e => updateSpec('vehicleColor', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="White" />
-                    </div>
-                  </div>
-                </div>
+                {/* Vehicle Info with Autocomplete */}
+                <VehicleAutocomplete
+                  specs={specs}
+                  updateSpec={updateSpec}
+                  handleBlur={handleBlur}
+                  canWrite={canWrite}
+                  onVehicleSelect={(v) => {
+                    // Auto-populate sqft and pricing from vehicle database
+                    const updated = { ...latestRef.current }
+                    const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model }
+                    if (v.basePrice > 0) {
+                      updated.unit_price = v.basePrice
+                      updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
+                      newSpecs.estimatedHours = v.installHours
+                    }
+                    updated.specs = newSpecs
+                    onChange(updated)
+                  }}
+                />
 
                 {/* Notes */}
                 <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
