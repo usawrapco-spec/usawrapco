@@ -46,12 +46,13 @@ interface DesignProject {
   description: string | null
   status: DesignStatus
   deadline: string | null
-  designer_id: string | null
-  project_id: string | null
+  assigned_to: string | null
+  linked_project_id: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
-  designer?: { id: string; name: string } | null
-  project?: { id: string; title: string } | null
+  assignee?: { id: string; name: string } | null
+  linked_project?: { id: string; title: string } | null
 }
 
 interface TeamMember {
@@ -193,7 +194,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     const [designRes, teamRes, jobsRes] = await Promise.all([
       supabase
         .from('design_projects')
-        .select('*, designer:designer_id(id, name), project:project_id(id, title)')
+        .select('*, assignee:assigned_to(id, name), linked_project:linked_project_id(id, title)')
         .eq('org_id', profile.org_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -209,6 +210,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
         .order('created_at', { ascending: false }),
     ])
 
+    if (designRes.error) console.error('Design projects load error:', designRes.error)
     if (designRes.data) setProjects(designRes.data as DesignProject[])
     if (teamRes.data) setTeam(teamRes.data)
     if (jobsRes.data) setJobRefs(jobsRes.data)
@@ -233,9 +235,9 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     // Filter by designer
     if (filterDesigner !== 'all') {
       if (filterDesigner === 'unassigned') {
-        result = result.filter(dp => !dp.designer_id)
+        result = result.filter(dp => !dp.assigned_to)
       } else {
-        result = result.filter(dp => dp.designer_id === filterDesigner)
+        result = result.filter(dp => dp.assigned_to === filterDesigner)
       }
     }
 
@@ -328,13 +330,15 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
         design_type: formDesignType,
         description: briefDescription,
         deadline: formDeadline || null,
-        designer_id: formDesignerId || null,
-        project_id: formProjectId || null,
+        assigned_to: formDesignerId || null,
+        linked_project_id: formProjectId || null,
+        created_by: profile.id,
         status: 'brief',
       })
-      .select('*, designer:designer_id(id, name), project:project_id(id, title)')
+      .select('*, assignee:assigned_to(id, name), linked_project:linked_project_id(id, title)')
       .single()
 
+    if (error) console.error('Design project create error:', error)
     if (!error && data) {
       setProjects(prev => [data as DesignProject, ...prev])
 
@@ -359,7 +363,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     setSelectedProject(dp)
     setDrawerTab('details')
     setDrawerStatus(dp.status)
-    setDrawerDesignerId(dp.designer_id || '')
+    setDrawerDesignerId(dp.assigned_to || '')
     setDrawerClientName(dp.client_name)
     setDrawerDesignType(dp.design_type)
     setDrawerDescription(dp.description || '')
@@ -609,7 +613,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       .from('design_projects')
       .update({
         status: drawerStatus,
-        designer_id: drawerDesignerId || null,
+        assigned_to: drawerDesignerId || null,
         client_name: drawerClientName.trim(),
         design_type: drawerDesignType,
         description: drawerDescription.trim() || null,
@@ -624,13 +628,13 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
           ? {
               ...p,
               status: drawerStatus,
-              designer_id: drawerDesignerId || null,
+              assigned_to: drawerDesignerId || null,
               client_name: drawerClientName.trim(),
               design_type: drawerDesignType,
               description: drawerDescription.trim() || null,
               deadline: drawerDeadline || null,
-              designer: drawerDesignerId
-                ? (team.find(t => t.id === drawerDesignerId) ? { id: drawerDesignerId, name: team.find(t => t.id === drawerDesignerId)!.name } : p.designer)
+              assignee: drawerDesignerId
+                ? (team.find(t => t.id === drawerDesignerId) ? { id: drawerDesignerId, name: team.find(t => t.id === drawerDesignerId)!.name } : p.assignee)
                 : null,
             }
           : p
@@ -989,17 +993,17 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
                         {/* Bottom row: designer, job link, deadline */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                          {dp.designer && (
+                          {dp.assignee && (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#9299b5' }}>
-                              <User size={10} /> {dp.designer.name}
+                              <User size={10} /> {dp.assignee.name}
                             </span>
                           )}
-                          {!dp.designer && (
+                          {!dp.assignee && (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#5a6080', fontStyle: 'italic' }}>
                               <User size={10} /> Unassigned
                             </span>
                           )}
-                          {dp.project && (
+                          {dp.linked_project && (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#4f7fff' }}>
                               <LinkIcon size={10} /> Job
                             </span>
@@ -1306,7 +1310,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                   </div>
 
                   {/* Linked job info */}
-                  {selectedProject.project ? (
+                  {selectedProject.linked_project ? (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '10px 12px', background: 'rgba(79,127,255,0.06)',
@@ -1315,10 +1319,10 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                       <LinkIcon size={14} style={{ color: '#4f7fff', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: '#5a6080', fontWeight: 600 }}>Linked Job</div>
-                        <div style={{ fontSize: 13, color: '#4f7fff', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProject.project.title}</div>
+                        <div style={{ fontSize: 13, color: '#4f7fff', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProject.linked_project.title}</div>
                       </div>
                       <button
-                        onClick={() => router.push(`/projects/${selectedProject.project!.id}`)}
+                        onClick={() => router.push(`/projects/${selectedProject.linked_project!.id}`)}
                         style={{
                           padding: '4px 10px', background: 'rgba(79,127,255,0.12)',
                           border: '1px solid rgba(79,127,255,0.2)', borderRadius: 6,
