@@ -55,6 +55,7 @@ const SETTINGS_ITEMS: DropdownItem[] = [
   { href: '/timeclock',         label: 'Time Clock',       icon: Clock },
   { href: '/integrations',      label: 'Integrations',     icon: Zap },
   { href: '/shop',              label: 'Online Shop',      icon: ShoppingCart },
+  { href: '/enterprise',        label: 'Enterprise Hub',   icon: HelpCircle },
 ]
 
 // ─── Nav links (center) ───────────────────────────────────────────────────────
