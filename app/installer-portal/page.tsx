@@ -35,6 +35,23 @@ export default async function InstallerPortalPage() {
     .order('created_at', { ascending: false })
     .limit(20)
 
+  // Fetch active jobs assigned to this installer
+  const { data: activeJobs } = await admin
+    .from('projects')
+    .select('id, title, vehicle_desc, form_data, fin_data, install_date, pipe_stage, status, checkout')
+    .eq('installer_id', user.id)
+    .in('pipe_stage', ['install', 'prod_review', 'sales_close', 'done'])
+    .order('install_date', { ascending: true, nullsFirst: false })
+    .limit(50)
+
+  // Fetch recent install sessions for this installer
+  const { data: installSessions } = await admin
+    .from('install_sessions')
+    .select('*')
+    .eq('installer_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
@@ -43,6 +60,8 @@ export default async function InstallerPortalPage() {
             profile={profile as Profile}
             bids={myBids || []}
             openBids={openBids || []}
+            activeJobs={activeJobs || []}
+            installSessions={installSessions || []}
           />
         </main>
       <div className="md:hidden">
