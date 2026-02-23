@@ -2090,6 +2090,131 @@ function VehicleAutocomplete({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VEHICLE INFO BLOCK (VIN + Year/Make/Model at top of line item)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function VehicleInfoBlock({
+  specs, updateSpec, handleBlur, canWrite, onVehicleSelect,
+}: {
+  specs: LineItemSpecs
+  updateSpec: (key: string, value: unknown) => void
+  handleBlur: () => void
+  canWrite: boolean
+  onVehicleSelect: (v: VehicleEntry) => void
+}) {
+  const [vinLoading, setVinLoading] = useState(false)
+  const [vinResult, setVinResult] = useState<string | null>(null)
+
+  async function decodeVIN(vin: string) {
+    if (vin.length !== 17) return
+    setVinLoading(true)
+    setVinResult(null)
+    try {
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`)
+      const data = await res.json()
+      const results = data.Results as { Variable: string; Value: string | null }[]
+      const get = (name: string) => results.find(r => r.Variable === name)?.Value || ''
+      const year = get('Model Year')
+      const make = get('Make')
+      const model = get('Model')
+      const trim = get('Trim')
+      const bodyClass = get('Body Class')
+      const driveType = get('Drive Type')
+      const engine = [get('Displacement (L)'), get('Engine Number of Cylinders') ? `${get('Engine Number of Cylinders')}cyl` : ''].filter(Boolean).join('L ')
+      if (make && model) {
+        updateSpec('vehicleYear', year)
+        updateSpec('vehicleMake', make)
+        updateSpec('vehicleModel', model)
+        if (trim) updateSpec('vehicleTrim', trim)
+        if (bodyClass) updateSpec('bodyClass', bodyClass)
+        if (driveType) updateSpec('driveType', driveType)
+        if (engine) updateSpec('engine', engine)
+        // Cross-reference vehicles.json
+        const v = findVehicle(make, model, year)
+        if (v) {
+          onVehicleSelect(v)
+          setVinResult(`Vehicle found: ${year} ${make} ${model}${trim ? ` ${trim}` : ''} - ${v.sqft} sqft`)
+        } else {
+          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''} - enter sqft manually`)
+        }
+      } else {
+        setVinResult('VIN not found - enter vehicle info manually')
+      }
+    } catch {
+      setVinResult('VIN lookup failed - enter manually')
+    }
+    setVinLoading(false)
+  }
+
+  return (
+    <div style={{
+      marginTop: 12, padding: 14, background: 'var(--bg)',
+      border: '1px solid var(--border)', borderRadius: 10,
+    }}>
+      <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+        <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Information
+      </div>
+
+      {/* VIN Field */}
+      <div style={{ marginBottom: 10 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto]" style={{ gap: 8, alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>VIN (17 characters)</label>
+            <input
+              value={(specs.vin as string) || ''}
+              onChange={e => {
+                const v = e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '')
+                updateSpec('vin', v)
+                if (v.length === 17) decodeVIN(v)
+              }}
+              style={{ ...fieldInputStyle, fontSize: 12, fontFamily: monoFont, letterSpacing: '0.1em' }}
+              disabled={!canWrite}
+              placeholder="1FTFW1E50MFA12345"
+              maxLength={17}
+            />
+          </div>
+          <button
+            onClick={() => { if ((specs.vin as string)?.length === 17) decodeVIN(specs.vin as string) }}
+            disabled={vinLoading || !canWrite}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+              cursor: vinLoading ? 'not-allowed' : 'pointer',
+              border: '1px solid rgba(34,192,122,0.3)',
+              background: 'rgba(34,192,122,0.08)', color: 'var(--green)',
+              opacity: vinLoading ? 0.6 : 1,
+              whiteSpace: 'nowrap' as const,
+            }}
+          >
+            {vinLoading ? 'Looking up...' : 'Decode VIN'}
+          </button>
+        </div>
+        {vinResult && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
+            padding: '5px 10px', borderRadius: 6, fontSize: 11,
+            background: vinResult.includes('found') ? 'rgba(34,192,122,0.08)' : 'rgba(245,158,11,0.08)',
+            border: `1px solid ${vinResult.includes('found') ? 'rgba(34,192,122,0.2)' : 'rgba(245,158,11,0.2)'}`,
+            color: vinResult.includes('found') ? 'var(--green)' : 'var(--amber)',
+          }}>
+            {vinResult}
+          </div>
+        )}
+      </div>
+
+      {/* Year / Make / Model / Color */}
+      <VehicleAutocomplete
+        specs={specs}
+        updateSpec={updateSpec}
+        handleBlur={handleBlur}
+        canWrite={canWrite}
+        onVehicleSelect={onVehicleSelect}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // LINE ITEM CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2148,6 +2273,14 @@ function LineItemCard({
   const gpm = calcGPM(item, leadType)
   const badge = gpmBadge(gpm.gpm)
   const vehicleDesc = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel].filter(Boolean).join(' ')
+
+  // Determine if this product involves a vehicle (show VIN + Y/M/M)
+  const calcType = (specs.calculatorType as string) || ''
+  const vType = (specs.vehicleType as string) || ''
+  const isVehicleProduct = ['vehicle', 'box-truck', 'trailer', 'ppf'].includes(calcType) ||
+    ['small_car', 'med_car', 'full_car', 'sm_truck', 'med_truck', 'full_truck', 'med_van', 'large_van', 'box_truck', 'trailer', 'ppf'].includes(vType) ||
+    item.product_type === 'wrap' || item.product_type === 'ppf'
+  const isBoatProduct = calcType === 'marine' || calcType === 'decking' || vType === 'marine'
 
   const productTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
     wrap:    { label: 'WRAP',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
@@ -2254,11 +2387,32 @@ function LineItemCard({
 
       {/* ── Expanded Content ───────────────────────────────────────────── */}
       <div style={{
-        maxHeight: isCardExpanded ? 2000 : 0,
+        maxHeight: isCardExpanded ? 5000 : 0,
         overflow: 'hidden',
         transition: 'max-height 0.3s ease',
       }}>
         <div style={{ borderTop: '1px solid var(--border)', padding: '0 16px 16px' }}>
+
+          {/* ── VIN + Vehicle Info (vehicle products only) ────────────── */}
+          {isVehicleProduct && (
+            <VehicleInfoBlock
+              specs={specs}
+              updateSpec={updateSpec}
+              handleBlur={handleBlur}
+              canWrite={canWrite}
+              onVehicleSelect={(v) => {
+                const updated = { ...latestRef.current }
+                const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model }
+                if (v.basePrice > 0) {
+                  updated.unit_price = v.basePrice
+                  updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
+                  newSpecs.estimatedHours = v.installHours
+                }
+                updated.specs = newSpecs
+                onChange(updated)
+              }}
+            />
+          )}
 
           {/* ── Core Fields Row ─────────────────────────────────────────── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_80px_120px_120px]" style={{ gap: 10, marginTop: 12 }}>
@@ -3195,26 +3349,6 @@ function LineItemCard({
               transition: 'max-height 0.2s ease',
             }}>
               <div style={{ padding: '8px 0' }}>
-                {/* Vehicle Info with Autocomplete */}
-                <VehicleAutocomplete
-                  specs={specs}
-                  updateSpec={updateSpec}
-                  handleBlur={handleBlur}
-                  canWrite={canWrite}
-                  onVehicleSelect={(v) => {
-                    // Auto-populate sqft and pricing from vehicle database
-                    const updated = { ...latestRef.current }
-                    const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model }
-                    if (v.basePrice > 0) {
-                      updated.unit_price = v.basePrice
-                      updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
-                      newSpecs.estimatedHours = v.installHours
-                    }
-                    updated.specs = newSpecs
-                    onChange(updated)
-                  }}
-                />
-
                 {/* Notes */}
                 <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
                   <div>
