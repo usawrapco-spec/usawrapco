@@ -9,6 +9,8 @@ import {
   Package, Palette, Trophy, ChevronRight, Printer,
   AlertTriangle, Award, Star, Target,
 } from 'lucide-react'
+import WeatherWidget from './WeatherWidget'
+import AIBriefing from './AIBriefing'
 
 interface Props {
   profile: Profile
@@ -101,6 +103,12 @@ function SalesDashboard({ profile, projects }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+      {/* Weather + AI Briefing */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <WeatherWidget />
+        <AIBriefing orgId={profile.org_id} profileId={profile.id} />
+      </div>
+
       {/* Earnings strip */}
       <SectionCard title="Your Earnings" icon={DollarSign} color="#22c07a">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
