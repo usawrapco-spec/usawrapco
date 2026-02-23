@@ -162,6 +162,8 @@ export default function MockupCreator({
   )
   const [uploading, setUploading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [mockupImages, setMockupImages] = useState<string[]>([])
+  const [mockupError, setMockupError] = useState<string | null>(null)
 
   // Template Trace tab state
   const [panels, setPanels] = useState<TracePanel[]>([
@@ -206,13 +208,15 @@ export default function MockupCreator({
     handleBrandFileUpload(file)
   }
 
-  function handleGenerateMockup() {
+  async function handleGenerateMockup() {
     if (!designBrief.trim()) {
       toast('Please describe the design first', 'warning')
       return
     }
 
     setGenerating(true)
+    setMockupError(null)
+    setMockupImages([])
 
     const prompt = [
       `Vehicle: ${vehicleInfo}`,
@@ -227,11 +231,34 @@ export default function MockupCreator({
     updateSpec('mockupCoverage', coverage)
     updateSpec('mockupBrief', designBrief)
 
-    // Simulate async delay then show pending message
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/generate-mockup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          vehicle_type: vehicleInfo,
+          style: coverage,
+          colors: [],
+          brief: designBrief,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      const images: string[] = data.images || []
+      setMockupImages(images)
+      if (images.length > 0) {
+        updateSpec('mockupUrl', images[0])
+        toast(`${images.length} mockup${images.length > 1 ? 's' : ''} generated`, 'success')
+      } else {
+        throw new Error('No images returned from generation')
+      }
+    } catch (err: any) {
+      setMockupError(err.message)
+      toast('Generation failed: ' + err.message, 'error')
+    } finally {
       setGenerating(false)
-      toast('AI mockup generation coming soon - Replicate flux-pro integration pending', 'info')
-    }, 1200)
+    }
   }
 
   function handleUseMockup() {
@@ -585,46 +612,60 @@ export default function MockupCreator({
                 )}
               </button>
 
-              {/* Prompt preview (if stored) */}
-              {specs.mockupPrompt && !mockupUrl && (
-                <div
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    padding: 16,
-                  }}
-                >
-                  <div style={{ ...labelStyle, marginBottom: 8 }}>Generated Prompt</div>
-                  <pre
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--text2)',
-                      fontFamily: monoFont,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      margin: 0,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {specs.mockupPrompt as string}
-                  </pre>
-                  <div
-                    style={{
-                      marginTop: 12,
-                      padding: '10px 14px',
-                      background: 'rgba(79,127,255,0.06)',
-                      border: '1px solid rgba(79,127,255,0.15)',
-                      borderRadius: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <Wand2 size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: 'var(--text2)' }}>
-                      AI generation placeholder -- mockup image will appear here once Replicate integration is active.
-                    </span>
+              {/* Error state */}
+              {mockupError && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(242,90,90,0.08)',
+                  border: '1px solid rgba(242,90,90,0.25)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: 'var(--red)',
+                }}>
+                  {mockupError}
+                </div>
+              )}
+
+              {/* Generated images grid */}
+              {mockupImages.length > 0 && (
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 8 }}>
+                    Select a mockup ({mockupImages.length} generated)
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8,
+                  }}>
+                    {mockupImages.map((url, i) => (
+                      <div
+                        key={i}
+                        onClick={() => updateSpec('mockupUrl', url)}
+                        style={{
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          border: mockupUrl === url ? '2px solid var(--accent)' : '2px solid var(--border)',
+                          cursor: 'pointer',
+                          position: 'relative',
+                        }}
+                      >
+                        <img
+                          src={url}
+                          alt={`Mockup ${i + 1}`}
+                          style={{ width: '100%', display: 'block' }}
+                        />
+                        {mockupUrl === url && (
+                          <div style={{
+                            position: 'absolute', top: 6, right: 6,
+                            background: 'var(--accent)', borderRadius: '50%',
+                            width: 20, height: 20, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <span style={{ color: '#fff', fontSize: 11, fontWeight: 900 }}>✓</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
