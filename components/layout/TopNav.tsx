@@ -153,7 +153,6 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   const { tourOpen, whatsNewOpen, newCommits, startTour, closeTour, closeWhatsNew } = useTour()
 
-  const [logoError, setLogoError]     = useState(false)
   const [searchOpen, setSearchOpen]   = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [createOpen, setCreateOpen]   = useState(false)
@@ -264,28 +263,29 @@ export function TopNav({ profile }: { profile: Profile }) {
           textDecoration: 'none', flexShrink: 0, marginRight: 8,
         }}
       >
-        {logoError ? (
-          <>
-            <Truck size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-            <span style={{
-              fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: 16, fontWeight: 900,
-              letterSpacing: '0.02em',
-              color: 'var(--text1)',
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-            }}>
-              USA WRAP CO
-            </span>
-          </>
-        ) : (
-          <img
-            src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
-            alt="USA WRAP CO"
-            style={{ height: 34, width: 'auto', display: 'block' }}
-            onError={() => setLogoError(true)}
-          />
-        )}
+        <img
+          src="/images/usawrapco-logo-white.png"
+          alt="USA WRAP CO"
+          style={{ height: 32, width: 'auto', display: 'block', objectFit: 'contain' }}
+          onError={(e) => {
+            const t = e.currentTarget as HTMLImageElement
+            t.style.display = 'none'
+            const fallback = t.nextElementSibling as HTMLElement | null
+            if (fallback) fallback.style.display = 'flex'
+          }}
+        />
+        <span style={{
+          display: 'none', alignItems: 'center', gap: 6,
+          fontFamily: 'Barlow Condensed, sans-serif',
+          fontSize: 16, fontWeight: 900,
+          letterSpacing: '0.02em',
+          color: 'var(--text1)',
+          lineHeight: 1,
+          whiteSpace: 'nowrap',
+        }}>
+          <Truck size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          USA WRAP CO
+        </span>
       </Link>
 
       {/* ── Quick Create [+] ─────────────────────────────────── */}
