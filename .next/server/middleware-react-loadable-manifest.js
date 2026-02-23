@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}";
+self.__REACT_LOADABLE_MANIFEST='{"components\\\\design\\\\DesignCanvasClient.tsx -> fabric":{"id":78960,"files":["static/chunks/0b465130.2648fc51055b9341.js"]}}';
