@@ -7,13 +7,12 @@ import { isAdminRole } from '@/types'
 import type { Profile } from '@/types'
 import IntegrationsClient from '@/components/integrations/IntegrationsClient'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export default async function IntegrationsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Use admin for profile lookup (reliable even if anon RLS is strict)
   const admin = getSupabaseAdmin()
   const { data: profile } = await admin.from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
@@ -22,27 +21,27 @@ export default async function IntegrationsPage() {
     redirect('/dashboard')
   }
 
-  const orgId = profile.org_id || ORG_ID
-
-  // Load existing integration configs from integrations table
+  // Load integration configs from org_config table using auth'd client
+  // RLS policy automatically filters to this user's org
   let integrations: any[] = []
   try {
-    const { data } = await admin.from('integrations').select('*').eq('org_id', orgId)
-    integrations = data || []
-  } catch {}
+    const { data: rows } = await supabase
+      .from('org_config')
+      .select('key, value')
+      .like('key', 'integration_%')
 
-  // Also merge in any configs saved to orgs.settings.integrations
-  if (integrations.length === 0) {
-    try {
-      const { data: org } = await admin.from('orgs').select('settings').eq('id', orgId).single()
-      const orgIntegrations = (org?.settings as any)?.integrations || {}
-      integrations = Object.entries(orgIntegrations).map(([id, config]) => ({
-        integration_id: id,
-        config,
-        enabled: true,
-      }))
-    } catch {}
-  }
+    if (rows?.length) {
+      integrations = rows.map((row: any) => {
+        let config: any = {}
+        try { config = JSON.parse(row.value || '{}') } catch {}
+        return {
+          integration_id: (row.key as string).replace('integration_', ''),
+          config,
+          enabled: true,
+        }
+      })
+    }
+  } catch {}
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>

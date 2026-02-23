@@ -1,56 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getSupabaseAdmin } from '@/lib/supabase/service'
 
-async function getReplicateToken(req: NextRequest): Promise<string | null> {
+async function getReplicateToken(): Promise<string | null> {
   // 1. Try environment variable first
   if (process.env.REPLICATE_API_TOKEN) {
     return process.env.REPLICATE_API_TOKEN
   }
 
-  // 2. Fall back to integrations table (set via Settings → Integrations UI)
+  // 2. Fall back to org_config table (set via Settings → Integrations UI)
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const admin = getSupabaseAdmin()
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
+    const { data: row } = await supabase
+      .from('org_config')
+      .select('value')
+      .eq('key', 'integration_replicate')
       .single()
 
-    if (!profile?.org_id) return null
+    if (row?.value) {
+      const config = JSON.parse(row.value)
+      return config?.api_token || null
+    }
+  } catch {}
 
-    const { data: integration } = await admin
-      .from('integrations')
-      .select('config')
-      .eq('org_id', profile.org_id)
-      .eq('integration_id', 'replicate')
-      .eq('enabled', true)
-      .single()
-
-    if (integration?.config?.api_token) return integration.config.api_token
-
-    // Third fallback: orgs.settings.integrations.replicate.api_token
-    const { data: org } = await admin
-      .from('orgs')
-      .select('settings')
-      .eq('id', profile.org_id)
-      .single()
-
-    return (org?.settings as any)?.integrations?.replicate?.api_token || null
-  } catch {
-    return null
-  }
+  return null
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { prompt, vehicle_type, style, colors, brief, designId } = body
+  const { prompt, vehicle_type, style, colors, brief } = body
 
-  const replicateToken = await getReplicateToken(req)
+  const replicateToken = await getReplicateToken()
 
   if (!replicateToken) {
     return NextResponse.json(
@@ -59,7 +41,6 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Build the full prompt
   const fullPrompt = `Professional photorealistic vehicle wrap design, ${vehicle_type || 'pickup truck'},
   ${brief || 'bold commercial wrap design'}, ${colors?.join(', ') || 'red and black'} color scheme,
   ${style || 'professional'} style, studio photography, commercial vinyl wrap,
@@ -90,7 +71,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: prediction.error }, { status: 500 })
     }
 
-    // Poll if still processing
     if (prediction.status !== 'succeeded') {
       let result = prediction
       let attempts = 0
