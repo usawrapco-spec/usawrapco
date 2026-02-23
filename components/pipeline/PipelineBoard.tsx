@@ -138,10 +138,10 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
 
                   return (
                     <div key={project.id}
-                      onClick={() => router.push(`/projects/${project.id}`)}
+                      onClick={() => router.push(`/jobs/${project.id}`)}
                       className={clsx(
                         'rounded-xl p-3 cursor-pointer transition-all duration-200',
-                        'border hover:-translate-y-0.5 hover:shadow-lg',
+                        'border hover:-translate-y-0.5 hover:shadow-lg hover:ring-1 hover:ring-white/20',
                         'bg-surface border-border hover:border-accent/40'
                       )}>
                       {/* Progress dots */}

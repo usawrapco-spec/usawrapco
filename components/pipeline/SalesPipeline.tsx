@@ -153,7 +153,7 @@ export default function SalesPipeline({ orgId, profileId, role }: SalesPipelineP
         department="sales"
         profileId={profileId}
         orgId={orgId}
-        onProjectClick={(p) => router.push(`/dashboard/project/${p.id}`)}
+        onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
         onStageChange={handleStageChange}
         showGhosts={true}
         allProjects={projects}

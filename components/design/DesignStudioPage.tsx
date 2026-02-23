@@ -338,7 +338,23 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       .select('*, assignee:assigned_to(id, name), linked_project:linked_project_id(id, title)')
       .single()
 
-    if (error) console.error('Design project create error:', error)
+    if (error) {
+      console.error('Design canvas create error — full error object:', error)
+      console.error('Error message:', error.message)
+      console.error('Error code:', error.code)
+      console.error('Error details:', error.details)
+      console.error('Insert payload:', {
+        org_id: profile.org_id,
+        client_name: formClientName.trim(),
+        design_type: formDesignType,
+        description: briefDescription,
+        deadline: formDeadline || null,
+        assigned_to: formDesignerId || null,
+        linked_project_id: formProjectId || null,
+        created_by: profile.id,
+        status: 'brief',
+      })
+    }
     if (!error && data) {
       setProjects(prev => [data as DesignProject, ...prev])
 
@@ -348,9 +364,16 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
           project_id: null,
           user_id: profile.id,
           channel: `design_${data.id}`,
-          message: `New design project created for "${formClientName.trim()}" (${formDesignType}) -- No job linked. Sales: please review and send a quote.`,
+          message: `New design canvas created for "${formClientName.trim()}" (${formDesignType}) -- No job linked. Sales: please review and send a quote.`,
         })
       }
+
+      setFormSaving(false)
+      setShowModal(false)
+      resetForm()
+      // Navigate immediately to the new design canvas
+      router.push(`/design/${data.id}`)
+      return
     }
 
     setFormSaving(false)
@@ -786,7 +809,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
             }}
           >
             <Plus size={16} />
-            New Design
+            New Canvas
           </button>
         </div>
       </div>
@@ -1063,7 +1086,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #1a1d27' }}>
               <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 18, fontWeight: 900, color: '#e8eaed', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Palette size={18} style={{ color: '#4f7fff' }} />
-                New Design Project
+                New Design Canvas
               </h2>
               <button onClick={() => { setShowModal(false); resetForm() }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a6080' }}>
                 <X size={18} />
@@ -1142,7 +1165,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                 Cancel
               </button>
               <button onClick={handleCreate} disabled={!formClientName.trim() || formSaving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 700, color: '#fff', background: '#4f7fff', border: 'none', borderRadius: 8, cursor: 'pointer', opacity: (!formClientName.trim() || formSaving) ? 0.5 : 1 }}>
-                {formSaving ? 'Creating...' : 'Create Project'}
+                {formSaving ? 'Creating...' : 'Create Canvas'}
               </button>
             </div>
           </div>

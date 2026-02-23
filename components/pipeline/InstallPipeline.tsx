@@ -162,7 +162,7 @@ export default function InstallPipeline({ orgId, profileId, role }: InstallPipel
         department="install"
         profileId={profileId}
         orgId={orgId}
-        onProjectClick={(p) => router.push(`/dashboard/project/${p.id}`)}
+        onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
         onStageChange={handleStageChange}
         showGhosts={false}
       />

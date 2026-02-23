@@ -182,7 +182,7 @@ export default function ProductionPipeline({ orgId, profileId, role }: Productio
         profileId={profileId}
         orgId={orgId}
         horizontal={true}
-        onProjectClick={(p) => router.push(`/dashboard/project/${p.id}`)}
+        onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
         onStageChange={handleStageChange}
         showGhosts={false}
       />
