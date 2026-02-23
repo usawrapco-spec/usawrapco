@@ -22,12 +22,27 @@ export default async function IntegrationsPage() {
     redirect('/dashboard')
   }
 
-  // Load existing integration configs
+  const orgId = profile.org_id || ORG_ID
+
+  // Load existing integration configs from integrations table
   let integrations: any[] = []
   try {
-    const { data } = await admin.from('integrations').select('*').eq('org_id', profile.org_id || ORG_ID)
+    const { data } = await admin.from('integrations').select('*').eq('org_id', orgId)
     integrations = data || []
   } catch {}
+
+  // Also merge in any configs saved to orgs.settings.integrations
+  if (integrations.length === 0) {
+    try {
+      const { data: org } = await admin.from('orgs').select('settings').eq('id', orgId).single()
+      const orgIntegrations = (org?.settings as any)?.integrations || {}
+      integrations = Object.entries(orgIntegrations).map(([id, config]) => ({
+        integration_id: id,
+        config,
+        enabled: true,
+      }))
+    } catch {}
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
