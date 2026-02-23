@@ -1,0 +1,239 @@
+{
+  "scraped_at": "2026-02-23T07:41:32.401Z",
+  "base_url": "https://usawrapco.com",
+  "pages_attempted": [
+    "/",
+    "/about",
+    "/services",
+    "/gallery",
+    "/contact"
+  ],
+  "pages_scraped": [
+    "/",
+    "/services"
+  ],
+  "pages_failed": [
+    "/about",
+    "/gallery",
+    "/contact"
+  ],
+  "total_images": 27,
+  "images": [
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp",
+      "alt": "",
+      "page": "/",
+      "section": "navigation",
+      "width": 1024,
+      "height": 766
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/cropped-main_logo-removebg-preview.png",
+      "alt": "cropped-main_logo-removebg-preview.png",
+      "page": "/",
+      "section": "navigation",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/11/Truck-and-Trailer-Wraps-.jpg",
+      "alt": "",
+      "page": "/",
+      "section": null,
+      "width": 1263,
+      "height": 947
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/IMG_2105.webp",
+      "alt": "",
+      "page": "/",
+      "section": null,
+      "width": 1920,
+      "height": 2560
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-10-at-8.45.45-AM-2.jpeg",
+      "alt": "vinyl wraps Gig Harbor WA",
+      "page": "/",
+      "section": "slider",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-10-at-8.45.46-AM.jpeg",
+      "alt": "commercial wraps Gig Harbor WA",
+      "page": "/",
+      "section": "slider",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/11/Utility-Boxes-scaled.webp",
+      "alt": "Utility Boxes",
+      "page": "/",
+      "section": "slider",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-10-at-8.45.43-AM.jpeg",
+      "alt": "vehicle branding Gig Harbor WA",
+      "page": "/",
+      "section": "slider",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-10-at-8.45.44-AM-e1760100030817.jpeg",
+      "alt": "vinyl car wraps Gig Harbor WA",
+      "page": "/",
+      "section": "slider",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-10-at-8.45.44-AM-1.jpeg",
+      "alt": "Gig Harbor vehicle wrapping service",
+      "page": "/",
+      "section": "services",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/WhatsApp-Image-2025-10-10-at-8.45.45-AM.jpeg",
+      "alt": "WhatsApp Image 2025-10-10 at 8.45.45 AM",
+      "page": "/",
+      "section": "services",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/Screenshot-2025-10-29-072548.png",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/IMG_2108.webp",
+      "alt": null,
+      "page": "/",
+      "section": "meta",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108-300x224.webp",
+      "alt": null,
+      "page": "/",
+      "section": "logo",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108-768x575.webp",
+      "alt": null,
+      "page": "/",
+      "section": "logo",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/11/Truck-and-Trailer-Wraps--300x225.jpg",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/11/Truck-and-Trailer-Wraps--1024x768.jpg",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/11/Truck-and-Trailer-Wraps--768x576.jpg",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/IMG_2105-225x300.webp",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/IMG_2105-768x1024.webp",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/IMG_2105-1152x1536.webp",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/IMG_2105-1536x2048.webp",
+      "alt": null,
+      "page": "/",
+      "section": null,
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp",
+      "alt": "",
+      "page": "/services",
+      "section": "navigation",
+      "width": 1024,
+      "height": 766
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/cropped-main_logo-removebg-preview.png",
+      "alt": "cropped-main_logo-removebg-preview.png",
+      "page": "/services",
+      "section": "navigation",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/Instagram.jpg",
+      "alt": null,
+      "page": "/services",
+      "section": "meta",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108-300x224.webp",
+      "alt": null,
+      "page": "/services",
+      "section": "logo",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108-768x575.webp",
+      "alt": null,
+      "page": "/services",
+      "section": "logo",
+      "width": null,
+      "height": null
+    }
+  ]
+}
