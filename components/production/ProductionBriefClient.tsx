@@ -53,7 +53,18 @@ export default function ProductionBriefClient({ project, profile }: Props) {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 16, borderBottom: '3px solid #1a1d27', marginBottom: 20 }}>
           <div>
-            <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 28, fontWeight: 900, color: '#4f7fff', letterSpacing: '0.02em' }}>USA WRAP CO</div>
+            <img
+              src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+              alt="USA WRAP CO"
+              style={{ height: 40, width: 'auto', display: 'block', marginBottom: 4 }}
+              onError={(e) => {
+                const el = e.currentTarget
+                el.style.display = 'none'
+                const fallback = el.nextElementSibling as HTMLElement | null
+                if (fallback) fallback.style.display = 'block'
+              }}
+            />
+            <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 28, fontWeight: 900, color: '#4f7fff', letterSpacing: '0.02em', display: 'none' }}>USA WRAP CO</div>
             <div style={{ fontSize: 11, color: '#5a6080', marginTop: 2 }}>PRODUCTION BRIEF — INTERNAL USE ONLY</div>
           </div>
           <div style={{ textAlign: 'right' }}>

@@ -197,8 +197,32 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems, isDem
           nav, header, aside, [data-no-print], .no-print { display: none !important; }
           body { background: white !important; color: black !important; }
           .invoice-print-area { background: white !important; color: black !important; border: none !important; }
+          .print-logo-header { display: flex !important; }
         }
+        .print-logo-header { display: none; }
       `}</style>
+
+      {/* Print-only logo header */}
+      <div className="print-logo-header" style={{
+        alignItems: 'center', justifyContent: 'space-between',
+        paddingBottom: 12, borderBottom: '2px solid #1a1d27', marginBottom: 16,
+      }}>
+        <img
+          src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+          alt="USA WRAP CO"
+          style={{ height: 40, width: 'auto' }}
+          onError={(e) => {
+            const el = e.currentTarget
+            el.style.display = 'none'
+            const fb = document.getElementById('print-logo-fallback')
+            if (fb) fb.style.display = 'block'
+          }}
+        />
+        <span id="print-logo-fallback" style={{ display: 'none', fontFamily: 'Barlow Condensed, sans-serif', fontSize: 22, fontWeight: 900, color: '#4f7fff' }}>
+          USA WRAP CO
+        </span>
+        <span style={{ fontSize: 11, color: '#5a6080' }}>INVOICE — CONFIDENTIAL</span>
+      </div>
 
       {/* Send Invoice Modal */}
       {showSendModal && (

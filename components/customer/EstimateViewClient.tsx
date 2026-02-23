@@ -1159,16 +1159,29 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
           padding: '16px 0 8px',
           marginBottom: 8,
         }}>
-          <Truck size={24} style={{ color: C.accent }} />
-          <span style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
-            fontSize: 22,
-            fontWeight: 900,
-            letterSpacing: '-0.01em',
-            color: C.text1,
-          }}>
-            USA WRAP CO
-          </span>
+          <img
+            src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+            alt="USA WRAP CO"
+            style={{ height: 48, width: 'auto' }}
+            onError={(e) => {
+              const el = e.currentTarget
+              el.style.display = 'none'
+              const fallback = el.nextElementSibling as HTMLElement | null
+              if (fallback) fallback.style.display = 'flex'
+            }}
+          />
+          <div style={{ display: 'none', alignItems: 'center', gap: 10 }}>
+            <Truck size={24} style={{ color: C.accent }} />
+            <span style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: 22,
+              fontWeight: 900,
+              letterSpacing: '-0.01em',
+              color: C.text1,
+            }}>
+              USA WRAP CO
+            </span>
+          </div>
         </div>
 
         {/* Step indicator */}

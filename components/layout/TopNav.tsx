@@ -153,6 +153,7 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   const { tourOpen, whatsNewOpen, newCommits, startTour, closeTour, closeWhatsNew } = useTour()
 
+  const [logoError, setLogoError]     = useState(false)
   const [searchOpen, setSearchOpen]   = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [createOpen, setCreateOpen]   = useState(false)
@@ -263,17 +264,28 @@ export function TopNav({ profile }: { profile: Profile }) {
           textDecoration: 'none', flexShrink: 0, marginRight: 8,
         }}
       >
-        <Truck size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-        <span style={{
-          fontFamily: 'Barlow Condensed, sans-serif',
-          fontSize: 16, fontWeight: 900,
-          letterSpacing: '0.02em',
-          color: 'var(--text1)',
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
-        }}>
-          USA WRAP CO
-        </span>
+        {logoError ? (
+          <>
+            <Truck size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{
+              fontFamily: 'Barlow Condensed, sans-serif',
+              fontSize: 16, fontWeight: 900,
+              letterSpacing: '0.02em',
+              color: 'var(--text1)',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}>
+              USA WRAP CO
+            </span>
+          </>
+        ) : (
+          <img
+            src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+            alt="USA WRAP CO"
+            style={{ height: 34, width: 'auto', display: 'block' }}
+            onError={() => setLogoError(true)}
+          />
+        )}
       </Link>
 
       {/* ── Quick Create [+] ─────────────────────────────────── */}
