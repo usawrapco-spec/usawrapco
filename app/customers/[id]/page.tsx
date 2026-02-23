@@ -27,7 +27,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-      <TopNav profile={profile as Profile} />
+      <TopNav profile={profileRes.data as Profile} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
           <CustomerDetailClient
             profile={profileRes.data as Profile}

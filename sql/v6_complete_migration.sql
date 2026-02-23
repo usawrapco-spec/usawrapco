@@ -1725,8 +1725,8 @@ CREATE TABLE IF NOT EXISTS public.design_projects (
   description       TEXT,
   designer_id       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   deadline          DATE,
-  stage             TEXT DEFAULT 'brief'
-                    CHECK (stage IN ('brief','in_progress','proof_sent','approved')),
+  status            TEXT DEFAULT 'brief'
+                    CHECK (status IN ('brief','in_progress','proof_sent','approved')),
   linked_project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
   created_by        UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   assigned_to       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -1737,7 +1737,7 @@ CREATE TABLE IF NOT EXISTS public.design_projects (
 
 CREATE INDEX IF NOT EXISTS idx_design_projects_org     ON public.design_projects(org_id);
 CREATE INDEX IF NOT EXISTS idx_design_projects_project ON public.design_projects(project_id);
-CREATE INDEX IF NOT EXISTS idx_design_projects_stage   ON public.design_projects(stage);
+CREATE INDEX IF NOT EXISTS idx_design_projects_status  ON public.design_projects(status);
 
 ALTER TABLE public.design_projects ENABLE ROW LEVEL SECURITY;
 

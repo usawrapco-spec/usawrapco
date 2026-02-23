@@ -38,6 +38,10 @@ import {
   Inbox,
   UserPlus,
   Contact,
+  Workflow,
+  Globe,
+  Mail,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -65,15 +69,62 @@ const NAV: NavItem[] = [
     always: true,
   },
   {
+    href: '/engine',
+    label: 'Revenue Engine',
+    icon: TrendingUp,
+    always: true,
+  },
+  {
+    href: '/workflow',
+    label: 'Job Workflow',
+    icon: Workflow,
+    always: true,
+  },
+  {
+    href: '/prospects',
+    label: 'Prospects',
+    icon: UserPlus,
+    permission: 'sales.read',
+  },
+  {
+    href: '/campaigns',
+    label: 'Campaigns',
+    icon: Mail,
+    permission: 'sales.read',
+  },
+  {
+    href: '/sourcing',
+    label: 'Sourcing',
+    icon: Globe,
+    permission: 'sales.read',
+    children: [
+      { href: '/sourcing/monitor',    label: 'RFQ Monitor' },
+      { href: '/sourcing/suppliers',  label: 'Suppliers' },
+      { href: '/sourcing/orders',     label: 'Orders' },
+    ],
+  },
+  {
+    href: '/ventures',
+    label: 'Ventures',
+    icon: Lightbulb,
+    permission: 'sales.read',
+  },
+  {
     href: '/inbox',
-    label: 'Inbox',
+    label: 'AI Broker',
     icon: Inbox,
+    permission: 'sales.read',
+  },
+  {
+    href: '/deposit',
+    label: 'Deposits',
+    icon: DollarSign,
     permission: 'sales.read',
   },
   {
     href: '/pipeline',
     label: 'Job Board',
-    icon: TrendingUp,
+    icon: Briefcase,
     permission: 'sales.read',
     children: [
       { href: '/pipeline',      label: 'Job Board' },
@@ -87,12 +138,6 @@ const NAV: NavItem[] = [
     label: 'Jobs',
     icon: Briefcase,
     permission: 'jobs.read',
-  },
-  {
-    href: '/prospects',
-    label: 'Prospects',
-    icon: UserPlus,
-    permission: 'sales.read',
   },
   {
     href: '/contacts',
@@ -287,34 +332,45 @@ export function Sidebar({ profile }: SidebarProps) {
       }}>
 
         {/* ── Logo ─────────────────────────────────────────── */}
-        <div style={{
-          padding: '14px 16px',
+        <Link href="/dashboard" style={{
+          padding: '16px',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 10,
+          gap: 8,
           flexShrink: 0,
+          textDecoration: 'none',
+          cursor: 'pointer',
         }}>
-          <Truck size={20} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <div>
+          <img
+            src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+            alt="USA Wrap Co"
+            style={{
+              height: 48,
+              width: 'auto',
+              objectFit: 'contain',
+            }}
+            onError={(e) => {
+              // Fallback to backup logo if main logo fails
+              (e.target as HTMLImageElement).src = 'https://usawrapco.com/wp-content/uploads/2025/10/cropped-main_logo-removebg-preview.png'
+            }}
+          />
+          <div style={{ textAlign: 'center' }}>
             <div style={{
               fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: 900,
-              letterSpacing: '-0.02em',
               color: 'var(--text1)',
               lineHeight: 1,
             }}>
-              USA WRAP CO
+              WrapShop Pro
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
-              Ops Platform
-              <span style={{ marginLeft: 4, color: 'var(--accent)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' }}>
-                v6.1
-              </span>
+            <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
+              v6.0
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* ── New Estimate button ───────────────────────────── */}
         {(isAdmin || hasPermission(profile.role, 'jobs.write')) && (

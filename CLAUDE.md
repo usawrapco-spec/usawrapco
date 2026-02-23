@@ -40,23 +40,26 @@ sales_in -> production -> install -> prod_review -> sales_close -> done
 - Types: import type { Profile, Project } from '@/types'
 - All components are client components ('use client')
 
-## Pages (v6.1)
+## Pages (v6.2)
 /dashboard, /pipeline, /inbox, /jobs, /tasks, /calendar, /inventory, /design,
 /mockup, /media, /timeline, /production, /production/print-schedule,
 /production/printers, /inventory/remnants, /catalog, /customers,
-/customers/[id], /contacts, /contacts/[id], /prospects, /network,
+/customers/[id], /contacts, /contacts/[id], /prospects, /campaigns, /network,
 /bids, /analytics, /reports, /payroll, /leaderboard, /employees,
-/settings, /overhead, /1099,
+/settings, /settings/commissions, /settings/defaults, /settings/playbook,
+/settings/vehicles, /overhead, /1099,
 /estimates, /estimates/[id], /sales-orders, /sales-orders/[id],
 /invoices, /invoices/[id], /projects/[id], /projects/[id]/edit,
 /intake/[token], /proof/[token], /signoff/[token], /track/[token],
 /onboard/[token], /portal, /portal/demo, /installer-portal,
-/estimate/view/[token], /invoice/view/[token], /ref/[code], /demo, /login
+/estimate/view/[token], /invoice/view/[token], /ref/[code], /demo, /login,
+/engine, /workflow, /sourcing, /sourcing/monitor, /sourcing/suppliers,
+/sourcing/orders, /ventures, /deposit
 
 ## Core Workflow
 Estimate → Sales Order → Job (Pipeline) → Invoice → Payment
 
-## Database Tables (v6.1)
+## Database Tables (v6.2)
 profiles, projects, project_members, job_comments, job_images,
 stage_approvals, send_backs, install_sessions, material_tracking,
 customer_intake_tokens, proofing_tokens, designer_bids,
@@ -73,7 +76,9 @@ integrations, payments, time_blocks, team_invites,
 customer_communications, contracts, signed_documents,
 referral_codes, referral_tracking, payroll_periods, payroll_entries,
 wrap_knowledge_base, tutorial_progress, onboarding_sessions,
-prospects, estimate_templates, estimate_options, job_history
+prospects, estimate_templates, estimate_options, job_history,
+campaigns, campaign_messages, conversations, messages,
+sales_playbook, pricing_rules, escalation_rules, sourcing_orders
 
 ## Commission Structure
 - Inbound: 4.5% GP (+1% Torq bonus, +2% if GPM >73%) = max 7.5%
@@ -86,7 +91,7 @@ prospects, estimate_templates, estimate_options, job_history
 1. ALWAYS run npm run build before committing
 2. Never break existing functionality
 3. All tables need RLS policies
-4. Version is v6.1
+4. Version is v6.2
 5. Admin role sees ALL sidebar nav items (bypasses canAccess checks)
 6. All navigation uses Next.js Link or router.push(). No window.open(), no target="_blank"
 7. Use Lucide React icons only, zero emojis in code

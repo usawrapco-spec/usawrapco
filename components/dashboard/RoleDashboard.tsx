@@ -9,6 +9,8 @@ import {
   Package, Palette, Trophy, ChevronRight, Printer,
   AlertTriangle, Award, Star, Target,
 } from 'lucide-react'
+import WeatherWidget from './WeatherWidget'
+import AIBriefing from './AIBriefing'
 
 interface Props {
   profile: Profile
@@ -55,7 +57,7 @@ function SectionCard({ title, icon: Icon, color, children }: { title: string; ic
 function SalesDashboard({ profile, projects }: Props) {
   const myProjects = projects.filter(p => p.agent_id === profile.id)
   const closedThisMonth = myProjects.filter(p =>
-    p.status === 'closed' && new Date(p.updated_at || '') >= monthStart
+    p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart
   )
   const activeProjects = myProjects.filter(p =>
     ['active', 'in_production', 'install_scheduled', 'installed', 'qc', 'closing'].includes(p.status)
@@ -85,7 +87,7 @@ function SalesDashboard({ profile, projects }: Props) {
 
   // Rank: compare against all agents' closed revenue
   const agentRevMap: Record<string, number> = {}
-  projects.filter(p => p.status === 'closed' && new Date(p.updated_at || '') >= monthStart).forEach(p => {
+  projects.filter(p => p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart).forEach(p => {
     if (p.agent_id) agentRevMap[p.agent_id] = (agentRevMap[p.agent_id] || 0) + (p.revenue || 0)
   })
   const sorted = Object.values(agentRevMap).sort((a, b) => b - a)
@@ -101,6 +103,12 @@ function SalesDashboard({ profile, projects }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+      {/* Weather + AI Briefing */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <WeatherWidget />
+        <AIBriefing orgId={profile.org_id} profileId={profile.id} />
+      </div>
+
       {/* Earnings strip */}
       <SectionCard title="Your Earnings" icon={DollarSign} color="#22c07a">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
@@ -186,10 +194,10 @@ function ProductionDashboard({ profile, projects }: Props) {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('vinyl_inventory').select('*').then(({ data }) => {
+    supabase.from('vinyl_inventory').select('*').eq('org_id', profile.org_id).then(({ data }) => {
       if (data) setInventory(data)
     })
-  }, [])
+  }, [profile.org_id])
 
   const productionJobs = projects.filter(p =>
     p.pipe_stage === 'production' || p.status === 'in_production'
@@ -203,7 +211,7 @@ function ProductionDashboard({ profile, projects }: Props) {
 
   // Production bonus calc: 5% × (profit − design fee)
   const closedThisMonth = projects.filter(p =>
-    p.status === 'closed' && new Date(p.updated_at || '') >= monthStart
+    p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart
   )
   const prodBonus = closedThisMonth.reduce((s, p) => {
     const designFee = (p.form_data as any)?.designFee || 150
@@ -416,7 +424,7 @@ function InstallerDashboard({ profile, projects }: Props) {
   }).sort((a, b) => new Date(a.install_date!).getTime() - new Date(b.install_date!).getTime())
 
   const completedThisMonth = myInstalls.filter(p =>
-    p.status === 'closed' && new Date(p.updated_at || '') >= monthStart
+    p.status === 'closed' && p.updated_at && new Date(p.updated_at) >= monthStart
   )
 
   const earnedThisMonth = completedThisMonth.reduce((s, p) => {

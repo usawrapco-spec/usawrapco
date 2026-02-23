@@ -4,7 +4,8 @@ import { useState } from 'react'
 import {
   Trophy, Zap, TrendingUp, Star, Flame, Crown,
   Medal, DollarSign, Target, Palette, Wand2, FileText,
-  Sunrise, Activity, Camera, Users, Gem,
+  Sunrise, Activity, Camera, Users, Gem, Wrench, Clock,
+  CheckCircle2,
 } from 'lucide-react'
 import type { Profile } from '@/types'
 import { xpToLevel, xpForNextLevel } from '@/lib/commission'
@@ -31,8 +32,10 @@ interface Project {
   revenue: number
   profit: number
   agent_id: string
+  installer_id?: string | null
   pipe_stage: string
   updated_at: string
+  fin_data?: Record<string, number> | null
 }
 
 interface Props {
@@ -41,7 +44,7 @@ interface Props {
   projects: Project[]
 }
 
-type Board = 'xp' | 'revenue' | 'streak'
+type Board = 'xp' | 'revenue' | 'streak' | 'installer_jobs' | 'installer_hours' | 'installer_earnings'
 
 interface BadgeInfo {
   icon: React.ReactNode
@@ -84,26 +87,69 @@ function BadgeIcon({ badge }: { badge: string }) {
 
 const fM = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
 
+type Period = 'week' | 'month' | 'quarter'
+
+function getPeriodCutoff(period: Period): Date {
+  const now = new Date()
+  if (period === 'week') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  if (period === 'month') return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+}
+
 export default function LeaderboardClient({ currentProfile, members, projects }: Props) {
   const [board, setBoard] = useState<Board>('xp')
+  const [period, setPeriod] = useState<Period>('month')
 
-  // Build revenue board from projects
+  // Filter projects by selected period
+  const cutoff = getPeriodCutoff(period)
+  const filteredProjects = projects.filter(p => new Date(p.updated_at) >= cutoff)
+
+  // Build revenue board from filtered projects
   const revenueByAgent: Record<string, number> = {}
-  projects.forEach(p => {
+  filteredProjects.forEach(p => {
     if (p.agent_id && (p.pipe_stage === 'done' || p.pipe_stage === 'sales_close')) {
       revenueByAgent[p.agent_id] = (revenueByAgent[p.agent_id] || 0) + (p.revenue || 0)
     }
   })
 
-  const xpBoard      = [...members].sort((a, b) => (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0))
+  // Build installer stats from projects
+  const installerJobCount: Record<string, number> = {}
+  const installerHours: Record<string, number> = {}
+  const installerEarnings: Record<string, number> = {}
+  filteredProjects.forEach(p => {
+    if (p.installer_id && (p.pipe_stage === 'done' || p.pipe_stage === 'sales_close' || p.pipe_stage === 'prod_review')) {
+      installerJobCount[p.installer_id] = (installerJobCount[p.installer_id] || 0) + 1
+      const fin = (p.fin_data || {}) as Record<string, number>
+      installerHours[p.installer_id] = (installerHours[p.installer_id] || 0) + (fin.laborHrs || fin.hours || 0)
+      installerEarnings[p.installer_id] = (installerEarnings[p.installer_id] || 0) + (fin.labor || fin.install_pay || 0)
+    }
+  })
+
+  const installerMembers = members.filter(m => m.role === 'installer')
+
+  const xpBoard      = [...members].sort((a, b) => (period === 'week' ? (b.weekly_xp || 0) - (a.weekly_xp || 0) : period === 'month' ? (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0) : (b.xp || 0) - (a.xp || 0)))
   const revenueBoard = [...members].sort((a, b) => (revenueByAgent[b.id] || 0) - (revenueByAgent[a.id] || 0))
   const streakBoard  = [...members].sort((a, b) => (b.current_streak || 0) - (a.current_streak || 0))
 
-  const boardData = board === 'xp' ? xpBoard : board === 'revenue' ? revenueBoard : streakBoard
+  const installerJobsBoard    = [...installerMembers].sort((a, b) => (installerJobCount[b.id] || 0) - (installerJobCount[a.id] || 0))
+  const installerHoursBoard   = [...installerMembers].sort((a, b) => (installerHours[b.id] || 0) - (installerHours[a.id] || 0))
+  const installerEarningsBoard = [...installerMembers].sort((a, b) => (installerEarnings[b.id] || 0) - (installerEarnings[a.id] || 0))
+
+  const boardData =
+    board === 'xp' ? xpBoard :
+    board === 'revenue' ? revenueBoard :
+    board === 'streak' ? streakBoard :
+    board === 'installer_jobs' ? installerJobsBoard :
+    board === 'installer_hours' ? installerHoursBoard :
+    board === 'installer_earnings' ? installerEarningsBoard :
+    xpBoard
 
   const getValue = (m: Member) => {
-    if (board === 'xp') return `${(m.monthly_xp || m.xp || 0).toLocaleString()} XP`
+    if (board === 'xp') return `${(period === 'week' ? m.weekly_xp || 0 : period === 'month' ? m.monthly_xp || m.xp || 0 : m.xp || 0).toLocaleString()} XP`
     if (board === 'revenue') return fM(revenueByAgent[m.id] || 0)
+    if (board === 'installer_jobs') return `${installerJobCount[m.id] || 0} jobs`
+    if (board === 'installer_hours') return `${Math.round(installerHours[m.id] || 0)}h`
+    if (board === 'installer_earnings') return fM(installerEarnings[m.id] || 0)
     return `${m.current_streak || 0} days`
   }
 
@@ -128,7 +174,29 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
         <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text1)', marginBottom: 4 }}>
           Leaderboard
         </h1>
-        <p style={{ fontSize: 13, color: 'var(--text3)' }}>Monthly competition · {members.length} team members</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>{members.length} team members</span>
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+            {(['week', 'month', 'quarter'] as Period[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+                  border: period === p ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  background: period === p ? 'rgba(79,127,255,0.12)' : 'transparent',
+                  color: period === p ? 'var(--accent)' : 'var(--text3)',
+                  cursor: 'pointer',
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {p === 'week' ? 'Week' : p === 'month' ? 'Month' : 'Quarter'}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* My stats */}
@@ -193,11 +261,11 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
       )}
 
       {/* Board selector */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {([
-          { key: 'xp' as Board, label: 'XP This Month', icon: Zap },
-          { key: 'revenue' as Board, label: 'Revenue Closed', icon: TrendingUp },
-          { key: 'streak' as Board, label: 'Login Streaks', icon: Flame },
+          { key: 'xp' as Board, label: 'XP', icon: Zap },
+          { key: 'revenue' as Board, label: 'Revenue', icon: TrendingUp },
+          { key: 'streak' as Board, label: 'Streaks', icon: Flame },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -216,6 +284,40 @@ export default function LeaderboardClient({ currentProfile, members, projects }:
           </button>
         ))}
       </div>
+
+      {/* Installer-specific board selector */}
+      {installerMembers.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: 10, fontWeight: 900, color: 'var(--text3)',
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px',
+          }}>
+            <Wrench size={11} /> Installers
+          </span>
+          {([
+            { key: 'installer_jobs' as Board, label: 'Jobs Done', icon: CheckCircle2 },
+            { key: 'installer_hours' as Board, label: 'Hours', icon: Clock },
+            { key: 'installer_earnings' as Board, label: 'Earnings', icon: DollarSign },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setBoard(key)}
+              style={{
+                padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                background: board === key ? 'var(--cyan)' : 'var(--surface)',
+                border: board === key ? 'none' : '1px solid var(--border)',
+                color: board === key ? '#0a2540' : 'var(--text3)',
+                fontSize: 12, fontWeight: board === key ? 700 : 400,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <Icon size={13} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Leaderboard rows */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

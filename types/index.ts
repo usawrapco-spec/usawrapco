@@ -27,6 +27,59 @@ export type Permission =
   | 'sign_off_sales'
   | 'view_master_mode'
   | 'access_design_studio'
+  | 'create_estimates'
+  | 'approve_estimates'
+  | 'manage_customers'
+  | 'view_media'
+  | 'upload_media'
+  | 'delete_media'
+  | 'manage_invoices'
+  | 'view_payroll'
+  | 'manage_payroll'
+  | 'view_commissions'
+  | 'manage_campaigns'
+  | 'view_reports'
+  | 'manage_sourcing'
+
+// All permissions available in the system for settings UI
+export const ALL_PERMISSIONS: { key: Permission; label: string; group: string }[] = [
+  // Projects
+  { key: 'view_all_projects', label: 'View All Projects', group: 'Projects' },
+  { key: 'edit_projects', label: 'Edit Projects', group: 'Projects' },
+  { key: 'delete_projects', label: 'Delete Projects', group: 'Projects' },
+  // Pipeline Sign-offs
+  { key: 'sign_off_sales', label: 'Sign Off Sales', group: 'Pipeline' },
+  { key: 'sign_off_production', label: 'Sign Off Production', group: 'Pipeline' },
+  { key: 'sign_off_install', label: 'Sign Off Install', group: 'Pipeline' },
+  // Estimates & Sales
+  { key: 'create_estimates', label: 'Create Estimates', group: 'Estimates' },
+  { key: 'approve_estimates', label: 'Approve Estimates', group: 'Estimates' },
+  { key: 'manage_customers', label: 'Manage Customers', group: 'Estimates' },
+  { key: 'manage_invoices', label: 'Manage Invoices', group: 'Estimates' },
+  // Design
+  { key: 'access_design_studio', label: 'Access Design Studio', group: 'Design' },
+  { key: 'manage_bids', label: 'Manage Bids', group: 'Design' },
+  // Inventory & Media
+  { key: 'view_inventory', label: 'View Inventory', group: 'Inventory' },
+  { key: 'view_media', label: 'View Media Library', group: 'Media' },
+  { key: 'upload_media', label: 'Upload Media', group: 'Media' },
+  { key: 'delete_media', label: 'Delete Media', group: 'Media' },
+  // Analytics & Reports
+  { key: 'view_analytics', label: 'View Analytics', group: 'Analytics' },
+  { key: 'view_financials', label: 'View Financials', group: 'Analytics' },
+  { key: 'view_reports', label: 'View Reports', group: 'Analytics' },
+  { key: 'view_commissions', label: 'View Commissions', group: 'Analytics' },
+  // Admin
+  { key: 'view_all_agents', label: 'View All Agents', group: 'Admin' },
+  { key: 'manage_users', label: 'Manage Users', group: 'Admin' },
+  { key: 'manage_settings', label: 'Manage Settings', group: 'Admin' },
+  { key: 'manage_workflows', label: 'Manage Workflows', group: 'Admin' },
+  { key: 'view_master_mode', label: 'View Master Mode', group: 'Admin' },
+  { key: 'view_payroll', label: 'View Payroll', group: 'Admin' },
+  { key: 'manage_payroll', label: 'Manage Payroll', group: 'Admin' },
+  { key: 'manage_campaigns', label: 'Manage Campaigns', group: 'Admin' },
+  { key: 'manage_sourcing', label: 'Manage Sourcing', group: 'Admin' },
+]
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   owner: [
@@ -34,28 +87,37 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
     'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
     'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
+    'create_estimates', 'approve_estimates', 'manage_customers', 'view_media',
+    'upload_media', 'delete_media', 'manage_invoices', 'view_payroll', 'manage_payroll',
+    'view_commissions', 'manage_campaigns', 'view_reports', 'manage_sourcing',
   ],
   admin: [
     'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
     'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
     'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
     'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
+    'create_estimates', 'approve_estimates', 'manage_customers', 'view_media',
+    'upload_media', 'delete_media', 'manage_invoices', 'view_payroll', 'manage_payroll',
+    'view_commissions', 'manage_campaigns', 'view_reports', 'manage_sourcing',
   ],
   sales_agent: [
     'view_financials', 'view_all_projects', 'view_all_agents',
-    'edit_projects', 'sign_off_sales',
+    'edit_projects', 'sign_off_sales', 'create_estimates', 'manage_customers',
+    'view_media', 'upload_media', 'view_commissions', 'view_reports',
   ],
   designer: [
-    'access_design_studio', 'view_all_projects',
+    'access_design_studio', 'view_all_projects', 'view_media', 'upload_media',
   ],
   production: [
     'view_all_projects', 'view_inventory', 'edit_projects',
     'sign_off_production', 'access_design_studio', 'manage_bids',
+    'view_media', 'upload_media',
   ],
   installer: [
     'sign_off_install', 'view_all_projects', 'view_inventory',
+    'view_media', 'upload_media',
   ],
-  viewer: [],
+  viewer: ['view_media'],
 }
 
 export function canAccess(role: UserRole | string, permission: Permission): boolean {
@@ -71,6 +133,7 @@ export interface Profile {
   id: string
   org_id: string
   role: UserRole
+  is_owner?: boolean
   name: string
   email: string
   phone: string | null
@@ -292,7 +355,7 @@ export interface Estimate {
 
 export interface LineItem {
   id: string
-  parent_type: 'estimate' | 'sales_order' | 'invoice'
+  parent_type: 'estimate' | 'sales_order' | 'invoice' | 'project'
   parent_id: string
   product_type: ProjectType
   name: string
@@ -479,18 +542,29 @@ export interface JobHistory {
 }
 
 // ─── Prospect ─────────────────────────────────────────────────────────────────
-export type ProspectStatus = 'hot' | 'warm' | 'cold' | 'dead' | 'converted'
-export type ProspectSource = 'cold_call' | 'door_knock' | 'referral' | 'event' | 'social_media' | 'website' | 'other'
+export type ProspectStatus = 'new' | 'contacted' | 'replied' | 'interested' | 'converted' | 'dead' | 'hot' | 'warm' | 'cold'
+export type ProspectSource = 'google_places' | 'cold_call' | 'door_knock' | 'referral' | 'event' | 'social_media' | 'website' | 'other'
 
 export interface Prospect {
   id: string
   org_id: string
   name: string
+  business_name: string | null
   company: string | null
+  industry: string | null
+  address: string | null
   phone: string | null
   email: string | null
+  website: string | null
+  linkedin: string | null
+  instagram: string | null
+  facebook: string | null
+  google_rating: number | null
+  google_maps_url: string | null
   status: ProspectStatus
   source: ProspectSource
+  score: number | null
+  campaign_id: string | null
   assigned_to: string | null
   fleet_size: number | null
   estimated_revenue: number | null
@@ -498,11 +572,155 @@ export interface Prospect {
   tags: string[]
   follow_up_date: string | null
   last_contact: string | null
+  last_contacted_at: string | null
   converted_customer_id: string | null
   converted_at: string | null
   created_at: string
   updated_at: string
   assignee?: Pick<Profile, 'id' | 'name'>
+}
+
+// ─── Campaign ─────────────────────────────────────────────────────────────────
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+
+export interface CampaignStep {
+  step_number: number
+  subject: string
+  body: string
+  delay_days: number
+}
+
+export interface Campaign {
+  id: string
+  org_id: string
+  name: string
+  industry_target: string | null
+  status: CampaignStatus
+  email_sequence: CampaignStep[]
+  auto_reply: boolean
+  stats: {
+    sent: number
+    opened: number
+    replied: number
+    bounced: number
+    conversions: number
+  }
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CampaignMessage {
+  id: string
+  org_id: string
+  campaign_id: string
+  prospect_id: string
+  step_number: number
+  subject: string
+  body: string
+  status: 'queued' | 'sent' | 'opened' | 'replied' | 'bounced' | 'failed'
+  sent_at: string | null
+  opened_at: string | null
+  replied_at: string | null
+  reply_text: string | null
+  ai_draft_reply: string | null
+  scheduled_for: string | null
+  created_at: string
+}
+
+export interface AIActivity {
+  id: string
+  org_id: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  details: Record<string, unknown>
+  created_at: string
+}
+
+// ─── V.I.N.Y.L. AI Sales Broker ──────────────────────────────────────────────
+
+export type ConversationChannel = 'sms' | 'email' | 'web_chat'
+export type ConversationStatus = 'active' | 'escalated' | 'closed' | 'converted'
+export type LeadStage = 'new' | 'qualifying' | 'quoting' | 'negotiating' | 'deposit_sent' | 'converted' | 'lost'
+export type MessageRole = 'customer' | 'ai' | 'human_agent'
+
+export interface Conversation {
+  id: string
+  org_id: string
+  customer_id: string | null
+  channel: ConversationChannel
+  phone_number: string | null
+  email_address: string | null
+  status: ConversationStatus
+  escalation_reason: string | null
+  escalated_to: string | null
+  ai_enabled: boolean
+  lead_stage: LeadStage
+  vehicle_info: Record<string, unknown>
+  wrap_preferences: Record<string, unknown>
+  quote_data: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  customer?: { id: string; name: string; email?: string; phone?: string; company_name?: string }
+  messages?: ConversationMessage[]
+}
+
+export interface ConversationMessage {
+  id: string
+  conversation_id: string
+  role: MessageRole
+  content: string
+  channel: ConversationChannel
+  ai_reasoning: string | null
+  ai_confidence: number | null
+  tokens_used: number | null
+  cost_cents: number | null
+  external_id: string | null
+  created_at: string
+}
+
+export type EscalationRuleType = 'keyword' | 'sentiment' | 'dollar_threshold' | 'explicit_request' | 'confidence'
+
+export interface EscalationRule {
+  id: string
+  org_id: string
+  rule_type: EscalationRuleType
+  rule_config: Record<string, unknown>
+  notify_channel: 'slack' | 'sms'
+  notify_target: string | null
+  is_active: boolean
+  priority: number
+  created_at: string
+}
+
+export type PlaybookCategory = 'greeting' | 'qualification' | 'pricing' | 'objection' | 'upsell' | 'closing' | 'followup' | 'faq' | 'policy' | 'competitor' | 'brand_voice'
+
+export interface PlaybookEntry {
+  id: string
+  org_id: string
+  category: PlaybookCategory
+  trigger_phrase: string | null
+  response_guidance: string
+  is_active: boolean
+  priority: number
+  created_at: string
+  updated_at: string
+}
+
+export interface PricingRule {
+  id: string
+  org_id: string
+  vehicle_category: string
+  wrap_type: string
+  base_price: number
+  price_per_sqft: number
+  max_discount_pct: number
+  rush_multiplier: Record<string, number>
+  complexity_multiplier: Record<string, number>
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
 // ─── Database type stub ────────────────────────────────────────────────────────

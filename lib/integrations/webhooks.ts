@@ -159,6 +159,92 @@ export async function onSendBack(orgId: string, project: any, fromStage: string,
 }
 
 export async function onJobClosed(orgId: string, project: any, actorName: string) {
+  const admin = getSupabaseAdmin()
+
+  // ── Auto-calculate & persist commission on close ──────────────
+  try {
+    const fd = project.form_data || {}
+    const finData = project.fin_data || {}
+    const revenue = project.revenue || finData.sale || 0
+    const materialCost = finData.material || finData.material_cost || 0
+    const laborCost = finData.labor || finData.labor_cost || 0
+    const designFee = finData.designFee || finData.design_fee || 150
+    const misc = finData.misc || 0
+
+    // Load agent's commission override
+    let agentOverride: number | null = null
+    if (project.agent_id) {
+      const { data: agentProfile } = await admin.from('profiles')
+        .select('commission_rate_override').eq('id', project.agent_id).single()
+      if (agentProfile?.commission_rate_override != null) {
+        agentOverride = agentProfile.commission_rate_override / 100
+      }
+    }
+
+    // Load shop commission rates from settings
+    const { data: commSettings } = await admin.from('shop_settings')
+      .select('key, value').eq('org_id', orgId).eq('category', 'commission')
+    const settingsMap: Record<string, number> = {}
+    commSettings?.forEach((s: any) => { settingsMap[s.key] = parseFloat(s.value) })
+
+    // Map lead source to commission engine source key
+    const leadType = fd.leadType || 'inbound'
+    const sourceMap: Record<string, string> = {
+      inbound: 'commission_inbound', outbound: 'commission_outbound',
+      referral: 'commission_referral', walk_in: 'commission_walkin',
+      repeat: 'commission_repeat', presold: 'commission_inbound',
+      cross_referral: 'commission_cross_referral',
+    }
+    const settingKey = sourceMap[leadType] || 'commission_inbound'
+    const sourceRate = settingsMap[settingKey] != null
+      ? settingsMap[settingKey] / 100
+      : undefined // fall back to engine defaults
+
+    const netProfit = revenue - materialCost - laborCost - designFee - misc
+    const gpm = revenue > 0 ? (netProfit / revenue) * 100 : 0
+    const commRate = agentOverride ?? sourceRate ?? (leadType === 'outbound' ? 0.06 : 0.045)
+    const commission = Math.max(0, netProfit * commRate)
+
+    // Torq bonus
+    const torqRate = (settingsMap['torq_bonus'] ?? 1) / 100
+    const torqBonus = fd.usedTorq ? Math.max(0, netProfit * torqRate) : 0
+
+    // High GPM bonus
+    const gpmBonusRate = (settingsMap['gpm_bonus'] ?? 2) / 100
+    const gpmBonus = gpm > 73 ? Math.max(0, netProfit * gpmBonusRate) : 0
+
+    // Production bonus
+    const prodBonusRate = (settingsMap['production_bonus_rate'] ?? 5) / 100
+    const productionBonus = Math.max(0, (netProfit * prodBonusRate) - designFee)
+
+    const totalCommission = commission + torqBonus + gpmBonus
+
+    // Persist to project
+    await admin.from('projects').update({
+      commission: totalCommission,
+      profit: netProfit,
+      gpm: Math.round(gpm * 10) / 10,
+    }).eq('id', project.id)
+
+    // Log commission calculation to activity_log
+    await admin.from('activity_log').insert({
+      org_id: orgId,
+      project_id: project.id,
+      actor_id: project.agent_id,
+      action: 'commission_calculated',
+      entity_type: 'project',
+      entity_id: project.id,
+      details: {
+        revenue, netProfit, gpm: Math.round(gpm * 10) / 10,
+        commRate, commission, torqBonus, gpmBonus, productionBonus,
+        totalCommission, leadType, agentOverride,
+      },
+    }).catch(() => {})
+  } catch (err) {
+    console.error('Commission auto-calc error:', err)
+  }
+
+  // ── Notifications ─────────────────────────────────────────────
   await notifySlack(orgId,
     `🎉 *${project.title || 'Job'}* closed — Revenue: $${Math.round(project.revenue || 0).toLocaleString()}`,
     {

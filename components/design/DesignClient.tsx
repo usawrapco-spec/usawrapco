@@ -79,11 +79,29 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
     if (!formClientName.trim()) return
     setSaving(true)
 
+    // Auto-populate brief from linked job data
+    let briefDescription = formDescription.trim() || null
+    if (formLinkedJob && !briefDescription) {
+      const linkedJob = projects.find(p => p.id === formLinkedJob)
+      if (linkedJob) {
+        const fd = (linkedJob.form_data as any) || {}
+        const parts: string[] = []
+        if (linkedJob.vehicle_desc) parts.push(`Vehicle: ${linkedJob.vehicle_desc}`)
+        if (fd.vehicleColor) parts.push(`Color: ${fd.vehicleColor}`)
+        if (fd.coverage) parts.push(`Coverage: ${fd.coverage}`)
+        if (fd.brandColors) parts.push(`Brand Colors: ${fd.brandColors}`)
+        if (fd.designNotes) parts.push(`Notes: ${fd.designNotes}`)
+        if (fd.exclusions) parts.push(`Exclusions: ${fd.exclusions}`)
+        if (fd.sqft) parts.push(`Est. SqFt: ${fd.sqft}`)
+        if (parts.length > 0) briefDescription = parts.join('\n')
+      }
+    }
+
     const newProject = {
       org_id: profile.org_id,
       client_name: formClientName.trim(),
       design_type: formDesignType,
-      description: formDescription.trim() || null,
+      description: briefDescription,
       deadline: formDeadline || null,
       status: 'brief' as DesignProjectStatus,
       linked_project_id: formLinkedJob || null,
@@ -243,14 +261,22 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
                         </button>
                       )}
                     </div>
-                    {dp.linked_project_id && (
+                    <div className="flex items-center gap-2 mt-1.5">
                       <button
-                        onClick={() => router.push(`/projects/${dp.linked_project_id}`)}
-                        className="text-[10px] font-600 text-text3 hover:text-accent mt-1.5 transition-colors"
+                        onClick={() => router.push(`/design/${dp.id}`)}
+                        className="text-[10px] font-700 text-green hover:text-green/80 transition-colors"
                       >
-                        Open linked job
+                        Open Canvas
                       </button>
-                    )}
+                      {dp.linked_project_id && (
+                        <button
+                          onClick={() => router.push(`/projects/${dp.linked_project_id}`)}
+                          className="text-[10px] font-600 text-text3 hover:text-accent transition-colors"
+                        >
+                          Open linked job
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )
               })}

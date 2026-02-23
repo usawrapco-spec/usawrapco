@@ -143,7 +143,17 @@ export default function CloseJobModal({ project, profile, onClose, onUpdate }: C
       revenue: actuals.sale,
       profit: actuals.profit,
       gpm: actuals.gpm,
-      commission: actuals.profit > 0 ? actuals.profit * (fd.leadType === 'outbound' ? 0.10 : fd.leadType === 'presold' ? 0.05 : 0.075) : 0,
+      commission: (() => {
+        if (actuals.profit <= 0) return 0
+        const rates: Record<string, { base: number; max: number }> = {
+          inbound: { base: 0.045, max: 0.075 }, outbound: { base: 0.07, max: 0.10 },
+          presold: { base: 0.05, max: 0.05 }, referral: { base: 0.045, max: 0.075 },
+        }
+        const sr = rates[fd.leadType] || rates.inbound
+        let rate = sr.base
+        if (actuals.gpm >= 65 && fd.leadType !== 'presold' && actuals.gpm > 73) rate += 0.02
+        return actuals.profit * Math.min(rate, sr.max)
+      })(),
       form_data: updatedFormData,
       actuals: actualsData,
       updated_at: new Date().toISOString(),

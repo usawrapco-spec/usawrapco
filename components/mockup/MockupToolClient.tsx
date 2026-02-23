@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Wand2, Download, RefreshCw, AlertCircle, ImageIcon } from 'lucide-react'
+import { Wand2, Download, RefreshCw, AlertCircle, ImageIcon, Save } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 
 interface Props { profile: Profile }
@@ -28,6 +29,8 @@ export default function MockupToolClient({ profile }: Props) {
   const [predictionId, setPredictionId] = useState('')
   const [imageUrl, setImageUrl]         = useState('')
   const [pollCount, setPollCount]       = useState(0)
+  const [saved, setSaved]               = useState(false)
+  const supabase = createClient()
 
   const generate = async () => {
     setGenerating(true)
@@ -86,6 +89,20 @@ export default function MockupToolClient({ profile }: Props) {
     }
   }
 
+  const saveToStorage = async () => {
+    if (!imageUrl) return
+    try {
+      const res = await fetch(imageUrl)
+      const blob = await res.blob()
+      const path = `mockups/${Date.now()}_${vehicleType.replace(/\s/g, '-')}.png`
+      await supabase.storage.from('job-images').upload(path, blob)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch {
+      // Silent fail - image is still available via URL
+    }
+  }
+
   const S: Record<string, React.CSSProperties> = {
     label: { display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 },
     select: { width: '100%', padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' },
@@ -104,7 +121,7 @@ export default function MockupToolClient({ profile }: Props) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 20 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]" style={{ gap: 20 }}>
         {/* Controls */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={S.card}>
@@ -210,6 +227,18 @@ export default function MockupToolClient({ profile }: Props) {
                   }}
                 >
                   <RefreshCw size={14} /> Regenerate
+                </button>
+                <button
+                  onClick={saveToStorage}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: saved ? 'rgba(34,192,122,0.1)' : 'transparent',
+                    color: saved ? 'var(--green)' : 'var(--text2)',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <Save size={14} /> {saved ? 'Saved' : 'Save'}
                 </button>
               </div>
             </>

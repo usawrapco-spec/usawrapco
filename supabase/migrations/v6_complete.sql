@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id          UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
   contact_name    TEXT NOT NULL DEFAULT '',
+  name            TEXT GENERATED ALWAYS AS (contact_name) STORED,
   company_name    TEXT,
   company         TEXT,
   email           TEXT,
@@ -2567,11 +2568,152 @@ CREATE POLICY "Org members manage templates"
   USING (org_id IN (SELECT org_id FROM profiles WHERE id = auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_templates_org ON message_templates(org_id);
 
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  MISSING TABLES — v6.4 additions                                       ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- ── Integrations ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.integrations (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  provider    TEXT NOT NULL,
+  api_key     TEXT,
+  config      JSONB DEFAULT '{}',
+  enabled     BOOLEAN DEFAULT false,
+  status      TEXT DEFAULT 'disconnected'
+              CHECK (status IN ('connected','disconnected','error')),
+  last_sync   TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.integrations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "integrations_select" ON public.integrations;
+CREATE POLICY "integrations_select" ON public.integrations FOR SELECT USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+DROP POLICY IF EXISTS "integrations_manage" ON public.integrations;
+CREATE POLICY "integrations_manage" ON public.integrations FOR ALL USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid() AND role IN ('owner','admin'))
+);
+CREATE INDEX IF NOT EXISTS idx_integrations_org ON public.integrations(org_id);
+
+-- ── Payments ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.payments (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id        UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  invoice_id    UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
+  project_id    UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  customer_id   UUID REFERENCES public.customers(id) ON DELETE SET NULL,
+  amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  method        TEXT DEFAULT 'other'
+                CHECK (method IN ('cash','check','credit_card','ach','wire','other')),
+  status        TEXT DEFAULT 'completed'
+                CHECK (status IN ('pending','completed','refunded','failed')),
+  reference     TEXT,
+  notes         TEXT,
+  paid_at       TIMESTAMPTZ DEFAULT now(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "payments_select" ON public.payments;
+CREATE POLICY "payments_select" ON public.payments FOR SELECT USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+DROP POLICY IF EXISTS "payments_manage" ON public.payments;
+CREATE POLICY "payments_manage" ON public.payments FOR ALL USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid() AND role IN ('owner','admin','sales_agent'))
+);
+CREATE INDEX IF NOT EXISTS idx_payments_org ON public.payments(org_id);
+CREATE INDEX IF NOT EXISTS idx_payments_invoice ON public.payments(invoice_id);
+
+-- ── Time Blocks (calendar scheduling) ────────────────────────
+CREATE TABLE IF NOT EXISTS public.time_blocks (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  user_id     UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  project_id  UUID REFERENCES public.projects(id) ON DELETE SET NULL,
+  title       TEXT NOT NULL DEFAULT '',
+  block_type  TEXT DEFAULT 'install'
+              CHECK (block_type IN ('install','production','design','meeting','pto','other')),
+  start_at    TIMESTAMPTZ NOT NULL,
+  end_at      TIMESTAMPTZ NOT NULL,
+  all_day     BOOLEAN DEFAULT false,
+  notes       TEXT,
+  color       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.time_blocks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "time_blocks_select" ON public.time_blocks;
+CREATE POLICY "time_blocks_select" ON public.time_blocks FOR SELECT USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+DROP POLICY IF EXISTS "time_blocks_manage" ON public.time_blocks;
+CREATE POLICY "time_blocks_manage" ON public.time_blocks FOR ALL USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+CREATE INDEX IF NOT EXISTS idx_time_blocks_org ON public.time_blocks(org_id);
+CREATE INDEX IF NOT EXISTS idx_time_blocks_user ON public.time_blocks(user_id);
+
+-- ── Card Templates ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.card_templates (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  description TEXT,
+  category    TEXT DEFAULT 'general',
+  layout      JSONB DEFAULT '{}',
+  thumbnail   TEXT,
+  created_by  UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.card_templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "card_templates_select" ON public.card_templates;
+CREATE POLICY "card_templates_select" ON public.card_templates FOR SELECT USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+DROP POLICY IF EXISTS "card_templates_manage" ON public.card_templates;
+CREATE POLICY "card_templates_manage" ON public.card_templates FOR ALL USING (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+CREATE INDEX IF NOT EXISTS idx_card_templates_org ON public.card_templates(org_id);
+
+-- ── Notifications ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id      UUID REFERENCES public.orgs(id) ON DELETE CASCADE,
+  user_id     UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  type        TEXT NOT NULL DEFAULT 'info'
+              CHECK (type IN ('info','warning','error','success','task','stage_change','send_back','bid','comment')),
+  title       TEXT NOT NULL DEFAULT '',
+  body        TEXT,
+  link        TEXT,
+  read        BOOLEAN DEFAULT false,
+  metadata    JSONB DEFAULT '{}',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "notifications_select" ON public.notifications;
+CREATE POLICY "notifications_select" ON public.notifications FOR SELECT USING (
+  user_id = auth.uid()
+);
+DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
+CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT WITH CHECK (
+  org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid())
+);
+DROP POLICY IF EXISTS "notifications_update" ON public.notifications;
+CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE USING (
+  user_id = auth.uid()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON public.notifications(user_id, read);
+
 -- ── Verify ───────────────────────────────────────────────────
 DO $$
 BEGIN
-  RAISE NOTICE 'v6.3 schema migration complete.';
-  RAISE NOTICE 'Tables: affiliates, affiliate_commissions, purchase_orders, ai_recaps, message_templates';
-  RAISE NOTICE 'v6.2 tables: vehicle_database, time_entries, pto_requests, payroll_periods, payroll_entries';
+  RAISE NOTICE 'v6.4 schema migration complete.';
+  RAISE NOTICE 'Added: integrations, payments, time_blocks, card_templates, notifications';
 END
 $$;

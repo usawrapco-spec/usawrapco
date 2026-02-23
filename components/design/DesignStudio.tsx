@@ -33,7 +33,7 @@ type DesignProject = {
   client_name: string
   design_type: string
   description: string | null
-  stage: 'brief' | 'in_progress' | 'proof_sent' | 'approved'
+  status: 'brief' | 'in_progress' | 'proof_sent' | 'approved'
   deadline: string | null
   created_at: string
   updated_at: string
@@ -70,7 +70,7 @@ export default function DesignStudio({ profile, designProjects, teamMembers, pro
   const router = useRouter()
 
   const getProjectsByStage = (stage: string) =>
-    designProjects.filter(p => p.stage === stage)
+    designProjects.filter(p => p.status === stage)
 
   return (
     <div>
@@ -161,7 +161,7 @@ function DesignCard({ project, stage, onClick }: {
   stage: typeof STAGES[number]
   onClick: () => void
 }) {
-  const isOverdue = project.deadline && new Date(project.deadline) < new Date() && project.stage !== 'approved'
+  const isOverdue = project.deadline && new Date(project.deadline) < new Date() && project.status !== 'approved'
 
   return (
     <button
@@ -233,7 +233,7 @@ function NewDesignProjectModal({ profile, teamMembers, projects, onClose, onCrea
         designer_id: form.designer_id || null,
         project_id: form.project_id || null,
         deadline: form.deadline || null,
-        stage: 'brief',
+        status: 'brief',
       }).select().single()
 
       if (error) throw error
@@ -892,7 +892,7 @@ function DesignProjectDrawer({ project, profile, teamMembers, onClose, onUpdate 
   onUpdate: () => void
 }) {
   const supabase = createClient()
-  const [stage, setStage] = useState(project.stage)
+  const [stage, setStage] = useState(project.status)
   const [designerId, setDesignerId] = useState(project.designer_id || '')
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'details' | 'chat' | 'files'>('details')
@@ -910,12 +910,12 @@ function DesignProjectDrawer({ project, profile, teamMembers, onClose, onUpdate 
     setSaving(true)
     try {
       // Check if stage changed to approved and no linked project
-      const stageChangedToApproved = stage === 'approved' && project.stage !== 'approved'
+      const stageChangedToApproved = stage === 'approved' && project.status !== 'approved'
       const noLinkedJob = !project.project_id
 
       // Update design project
       await supabase.from('design_projects').update({
-        stage,
+        status: stage,
         designer_id: designerId || null,
         updated_at: new Date().toISOString(),
       }).eq('id', project.id)
@@ -1107,7 +1107,7 @@ function DesignProjectDrawer({ project, profile, teamMembers, onClose, onUpdate 
               </div>
 
               {/* Approved notice */}
-              {stage === 'approved' && !project.project_id && project.stage !== 'approved' && (
+              {stage === 'approved' && !project.project_id && project.status !== 'approved' && (
                 <div className="flex items-center gap-2 text-xs text-green bg-green/10 px-3 py-2 rounded-lg border border-green/20">
                   <CheckCircle size={14} />
                   Saving will auto-create a draft job for sales review

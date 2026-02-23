@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, ProjectType } from '@/types'
 import { clsx } from 'clsx'
@@ -37,6 +38,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
   const [notes, setNotes] = useState('')
   const [revenue, setRevenue] = useState('')
 
+  const router = useRouter()
   const supabase = createClient()
   const { xpToast, badgeToast } = useToast()
 
@@ -104,6 +106,10 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
       })
       .catch(() => {})
     onCreated()
+    // Redirect to Order Editor for full estimate configuration
+    if (data?.id) {
+      router.push(`/projects/${data.id}/edit`)
+    }
   }
 
   return (

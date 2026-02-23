@@ -175,8 +175,8 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Sparkles size={18} style={{ color: '#fff' }} />
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>AI Genie</div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)' }}>Your shop assistant</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: '0.05em' }}>V.I.N.Y.L.</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)' }}>AI Sales Broker</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -311,7 +311,7 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-                  placeholder="Ask the Genie..."
+                  placeholder="Ask V.I.N.Y.L. anything..."
                   style={{
                     flex: 1,
                     padding: '8px 12px',
@@ -440,7 +440,7 @@ export default function GenieFAB({ userName, userRole, entityData }: GenieFABPro
           boxShadow: '0 4px 20px rgba(79,127,255,0.4)',
           transition: 'transform 0.15s, box-shadow 0.15s',
         }}
-        title={open ? 'Close Genie' : 'Open AI Genie'}
+        title={open ? 'Close V.I.N.Y.L.' : 'Open V.I.N.Y.L.'}
       >
         {open ? (
           <X size={22} style={{ color: '#fff' }} />

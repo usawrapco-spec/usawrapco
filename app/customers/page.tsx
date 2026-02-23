@@ -18,10 +18,13 @@ export default async function CustomersPage() {
     .from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  // Load customers — try new customers table, fallback to profiles with customer role
+  const orgId = profile.org_id || ORG_ID
+
+  // Load customers
   const { data: customers } = await admin
     .from('customers')
     .select('*')
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false })
     .limit(200)
 

@@ -28,13 +28,13 @@ export default async function LeaderboardPage() {
     .eq('active', true)
     .order('xp', { ascending: false })
 
-  // Load recent closed projects for revenue leaderboard
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  // Load projects from the last 365 days for revenue + installer leaderboard (client filters by period)
+  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
   const { data: projects } = await admin
     .from('projects')
-    .select('id, title, revenue, profit, agent_id, pipe_stage, updated_at')
+    .select('id, title, revenue, profit, agent_id, installer_id, pipe_stage, updated_at, fin_data')
     .eq('org_id', orgId)
-    .gte('updated_at', thirtyDaysAgo)
+    .gte('updated_at', oneYearAgo)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>

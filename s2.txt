@@ -1,0 +1,1 @@
+Read REQUIREMENTS.md with grep. NEVER ask questions. Fix team management. Fix analytics. Fix vinyl inventory. Fix tasks. Fix PDF exports. Fix broken pages. Convert sidebar to top nav bar. npm run build zero errors. git add -A && git commit -m sprint2 && git push.

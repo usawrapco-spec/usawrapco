@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
-  Bot, Building2,
+  Bot, Building2, Globe, TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import GenieFAB from '@/components/genie/GenieFAB'
@@ -26,11 +26,11 @@ interface DropdownItem {
 
 // ─── Nav definitions ──────────────────────────────────────────────────────────
 const QUICK_CREATE: DropdownItem[] = [
-  { href: '/estimates?new=1',   label: 'New Estimate',  icon: FileText },
-  { href: '/jobs?new=1',        label: 'New Job',       icon: Briefcase },
-  { href: '/customers?new=1',   label: 'New Customer',  icon: Users },
-  { href: '/tasks?new=1',       label: 'New Task',      icon: CheckSquare },
-  { href: '/prospects?new=1',   label: 'New Prospect',  icon: UserPlus },
+  { href: '/estimates/new', label: 'New Estimate',  icon: FileText },
+  { href: '/jobs?new=true',     label: 'New Job',       icon: Briefcase },
+  { href: '/customers?new=true',label: 'New Customer',  icon: Users },
+  { href: '/tasks?new=true',    label: 'New Task',      icon: CheckSquare },
+  { href: '/prospects?new=true',label: 'New Prospect',  icon: UserPlus },
 ]
 
 const TRANSACTIONS: DropdownItem[] = [
@@ -47,26 +47,31 @@ const REPORTS_ITEMS: DropdownItem[] = [
 ]
 
 const SETTINGS_ITEMS: DropdownItem[] = [
-  { href: '/settings',          label: 'General',          icon: Settings },
-  { href: '/employees',         label: 'Team & Roles',     icon: Users },
-  { href: '/settings/vehicles', label: 'Vehicle Database', icon: Truck },
-  { href: '/overhead',          label: 'Shop Expenses',    icon: DollarSign },
-  { href: '/1099',              label: 'Commissions',      icon: Receipt },
-  { href: '/affiliate',         label: 'Affiliate Program', icon: Users },
-  { href: '/timeclock',         label: 'Time Clock',       icon: Clock },
-  { href: '/integrations',      label: 'Integrations',     icon: Zap },
-  { href: '/shop',              label: 'Online Shop',      icon: ShoppingCart },
-  { href: '/settings/ai',       label: 'AI Settings',      icon: Bot },
-  { href: '/enterprise',        label: 'Enterprise Hub',   icon: Building2 },
+  { href: '/settings',              label: 'General',            icon: Settings },
+  { href: '/settings/defaults',     label: 'Defaults & Pricing', icon: Settings },
+  { href: '/settings/commissions',  label: 'Commission Rates',   icon: Receipt },
+  { href: '/employees',             label: 'Team & Roles',       icon: Users },
+  { href: '/settings/vehicles',     label: 'Vehicle Database',   icon: Truck },
+  { href: '/overhead',              label: 'Shop Expenses',      icon: DollarSign },
+  { href: '/1099',                  label: '1099 / Payroll',     icon: Receipt },
+  { href: '/affiliate',             label: 'Affiliate Program',  icon: Users },
+  { href: '/timeclock',             label: 'Time Clock',         icon: Clock },
+  { href: '/settings/playbook',     label: 'Sales Playbook',     icon: Zap },
+  { href: '/settings/ai',           label: 'AI Settings',        icon: Bot },
+  { href: '/integrations',          label: 'Integrations',       icon: Zap },
+  { href: '/shop',                  label: 'Online Shop',        icon: ShoppingCart },
+  { href: '/enterprise',            label: 'Enterprise Hub',     icon: Building2 },
 ]
 
 // ─── Nav links (center) ───────────────────────────────────────────────────────
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Home',     icon: LayoutDashboard },
+  { href: '/engine',    label: 'Engine',   icon: TrendingUp },
+  { href: '/workflow',  label: 'Workflow',icon: Briefcase },
+  { href: '/sourcing',  label: 'Sourcing', icon: Globe },
   { href: '/jobs',      label: 'Jobs',     icon: Briefcase },
   { href: '/inbox',     label: 'Inbox',    icon: Inbox },
   { href: '/tasks',     label: 'Tasks',    icon: CheckSquare },
-  { href: '/calendar',  label: 'Calendar', icon: Calendar },
   { href: '/contacts',  label: 'Contacts', icon: Users },
   { href: '/design',    label: 'Design',   icon: Palette },
   { href: '/wrapup',    label: 'WrapUp',   icon: Truck },
@@ -424,8 +429,9 @@ export function TopNav({ profile }: { profile: Profile }) {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search jobs, customers..."
+                className="w-[160px] sm:w-[220px]"
                 style={{
-                  width: 220, padding: '5px 10px 5px 28px',
+                  padding: '5px 10px 5px 28px',
                   borderRadius: 7, border: '1px solid var(--border)',
                   background: 'var(--surface2)', color: 'var(--text1)',
                   fontSize: 12, outline: 'none',
@@ -437,7 +443,7 @@ export function TopNav({ profile }: { profile: Profile }) {
             </div>
             <button
               onClick={() => { setSearchOpen(false); setSearchQuery('') }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 3 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 3, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <X size={13} />
             </button>
@@ -446,9 +452,11 @@ export function TopNav({ profile }: { profile: Profile }) {
           <button
             onClick={() => setSearchOpen(true)}
             title="Search"
+            className="w-[44px] h-[44px] md:w-[30px] md:h-[30px]"
             style={{
-              width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: 'none', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text3)',
+              flexShrink: 0,
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
@@ -462,10 +470,12 @@ export function TopNav({ profile }: { profile: Profile }) {
           <button
             onClick={() => { closeAll(); setNotifOpen(v => !v) }}
             title="Notifications"
+            className="w-[44px] h-[44px] md:w-[30px] md:h-[30px]"
             style={{
-              width: 30, height: 30, borderRadius: 6, position: 'relative',
+              borderRadius: 6, position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: 'none', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text3)',
+              flexShrink: 0,
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
@@ -598,8 +608,9 @@ export function TopNav({ profile }: { profile: Profile }) {
         <div ref={profileRef} style={{ position: 'relative' }}>
           <button
             onClick={() => { closeAll(); setProfileOpen(v => !v) }}
+            className="w-[44px] h-[44px] md:w-[30px] md:h-[30px]"
             style={{
-              width: 30, height: 30, borderRadius: '50%',
+              borderRadius: '50%',
               background: 'rgba(79,127,255,0.15)',
               border: '2px solid var(--accent)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',

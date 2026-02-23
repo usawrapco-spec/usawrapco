@@ -23,7 +23,7 @@ export default async function ProspectsPage() {
   try {
     const { data } = await admin
       .from('prospects')
-      .select('*')
+      .select('*, assignee:assigned_to(id, name)')
       .eq('org_id', ORG_ID)
       .order('created_at', { ascending: false })
       .limit(500)

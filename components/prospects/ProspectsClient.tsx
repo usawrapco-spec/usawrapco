@@ -187,11 +187,32 @@ function formatDate(dateStr: string): string {
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
+function mapDbToProspect(row: any): Prospect {
+  return {
+    id: row.id,
+    name: row.name || '',
+    company: row.company || '',
+    phone: row.phone || '',
+    email: row.email || '',
+    status: row.status || 'warm',
+    source: row.source || 'other',
+    fleet_size: row.fleet_size != null ? String(row.fleet_size) : '',
+    estimated_revenue: Number(row.estimated_revenue) || 0,
+    notes: row.notes || '',
+    agent_id: row.assigned_to || '',
+    agent_name: row.assignee?.name || '',
+    last_contact: row.last_contact ? new Date(row.last_contact).toISOString().split('T')[0] : '',
+    follow_up_date: row.follow_up_date || null,
+    activities: [],
+    created_at: row.created_at || '',
+  }
+}
+
 // ── Main Component ───────────────────────────────────────────
 export default function ProspectsClient({ profile, initialProspects }: ProspectsClientProps) {
   const supabase = createClient()
   const [prospects, setProspects] = useState<Prospect[]>(() => {
-    if (initialProspects && initialProspects.length > 0) return initialProspects as Prospect[]
+    if (initialProspects && initialProspects.length > 0) return initialProspects.map(mapDbToProspect)
     return DEMO_PROSPECTS
   })
 
@@ -852,7 +873,7 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId
     setSaving(true)
     const today = new Date().toISOString().split('T')[0]
 
-    const insert = {
+    const dbInsert = {
       org_id: orgId,
       name: form.name,
       company: form.company,
@@ -860,24 +881,28 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId
       email: form.email,
       status: form.status,
       source: form.source,
-      fleet_size: form.fleet_size || 'unknown',
+      fleet_size: Number(form.fleet_size) || null,
       estimated_revenue: Number(form.estimated_revenue) || 0,
       notes: form.notes,
-      agent_id: userId,
-      agent_name: form.agent_name,
+      assigned_to: userId,
       last_contact: today,
-      activities: [],
     }
 
-    const { data, error } = await supabase.from('prospects').insert(insert).select().single()
+    const { data, error } = await supabase.from('prospects').insert(dbInsert).select('*, assignee:assigned_to(id, name)').single()
     setSaving(false)
     if (error || !data) {
       // fallback to local-only
-      const newProspect: Prospect = { ...insert, id: 'local-' + Date.now(), follow_up_date: null, created_at: today }
+      const newProspect: Prospect = {
+        id: 'local-' + Date.now(), name: form.name, company: form.company,
+        phone: form.phone, email: form.email, status: form.status, source: form.source,
+        fleet_size: form.fleet_size, estimated_revenue: Number(form.estimated_revenue) || 0,
+        notes: form.notes, agent_id: userId, agent_name: form.agent_name,
+        last_contact: today, follow_up_date: null, activities: [], created_at: today,
+      }
       onAdd(newProspect)
       return
     }
-    onAdd(data as Prospect)
+    onAdd(mapDbToProspect(data))
   }
 
   return (

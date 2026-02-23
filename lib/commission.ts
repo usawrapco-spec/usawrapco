@@ -33,15 +33,15 @@ export interface CommissionResult {
   }[]
 }
 
-// Commission rates by source
+// Commission rates by source (base rates on Gross Profit)
 const SOURCE_RATES: Record<string, number> = {
-  inbound:       0.045,  // 4.5% of net profit
-  outbound:      0.06,   // 6%
-  referral:      0.05,   // 5%
-  walk_in:       0.04,   // 4%
-  repeat:        0.035,  // 3.5%
-  cross_referral: 0.05,  // 5%
-  presold:       0.03,   // 3%
+  inbound:       0.045,  // 4.5% of GP
+  outbound:      0.07,   // 7% of GP
+  referral:      0.045,  // 4.5% of GP (same as inbound)
+  walk_in:       0.045,  // 4.5% of GP
+  repeat:        0.045,  // 4.5% of GP
+  cross_referral: 0.025, // 2.5% cross-department referral
+  presold:       0.05,   // 5% flat, no bonuses
 }
 
 export function calculateCommission(input: CommissionInput): CommissionResult {
@@ -188,11 +188,9 @@ export const CROSS_DEPT_REFERRAL_RATE = 0.025 // 2.5%
  * Monthly GP tiers — higher tiers unlock better commission rates
  */
 export const MONTHLY_GP_TIERS = [
-  { tier: 1, minGP: 0,      maxGP: 10000,  rateBonus: 0 },
-  { tier: 2, minGP: 10001,  maxGP: 25000,  rateBonus: 0.005 },   // +0.5%
-  { tier: 3, minGP: 25001,  maxGP: 50000,  rateBonus: 0.01 },    // +1.0%
-  { tier: 4, minGP: 50001,  maxGP: 100000, rateBonus: 0.015 },   // +1.5%
-  { tier: 5, minGP: 100001, maxGP: Infinity, rateBonus: 0.02 },   // +2.0%
+  { tier: 1, minGP: 0,      maxGP: 50000,  rateBonus: 0 },         // $0-50k: base rates
+  { tier: 2, minGP: 50001,  maxGP: 100000, rateBonus: 0.005 },     // $50k-100k: +0.5%
+  { tier: 3, minGP: 100001, maxGP: Infinity, rateBonus: 0.015 },    // $100k+: +1.5%
 ]
 
 /**
@@ -204,11 +202,12 @@ export function getMonthlyGPTierBonus(monthlyGP: number): number {
 }
 
 /**
- * Protection rule: If GPM < 70% on non-PPF jobs, agent gets base rate only (no bonuses)
+ * Protection rule: If GPM < 65%, agent gets base rate only (no bonuses)
+ * Prevents underquoting — inbound→4.5%, outbound→7%, no bonuses
  */
 export function isGPMProtected(gpm: number, isPPF: boolean): boolean {
   if (isPPF) return false // PPF jobs are exempt
-  return gpm < 70
+  return gpm < 65
 }
 
 /**
@@ -258,14 +257,19 @@ export function calculateEnhancedCommission(input: CommissionInput & {
   const gpTierRate = getMonthlyGPTierBonus(monthlyGPCumulative)
   const gpTierBonus = (!protected_) ? base.netProfit * gpTierRate : 0
 
-  // Apply cap
+  // Apply cap — total effective rate includes base + tier, capped per source
   const maxRate = COMMISSION_CAPS[source] ?? 0.075
   const effectiveRate = Math.min(base.agentCommissionRate + gpTierRate, maxRate)
   const cappedCommission = Math.max(0, base.netProfit * effectiveRate)
 
+  // Total commission = capped base+tier commission + torq bonus + high GPM bonus
+  const totalCommission = protected_
+    ? Math.max(0, base.netProfit * (SOURCE_RATES[source] ?? SOURCE_RATES.inbound))
+    : cappedCommission + torqBonus + highGPMBonus
+
   return {
     ...base,
-    agentCommission: protected_ ? Math.max(0, base.netProfit * (SOURCE_RATES[source] ?? SOURCE_RATES.inbound)) : cappedCommission,
+    agentCommission: totalCommission,
     torqBonus,
     highGPMBonus,
     gpTierBonus,

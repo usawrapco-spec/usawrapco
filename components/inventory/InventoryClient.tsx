@@ -71,6 +71,7 @@ export function InventoryClient({ profile }: InventoryClientProps) {
     const { data } = await supabase
       .from('vinyl_inventory')
       .select('*')
+      .eq('org_id', profile.org_id)
       .neq('status', 'consumed')
       .order('created_at', { ascending: false })
     setInventory((data || []).map(dbToItem))

@@ -13,9 +13,11 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('projects').select('*').eq('org_id', profile.org_id)
+    supabase.from('projects').select('*, agent:agent_id(id, name), installer:installer_id(id, name)')
+      .eq('org_id', profile.org_id)
       .then(({ data }) => setJobs(data || []))
-  }, [])
+      .catch(() => setJobs([]))
+  }, [profile.org_id])
 
   // Period filter
   const now = new Date()
@@ -67,15 +69,18 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
     )
   }
 
+  const getAgent = (j: any) => (j.agent as any)?.name || (j.form_data as any)?.agent || null
+  const getInstaller = (j: any) => (j.installer as any)?.name || (j.form_data as any)?.installer || null
+
   const boards = [
     { title: 'Sales Revenue', content: buildBoard(
-      j => (j.form_data as any)?.agent, j => j.revenue || 0,
-      (n) => { const cnt = filtered.filter(j => (j.form_data as any)?.agent === n).length; return `${cnt} jobs` },
+      j => getAgent(j), j => j.revenue || 0,
+      (n) => { const cnt = filtered.filter(j => getAgent(j) === n).length; return `${cnt} jobs` },
       '#4f7fff', v => fM(v)
     )},
     { title: 'Installer Earnings', content: buildBoard(
-      j => (j.form_data as any)?.installer, j => j.fin_data?.labor || (j.form_data as any)?.selectedVehicle?.pay || 0,
-      (n) => { const hrs = filtered.filter(j => (j.form_data as any)?.installer === n).reduce((s,j) => s + (j.fin_data?.hrs || 0), 0); return `${Math.round(hrs)}h logged` },
+      j => getInstaller(j), j => (j.fin_data as any)?.labor || (j.form_data as any)?.selectedVehicle?.pay || 0,
+      (n) => { const hrs = filtered.filter(j => getInstaller(j) === n).reduce((s,j) => s + ((j.fin_data as any)?.hrs || 0), 0); return `${Math.round(hrs)}h logged` },
       '#22d3ee', v => fM(v)
     )},
     { title: 'Referral Sources', content: buildBoard(
@@ -83,9 +88,9 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
       () => '', '#8b5cf6', v => fM(v)
     )},
     { title: 'GPM by Agent', content: buildBoard(
-      j => (j.form_data as any)?.agent, j => j.gpm || 0,
-      (n) => { const cnt = filtered.filter(j => (j.form_data as any)?.agent === n).length; return `${cnt} jobs (avg)` },
-      '#22c07a', v => { const n = filtered.filter(j => (j.form_data as any)?.agent === v.toString()).length; return `${Math.round(v / Math.max(1, n))}%` }
+      j => getAgent(j), j => j.gpm || 0,
+      (n) => { const cnt = filtered.filter(j => getAgent(j) === n).length; return `${cnt} jobs (avg)` },
+      '#22c07a', v => { const n = filtered.filter(j => getAgent(j) === v.toString()).length; return `${Math.round(v / Math.max(1, n))}%` }
     )},
   ]
 

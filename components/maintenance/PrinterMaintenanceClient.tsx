@@ -47,6 +47,7 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
     const { data } = await supabase
       .from('printer_maintenance_logs')
       .select('*')
+      .eq('org_id', profile.org_id)
       .order('created_at', { ascending: false })
       .limit(50)
     setLogs(data || [])

@@ -1,0 +1,1 @@
+Read REQUIREMENTS.md with grep. NEVER ask questions. Build VINYL Genie bar. Build AI Command Center. Build calendar. Build installer bidding. Build settings. Build network map. Build referral system. Build HR payroll. Build documents contracts. npm run build zero errors. git add -A && git commit -m sprint4 && git push.

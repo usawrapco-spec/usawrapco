@@ -80,8 +80,8 @@ const v = (val: unknown, def = 0): number => parseFloat(String(val)) || def
 // ── Shared styles ────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
   width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
-  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: 'var(--text1)', outline: 'none',
-  fontFamily: 'inherit',
+  borderRadius: 8, padding: '10px 12px', fontSize: 13, color: 'var(--text1)', outline: 'none',
+  fontFamily: 'inherit', minHeight: 44,
 }
 const sel: React.CSSProperties = { ...inp, cursor: 'pointer' }
 const monoNum: React.CSSProperties = { fontFamily: 'JetBrains Mono, monospace' }
@@ -134,17 +134,29 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
 
     // Trailer / Box Truck dims
     trailerWidth: (fd.trailerWidth as string) || '',
-    trailerHeight: (fd.trailerHeight as string) || '',
+    trailerHeight: (fd.trailerHeight as string) || '7.5',
+    trailerLength: (fd.trailerLength as string) || '',
     trailerLaborPct: (fd.trailerLaborPct as string) || '10',
+    trailerSides: (fd.trailerSides as string[]) || [] as string[],
+    trailerFrontCoverage: (fd.trailerFrontCoverage as string) || 'full',
+    trailerVnoseMode: (fd.trailerVnoseMode as string) || 'none',
+    vnoseLength: (fd.vnoseLength as string) || '',
+    vnoseHeight: (fd.vnoseHeight as string) || '',
+    vnoseWidth: (fd.vnoseWidth as string) || '',
     boxWidth: (fd.boxWidth as string) || '',
-    boxHeight: (fd.boxHeight as string) || '',
+    boxHeight: (fd.boxHeight as string) || '96',
+    boxLength: (fd.boxLength as string) || '',
     boxLaborPct: (fd.boxLaborPct as string) || '10',
+    boxSides: (fd.boxSides as string[]) || [] as string[],
+    boxCabAddon: (fd.boxCabAddon as boolean) || false,
 
     // Marine
     hullLength: (fd.hullLength as string) || '',
-    marinePasses: (fd.marinePasses as string) || '1',
+    marinePasses: (fd.marinePasses as string) || '',
     transom: (fd.transom as boolean) || false,
     hullHeight: (fd.hullHeight as string) || '',
+    marineMaterialWidth: (fd.marineMaterialWidth as string) || '54',
+    marinePrepHours: (fd.marinePrepHours as string) || '0',
 
     // Wrap coverage
     roofAddon: (fd.roofAddon as number) || 0,
@@ -219,39 +231,103 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
     let hrs = 0
     let sale = 0
 
+    // Helper: calculate trailer side sqft
+    let trailerSideBreakdown: Record<string, number> = {}
+    let boxSideBreakdown: Record<string, number> = {}
+
     if (jobType === 'COMMERCIAL') {
       if (commSubType === 'Vehicle' && selectedVehicle) {
         // Vehicle quick-select
         labor = f.manualPayOverride ? v(f.manualPayOverride) : selectedVehicle.pay
         hrs = selectedVehicle.hrs
-        // material from sqft * rate or a default
         material = sqft > 0 ? sqft * 2.10 : 0
         const cogs = material + labor + designFee + misc + roofAddon + prepCost
         sale = marginTarget > 0 ? cogs / (1 - marginTarget) : cogs
       } else if (commSubType === 'Trailer') {
-        const tw = v(f.trailerWidth)
-        const th = v(f.trailerHeight)
-        const estSqft = tw > 0 && th > 0 ? tw * th * 2 : sqft
-        material = estSqft * 2.10
+        const tw = v(f.trailerWidth) || v(f.trailerLength)
+        const th = v(f.trailerHeight, 7.5)
+        const sides = (f.trailerSides as unknown as string[]) || []
+        // Calculate sqft per side
+        const leftSqft = tw * th
+        const rightSqft = tw * th
+        let frontSqft = 0
+        const frontCov = f.trailerFrontCoverage
+        if (frontCov === 'full') frontSqft = v(f.trailerWidth) > 0 ? v(f.trailerWidth) * th : 0
+        else if (frontCov === '3/4') frontSqft = v(f.trailerWidth) > 0 ? v(f.trailerWidth) * th * 0.75 : 0
+        else if (frontCov === '1/2') frontSqft = v(f.trailerWidth) > 0 ? v(f.trailerWidth) * th * 0.5 : 0
+        const rearSqft = v(f.trailerWidth) > 0 ? v(f.trailerWidth) * th : 0
+        // V-nose calculation
+        let vnoseSqft = 0
+        if (f.trailerVnoseMode === 'custom') {
+          const vl = v(f.vnoseLength)
+          const vh = v(f.vnoseHeight, th)
+          vnoseSqft = vl * vh * 2
+        } else if (f.trailerVnoseMode === 'half') {
+          const vw = v(f.vnoseWidth) || v(f.trailerWidth)
+          vnoseSqft = 0.5 * vw * th * 2
+        }
+        trailerSideBreakdown = {
+          'Left Side': leftSqft,
+          'Right Side': rightSqft,
+          'Front': frontSqft,
+          'Rear': rearSqft,
+          ...(vnoseSqft > 0 ? { 'V-Nose': vnoseSqft } : {}),
+        }
+        // Only count selected sides
+        let totalSqft = 0
+        if (sides.includes('left')) totalSqft += leftSqft
+        if (sides.includes('right')) totalSqft += rightSqft
+        if (sides.includes('front')) totalSqft += frontSqft
+        if (sides.includes('rear')) totalSqft += rearSqft
+        if (sides.includes('vnose')) totalSqft += vnoseSqft
+        // If no sides selected, use both sides as default
+        if (sides.length === 0) totalSqft = tw > 0 && th > 0 ? tw * th * 2 : sqft
+        material = totalSqft * 2.10
         const cogs = material + designFee + misc + roofAddon + prepCost
-        labor = cogs * v(f.trailerLaborPct, 10) / 100
+        labor = (cogs + material) * v(f.trailerLaborPct, 10) / 100
         sale = marginTarget > 0 ? (cogs + labor) / (1 - marginTarget) : cogs + labor
         hrs = labor > 0 ? Math.ceil(labor / v(f.ratePerHr, 35)) : 0
       } else if (commSubType === 'Box Truck') {
-        const bw = v(f.boxWidth)
-        const bh = v(f.boxHeight) / 12
-        const estSqft = bw > 0 && bh > 0 ? bw * bh * 2 : sqft
-        material = estSqft * 2.10
+        const bw = v(f.boxWidth) || v(f.boxLength)
+        const bh = v(f.boxHeight, 96) / 12
+        const sides = (f.boxSides as unknown as string[]) || []
+        const leftSqft = bw * bh
+        const rightSqft = bw * bh
+        const rearSqft = 8 * bh // assume 8ft wide
+        boxSideBreakdown = {
+          'Left Side': leftSqft,
+          'Right Side': rightSqft,
+          'Rear': rearSqft,
+        }
+        let totalSqft = 0
+        if (sides.includes('left')) totalSqft += leftSqft
+        if (sides.includes('right')) totalSqft += rightSqft
+        if (sides.includes('rear')) totalSqft += rearSqft
+        if (sides.length === 0) totalSqft = bw > 0 && bh > 0 ? bw * bh * 2 : sqft
+        material = totalSqft * 2.10
+        const cabAddon = f.boxCabAddon ? 1950 : 0
         const cogs = material + designFee + misc + roofAddon + prepCost
-        labor = cogs * v(f.boxLaborPct, 10) / 100
-        sale = marginTarget > 0 ? (cogs + labor) / (1 - marginTarget) : cogs + labor
+        // Box truck: labor % applied to full total including cab
+        const revenueBase = cogs + cabAddon
+        labor = revenueBase * v(f.boxLaborPct, 10) / 100
+        sale = marginTarget > 0 ? (revenueBase + labor) / (1 - marginTarget) : revenueBase + labor
         hrs = labor > 0 ? Math.ceil(labor / v(f.ratePerHr, 35)) : 0
       }
     } else if (jobType === 'MARINE') {
       const hullLen = v(f.hullLength)
-      const passes = v(f.marinePasses, 1)
-      material = hullLen * passes * 2.50
-      const cogs = material + designFee + misc + prepCost
+      const hullHt = v(f.hullHeight)
+      const matWidth = v(f.marineMaterialWidth, 54) / 12 // convert inches to feet
+      // Auto-calc passes if hull height provided
+      const autoPasses = hullHt > 0 && matWidth > 0 ? Math.ceil(hullHt / matWidth) : 1
+      const passes = v(f.marinePasses) > 0 ? v(f.marinePasses) : autoPasses
+      const netArea = hullLen * hullHt * 2 // both sides
+      const transomSqft = f.transom ? (hullHt * 6) : 0 // estimate 6ft transom width
+      const rawTotal = (hullLen * passes * 2) + transomSqft
+      const wasteAllowance = rawTotal * 0.20
+      const totalToOrder = rawTotal + wasteAllowance
+      material = totalToOrder * 2.50
+      const prepCostMarine = v(f.marinePrepHours) * v(f.ratePerHr, 35)
+      const cogs = material + designFee + misc + prepCost + prepCostMarine
       labor = cogs * laborPct
       sale = marginTarget > 0 ? (cogs + labor) / (1 - marginTarget) : cogs + labor
       hrs = labor > 0 ? Math.ceil(labor / v(f.ratePerHr, 35)) : 0
@@ -335,6 +411,9 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
       commGpmBonus,
       commTotal,
       commLabel,
+      trailerSideBreakdown,
+      boxSideBreakdown,
+      cabAddon: f.boxCabAddon ? 1950 : 0,
     }
   }, [f, jobType, commSubType, selectedVehicle, selectedPPF])
 
@@ -483,6 +562,7 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
         display: 'flex', gap: 4, marginBottom: 20,
         background: 'var(--surface)', borderRadius: 12,
         padding: 4, border: '1px solid var(--border)',
+        overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
           { key: 'quote' as const, label: 'Quote & Materials', icon: <DollarSign size={15} /> },
@@ -508,10 +588,10 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
       </div>
 
       {/* ── MAIN LAYOUT: Content + Sidebar ──────────────────────────── */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
 
         {/* ── LEFT: Tab content ──────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }} className="w-full lg:w-auto">
 
           {/* ═══════════════════════════════════════════════════════════ */}
           {/* TAB 1: QUOTE & MATERIALS                                  */}
@@ -694,54 +774,368 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
 
                     {/* TRAILER fields */}
                     {commSubType === 'Trailer' && (
-                      <Grid cols={3}>
-                        <Field label="Width (ft)">
-                          <input style={inp} type="number" value={f.trailerWidth} onChange={e => ff('trailerWidth', e.target.value)} placeholder="8" />
-                        </Field>
-                        <Field label="Height (ft)">
-                          <input style={inp} type="number" value={f.trailerHeight} onChange={e => ff('trailerHeight', e.target.value)} placeholder="8" />
-                        </Field>
-                        <Field label="Default Labor %">
-                          <input style={inp} type="number" value={f.trailerLaborPct} onChange={e => ff('trailerLaborPct', e.target.value)} placeholder="10" />
-                        </Field>
-                      </Grid>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <Grid cols={3}>
+                          <Field label="Length (ft)">
+                            <input style={inp} type="number" value={f.trailerWidth} onChange={e => ff('trailerWidth', e.target.value)} placeholder="24" />
+                          </Field>
+                          <Field label="Height (ft)">
+                            <div style={{ position: 'relative' }}>
+                              <input style={inp} type="number" value={f.trailerHeight} onChange={e => ff('trailerHeight', e.target.value)} placeholder="7.5" />
+                              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--text3)', pointerEvents: 'none' }}>
+                                {v(f.trailerHeight, 7.5) > 0 ? `${Math.floor(v(f.trailerHeight, 7.5))}'${Math.round((v(f.trailerHeight, 7.5) % 1) * 12)}"` : ''}
+                              </span>
+                            </div>
+                          </Field>
+                          <Field label="Default Labor %">
+                            <input style={inp} type="number" value={f.trailerLaborPct} onChange={e => ff('trailerLaborPct', e.target.value)} placeholder="10" />
+                          </Field>
+                        </Grid>
+
+                        {/* Side Selection */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                            Select Sides to Wrap
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {['left', 'right', 'front', 'rear'].map(side => {
+                              const sides = (f.trailerSides as unknown as string[]) || []
+                              const isActive = sides.includes(side)
+                              return (
+                                <button
+                                  key={side}
+                                  onClick={() => {
+                                    const current = (f.trailerSides as unknown as string[]) || []
+                                    ff('trailerSides', isActive ? current.filter((s: string) => s !== side) : [...current, side])
+                                  }}
+                                  style={{
+                                    padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                    cursor: 'pointer', border: '2px solid', textTransform: 'capitalize',
+                                    background: isActive ? 'rgba(79,127,255,.15)' : 'var(--surface2)',
+                                    borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                                    color: isActive ? 'var(--accent)' : 'var(--text3)',
+                                  }}
+                                >
+                                  {side === 'left' ? 'Left Side' : side === 'right' ? 'Right Side' : side.charAt(0).toUpperCase() + side.slice(1)}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {/* Per-side sqft breakdown */}
+                          {Object.keys(fin.trailerSideBreakdown).length > 0 && (
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                              {Object.entries(fin.trailerSideBreakdown).map(([side, sqft]) => (
+                                <div key={side} style={{
+                                  padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                                  color: 'var(--text2)',
+                                }}>
+                                  {side}: <span style={{ ...monoNum, color: 'var(--cyan)' }}>{Math.round(sqft as number)} sqft</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Front Panel Coverage */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                            Front Panel Coverage
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {[
+                              { key: 'full', label: 'Full' },
+                              { key: '3/4', label: '3/4 Wrap' },
+                              { key: '1/2', label: '1/2 Wrap' },
+                            ].map(opt => (
+                              <button
+                                key={opt.key}
+                                onClick={() => ff('trailerFrontCoverage', opt.key)}
+                                style={{
+                                  padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                  cursor: 'pointer', border: '1px solid',
+                                  background: f.trailerFrontCoverage === opt.key ? 'rgba(34,192,122,.12)' : 'var(--surface2)',
+                                  borderColor: f.trailerFrontCoverage === opt.key ? 'rgba(34,192,122,.4)' : 'var(--border)',
+                                  color: f.trailerFrontCoverage === opt.key ? 'var(--green)' : 'var(--text3)',
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* V-Nose */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                            V-Nose
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                            {[
+                              { key: 'none', label: 'None' },
+                              { key: 'custom', label: 'Custom H x L' },
+                              { key: 'half', label: '1/2 Standard' },
+                            ].map(opt => (
+                              <button
+                                key={opt.key}
+                                onClick={() => {
+                                  ff('trailerVnoseMode', opt.key)
+                                  if (opt.key !== 'none') {
+                                    const sides = (f.trailerSides as unknown as string[]) || []
+                                    if (!sides.includes('vnose')) ff('trailerSides', [...sides, 'vnose'])
+                                  } else {
+                                    const sides = (f.trailerSides as unknown as string[]) || []
+                                    ff('trailerSides', sides.filter((s: string) => s !== 'vnose'))
+                                  }
+                                }}
+                                style={{
+                                  padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                  cursor: 'pointer', border: '1px solid',
+                                  background: f.trailerVnoseMode === opt.key ? 'rgba(139,92,246,.12)' : 'var(--surface2)',
+                                  borderColor: f.trailerVnoseMode === opt.key ? 'rgba(139,92,246,.4)' : 'var(--border)',
+                                  color: f.trailerVnoseMode === opt.key ? '#8b5cf6' : 'var(--text3)',
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          {f.trailerVnoseMode === 'custom' && (
+                            <Grid cols={3}>
+                              <Field label="V-Nose Length (ft)">
+                                <input style={inp} type="number" value={f.vnoseLength} onChange={e => ff('vnoseLength', e.target.value)} placeholder="3" />
+                              </Field>
+                              <Field label="V-Nose Height (ft)">
+                                <div style={{ position: 'relative' }}>
+                                  <input style={inp} type="number" value={f.vnoseHeight} onChange={e => ff('vnoseHeight', e.target.value)} placeholder={f.trailerHeight || '7.5'} />
+                                  <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--text3)', pointerEvents: 'none' }}>
+                                    {v(f.vnoseHeight) > 0 ? `${Math.floor(v(f.vnoseHeight))}'${Math.round((v(f.vnoseHeight) % 1) * 12)}"` : ''}
+                                  </span>
+                                </div>
+                              </Field>
+                              <Field label="V-Nose Width (ft)">
+                                <input style={inp} type="number" value={f.vnoseWidth} onChange={e => ff('vnoseWidth', e.target.value)} placeholder={f.trailerWidth || '8'} />
+                              </Field>
+                            </Grid>
+                          )}
+                          {f.trailerVnoseMode === 'half' && (
+                            <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.2)', fontSize: 11, color: 'var(--text2)' }}>
+                              Auto-calc: 0.5 x {v(f.trailerWidth) || '?'}ft width x {v(f.trailerHeight, 7.5)}ft height x 2 sides = <span style={{ ...monoNum, color: '#8b5cf6', fontWeight: 700 }}>{v(f.trailerWidth) > 0 ? Math.round(0.5 * v(f.trailerWidth) * v(f.trailerHeight, 7.5) * 2) : '?'} sqft</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
 
                     {/* BOX TRUCK fields */}
                     {commSubType === 'Box Truck' && (
-                      <Grid cols={3}>
-                        <Field label="Width (ft)">
-                          <input style={inp} type="number" value={f.boxWidth} onChange={e => ff('boxWidth', e.target.value)} placeholder="8" />
-                        </Field>
-                        <Field label="Height (in)">
-                          <input style={inp} type="number" value={f.boxHeight} onChange={e => ff('boxHeight', e.target.value)} placeholder="96" />
-                        </Field>
-                        <Field label="Default Labor %">
-                          <input style={inp} type="number" value={f.boxLaborPct} onChange={e => ff('boxLaborPct', e.target.value)} placeholder="10" />
-                        </Field>
-                      </Grid>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <Grid cols={3}>
+                          <Field label="Length (ft)">
+                            <input style={inp} type="number" value={f.boxWidth} onChange={e => ff('boxWidth', e.target.value)} placeholder="16" />
+                          </Field>
+                          <Field label="Height (in)">
+                            <div style={{ position: 'relative' }}>
+                              <input style={inp} type="number" value={f.boxHeight} onChange={e => ff('boxHeight', e.target.value)} placeholder="96" />
+                              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--text3)', pointerEvents: 'none' }}>
+                                {v(f.boxHeight) > 0 ? `${Math.floor(v(f.boxHeight) / 12)}'${v(f.boxHeight) % 12}"` : ''}
+                              </span>
+                            </div>
+                          </Field>
+                          <Field label="Default Labor %">
+                            <input style={inp} type="number" value={f.boxLaborPct} onChange={e => ff('boxLaborPct', e.target.value)} placeholder="10" />
+                          </Field>
+                        </Grid>
+
+                        {/* Side Selection */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                            Select Sides to Wrap
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {['left', 'right', 'rear'].map(side => {
+                              const sides = (f.boxSides as unknown as string[]) || []
+                              const isActive = sides.includes(side)
+                              return (
+                                <button
+                                  key={side}
+                                  onClick={() => {
+                                    const current = (f.boxSides as unknown as string[]) || []
+                                    ff('boxSides', isActive ? current.filter((s: string) => s !== side) : [...current, side])
+                                  }}
+                                  style={{
+                                    padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                    cursor: 'pointer', border: '2px solid', textTransform: 'capitalize',
+                                    background: isActive ? 'rgba(79,127,255,.15)' : 'var(--surface2)',
+                                    borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                                    color: isActive ? 'var(--accent)' : 'var(--text3)',
+                                  }}
+                                >
+                                  {side === 'left' ? 'Left Side' : side === 'right' ? 'Right Side' : 'Rear'}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {/* Per-side sqft breakdown */}
+                          {Object.keys(fin.boxSideBreakdown).length > 0 && (
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                              {Object.entries(fin.boxSideBreakdown).map(([side, sqft]) => (
+                                <div key={side} style={{
+                                  padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                                  color: 'var(--text2)',
+                                }}>
+                                  {side}: <span style={{ ...monoNum, color: 'var(--cyan)' }}>{Math.round(sqft as number)} sqft</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Cab Add-On */}
+                        <div style={{
+                          padding: '14px 16px', borderRadius: 10,
+                          background: f.boxCabAddon ? 'rgba(34,192,122,.08)' : 'var(--surface2)',
+                          border: `2px solid ${f.boxCabAddon ? 'rgba(34,192,122,.4)' : 'var(--border)'}`,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                              <CheckToggle
+                                label="Cab Wrap Add-On (+$1,950)"
+                                checked={f.boxCabAddon}
+                                onChange={val => ff('boxCabAddon', val)}
+                              />
+                              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, paddingLeft: 26 }}>
+                                Added to total revenue. Labor % applied to full total including cab.
+                              </div>
+                            </div>
+                            {f.boxCabAddon && (
+                              <div style={{ ...monoNum, fontSize: 18, fontWeight: 800, color: 'var(--green)' }}>
+                                +{fM(1950)}
+                              </div>
+                            )}
+                          </div>
+                          {f.boxCabAddon && fin.sale > 0 && (
+                            <div style={{
+                              marginTop: 12, padding: '10px 12px', borderRadius: 8,
+                              background: 'rgba(34,192,122,.06)', border: '1px solid rgba(34,192,122,.15)',
+                            }}>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+                                Cab Breakdown
+                              </div>
+                              <div style={{ display: 'flex', gap: 16, fontSize: 11 }}>
+                                <div>
+                                  <span style={{ color: 'var(--text3)' }}>Cab Revenue:</span>{' '}
+                                  <span style={{ ...monoNum, color: 'var(--green)', fontWeight: 700 }}>{fM(1950)}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: 'var(--text3)' }}>Labor on Cab:</span>{' '}
+                                  <span style={{ ...monoNum, color: 'var(--cyan)', fontWeight: 700 }}>{fM(1950 * v(f.boxLaborPct, 10) / 100)}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: 'var(--text3)' }}>Total w/ Cab:</span>{' '}
+                                  <span style={{ ...monoNum, color: 'var(--accent)', fontWeight: 700 }}>{fM(fin.sale)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </>
                 )}
 
                 {/* ── MARINE fields ───────────────────────────────── */}
                 {jobType === 'MARINE' && (
-                  <Grid cols={2}>
-                    <Field label="Hull Length (ft)">
-                      <input style={inp} type="number" value={f.hullLength} onChange={e => ff('hullLength', e.target.value)} placeholder="22" />
-                    </Field>
-                    <Field label="Passes">
-                      <input style={inp} type="number" value={f.marinePasses} onChange={e => ff('marinePasses', e.target.value)} placeholder="1" />
-                    </Field>
-                    <Field label="Hull Height (ft)">
-                      <input style={inp} type="number" value={f.hullHeight} onChange={e => ff('hullHeight', e.target.value)} placeholder="4" />
-                    </Field>
-                    <Field label="Transom">
-                      <div style={{ paddingTop: 4 }}>
-                        <CheckToggle label="Include Transom" checked={f.transom} onChange={val => ff('transom', val)} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Grid cols={2}>
+                      <Field label="Hull Length (ft)">
+                        <input style={inp} type="number" value={f.hullLength} onChange={e => ff('hullLength', e.target.value)} placeholder="22" />
+                      </Field>
+                      <Field label="Hull Height (ft)">
+                        <input style={inp} type="number" value={f.hullHeight} onChange={e => ff('hullHeight', e.target.value)} placeholder="4" />
+                      </Field>
+                      <Field label="Material Width (in)">
+                        <input style={inp} type="number" value={f.marineMaterialWidth} onChange={e => ff('marineMaterialWidth', e.target.value)} placeholder="54" />
+                      </Field>
+                      <Field label="Passes (auto-calc or override)">
+                        <input style={inp} type="number" value={f.marinePasses} onChange={e => ff('marinePasses', e.target.value)} placeholder={
+                          v(f.hullHeight) > 0 && v(f.marineMaterialWidth, 54) > 0
+                            ? String(Math.ceil(v(f.hullHeight) / (v(f.marineMaterialWidth, 54) / 12)))
+                            : '1'
+                        } />
+                      </Field>
+                    </Grid>
+
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <CheckToggle label="Include Transom" checked={f.transom} onChange={val => ff('transom', val)} />
+                    </div>
+
+                    {/* Material Width Rule & Waste Calc Display */}
+                    {v(f.hullLength) > 0 && v(f.hullHeight) > 0 && (
+                      <div style={{
+                        padding: '14px 16px', borderRadius: 10,
+                        background: 'rgba(34,211,238,.06)', border: '1px solid rgba(34,211,238,.2)',
+                      }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                          Material Calculation
+                        </div>
+                        {(() => {
+                          const hullLen = v(f.hullLength)
+                          const hullHt = v(f.hullHeight)
+                          const matWidthIn = v(f.marineMaterialWidth, 54)
+                          const matWidthFt = matWidthIn / 12
+                          const autoPasses = Math.ceil(hullHt / matWidthFt)
+                          const passes = v(f.marinePasses) > 0 ? v(f.marinePasses) : autoPasses
+                          const netArea = hullLen * hullHt * 2
+                          const transomSqft = f.transom ? hullHt * 6 : 0
+                          const rawTotal = (hullLen * passes * 2) + transomSqft
+                          const wasteAllowance = rawTotal * 0.20
+                          const totalToOrder = rawTotal + wasteAllowance
+                          return (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px', fontSize: 11 }}>
+                              <div style={{ color: 'var(--text3)' }}>Material width:</div>
+                              <div style={{ ...monoNum, color: 'var(--text1)', fontWeight: 600 }}>{matWidthIn}" ({matWidthFt.toFixed(1)} ft)</div>
+                              <div style={{ color: 'var(--text3)' }}>Hull height / mat width:</div>
+                              <div style={{ ...monoNum, color: 'var(--text1)', fontWeight: 600 }}>{hullHt}ft / {matWidthFt.toFixed(1)}ft = {autoPasses} pass{autoPasses !== 1 ? 'es' : ''}</div>
+                              <div style={{ color: 'var(--text3)' }}>Net area (both sides):</div>
+                              <div style={{ ...monoNum, color: 'var(--cyan)', fontWeight: 700 }}>{Math.round(netArea)} sqft</div>
+                              {f.transom && <>
+                                <div style={{ color: 'var(--text3)' }}>Transom sqft:</div>
+                                <div style={{ ...monoNum, color: 'var(--cyan)', fontWeight: 700 }}>+{Math.round(transomSqft)} sqft</div>
+                              </>}
+                              <div style={{ color: 'var(--text3)' }}>Raw total (lin ft x passes x 2):</div>
+                              <div style={{ ...monoNum, color: 'var(--text1)', fontWeight: 600 }}>{Math.round(rawTotal)} sqft</div>
+                              <div style={{ color: 'var(--amber)', fontWeight: 700 }}>+20% waste allowance:</div>
+                              <div style={{ ...monoNum, color: 'var(--amber)', fontWeight: 700 }}>+{Math.round(wasteAllowance)} sqft</div>
+                              <div style={{ color: 'var(--green)', fontWeight: 800, borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>Total to order:</div>
+                              <div style={{ ...monoNum, color: 'var(--green)', fontWeight: 800, fontSize: 14, borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 4 }}>{Math.round(totalToOrder)} sqft</div>
+                            </div>
+                          )
+                        })()}
                       </div>
-                    </Field>
-                  </Grid>
+                    )}
+
+                    {/* Prep Work */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                        Prep Work (separate from base install)
+                      </div>
+                      <Grid cols={2}>
+                        <Field label="Prep Hours">
+                          <input style={{ ...inp, ...monoNum }} type="number" value={f.marinePrepHours} onChange={e => ff('marinePrepHours', e.target.value)} placeholder="0" />
+                        </Field>
+                        <Field label="Prep Cost (auto @ rate/hr)">
+                          <div style={{
+                            ...inp, ...monoNum, background: 'rgba(79,127,255,.08)',
+                            borderColor: 'rgba(79,127,255,.25)', color: 'var(--cyan)',
+                          }}>
+                            {fM(v(f.marinePrepHours) * v(f.ratePerHr, 35))}
+                          </div>
+                        </Field>
+                      </Grid>
+                    </div>
+                  </div>
                 )}
 
                 {/* ── PPF Package Selector ────────────────────────── */}
@@ -1162,8 +1556,7 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
         </div>
 
         {/* ── RIGHT: Pricing Sidebar ─────────────────────────────────── */}
-        <div style={{
-          width: 320, flexShrink: 0, position: 'sticky', top: 16,
+        <div className="w-full lg:w-80 lg:flex-shrink-0 lg:sticky lg:top-4" style={{
           maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
         }}>
           <div style={{
@@ -1450,14 +1843,19 @@ function Section({ label, icon, children, color }: {
   )
 }
 
+const GRID_COLS_MAP: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+}
+
 function Grid({ cols, children, style }: {
   cols: number; children: React.ReactNode; style?: React.CSSProperties
 }) {
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gap: 12, ...style,
-    }}>
+    <div className={`grid ${GRID_COLS_MAP[cols] || GRID_COLS_MAP[3]}`} style={{ gap: 12, ...style }}>
       {children}
     </div>
   )

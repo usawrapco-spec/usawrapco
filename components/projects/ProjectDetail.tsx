@@ -18,6 +18,7 @@ import InstallTimer from '@/components/install/InstallTimer'
 import IntakeLinkGenerator from '@/components/customer/IntakeLinkGenerator'
 import ReferralPanel from '@/components/referral/ReferralPanel'
 import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
+import SalesTabBuilder from '@/components/projects/SalesTabBuilder'
 
 interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -603,7 +604,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ═══ SALES TAB ═══ */}
           {tab === 'sales' && (
-            <SalesTab f={f} ff={ff} jobType={jobType} setJobType={setJobTypeState} subType={subType} setSubType={setSubTypeState} selectedVehicle={selectedVehicle} setSelectedVehicle={setSelectedVehicle} wrapDetail={wrapDetail} setWrapDetail={setWrapDetail} selectedSides={selectedSides} setSelectedSides={setSelectedSides} selectedPPF={selectedPPF} setSelectedPPF={setSelectedPPF} calcSqft={calcSqft} fin={fin} canFinance={canFinance} teammates={teammates} profile={profile} project={project} />
+            <SalesTabBuilder profile={profile} project={project} teammates={teammates} />
           )}
 
           {/* ═══ DESIGN TAB ═══ */}
@@ -787,6 +788,68 @@ function SimilarPhotosPanel({ vehicleType, wrapType, description }: { vehicleTyp
   )
 }
 
+function LinkedEstimatePanel({ project }: { project: any }) {
+  const supabase = createClient()
+  const router = useRouter()
+  const [estimates, setEstimates] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const estId = project.form_data?.estimateId
+    if (estId) {
+      supabase.from('estimates').select('id, estimate_number, title, status, total, subtotal, created_at').eq('id', estId)
+        .then(({ data }) => { if (data) setEstimates(data); setLoading(false) })
+    } else {
+      supabase.from('estimates').select('id, estimate_number, title, status, total, subtotal, created_at').eq('org_id', project.org_id).ilike('title', `%${project.title || ''}%`).limit(5)
+        .then(({ data }) => { if (data) setEstimates(data); setLoading(false) })
+    }
+  }, [project.id])
+
+  const statusColors: Record<string, string> = {
+    draft: '#5a6080', sent: '#4f7fff', accepted: '#22c07a', expired: '#f59e0b', rejected: '#f25a5a', void: '#5a6080',
+  }
+
+  return (
+    <Section label="Linked Estimates" color="#4f7fff">
+      {loading ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Loading estimates...</div>
+      ) : estimates.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {estimates.map(est => (
+            <div key={est.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer' }}
+              onClick={() => router.push(`/estimates/${est.id}`)}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
+                  <span style={{ color: 'var(--text3)', fontWeight: 600 }}>QT</span> #{est.estimate_number} — {est.title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                  Created {new Date(est.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>
+                  {fM(est.total || 0)}
+                </span>
+                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, background: `${statusColors[est.status] || '#5a6080'}18`, color: statusColors[est.status] || '#5a6080' }}>
+                  {est.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>No linked estimates found for this job.</div>
+      )}
+      <button
+        onClick={() => router.push('/estimates/new')}
+        style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)', color: 'var(--green)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+      >
+        + Create New Estimate
+      </button>
+    </Section>
+  )
+}
+
 function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project }: any) {
   const isVehicle = jobType === 'Commercial' && subType === 'Vehicle'
   const isBox = jobType === 'Commercial' && subType === 'Box Truck'
@@ -798,6 +861,9 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Linked Estimates */}
+      <LinkedEstimatePanel project={project} />
+
       {/* Client Info */}
       <Section label="Client Info">
         <Grid cols={3}>
@@ -999,9 +1065,9 @@ function LinkedDesignPanel({ project }: { project: any }) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase.from('design_projects').select('*').eq('project_id', project.id)
+    supabase.from('design_projects').select('*').eq('project_id', project.id).eq('org_id', project.org_id)
       .then(({ data }) => { if (data) setDesignProjects(data) })
-  }, [project.id])
+  }, [project.id, project.org_id])
 
   async function createDesignProject() {
     if (!newTitle.trim()) return
@@ -1012,7 +1078,7 @@ function LinkedDesignPanel({ project }: { project: any }) {
       client_name: project.title || 'Job',
       design_type: 'Full Wrap',
       description: newTitle.trim(),
-      stage: 'brief',
+      status: 'brief',
     }).select().single()
     if (!error && data) {
       setDesignProjects(p => [...p, data])
@@ -1036,8 +1102,8 @@ function LinkedDesignPanel({ project }: { project: any }) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{dp.client_name} — {dp.design_type}</div>
                 {dp.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{dp.description}</div>}
               </div>
-              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${stageColors[dp.stage] || '#5a6080'}18`, color: stageColors[dp.stage] || '#5a6080' }}>
-                {dp.stage.replace('_', ' ')}
+              <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${stageColors[dp.status] || '#5a6080'}18`, color: stageColors[dp.status] || '#5a6080' }}>
+                {dp.status.replace('_', ' ')}
               </span>
             </div>
           ))}
@@ -1459,8 +1525,17 @@ function CloseTab({ f, ff, fin, project, profile, sendBacks, teammates }: any) {
   const reprintCost = v(f.reprintCost)
   const adjProfit = fin.profit - reprintCost - totalExpenses
   const adjGPM = fin.sale > 0 ? (adjProfit / fin.sale) * 100 : 0
-  const commRate = f.leadType === 'outbound' ? 0.10 : f.leadType === 'presold' ? 0.05 : 0.075
-  const adjComm = adjProfit * commRate
+  // Commission: base + high GPM bonus, capped per source, GPM <65% protection
+  const sourceRates: Record<string, { base: number; max: number }> = {
+    inbound: { base: 0.045, max: 0.075 }, outbound: { base: 0.07, max: 0.10 },
+    presold: { base: 0.05, max: 0.05 }, referral: { base: 0.045, max: 0.075 },
+  }
+  const sr = sourceRates[f.leadType] || sourceRates.inbound
+  const protected_ = adjGPM < 65
+  let commRate = sr.base
+  if (!protected_ && f.leadType !== 'presold' && adjGPM > 73) commRate += 0.02
+  commRate = Math.min(commRate, sr.max)
+  const adjComm = Math.max(0, adjProfit * commRate)
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>

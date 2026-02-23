@@ -135,6 +135,22 @@
   from { opacity: 0; transform: translateX(60px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(139,92,246,0.4); }
+  50%      { box-shadow: 0 0 40px rgba(139,92,246,0.7); }
+}
 
 .anim-fade-up  { animation: fadeUp .2s ease; }
 .anim-pop-in   { animation: popIn .2s cubic-bezier(.175,.885,.32,1.275); }
@@ -143,4 +159,16 @@
 .live-dot {
   @apply inline-block w-2 h-2 rounded-full bg-green mr-1.5;
   animation: pulse-glow 1.8s infinite;
+}
+
+/* Bottom sheet slide-up */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Loading spinner */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }

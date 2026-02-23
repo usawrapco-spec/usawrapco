@@ -8,21 +8,48 @@ import {
   ArrowRight, Copy, AlertTriangle, MoreHorizontal, FileDown, Ban,
   Layers, Mail, Calendar, User, Users, Briefcase, DollarSign,
   ClipboardList, Activity,
-  Link2, ToggleLeft, ToggleRight, Image, Wrench, CircleDot,
+  ToggleLeft, ToggleRight, Wrench, CircleDot,
   TrendingUp, Calculator, Settings,
+  Package, Image, Link2, UserPlus, Ruler,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
+import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
+import WrapZoneSelector from '@/components/estimates/WrapZoneSelector'
+import DeckingCalculator from '@/components/estimates/DeckingCalculator'
+import PhotoInspection from '@/components/estimates/PhotoInspection'
+import MockupCreator from '@/components/estimates/MockupCreator'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
+import vehiclesData from '@/lib/data/vehicles.json'
+
+// ─── Vehicle Database ────────────────────────────────────────────────────────────
+
+interface VehicleEntry {
+  year: number; make: string; model: string; sqft: number
+  basePrice: number; installHours: number; tier: string
+}
+
+const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
+const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
+
+function getModelsForMake(make: string): string[] {
+  return [...new Set(VEHICLES_DB.filter(v => v.make === make).map(v => v.model))].sort()
+}
+
+function findVehicle(make: string, model: string, year?: string): VehicleEntry | null {
+  const y = year ? parseInt(year) : null
+  let match = y
+    ? VEHICLES_DB.find(v => v.make === make && v.model === model && v.year === y)
+    : VEHICLES_DB.find(v => v.make === make && v.model === model)
+  return match || null
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
 const LABOR_RATE = 30
 const DESIGN_FEE_DEFAULT = 150
-const COMMISSION_INBOUND = 0.045
-const COMMISSION_OUTBOUND = 0.07
 const DEFAULT_TAX_RATE = 0.0825
 
 interface VehicleCategory {
@@ -57,7 +84,7 @@ const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: 
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'tasks' | 'assets' | 'notes' | 'related' | 'emails' | 'activity'
+type TabKey = 'items' | 'design' | 'production' | 'install' | 'notes' | 'activity'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
@@ -173,7 +200,15 @@ function fmtPercent(n: number): string {
   return `${n.toFixed(1)}%`
 }
 
-function calcGPM(item: LineItem): { sale: number; materialCost: number; laborCost: number; designFee: number; miscCost: number; cogs: number; gp: number; gpm: number; commission: number; commissionRate: number; estimatedHours: number } {
+const COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boolean }> = {
+  inbound:  { base: 0.045, max: 0.075, bonuses: true },
+  outbound: { base: 0.07,  max: 0.10,  bonuses: true },
+  presold:  { base: 0.05,  max: 0.05,  bonuses: false },
+  referral: { base: 0.045, max: 0.075, bonuses: true },
+  walk_in:  { base: 0.045, max: 0.075, bonuses: true },
+}
+
+function calcGPM(item: LineItem, source: string = 'inbound'): { sale: number; materialCost: number; laborCost: number; designFee: number; miscCost: number; cogs: number; gp: number; gpm: number; commission: number; commissionRate: number; estimatedHours: number } {
   const specs = item.specs
   const sale = item.unit_price * item.quantity
   const estimatedHours = (specs.estimatedHours as number) || 0
@@ -184,8 +219,16 @@ function calcGPM(item: LineItem): { sale: number; materialCost: number; laborCos
   const cogs = materialCost + laborCost + designFee + miscCost
   const gp = sale - cogs
   const gpm = sale > 0 ? (gp / sale) * 100 : 0
-  const commissionRate = COMMISSION_INBOUND
-  const commission = gp * commissionRate
+  const rates = COMMISSION_RATES[source] || COMMISSION_RATES.inbound
+  // Protection: if GPM < 65%, base rate only, no bonuses
+  const protected_ = gpm < 65
+  let commissionRate = rates.base
+  // Apply bonuses if eligible and not protected
+  if (!protected_ && rates.bonuses) {
+    if (gpm > 73) commissionRate += 0.02  // +2% high GPM bonus
+    commissionRate = Math.min(commissionRate, rates.max)
+  }
+  const commission = Math.max(0, gp * commissionRate)
   return { sale, materialCost, laborCost, designFee, miscCost, cogs, gp, gpm, commission, commissionRate, estimatedHours }
 }
 
@@ -202,19 +245,32 @@ interface Props {
   estimate: Estimate | null
   employees: any[]
   customers: any[]
+  isNew?: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function EstimateDetailClient({ profile, estimate, employees, customers }: Props) {
+export default function EstimateDetailClient({ profile, estimate, employees, customers, isNew }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const isNewEstimate = !!isNew
 
-  const isDemo = !estimate
-  const est = estimate || DEMO_ESTIMATE
-  const estimateId = est.id
+  const isDemo = !estimate && !isNew
+  const est = isNew ? {
+    ...DEMO_ESTIMATE,
+    id: `new-${Date.now()}`,
+    title: 'New Estimate',
+    estimate_number: 0,
+    subtotal: 0, discount: 0, tax_rate: DEFAULT_TAX_RATE, tax_amount: 0, total: 0,
+    notes: '', customer_note: null, customer: null, sales_rep: null,
+    sales_rep_id: profile.id, org_id: profile.org_id,
+    quote_date: new Date().toISOString().split('T')[0],
+    line_items: [],
+  } : (estimate || DEMO_ESTIMATE)
+  const [savedId, setSavedId] = useState<string | null>(isNew ? null : est.id)
+  const estimateId = savedId || est.id
   const team = employees as Pick<Profile, 'id' | 'name' | 'role'>[]
   const initialLineItems = est.line_items && est.line_items.length > 0
     ? est.line_items
@@ -231,6 +287,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [taxRate, setTaxRate] = useState(est.tax_rate)
   const [quoteDate, setQuoteDate] = useState(est.quote_date || '')
   const [dueDate, setDueDate] = useState(est.due_date || '')
+  const [installDate, setInstallDate] = useState((est.form_data?.installDate as string) || '')
   const [lineItemsList, setLineItemsList] = useState<LineItem[]>(initialLineItems)
   const [activeTab, setActiveTab] = useState<TabKey>('items')
   const [saving, setSaving] = useState(false)
@@ -244,6 +301,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [salesRepId, setSalesRepId] = useState(est.sales_rep_id || '')
   const [prodMgrId, setProdMgrId] = useState(est.production_manager_id || '')
   const [projMgrId, setProjMgrId] = useState(est.project_manager_id || '')
+  const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
@@ -251,8 +309,53 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // Collapsible sections per line item
   const [expandedSections, setExpandedSections] = useState<Record<string, Record<string, boolean>>>({})
 
+  // Products from DB
+  const [products, setProducts] = useState<{ id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]>([])
+
+  // Area calculator
+  const [areaCalcOpen, setAreaCalcOpen] = useState(false)
+  const [areaCalcItemId, setAreaCalcItemId] = useState<string | null>(null)
+
+  // Templates
+  const [templates, setTemplates] = useState<{ id: string; name: string; description: string; line_items: unknown[] }[]>([])
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
+  const templateMenuRef = useRef<HTMLDivElement>(null)
+
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const pdfMenuRef = useRef<HTMLDivElement>(null)
+
+  // ─── Auto-add first line item for new estimates ────────────────────────────
+  const didAutoAdd = useRef(false)
+  useEffect(() => {
+    if (isNewEstimate && !isDemo && lineItemsList.length === 0 && !didAutoAdd.current) {
+      didAutoAdd.current = true
+      addNewLineItem()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNewEstimate, isDemo])
+
+  // ─── Load products + templates from DB ──────────────────────────────────────
+  useEffect(() => {
+    async function loadProducts() {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, category, calculator_type, default_price, default_hours, description')
+        .eq('active', true)
+        .order('sort_order')
+      if (data) setProducts(data)
+    }
+    async function loadTemplates() {
+      const { data } = await supabase
+        .from('estimate_templates')
+        .select('id, name, description, line_items')
+        .order('use_count', { ascending: false })
+        .limit(20)
+      if (data) setTemplates(data as typeof templates)
+    }
+    loadProducts().catch(() => {})
+    loadTemplates().catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ─── Close menus on outside click ───────────────────────────────────────────
   useEffect(() => {
@@ -262,6 +365,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target as Node)) {
         setPdfMenuOpen(false)
+      }
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setTemplateMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -296,17 +402,53 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     if (!canWrite || isDemo) { showToast('Demo mode -- cannot save'); return }
     setSaving(true)
     try {
-      const { error } = await supabase.from('estimates').update({
+      const payload = {
         title, notes, customer_note: customerNote, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
         quote_date: quoteDate || null, due_date: dueDate || null,
         sales_rep_id: salesRepId || null,
         production_manager_id: prodMgrId || null,
         project_manager_id: projMgrId || null,
-        form_data: { ...est.form_data, proposalOptions: proposalMode ? proposalOptions : undefined },
-      }).eq('id', estimateId)
-      if (error) throw error
-      showToast('Estimate saved')
+        form_data: { ...est.form_data, leadType, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined },
+      }
+      if (!savedId) {
+        // First save — create estimate in DB
+        const { data, error } = await supabase.from('estimates').insert({
+          org_id: profile.org_id,
+          division: 'wraps',
+          ...payload,
+        }).select().single()
+        if (error) throw error
+        if (data) {
+          setSavedId(data.id)
+          // Save any pending line items
+          const pendingItems = lineItemsList.filter(li => li.id.startsWith('new-'))
+          if (pendingItems.length > 0) {
+            const dbItems = pendingItems.map(li => ({
+              parent_type: 'estimate' as const,
+              parent_id: data.id,
+              product_type: li.product_type,
+              name: li.name, description: li.description,
+              quantity: li.quantity, unit_price: li.unit_price,
+              unit_discount: li.unit_discount, total_price: li.total_price,
+              specs: li.specs, sort_order: li.sort_order,
+            }))
+            const { data: savedItems } = await supabase.from('line_items').insert(dbItems).select()
+            if (savedItems) {
+              setLineItemsList(prev => prev.map((li, i) => {
+                const saved = savedItems[i]
+                return saved ? { ...li, id: saved.id, parent_id: data.id } : li
+              }))
+            }
+          }
+          showToast('Estimate created')
+          router.replace(`/estimates/${data.id}`)
+        }
+      } else {
+        const { error } = await supabase.from('estimates').update(payload).eq('id', savedId)
+        if (error) throw error
+        showToast('Estimate saved')
+      }
     } catch (err) {
       console.error('Save error:', err)
       showToast('Error saving estimate')
@@ -397,9 +539,57 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     showToast('Create Copy -- coming soon')
   }
 
-  function handleSaveAsTemplate() {
+  async function handleSaveAsTemplate() {
     setMoreMenuOpen(false)
-    showToast('Save as Template -- coming soon')
+    if (lineItemsList.length === 0) { showToast('No line items to save'); return }
+    const name = prompt('Template name:', title || 'My Template')
+    if (!name) return
+    try {
+      const { error } = await supabase.from('estimate_templates').insert({
+        org_id: profile.org_id,
+        name,
+        description: `${lineItemsList.length} items - ${fmtCurrency(subtotal)}`,
+        category: 'custom',
+        line_items: lineItemsList.map(li => ({
+          product_type: li.product_type, name: li.name, description: li.description,
+          quantity: li.quantity, unit_price: li.unit_price, unit_discount: li.unit_discount,
+          total_price: li.total_price, specs: li.specs, sort_order: li.sort_order,
+        })),
+        form_data: { leadType, discount, taxRate, notes, customerNote },
+        created_by: profile.id,
+      })
+      if (error) throw error
+      showToast(`Template "${name}" saved`)
+      // Reload templates
+      const { data } = await supabase.from('estimate_templates').select('id, name, description, line_items').order('use_count', { ascending: false }).limit(20)
+      if (data) setTemplates(data as typeof templates)
+    } catch (err) {
+      console.error('Save template error:', err)
+      showToast('Error saving template')
+    }
+  }
+
+  async function handleLoadTemplate(tmpl: typeof templates[0]) {
+    setTemplateMenuOpen(false)
+    const items: LineItem[] = (tmpl.line_items as Partial<LineItem>[]).map((li, i) => ({
+      id: `tmpl-${Date.now()}-${i}`,
+      parent_type: 'estimate' as const,
+      parent_id: estimateId,
+      product_type: (li.product_type as LineItem['product_type']) || 'wrap',
+      name: li.name || '',
+      description: li.description || null,
+      quantity: li.quantity || 1,
+      unit_price: li.unit_price || 0,
+      unit_discount: li.unit_discount || 0,
+      total_price: li.total_price || 0,
+      specs: (li.specs || {}) as LineItemSpecs,
+      sort_order: li.sort_order || i,
+      created_at: new Date().toISOString(),
+    }))
+    setLineItemsList(items)
+    showToast(`Template "${tmpl.name}" loaded`)
+    // Increment use count
+    await supabase.rpc('increment_template_use', { template_id: tmpl.id }).catch(() => {})
   }
 
   async function handleDelete() {
@@ -416,15 +606,77 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     }
   }
 
-  function addNewLineItem() {
+  async function handleCreateJob() {
+    if (!canWrite) return
+    showToast('Creating job...')
+    try {
+      const firstWrap = lineItemsList.find(li => li.product_type === 'wrap' || li.product_type === 'ppf')
+      const specs = firstWrap?.specs || {}
+      const vDesc = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel, specs.vehicleColor ? `- ${specs.vehicleColor}` : ''].filter(Boolean).join(' ').trim() || null
+      const { data, error } = await supabase.from('projects').insert({
+        org_id: est.org_id || profile.org_id,
+        type: 'wrap',
+        title: est.title || 'Untitled Job',
+        status: 'estimate',
+        agent_id: salesRepId || profile.id,
+        division: 'wraps',
+        pipe_stage: 'sales_in',
+        vehicle_desc: vDesc,
+        install_date: installDate || null,
+        priority: 'normal',
+        revenue: total,
+        fin_data: { sales: total, revenue: total, cogs: 0, profit: total, gpm: 100, commission: 0, labor: 0, laborHrs: 0, material: 0, designFee: 0, misc: 0 },
+        form_data: {
+          clientName: est.customer?.name || est.title,
+          clientEmail: est.customer?.email || '',
+          estimateId: isDemo ? null : estimateId,
+          notes: notes,
+        },
+        actuals: {},
+        checkout: {},
+        send_backs: [],
+      }).select().single()
+      if (error) throw error
+      if (data) {
+        showToast('Job created!')
+        router.push(`/projects/${data.id}/edit`)
+      }
+    } catch (err) {
+      console.error('Create Job error:', err)
+      showToast('Error creating job')
+    }
+  }
+
+  function addNewLineItem(product?: typeof products[0]) {
+    // Map product calculator_type to vehicleType for the calculator system
+    const calcToVehicleType: Record<string, string> = {
+      'vehicle': '', 'box-truck': 'box_truck', 'trailer': 'trailer',
+      'marine': 'marine', 'ppf': 'ppf', 'simple': 'custom',
+    }
+    const calcToProductType: Record<string, string> = {
+      'vehicle': 'wrap', 'box-truck': 'wrap', 'trailer': 'wrap',
+      'marine': 'decking', 'ppf': 'ppf', 'simple': 'wrap',
+    }
+    const vehicleType = product ? (calcToVehicleType[product.calculator_type] || '') : ''
+    const productType = product ? (calcToProductType[product.calculator_type] || 'wrap') : 'wrap'
     const newItem: LineItem = {
       id: `new-${Date.now()}`, parent_type: 'estimate', parent_id: estimateId,
-      product_type: 'wrap', name: '', description: null,
-      quantity: 1, unit_price: 0, unit_discount: 0, total_price: 0,
-      specs: { estimatedHours: 0, designFee: DESIGN_FEE_DEFAULT }, sort_order: lineItemsList.length,
+      product_type: productType as LineItem['product_type'],
+      name: product?.name || '', description: product?.description || null,
+      quantity: 1, unit_price: product?.default_price || 0,
+      unit_discount: 0, total_price: product?.default_price || 0,
+      specs: {
+        estimatedHours: product?.default_hours || 0,
+        designFee: DESIGN_FEE_DEFAULT,
+        vehicleType: vehicleType || undefined,
+        productId: product?.id,
+        calculatorType: product?.calculator_type,
+      },
+      sort_order: lineItemsList.length,
       created_at: new Date().toISOString(),
     }
     setLineItemsList(prev => [...prev, newItem])
+    // Auto-expand the new item so user can fill in details
     setExpandedSections(prev => ({ ...prev, [newItem.id]: { gpm: true } }))
   }
 
@@ -473,7 +725,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
       }}>
         {/* Left: Back + QT number */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={() => router.push('/estimates')}
             style={{
@@ -481,16 +733,17 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               background: 'transparent', border: '1px solid var(--border)',
               borderRadius: 8, padding: '6px 12px', color: 'var(--text2)',
               fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',
+              minHeight: 44, minWidth: 44, justifyContent: 'center',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' }}
           >
             <ArrowLeft size={14} />
-            Back
+            <span className="hidden sm:inline">Back</span>
           </button>
           <div>
             <h1 style={{
-              fontSize: 28, fontWeight: 900, fontFamily: headingFont,
+              fontSize: 24, fontWeight: 900, fontFamily: headingFont,
               color: 'var(--text1)', margin: 0, lineHeight: 1,
               textTransform: 'uppercase', letterSpacing: '0.05em',
             }}>
@@ -501,7 +754,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
 
         {/* Right: Action buttons */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Download PDF dropdown */}
           <div ref={pdfMenuRef} style={{ position: 'relative' }}>
             <button
@@ -525,8 +778,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 180, zIndex: 100,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Standard PDF" onClick={() => { setPdfMenuOpen(false); window.print() }} />
-                <MenuButton icon={<DollarSign size={13} />} label="With Pricing" onClick={() => { setPdfMenuOpen(false); window.print() }} />
+                <MenuButton icon={<FileText size={13} />} label="Branded PDF" onClick={() => { setPdfMenuOpen(false); window.open(`/api/estimates/pdf?id=${estimateId}`, '_blank') }} />
+                <MenuButton icon={<DollarSign size={13} />} label="Quick Print" onClick={() => { setPdfMenuOpen(false); window.print() }} />
                 <MenuButton icon={<Layers size={13} />} label="Proposal View" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
@@ -547,20 +800,52 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             Email PDF
           </button>
 
-          {/* Send to Customer */}
-          <button
-            onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--accent)', border: 'none',
-              borderRadius: 8, padding: '8px 14px', color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              fontFamily: headingFont, letterSpacing: '0.03em',
-            }}
-          >
-            <Send size={14} />
-            Send to Customer
-          </button>
+          {/* Status-based action button */}
+          {status === 'draft' && (
+            <button
+              onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--accent)', border: 'none',
+                borderRadius: 8, padding: '8px 14px', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <Send size={14} />
+              Send Quote
+            </button>
+          )}
+          {status === 'sent' && (
+            <button
+              onClick={() => handleStatusChange('accepted')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--green)', border: 'none',
+                borderRadius: 8, padding: '8px 14px', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <CheckCircle2 size={14} />
+              Mark Accepted
+            </button>
+          )}
+          {status === 'accepted' && (
+            <button
+              onClick={handleConvertToSO}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--green)', border: 'none',
+                borderRadius: 8, padding: '8px 14px', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <ArrowRight size={14} />
+              Convert to Sales Order
+            </button>
+          )}
 
           {/* ... More menu */}
           <div ref={moreMenuRef} style={{ position: 'relative' }}>
@@ -625,9 +910,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {/* INFO BANNER                                                      */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       <div style={{ ...cardStyle, marginBottom: 16 }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0,
-        }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 0 }}>
           {/* Column 1: Customer */}
           <div style={{ ...sectionPad, borderRight: '1px solid var(--border)' }}>
             <div style={{ ...fieldLabelStyle, marginBottom: 8 }}>
@@ -658,7 +941,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             )}
           </div>
 
-          {/* Column 2: Status */}
+          {/* Column 2: Status + Onboarding */}
           <div style={{ ...sectionPad, borderRight: '1px solid var(--border)' }}>
             <div style={{ ...fieldLabelStyle, marginBottom: 8 }}>
               <CircleDot size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
@@ -681,6 +964,23 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 Invoiced: <span style={{ color: 'var(--text2)', fontWeight: 600 }}>No</span>
               </span>
             </div>
+            {/* Onboarding link */}
+            {est.customer_id && (
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/onboard/${estimateId}`
+                  navigator.clipboard.writeText(url).then(() => showToast('Onboarding link copied!')).catch(() => showToast(url))
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, marginTop: 8,
+                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(79,127,255,0.25)',
+                  background: 'rgba(79,127,255,0.06)', color: 'var(--accent)',
+                }}
+              >
+                <UserPlus size={11} /> Onboarding Link
+              </button>
+            )}
           </div>
 
           {/* Column 3: Team Assignments */}
@@ -753,6 +1053,16 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 />
               </div>
               <div>
+                <label style={{ fontSize: 11, color: 'var(--text3)' }}>Install Date</label>
+                <input
+                  type="date"
+                  value={installDate}
+                  onChange={e => setInstallDate(e.target.value)}
+                  disabled={!canWrite}
+                  style={{ ...fieldInputStyle, padding: '4px 8px', fontSize: 12 }}
+                />
+              </div>
+              <div>
                 <label style={{ fontSize: 11, color: 'var(--text3)' }}>Due Date</label>
                 <input
                   type="date"
@@ -796,8 +1106,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           <div style={{
             borderTop: '1px solid var(--border)',
             padding: '16px 20px',
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
           }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12 }}>
             <div>
               <label style={fieldLabelStyle}>Title</label>
               <input
@@ -814,6 +1124,21 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 disabled
                 style={{ ...fieldInputStyle, opacity: 0.5 }}
               />
+            </div>
+            <div>
+              <label style={fieldLabelStyle}>Lead Source</label>
+              <select
+                value={leadType}
+                onChange={e => setLeadType(e.target.value)}
+                disabled={!canWrite}
+                style={fieldSelectStyle}
+              >
+                <option value="inbound">Inbound (4.5-7.5%)</option>
+                <option value="outbound">Outbound (7-10%)</option>
+                <option value="presold">Pre-Sold (5% flat)</option>
+                <option value="referral">Referral (4.5-7.5%)</option>
+                <option value="walk_in">Walk-In (4.5-7.5%)</option>
+              </select>
             </div>
             <div>
               <label style={fieldLabelStyle}>Created</label>
@@ -843,21 +1168,21 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           </div>
         </div>
       </div>
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* TABS                                                             */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       <div style={{
         display: 'flex', gap: 0, borderBottom: '2px solid var(--border)',
-        marginBottom: 16,
+        marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
-          { key: 'tasks' as TabKey, label: 'Tasks' },
-          { key: 'assets' as TabKey, label: 'Assets' },
+          { key: 'design' as TabKey, label: 'Design' },
+          { key: 'production' as TabKey, label: 'Production' },
+          { key: 'install' as TabKey, label: 'Install' },
           { key: 'notes' as TabKey, label: 'Notes' },
-          { key: 'related' as TabKey, label: 'Related' },
-          { key: 'emails' as TabKey, label: 'Emails' },
           { key: 'activity' as TabKey, label: 'Activity' },
         ]).map(tab => (
           <button
@@ -900,7 +1225,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           {/* Items header */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: 12,
+            marginBottom: 12, flexWrap: 'wrap', gap: 8,
           }}>
             <div style={{
               fontSize: 14, fontWeight: 700, color: 'var(--text1)',
@@ -908,38 +1233,135 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             }}>
               Items
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {/* Templates dropdown */}
+              <div ref={templateMenuRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setTemplateMenuOpen(!templateMenuOpen)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)',
+                    borderRadius: 8, padding: '7px 12px', color: 'var(--purple)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: headingFont, letterSpacing: '0.03em',
+                  }}
+                >
+                  <Layers size={12} />
+                  Templates
+                  <ChevronDown size={10} />
+                </button>
+                {templateMenuOpen && (
+                  <div style={{
+                    position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 10, padding: 6, minWidth: 240, zIndex: 100,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', padding: '4px 12px', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont }}>
+                      Load Template
+                    </div>
+                    {templates.length === 0 && (
+                      <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text3)' }}>No templates saved yet</div>
+                    )}
+                    {templates.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleLoadTemplate(t)}
+                        style={{
+                          display: 'block', width: '100%', padding: '8px 12px',
+                          border: 'none', borderRadius: 6, cursor: 'pointer',
+                          background: 'transparent', color: 'var(--text1)',
+                          fontSize: 12, textAlign: 'left',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ fontWeight: 600 }}>{t.name}</div>
+                        {t.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{t.description}</div>}
+                      </button>
+                    ))}
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <button
+                      onClick={handleSaveAsTemplate}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                        padding: '8px 12px', border: 'none', borderRadius: 6, cursor: 'pointer',
+                        background: 'transparent', color: 'var(--purple)',
+                        fontSize: 12, fontWeight: 600, textAlign: 'left',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Save size={12} /> Save Current as Template
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
-                onClick={() => showToast('Create Job coming soon')}
+                onClick={handleCreateJob}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '7px 14px', color: 'var(--text1)',
+                  background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
+                  borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
                   fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   fontFamily: headingFont, letterSpacing: '0.03em',
                 }}
               >
                 <Briefcase size={13} />
                 Create Job
-                <ChevronDown size={11} style={{ color: 'var(--text3)' }} />
               </button>
               {canWrite && (
                 <button
-                  onClick={addNewLineItem}
+                  onClick={() => addNewLineItem()}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
-                    borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
+                    background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)',
+                    borderRadius: 8, padding: '7px 14px', color: 'var(--green)',
                     fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     fontFamily: headingFont, letterSpacing: '0.03em',
                   }}
                 >
                   <Plus size={13} />
-                  Add New Line Item
+                  Add Line Item
                 </button>
               )}
             </div>
           </div>
+
+          {/* ── Product Quick-Add Bar ──────────────────────────────────────── */}
+          {products.length > 0 && canWrite && (
+            <div style={{
+              display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12,
+              padding: '10px 14px', background: 'var(--bg)', borderRadius: 10,
+              border: '1px solid var(--border)',
+            }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: 'var(--text3)',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                fontFamily: headingFont, display: 'flex', alignItems: 'center', gap: 4,
+                marginRight: 4,
+              }}>
+                <Package size={10} /> Quick Add
+              </span>
+              {products.slice(0, 10).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => addNewLineItem(p)}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer', border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text2)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Proposal mode options */}
           {proposalMode && (
@@ -1062,14 +1484,19 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   }}
                   expandedSections={expandedSections[li.id] || {}}
                   onToggleSection={(section) => toggleSection(li.id, section)}
+                  leadType={leadType}
+                  team={team}
+                  products={products}
+                  allItems={lineItemsList}
+                  onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
                 />
               ))}
             </div>
           )}
 
           {/* ── Bottom Summary ───────────────────────────────────────────── */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20,
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_340px]" style={{
+            gap: 20,
             marginTop: 24, alignItems: 'flex-start',
           }}>
             {/* Left: Customer Note */}
@@ -1137,14 +1564,127 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
       )}
 
-      {activeTab === 'tasks' && (
-        <PlaceholderTab icon={<ClipboardList size={28} />} label="Tasks" description="Task management for this estimate will appear here." />
+      {activeTab === 'design' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
+              <Paintbrush size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Design Notes
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {lineItemsList.map((li, idx) => (
+                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    {li.name || `Line Item ${idx + 1}`}
+                  </div>
+                  <textarea
+                    value={li.specs?.designDetails || ''}
+                    onChange={e => {
+                      const updated = [...lineItemsList]
+                      updated[idx] = { ...li, specs: { ...li.specs, designDetails: e.target.value } }
+                      setLineItemsList(updated)
+                    }}
+                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
+                    disabled={!canWrite}
+                    placeholder="Design instructions, colors, branding, files needed..."
+                    rows={5}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+            {lineItemsList.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                No line items yet. Add items in the Items tab to enter design notes.
+              </div>
+            )}
+          </div>
+        </div>
       )}
-      {activeTab === 'assets' && (
-        <PlaceholderTab icon={<Image size={28} />} label="Assets" description="File uploads, photos, and assets for this estimate." />
+      {activeTab === 'production' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
+              <Settings size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Production Notes
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {lineItemsList.map((li, idx) => (
+                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    {li.name || `Line Item ${idx + 1}`}
+                  </div>
+                  <textarea
+                    value={li.specs?.productionDetails || ''}
+                    onChange={e => {
+                      const updated = [...lineItemsList]
+                      updated[idx] = { ...li, specs: { ...li.specs, productionDetails: e.target.value } }
+                      setLineItemsList(updated)
+                    }}
+                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
+                    disabled={!canWrite}
+                    placeholder="Print specs, material handling, lamination, cut notes..."
+                    rows={5}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+            {lineItemsList.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                No line items yet. Add items in the Items tab to enter production notes.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {activeTab === 'install' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
+              <Wrench size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Install Notes
+            </div>
+            {installDate && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', background: 'rgba(34,192,122,0.06)', borderRadius: 8, border: '1px solid rgba(34,192,122,0.15)' }}>
+                <Calendar size={13} style={{ color: 'var(--green)' }} />
+                <span style={{ fontSize: 13, color: 'var(--text1)' }}>
+                  Install Date: <strong style={{ fontFamily: monoFont }}>{new Date(installDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {lineItemsList.map((li, idx) => (
+                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    {li.name || `Line Item ${idx + 1}`}
+                  </div>
+                  <textarea
+                    value={li.specs?.installDetails || ''}
+                    onChange={e => {
+                      const updated = [...lineItemsList]
+                      updated[idx] = { ...li, specs: { ...li.specs, installDetails: e.target.value } }
+                      setLineItemsList(updated)
+                    }}
+                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
+                    disabled={!canWrite}
+                    placeholder="Install instructions, special considerations, access notes..."
+                    rows={5}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+            {lineItemsList.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                No line items yet. Add items in the Items tab to enter install notes.
+              </div>
+            )}
+          </div>
+        </div>
       )}
       {activeTab === 'notes' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 16 }}>
           <div style={{ ...cardStyle }}>
             <div style={{ ...sectionPad }}>
               <label style={fieldLabelStyle}>Internal Notes</label>
@@ -1173,15 +1713,24 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           </div>
         </div>
       )}
-      {activeTab === 'related' && (
-        <PlaceholderTab icon={<Link2 size={28} />} label="Related" description="Linked sales orders, invoices, and projects." />
-      )}
-      {activeTab === 'emails' && (
-        <PlaceholderTab icon={<Mail size={28} />} label="Emails" description="Email history for this estimate." />
-      )}
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
       )}
+
+      {/* ── Area Calculator Modal ──────────────────────────────────── */}
+      <AreaCalculatorModal
+        isOpen={areaCalcOpen}
+        onClose={() => { setAreaCalcOpen(false); setAreaCalcItemId(null) }}
+        onUseSqft={(sqft) => {
+          if (areaCalcItemId) {
+            setLineItemsList(prev => prev.map(li => {
+              if (li.id !== areaCalcItemId) return li
+              return { ...li, specs: { ...li.specs, vinylArea: sqft } }
+            }))
+          }
+        }}
+        currentSqft={areaCalcItemId ? (lineItemsList.find(li => li.id === areaCalcItemId)?.specs?.vinylArea as number) : undefined}
+      />
 
       {/* ── Email Compose Modal ──────────────────────────────────────── */}
       <EmailComposeModal
@@ -1217,7 +1766,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         senderName={profile.name}
         senderEmail={profile.email}
         estimateNumber={String(est.estimate_number)}
-        estimateTotal={totals.total}
+        estimateTotal={total}
         vehicleDescription={est.title}
         type={emailModalType}
       />
@@ -1340,22 +1889,357 @@ function CollapsibleHeader({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VEHICLE AUTOCOMPLETE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function VehicleAutocomplete({
+  specs, updateSpec, handleBlur, canWrite, onVehicleSelect,
+}: {
+  specs: LineItemSpecs
+  updateSpec: (key: string, value: unknown) => void
+  handleBlur: () => void
+  canWrite: boolean
+  onVehicleSelect: (v: VehicleEntry) => void
+}) {
+  const [makeOpen, setMakeOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
+  const [makeFilter, setMakeFilter] = useState('')
+  const [modelFilter, setModelFilter] = useState('')
+  const makeRef = useRef<HTMLDivElement>(null)
+  const modelRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (makeRef.current && !makeRef.current.contains(e.target as Node)) setMakeOpen(false)
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const currentMake = (specs.vehicleMake as string) || ''
+  const currentModel = (specs.vehicleModel as string) || ''
+
+  const filteredMakes = makeFilter
+    ? ALL_MAKES.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
+    : ALL_MAKES
+
+  const availableModels = currentMake ? getModelsForMake(currentMake) : []
+  const filteredModels = modelFilter
+    ? availableModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase()))
+    : availableModels
+
+  function selectMake(make: string) {
+    updateSpec('vehicleMake', make)
+    setMakeOpen(false)
+    setMakeFilter('')
+    // Clear model when make changes
+    if (make !== currentMake) {
+      updateSpec('vehicleModel', '')
+    }
+  }
+
+  function selectModel(model: string) {
+    updateSpec('vehicleModel', model)
+    setModelOpen(false)
+    setModelFilter('')
+    // Auto-populate from vehicle DB
+    const v = findVehicle(currentMake, model, specs.vehicleYear as string)
+    if (v) onVehicleSelect(v)
+    handleBlur()
+  }
+
+  const dropdownStyle: React.CSSProperties = {
+    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+    background: 'var(--surface)', border: '1px solid var(--border)',
+    borderRadius: 8, marginTop: 2, maxHeight: 200, overflowY: 'auto',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+  }
+  const optionStyle: React.CSSProperties = {
+    padding: '7px 12px', fontSize: 12, color: 'var(--text1)', cursor: 'pointer',
+    borderBottom: '1px solid var(--border)',
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Car size={11} style={{ color: 'var(--accent)' }} /> Vehicle Info
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
+        {/* Year - free type */}
+        <div>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
+          <input
+            value={specs.vehicleYear || ''}
+            onChange={e => updateSpec('vehicleYear', e.target.value)}
+            onBlur={() => {
+              // Re-lookup vehicle on year change
+              if (currentMake && currentModel) {
+                const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
+                if (v) onVehicleSelect(v)
+              }
+              handleBlur()
+            }}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite}
+            placeholder="2024"
+          />
+        </div>
+
+        {/* Make - autocomplete */}
+        <div ref={makeRef} style={{ position: 'relative' }}>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
+          <input
+            value={makeOpen ? makeFilter : currentMake}
+            onChange={e => { setMakeFilter(e.target.value); if (!makeOpen) setMakeOpen(true) }}
+            onFocus={() => setMakeOpen(true)}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite}
+            placeholder="Search makes..."
+          />
+          {makeOpen && filteredMakes.length > 0 && (
+            <div style={dropdownStyle}>
+              {filteredMakes.map(m => (
+                <div key={m} style={optionStyle}
+                  onMouseDown={() => selectMake(m)}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  {m}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Model - autocomplete filtered by make */}
+        <div ref={modelRef} style={{ position: 'relative' }}>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Model</label>
+          <input
+            value={modelOpen ? modelFilter : currentModel}
+            onChange={e => { setModelFilter(e.target.value); if (!modelOpen) setModelOpen(true) }}
+            onFocus={() => { if (currentMake) setModelOpen(true) }}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite || !currentMake}
+            placeholder={currentMake ? 'Search models...' : 'Select make first'}
+          />
+          {modelOpen && filteredModels.length > 0 && (
+            <div style={dropdownStyle}>
+              {filteredModels.map(m => {
+                const v = findVehicle(currentMake, m)
+                return (
+                  <div key={m} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onMouseDown={() => selectModel(m)}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span>{m}</span>
+                    {v && v.sqft > 0 && (
+                      <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
+                        {v.sqft}sqft · ${v.basePrice}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Color - free type */}
+        <div>
+          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Color</label>
+          <input
+            value={specs.vehicleColor || ''}
+            onChange={e => updateSpec('vehicleColor', e.target.value)}
+            onBlur={handleBlur}
+            style={{ ...fieldInputStyle, fontSize: 12 }}
+            disabled={!canWrite}
+            placeholder="White"
+          />
+        </div>
+      </div>
+
+      {/* Auto-populated info badge */}
+      {currentMake && currentModel && (() => {
+        const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
+        if (!v || v.sqft === 0) return null
+        return (
+          <div style={{
+            display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
+            background: 'rgba(34,192,122,0.06)', borderRadius: 6,
+            border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+              PVO Data
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+              {v.sqft} sqft
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+              ${v.basePrice}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+              {v.installHours}hrs
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+              {v.tier.replace('_', ' ')}
+            </span>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VEHICLE INFO BLOCK (VIN + Year/Make/Model at top of line item)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function VehicleInfoBlock({
+  specs, updateSpec, handleBlur, canWrite, onVehicleSelect,
+}: {
+  specs: LineItemSpecs
+  updateSpec: (key: string, value: unknown) => void
+  handleBlur: () => void
+  canWrite: boolean
+  onVehicleSelect: (v: VehicleEntry) => void
+}) {
+  const [vinLoading, setVinLoading] = useState(false)
+  const [vinResult, setVinResult] = useState<string | null>(null)
+
+  async function decodeVIN(vin: string) {
+    if (vin.length !== 17) return
+    setVinLoading(true)
+    setVinResult(null)
+    try {
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`)
+      const data = await res.json()
+      const results = data.Results as { Variable: string; Value: string | null }[]
+      const get = (name: string) => results.find(r => r.Variable === name)?.Value || ''
+      const year = get('Model Year')
+      const make = get('Make')
+      const model = get('Model')
+      const trim = get('Trim')
+      const bodyClass = get('Body Class')
+      const driveType = get('Drive Type')
+      const engine = [get('Displacement (L)'), get('Engine Number of Cylinders') ? `${get('Engine Number of Cylinders')}cyl` : ''].filter(Boolean).join('L ')
+      if (make && model) {
+        updateSpec('vehicleYear', year)
+        updateSpec('vehicleMake', make)
+        updateSpec('vehicleModel', model)
+        if (trim) updateSpec('vehicleTrim', trim)
+        if (bodyClass) updateSpec('bodyClass', bodyClass)
+        if (driveType) updateSpec('driveType', driveType)
+        if (engine) updateSpec('engine', engine)
+        // Cross-reference vehicles.json
+        const v = findVehicle(make, model, year)
+        if (v) {
+          onVehicleSelect(v)
+          setVinResult(`Vehicle found: ${year} ${make} ${model}${trim ? ` ${trim}` : ''} - ${v.sqft} sqft`)
+        } else {
+          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''} - enter sqft manually`)
+        }
+      } else {
+        setVinResult('VIN not found - enter vehicle info manually')
+      }
+    } catch {
+      setVinResult('VIN lookup failed - enter manually')
+    }
+    setVinLoading(false)
+  }
+
+  return (
+    <div style={{
+      marginTop: 12, padding: 14, background: 'var(--bg)',
+      border: '1px solid var(--border)', borderRadius: 10,
+    }}>
+      <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+        <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Information
+      </div>
+
+      {/* VIN Field */}
+      <div style={{ marginBottom: 10 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto]" style={{ gap: 8, alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>VIN (17 characters)</label>
+            <input
+              value={(specs.vin as string) || ''}
+              onChange={e => {
+                const v = e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '')
+                updateSpec('vin', v)
+                if (v.length === 17) decodeVIN(v)
+              }}
+              style={{ ...fieldInputStyle, fontSize: 12, fontFamily: monoFont, letterSpacing: '0.1em' }}
+              disabled={!canWrite}
+              placeholder="1FTFW1E50MFA12345"
+              maxLength={17}
+            />
+          </div>
+          <button
+            onClick={() => { if ((specs.vin as string)?.length === 17) decodeVIN(specs.vin as string) }}
+            disabled={vinLoading || !canWrite}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+              cursor: vinLoading ? 'not-allowed' : 'pointer',
+              border: '1px solid rgba(34,192,122,0.3)',
+              background: 'rgba(34,192,122,0.08)', color: 'var(--green)',
+              opacity: vinLoading ? 0.6 : 1,
+              whiteSpace: 'nowrap' as const,
+            }}
+          >
+            {vinLoading ? 'Looking up...' : 'Decode VIN'}
+          </button>
+        </div>
+        {vinResult && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
+            padding: '5px 10px', borderRadius: 6, fontSize: 11,
+            background: vinResult.includes('found') ? 'rgba(34,192,122,0.08)' : 'rgba(245,158,11,0.08)',
+            border: `1px solid ${vinResult.includes('found') ? 'rgba(34,192,122,0.2)' : 'rgba(245,158,11,0.2)'}`,
+            color: vinResult.includes('found') ? 'var(--green)' : 'var(--amber)',
+          }}>
+            {vinResult}
+          </div>
+        )}
+      </div>
+
+      {/* Year / Make / Model / Color */}
+      <VehicleAutocomplete
+        specs={specs}
+        updateSpec={updateSpec}
+        handleBlur={handleBlur}
+        canWrite={canWrite}
+        onVehicleSelect={onVehicleSelect}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // LINE ITEM CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
-  expandedSections, onToggleSection,
+  expandedSections, onToggleSection, leadType, team,
+  products, allItems, onOpenAreaCalc,
 }: {
   item: LineItem; index: number; canWrite: boolean
   onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void
   expandedSections: Record<string, boolean>; onToggleSection: (section: string) => void
+  leadType: string; team: Pick<Profile, 'id' | 'name' | 'role'>[]
+  products: { id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]
+  allItems: LineItem[]
+  onOpenAreaCalc: () => void
 }) {
   const latestRef = useRef(item)
   latestRef.current = item
 
   const [showDescription, setShowDescription] = useState(!!item.description)
-  const [isCardExpanded, setIsCardExpanded] = useState(true)
+  const [isCardExpanded, setIsCardExpanded] = useState(false)
 
   function updateField<K extends keyof LineItem>(key: K, value: LineItem[K]) {
     const updated = { ...latestRef.current, [key]: value }
@@ -1390,9 +2274,17 @@ function LineItemCard({
   }
 
   const specs = item.specs as LineItemSpecs
-  const gpm = calcGPM(item)
+  const gpm = calcGPM(item, leadType)
   const badge = gpmBadge(gpm.gpm)
   const vehicleDesc = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel].filter(Boolean).join(' ')
+
+  // Determine if this product involves a vehicle (show VIN + Y/M/M)
+  const calcType = (specs.calculatorType as string) || ''
+  const vType = (specs.vehicleType as string) || ''
+  const isVehicleProduct = ['vehicle', 'box-truck', 'trailer', 'ppf'].includes(calcType) ||
+    ['small_car', 'med_car', 'full_car', 'sm_truck', 'med_truck', 'full_truck', 'med_van', 'large_van', 'box_truck', 'trailer', 'ppf'].includes(vType) ||
+    item.product_type === 'wrap' || item.product_type === 'ppf'
+  const isBoatProduct = calcType === 'marine' || calcType === 'decking' || vType === 'marine'
 
   const productTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
     wrap:    { label: 'WRAP',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
@@ -1453,7 +2345,25 @@ function LineItemCard({
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {/* Collapsed summary: qty, GPM badge */}
+          {!isCardExpanded && (
+            <>
+              {item.quantity > 1 && (
+                <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: monoFont }}>
+                  x{item.quantity}
+                </span>
+              )}
+              <span style={{
+                display: 'inline-flex', padding: '2px 7px', borderRadius: 4,
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.05em',
+                fontFamily: headingFont, textTransform: 'uppercase' as const,
+                color: badge.color, background: badge.bg,
+              }}>
+                {fmtPercent(gpm.gpm)}
+              </span>
+            </>
+          )}
           <div style={{ textAlign: 'right' }}>
             <span style={{
               ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' },
@@ -1481,14 +2391,35 @@ function LineItemCard({
 
       {/* ── Expanded Content ───────────────────────────────────────────── */}
       <div style={{
-        maxHeight: isCardExpanded ? 2000 : 0,
+        maxHeight: isCardExpanded ? 5000 : 0,
         overflow: 'hidden',
         transition: 'max-height 0.3s ease',
       }}>
         <div style={{ borderTop: '1px solid var(--border)', padding: '0 16px 16px' }}>
 
+          {/* ── VIN + Vehicle Info (vehicle products only) ────────────── */}
+          {isVehicleProduct && (
+            <VehicleInfoBlock
+              specs={specs}
+              updateSpec={updateSpec}
+              handleBlur={handleBlur}
+              canWrite={canWrite}
+              onVehicleSelect={(v) => {
+                const updated = { ...latestRef.current }
+                const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model }
+                if (v.basePrice > 0) {
+                  updated.unit_price = v.basePrice
+                  updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
+                  newSpecs.estimatedHours = v.installHours
+                }
+                updated.specs = newSpecs
+                onChange(updated)
+              }}
+            />
+          )}
+
           {/* ── Core Fields Row ─────────────────────────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 120px 120px', gap: 10, marginTop: 12 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_80px_120px_120px]" style={{ gap: 10, marginTop: 12 }}>
             <div>
               <label style={fieldLabelStyle}>Product Name</label>
               <input
@@ -1565,6 +2496,123 @@ function LineItemCard({
             </div>
           </div>
 
+          {/* ── Product Selector + Quick Actions ─────────────────────── */}
+          {products.length > 0 && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 200px', maxWidth: 280 }}>
+                <label style={fieldLabelStyle}>
+                  <Package size={10} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+                  Product
+                </label>
+                <select
+                  value={(specs.productId as string) || ''}
+                  onChange={e => {
+                    const prod = products.find(p => p.id === e.target.value)
+                    if (!prod) return
+                    const calcToVT: Record<string, string> = { 'vehicle': '', 'box-truck': 'box_truck', 'trailer': 'trailer', 'marine': 'marine', 'ppf': 'ppf', 'simple': 'custom' }
+                    const calcToPT: Record<string, string> = { 'vehicle': 'wrap', 'box-truck': 'wrap', 'trailer': 'wrap', 'marine': 'decking', 'ppf': 'ppf', 'simple': 'wrap' }
+                    const updated: LineItem = {
+                      ...latestRef.current,
+                      name: prod.name,
+                      product_type: (calcToPT[prod.calculator_type] || 'wrap') as LineItem['product_type'],
+                      unit_price: prod.default_price || latestRef.current.unit_price,
+                      total_price: ((prod.default_price || latestRef.current.unit_price) * latestRef.current.quantity) - latestRef.current.unit_discount,
+                      specs: {
+                        ...latestRef.current.specs,
+                        productId: prod.id,
+                        calculatorType: prod.calculator_type,
+                        vehicleType: calcToVT[prod.calculator_type] || latestRef.current.specs.vehicleType,
+                        estimatedHours: prod.default_hours || latestRef.current.specs.estimatedHours,
+                      },
+                    }
+                    onChange(updated)
+                  }}
+                  style={fieldSelectStyle}
+                  disabled={!canWrite}
+                >
+                  <option value="">Select Product...</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.default_price > 0 ? ` ($${p.default_price})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={onOpenAreaCalc}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(34,211,238,0.3)',
+                  background: 'rgba(34,211,238,0.06)', color: 'var(--cyan)',
+                }}
+              >
+                <Ruler size={12} /> Area Calculator
+              </button>
+              <button
+                onClick={() => showToast('Design link -- select from Design Studio')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(139,92,246,0.3)',
+                  background: 'rgba(139,92,246,0.06)', color: 'var(--purple)',
+                }}
+              >
+                <Link2 size={12} /> Design Link
+              </button>
+              <button
+                onClick={() => showToast('Media gallery -- coming soon')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(245,158,11,0.3)',
+                  background: 'rgba(245,158,11,0.06)', color: 'var(--amber)',
+                }}
+              >
+                <Image size={12} /> Photos
+              </button>
+            </div>
+          )}
+
+          {/* ── Rollup toggle ────────────────────────────────────────────── */}
+          {allItems.length > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginTop: 8,
+              padding: '6px 10px', background: 'var(--bg)', borderRadius: 6,
+              border: '1px solid var(--border)',
+            }}>
+              <button
+                onClick={() => {
+                  if (!canWrite) return
+                  updateSpec('rolledUp', !specs.rolledUp)
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                  color: specs.rolledUp ? 'var(--green)' : 'var(--text3)', fontSize: 11, fontWeight: 600,
+                }}
+              >
+                {specs.rolledUp
+                  ? <ToggleRight size={16} style={{ color: 'var(--green)' }} />
+                  : <ToggleLeft size={16} />}
+                Roll up into parent
+              </button>
+              {specs.rolledUp && (
+                <select
+                  value={(specs.parentItemId as string) || ''}
+                  onChange={e => updateSpec('parentItemId', e.target.value)}
+                  style={{ ...fieldSelectStyle, fontSize: 11, padding: '3px 8px', flex: 1, maxWidth: 240 }}
+                  disabled={!canWrite}
+                >
+                  <option value="">Select parent item...</option>
+                  {allItems.filter(li => li.id !== item.id && !li.specs?.rolledUp).map(li => (
+                    <option key={li.id} value={li.id}>{li.name || 'Untitled'}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {/* ── Quick Specs Row ─────────────────────────────────────────── */}
           <div style={{
             display: 'flex', gap: 16, marginTop: 10, padding: '6px 0',
@@ -1580,6 +2628,483 @@ function LineItemCard({
               <span>Sqft: <span style={{ ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, color: 'var(--text1)', fontWeight: 600 }}>{specs.vinylArea}</span></span>
             )}
           </div>
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/* PRODUCT-TYPE CALCULATORS (conditional on category)           */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+
+          {/* ── Commercial Vehicle Quick-Select Grid ───────────────────── */}
+          {specs.vehicleType && ['small_car', 'med_car', 'full_car', 'sm_truck', 'med_truck', 'full_truck', 'med_van', 'large_van'].includes(specs.vehicleType as string) && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Size -- Quick Select
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9" style={{ gap: 6 }}>
+                {Object.entries(VEHICLE_CATEGORIES).filter(([, cat]) => ['Cars', 'Trucks', 'Vans'].includes(cat.group)).map(([key, cat]) => {
+                  const isSelected = (specs.vehicleType as string) === key
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => { if (canWrite) handleCategoryChange(key) }}
+                      style={{
+                        padding: '8px 4px', borderRadius: 8, cursor: canWrite ? 'pointer' : 'default',
+                        border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                        background: isSelected ? 'rgba(79,127,255,0.1)' : 'var(--surface)',
+                        textAlign: 'center' as const, minHeight: 44,
+                        display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 2,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text2)', lineHeight: 1.2 }}>
+                        {cat.label}
+                      </div>
+                      <div style={{ fontFamily: monoFont, fontSize: 12, fontWeight: 800, color: isSelected ? 'var(--accent)' : 'var(--text1)' }}>
+                        ${cat.flatRate}
+                      </div>
+                      <div style={{ fontSize: 9, color: 'var(--text3)' }}>
+                        {cat.estimatedHours}h
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Wrap Zone Selector (vehicle wraps with sqft data) ──────── */}
+          {isVehicleProduct && (specs.vinylArea as number) > 0 && !isBoatProduct && (
+            <div style={{ marginTop: 12 }}>
+              <WrapZoneSelector
+                specs={specs}
+                updateSpec={updateSpec}
+                canWrite={canWrite}
+                vehicleSqft={(specs.vinylArea as number) || 0}
+              />
+            </div>
+          )}
+
+          {/* ── Decking Calculator ──────────────────────────────────────── */}
+          {(calcType === 'decking' || isBoatProduct) && (
+            <div style={{ marginTop: 12 }}>
+              <DeckingCalculator
+                specs={specs}
+                updateSpec={updateSpec}
+                canWrite={canWrite}
+                onPriceUpdate={(totalPrice, materialCost, laborCost, totalSqft) => {
+                  const updated = { ...latestRef.current }
+                  updated.unit_price = totalPrice
+                  updated.total_price = (updated.quantity * totalPrice) - updated.unit_discount
+                  updated.specs = { ...updated.specs, materialCost, laborCost, vinylArea: totalSqft }
+                  onChange(updated)
+                }}
+              />
+            </div>
+          )}
+
+          {/* ── Custom Product Calculator ──────────────────────────────── */}
+          {specs.vehicleType === 'custom' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Wrench size={12} style={{ color: 'var(--purple)' }} /> Custom Product
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (ft)</label>
+                  <input type="number" value={(specs.customWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value)
+                    const h = (specs.customHeight as number) || 0
+                    updateSpec('customWidth', w)
+                    if (w > 0 && h > 0) setTimeout(() => updateSpec('vinylArea', Math.round(w * h)), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.customHeight as number) || ''} onChange={e => {
+                    const h = Number(e.target.value)
+                    const w = (specs.customWidth as number) || 0
+                    updateSpec('customHeight', h)
+                    if (w > 0 && h > 0) setTimeout(() => updateSpec('vinylArea', Math.round(w * h)), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Total Sqft</label>
+                  <input type="number" value={specs.vinylArea || ''} onChange={e => updateSpec('vinylArea', Number(e.target.value))} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Est. Hours</label>
+                  <input type="number" value={(specs.estimatedHours as number) || ''} onChange={e => updateSpec('estimatedHours', Number(e.target.value))} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Description</label>
+                <input value={(specs.customDescription as string) || ''} onChange={e => updateSpec('customDescription', e.target.value)} placeholder="Describe the custom product..." style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} />
+              </div>
+            </div>
+          )}
+
+          {/* ── Box Truck Calculator ──────────────────────────────────── */}
+          {specs.vehicleType === 'box_truck' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Car size={12} style={{ color: 'var(--accent)' }} /> Box Truck Dimensions
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Length (ft)</label>
+                  <input type="number" value={(specs.boxLength as number) || ''} onChange={e => {
+                    const l = Number(e.target.value)
+                    const w = (specs.boxWidth as number) || 8
+                    const h = (specs.boxHeight as number) || 7
+                    const cab = (specs.cabWrap as boolean) ? 60 : 0
+                    const sides = 2 * l * h
+                    const back = w * h
+                    const sqft = sides + back + cab
+                    updateSpec('boxLength', l)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', Math.round(sqft))
+                      updateSpec('estimatedHours', Math.round(sqft / 30))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (ft)</label>
+                  <input type="number" value={(specs.boxWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value)
+                    const l = (specs.boxLength as number) || 0
+                    const h = (specs.boxHeight as number) || 7
+                    const cab = (specs.cabWrap as boolean) ? 60 : 0
+                    const sides = 2 * l * h
+                    const back = w * h
+                    const sqft = sides + back + cab
+                    updateSpec('boxWidth', w)
+                    setTimeout(() => { updateSpec('vinylArea', Math.round(sqft)) }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.boxHeight as number) || 7} onChange={e => {
+                    const h = Number(e.target.value)
+                    const l = (specs.boxLength as number) || 0
+                    const w = (specs.boxWidth as number) || 8
+                    const cab = (specs.cabWrap as boolean) ? 60 : 0
+                    const sides = 2 * l * h
+                    const back = w * h
+                    const sqft = sides + back + cab
+                    updateSpec('boxHeight', h)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', Math.round(sqft))
+                      updateSpec('estimatedHours', Math.round(sqft / 30))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Cab Wrap</label>
+                  <button
+                    onClick={() => {
+                      if (!canWrite) return
+                      const newCab = !(specs.cabWrap as boolean)
+                      const cab = newCab ? 60 : 0
+                      const l = (specs.boxLength as number) || 0
+                      const w = (specs.boxWidth as number) || 8
+                      const h = (specs.boxHeight as number) || 7
+                      const sqft = 2 * l * h + w * h + cab
+                      updateSpec('cabWrap', newCab)
+                      setTimeout(() => { updateSpec('vinylArea', Math.round(sqft)) }, 0)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.cabWrap as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.cabWrap as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.cabWrap as boolean) ? 'Yes (+60 sqft)' : 'No'}
+                  </button>
+                </div>
+              </div>
+              {(specs.boxLength as number) > 0 && (
+                <div style={{
+                  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+                  background: 'rgba(79,127,255,0.06)', borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text2)' }}>Sides: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.round(2 * ((specs.boxLength as number) || 0) * ((specs.boxHeight as number) || 7))} sqft</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Back: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.round(((specs.boxWidth as number) || 8) * ((specs.boxHeight as number) || 7))} sqft</span></span>
+                  {(specs.cabWrap as boolean) && <span style={{ color: 'var(--text2)' }}>Cab: <span style={{ fontFamily: monoFont, color: 'var(--green)', fontWeight: 700 }}>60 sqft</span></span>}
+                  <span style={{ color: 'var(--accent)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Trailer Calculator ────────────────────────────────────── */}
+          {specs.vehicleType === 'trailer' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Car size={12} style={{ color: 'var(--amber)' }} /> Trailer Dimensions
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Coverage</label>
+                  <select
+                    value={(specs.trailerCoverage as string) || 'full'}
+                    onChange={e => {
+                      const cov = e.target.value
+                      const mult = cov === 'full' ? 1 : cov === 'three_quarter' ? 0.75 : 0.5
+                      const l = (specs.trailerLength as number) || 0
+                      const h = (specs.trailerHeight as number) || 7.5
+                      const sqft = Math.round(l * h * 2 * mult)
+                      updateSpec('trailerCoverage', cov)
+                      setTimeout(() => {
+                        updateSpec('vinylArea', sqft)
+                        updateSpec('estimatedHours', Math.round(sqft / 25))
+                      }, 0)
+                    }}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="full">Full (100%)</option>
+                    <option value="three_quarter">3/4 (75%)</option>
+                    <option value="half">1/2 (50%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Length (ft)</label>
+                  <input type="number" value={(specs.trailerLength as number) || ''} onChange={e => {
+                    const l = Number(e.target.value)
+                    const h = (specs.trailerHeight as number) || 7.5
+                    const cov = (specs.trailerCoverage as string) || 'full'
+                    const mult = cov === 'full' ? 1 : cov === 'three_quarter' ? 0.75 : 0.5
+                    const sqft = Math.round(l * h * 2 * mult)
+                    updateSpec('trailerLength', l)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', sqft)
+                      updateSpec('estimatedHours', Math.round(sqft / 25))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.trailerHeight as number) || 7.5} onChange={e => {
+                    const h = Number(e.target.value)
+                    const l = (specs.trailerLength as number) || 0
+                    const cov = (specs.trailerCoverage as string) || 'full'
+                    const mult = cov === 'full' ? 1 : cov === 'three_quarter' ? 0.75 : 0.5
+                    const sqft = Math.round(l * h * 2 * mult)
+                    updateSpec('trailerHeight', h)
+                    setTimeout(() => {
+                      updateSpec('vinylArea', sqft)
+                      updateSpec('estimatedHours', Math.round(sqft / 25))
+                    }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose</label>
+                  <button
+                    onClick={() => { if (canWrite) updateSpec('vNose', !(specs.vNose as boolean)) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.vNose as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.vNose as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.vNose as boolean) ? 'Yes' : 'No'}
+                  </button>
+                </div>
+              </div>
+              {(specs.vNose as boolean) && (
+                <div className="grid grid-cols-2" style={{ gap: 10, marginTop: 8 }}>
+                  <div>
+                    <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose Height (ft)</label>
+                    <input type="number" value={(specs.vNoseHeight as number) || ''} onChange={e => updateSpec('vNoseHeight', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                  </div>
+                  <div>
+                    <label style={{ ...fieldLabelStyle, fontSize: 9 }}>V-Nose Length (ft)</label>
+                    <input type="number" value={(specs.vNoseLength as number) || ''} onChange={e => updateSpec('vNoseLength', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
+                  </div>
+                </div>
+              )}
+              {(specs.trailerLength as number) > 0 && (
+                <div style={{
+                  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+                  background: 'rgba(245,158,11,0.06)', borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text2)' }}>Per Side: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.round(((specs.trailerLength as number) || 0) * ((specs.trailerHeight as number) || 7.5))} sqft</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Coverage: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{((specs.trailerCoverage as string) || 'full').replace('_', ' ')}</span></span>
+                  <span style={{ color: 'var(--amber)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Marine/Decking Calculator ─────────────────────────────── */}
+          {specs.vehicleType === 'marine' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <Layers size={12} style={{ color: 'var(--cyan)' }} /> Marine / Decking
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Section</label>
+                  <select
+                    value={(specs.marineSection as string) || 'main_deck'}
+                    onChange={e => updateSpec('marineSection', e.target.value)}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="main_deck">Main Deck</option>
+                    <option value="swim_platform">Swim Platform</option>
+                    <option value="helm_pad">Helm Pad</option>
+                    <option value="bow_pad">Bow Pad</option>
+                    <option value="gunnels">Gunnels</option>
+                    <option value="full_boat">Full Boat</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Linear Feet</label>
+                  <input type="number" value={(specs.linearFeet as number) || ''} onChange={e => {
+                    const lf = Number(e.target.value)
+                    const passes = (specs.marinePasses as number) || 1
+                    const width = (specs.marineWidth as number) || 54
+                    const sqft = Math.round(lf * (width / 12) * passes)
+                    updateSpec('linearFeet', lf)
+                    setTimeout(() => { updateSpec('vinylArea', sqft) }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Passes</label>
+                  <input type="number" value={(specs.marinePasses as number) || 1} onChange={e => {
+                    const passes = Number(e.target.value)
+                    const lf = (specs.linearFeet as number) || 0
+                    const width = (specs.marineWidth as number) || 54
+                    const sqft = Math.round(lf * (width / 12) * passes)
+                    updateSpec('marinePasses', passes)
+                    setTimeout(() => { updateSpec('vinylArea', sqft) }, 0)
+                  }} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={1} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, marginTop: 8 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material Width (in)</label>
+                  <input type="number" value={(specs.marineWidth as number) || 54} onChange={e => updateSpec('marineWidth', Number(e.target.value))} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont }, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Vertical Gunnels</label>
+                  <button
+                    onClick={() => { if (canWrite) updateSpec('verticalGunnels', !(specs.verticalGunnels as boolean)) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.verticalGunnels as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.verticalGunnels as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.verticalGunnels as boolean) ? 'Yes' : 'No'}
+                  </button>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Installer</label>
+                  <select
+                    value={(specs.marineInstaller as string) || ''}
+                    onChange={e => updateSpec('marineInstaller', e.target.value)}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="">Select Installer</option>
+                    {team.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {(specs.linearFeet as number) > 0 && (
+                <div style={{
+                  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+                  background: 'rgba(34,211,238,0.06)', borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ color: 'var(--text2)' }}>Linear Ft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.linearFeet}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Passes: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.marinePasses as number) || 1}</span></span>
+                  <span style={{ color: 'var(--cyan)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── PPF Calculator ────────────────────────────────────────── */}
+          {specs.vehicleType === 'ppf' && (
+            <div style={{
+              marginTop: 12, padding: 14, background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <CircleDot size={12} style={{ color: 'var(--cyan)' }} /> PPF Packages
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
+                {([
+                  { key: 'standard_front', name: 'Standard Front', price: 1200, pay: 400, material: 250, hours: 4 },
+                  { key: 'full_front', name: 'Full Front', price: 2500, pay: 750, material: 500, hours: 6 },
+                  { key: 'track_pack', name: 'Track Pack', price: 4500, pay: 1200, material: 900, hours: 10 },
+                  { key: 'full_body', name: 'Full Body', price: 7000, pay: 2000, material: 1600, hours: 16 },
+                  { key: 'hood_only', name: 'Hood Only', price: 800, pay: 250, material: 150, hours: 2 },
+                  { key: 'rocker_panels', name: 'Rocker Panels', price: 600, pay: 200, material: 100, hours: 2 },
+                  { key: 'headlights', name: 'Headlights', price: 350, pay: 100, material: 50, hours: 1 },
+                  { key: 'door_cups', name: 'Door Cup Guards', price: 200, pay: 60, material: 30, hours: 0.5 },
+                ] as const).map(pkg => {
+                  const isSelected = (specs.ppfPackage as string) === pkg.key
+                  return (
+                    <button
+                      key={pkg.key}
+                      onClick={() => {
+                        if (!canWrite) return
+                        updateSpec('ppfPackage', pkg.key)
+                        const updated = {
+                          ...latestRef.current,
+                          name: item.name || pkg.name,
+                          unit_price: pkg.price,
+                          total_price: (latestRef.current.quantity * pkg.price) - latestRef.current.unit_discount,
+                          specs: {
+                            ...latestRef.current.specs,
+                            ppfPackage: pkg.key,
+                            materialCost: pkg.material,
+                            laborCost: pkg.pay,
+                            laborPrice: pkg.pay,
+                            estimatedHours: pkg.hours,
+                          },
+                        }
+                        onChange(updated)
+                      }}
+                      style={{
+                        padding: '10px 8px', borderRadius: 8, cursor: canWrite ? 'pointer' : 'default',
+                        border: isSelected ? '2px solid var(--cyan)' : '1px solid var(--border)',
+                        background: isSelected ? 'rgba(34,211,238,0.08)' : 'var(--surface)',
+                        textAlign: 'left' as const,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: isSelected ? 'var(--cyan)' : 'var(--text1)', marginBottom: 4 }}>
+                        {pkg.name}
+                      </div>
+                      <div style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: isSelected ? 'var(--cyan)' : 'var(--text1)' }}>
+                        {fmtCurrency(pkg.price)}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+                        {pkg.hours}h / ${pkg.pay} pay
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── Add Description Link ───────────────────────────────────── */}
           {!showDescription && (
@@ -1701,7 +3226,37 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Paintbrush size={11} style={{ color: 'var(--purple)' }} /> Material Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  {/* Material type quick-select */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {([
+                      { key: 'avery_mpi1105', name: 'Avery MPI 1105', cost: 2.10 },
+                      { key: 'avery_mpi1005', name: 'Avery MPI 1005', cost: 1.85 },
+                      { key: '3m_2080', name: '3M 2080 Series', cost: 2.50 },
+                      { key: '3m_ij180', name: '3M IJ180', cost: 2.30 },
+                      { key: 'avery_supreme', name: 'Avery Supreme', cost: 2.75 },
+                      { key: 'arlon_slx', name: 'Arlon SLX', cost: 2.20 },
+                      { key: 'hexis', name: 'Hexis Skintac', cost: 2.00 },
+                    ]).map(mat => {
+                      const selected = specs.vinylType === mat.name
+                      return (
+                        <button key={mat.key} onClick={() => {
+                          if (!canWrite) return
+                          updateSpec('vinylType', mat.name)
+                          const sqft = (specs.vinylArea as number) || 0
+                          if (sqft > 0) updateSpec('materialCost', Math.round(sqft * mat.cost * 100) / 100)
+                        }} style={{
+                          padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                          cursor: canWrite ? 'pointer' : 'default',
+                          border: selected ? '2px solid var(--purple)' : '1px solid var(--border)',
+                          background: selected ? 'rgba(139,92,246,0.08)' : 'transparent',
+                          color: selected ? 'var(--purple)' : 'var(--text3)',
+                        }}>
+                          {mat.name} <span style={{ fontFamily: monoFont }}>${mat.cost}</span>/sqft
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material Cost</label>
                       <input type="number" value={specs.materialCost || ''} onChange={e => updateSpec('materialCost', Number(e.target.value))} onBlur={handleBlur} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.01} />
@@ -1726,7 +3281,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Wrench size={11} style={{ color: 'var(--amber)' }} /> Labor Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Est. Hours</label>
                       <input type="number" value={(specs.estimatedHours as number) || ''} onChange={e => updateSpec('estimatedHours', Number(e.target.value))} onBlur={handleBlur} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.5} />
@@ -1763,7 +3318,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Settings size={11} style={{ color: 'var(--cyan)' }} /> Machine Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Machine Cost</label>
                       <input type="number" value={specs.machineCost || ''} onChange={e => updateSpec('machineCost', Number(e.target.value))} onBlur={handleBlur} style={{ ...fieldInputStyle, ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, fontSize: 12 }} disabled={!canWrite} min={0} step={0.01} />
@@ -1812,7 +3367,7 @@ function LineItemCard({
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <TrendingUp size={11} style={{ color: 'var(--green)' }} /> Price Totals
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
                       <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Unit Price</label>
                       <div style={{ ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' }, padding: '7px 10px', fontSize: 12, color: 'var(--text1)', background: 'var(--surface2)', borderRadius: 6, border: '1px solid var(--border)' }}>
@@ -1858,33 +3413,8 @@ function LineItemCard({
               transition: 'max-height 0.2s ease',
             }}>
               <div style={{ padding: '8px 0' }}>
-                {/* Vehicle Info */}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Car size={11} style={{ color: 'var(--accent)' }} /> Vehicle Info
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
-                      <input value={specs.vehicleYear || ''} onChange={e => updateSpec('vehicleYear', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="2024" />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
-                      <input value={specs.vehicleMake || ''} onChange={e => updateSpec('vehicleMake', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="Ford" />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Model</label>
-                      <input value={specs.vehicleModel || ''} onChange={e => updateSpec('vehicleModel', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="F-150" />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Color</label>
-                      <input value={specs.vehicleColor || ''} onChange={e => updateSpec('vehicleColor', e.target.value)} onBlur={handleBlur} style={{ ...fieldInputStyle, fontSize: 12 }} disabled={!canWrite} placeholder="White" />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Notes */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
                   <div>
                     <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Internal Notes</label>
                     <textarea
@@ -1938,19 +3468,56 @@ function LineItemCard({
             </div>
           </div>
 
-          {/* ── Add New Asset link ──────────────────────────────────────── */}
-          <div style={{ marginTop: 10 }}>
-            <button
-              onClick={() => showToast('Asset upload coming soon')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'transparent', border: 'none', color: 'var(--accent)',
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
-              }}
-            >
-              <Plus size={12} /> Add New Asset
-            </button>
-          </div>
+          {/* ── Photo Inspection (vehicle products) ────────────────────── */}
+          {isVehicleProduct && (
+            <div style={{ marginTop: 14 }}>
+              <CollapsibleHeader
+                icon={<Image size={13} style={{ color: 'var(--amber)' }} />}
+                label="Photo Inspection"
+                isOpen={expandedSections.photos ?? false}
+                onToggle={() => onToggleSection('photos')}
+                color="var(--text2)"
+              />
+              <div style={{
+                maxHeight: expandedSections.photos ? 800 : 0,
+                overflow: 'hidden',
+                transition: 'max-height 0.3s ease',
+              }}>
+                <PhotoInspection
+                  lineItemId={item.id}
+                  specs={specs}
+                  updateSpec={updateSpec}
+                  canWrite={canWrite}
+                  orgId=""
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── Generate Mockup button ─────────────────────────────────── */}
+          {isVehicleProduct && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => updateSpec('_mockupOpen', true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)',
+                  borderRadius: 8, padding: '7px 14px', color: 'var(--purple)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                <Paintbrush size={12} /> Generate Mockup
+              </button>
+            </div>
+          )}
+          <MockupCreator
+            isOpen={!!(specs._mockupOpen)}
+            onClose={() => updateSpec('_mockupOpen', false)}
+            lineItemId={item.id}
+            specs={specs}
+            updateSpec={updateSpec}
+            vehicleInfo={vehicleDesc || item.name}
+          />
         </div>
       </div>
     </div>

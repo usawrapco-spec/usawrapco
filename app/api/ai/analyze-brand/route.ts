@@ -22,14 +22,20 @@ Vehicle: ${vehicleType || 'Unknown'}
 
 Analyze the provided brand images and return a JSON response with:
 {
-  "colors": ["#hex1", "#hex2"],  // dominant brand colors as hex codes
-  "logo_quality": "high|medium|low",  // logo resolution/quality assessment
-  "design_recommendations": "string",  // brief design suggestions
-  "wrap_complexity": "simple|moderate|complex",  // estimated wrap complexity
-  "recommended_coverage": "full|3quarter|half|partial",  // recommended coverage
-  "ai_tags": ["tag1", "tag2"],  // descriptive tags for search
-  "brand_notes": "string"  // any special brand considerations
+  "colors": ["#hex1", "#hex2", "#hex3"],
+  "color_names": ["Blue", "White", "Gold"],
+  "logo_quality": "high|medium|low",
+  "design_complexity_score": 7,
+  "style_recommendations": "Brief style suggestions for the wrap design",
+  "suggested_wrap_approach": "full|3quarter|half|partial",
+  "wrap_complexity": "simple|moderate|complex",
+  "recommended_coverage": "full|3quarter|half|partial",
+  "font_style": "sans-serif|serif|script|display|unknown",
+  "brand_personality": "professional|playful|luxury|bold|minimal|corporate",
+  "ai_tags": ["tag1", "tag2"],
+  "brand_notes": "Any special brand considerations"
 }
+The design_complexity_score should be 1-10 where 1 is simple text/logo and 10 is intricate multi-layer design.
 Return ONLY valid JSON.`,
       },
     ]
@@ -57,7 +63,7 @@ Return ONLY valid JSON.`,
     }
 
     const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{ role: 'user', content }],
     })

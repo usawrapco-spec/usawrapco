@@ -302,9 +302,13 @@ export default function ContactDetailClient({
   const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set())
   const [showMore, setShowMore] = useState(false)
 
-  // Demo contact data (uses passed contact or falls back to Bob Smith demo)
+  const hasRealData = contact && (jobs.length > 0 || estimates.length > 0)
+
+  // Contact data (uses passed contact or falls back to demo)
+  const lifetimeSpend = jobs.reduce((s: number, j: any) => s + (j.revenue || 0), 0)
+  const avgGPM = jobs.length > 0 ? jobs.reduce((s: number, j: any) => s + (j.gpm || 0), 0) / jobs.length : 0
   const c = {
-    name: contact?.contact_name || 'Bob Smith',
+    name: contact?.contact_name || contact?.name || 'Bob Smith',
     company: contact?.company_name || "Bob's Pizza",
     email: contact?.email || 'bob@bobspizza.com',
     phone: contact?.phone || '(555) 123-4567',
@@ -314,9 +318,9 @@ export default function ContactDetailClient({
     tags: contact?.tags || ['fleet', 'repeat', 'vip'],
     fleetSize: contact?.fleet_size || 4,
     balance: 0,
-    lifetimeSpend: 9400,
-    totalJobs: 3,
-    avgGPM: 71,
+    lifetimeSpend: hasRealData ? lifetimeSpend : 9400,
+    totalJobs: hasRealData ? jobs.length : 3,
+    avgGPM: hasRealData ? Math.round(avgGPM) : 71,
   }
 
   const initial = c.name.charAt(0).toUpperCase()
@@ -794,12 +798,13 @@ export default function ContactDetailClient({
               </div>
             ))}
           </div>
-          {DEMO_DEALS.map(deal => (
+          {(estimates.length > 0 ? estimates : DEMO_DEALS).map((deal: any) => (
             <div key={deal.id} style={{
               display: 'grid', gridTemplateColumns: '100px 1fr 120px 100px 120px',
               padding: '12px 16px', borderBottom: '1px solid var(--border)',
               cursor: 'pointer', transition: 'background 0.15s',
             }}
+              onClick={() => deal.estimate_number ? router.push(`/estimates/${deal.id}`) : undefined}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
@@ -807,26 +812,26 @@ export default function ContactDetailClient({
                 fontSize: 13, fontWeight: 700, color: 'var(--accent)',
                 fontFamily: 'JetBrains Mono, monospace',
               }}>
-                {deal.number}
+                {deal.number || `EST-${deal.estimate_number || '?'}`}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text1)' }}>{deal.title}</div>
               <div style={{
                 fontSize: 13, fontWeight: 700, color: 'var(--green)',
                 fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'tabular-nums',
               }}>
-                {fmtMoney(deal.amount)}
+                {fmtMoney(deal.amount || deal.total || 0)}
               </div>
               <div>
                 <span style={{
                   padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                  color: DEAL_STATUS_COLORS[deal.status],
-                  background: `${DEAL_STATUS_COLORS[deal.status]}18`,
+                  color: DEAL_STATUS_COLORS[deal.status] || '#5a6080',
+                  background: `${DEAL_STATUS_COLORS[deal.status] || '#5a6080'}18`,
                   textTransform: 'capitalize',
                 }}>
                   {deal.status}
                 </span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{deal.date}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{deal.date || (deal.created_at ? formatDate(new Date(deal.created_at)) : '')}</div>
             </div>
           ))}
         </div>
@@ -853,17 +858,18 @@ export default function ContactDetailClient({
               </div>
             ))}
           </div>
-          {DEMO_JOBS.map(job => (
+          {(jobs.length > 0 ? jobs : DEMO_JOBS).map((job: any) => (
             <div key={job.id} style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr 110px 110px 120px',
               padding: '12px 16px', borderBottom: '1px solid var(--border)',
               cursor: 'pointer', transition: 'background 0.15s',
             }}
+              onClick={() => job.pipe_stage ? router.push(`/projects/${job.id}`) : undefined}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 600 }}>{job.title}</div>
-              <div style={{ fontSize: 13, color: 'var(--text2)' }}>{job.vehicle}</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)' }}>{job.vehicle || job.vehicle_desc || ''}</div>
               <div>
                 <span style={{
                   padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
@@ -878,9 +884,9 @@ export default function ContactDetailClient({
                 fontSize: 13, fontWeight: 700, color: 'var(--green)',
                 fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'tabular-nums',
               }}>
-                {fmtMoney(job.revenue)}
+                {fmtMoney(job.revenue || 0)}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{job.date}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{job.date || (job.created_at ? formatDate(new Date(job.created_at)) : '')}</div>
             </div>
           ))}
         </div>
@@ -907,12 +913,13 @@ export default function ContactDetailClient({
               </div>
             ))}
           </div>
-          {DEMO_INVOICES.map(inv => (
+          {(invoices.length > 0 ? invoices : DEMO_INVOICES).map((inv: any) => (
             <div key={inv.id} style={{
               display: 'grid', gridTemplateColumns: '100px 110px 110px 100px 120px 120px',
               padding: '12px 16px', borderBottom: '1px solid var(--border)',
               cursor: 'pointer', transition: 'background 0.15s',
             }}
+              onClick={() => inv.invoice_number ? router.push(`/invoices/${inv.id}`) : undefined}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
@@ -920,32 +927,32 @@ export default function ContactDetailClient({
                 fontSize: 13, fontWeight: 700, color: 'var(--accent)',
                 fontFamily: 'JetBrains Mono, monospace',
               }}>
-                {inv.number}
+                {inv.number || `INV-${inv.invoice_number || '?'}`}
               </div>
               <div style={{
                 fontSize: 13, fontWeight: 700, color: 'var(--text1)',
                 fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'tabular-nums',
               }}>
-                {fmtMoney(inv.amount)}
+                {fmtMoney(inv.amount || inv.total || 0)}
               </div>
               <div style={{
                 fontSize: 13, fontWeight: 700, color: 'var(--green)',
                 fontFamily: 'JetBrains Mono, monospace', fontVariantNumeric: 'tabular-nums',
               }}>
-                {fmtMoney(inv.paid)}
+                {fmtMoney(inv.paid || (inv.total || 0) - (inv.balance_due || 0))}
               </div>
               <div>
                 <span style={{
                   padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                  color: INVOICE_STATUS_COLORS[inv.status],
-                  background: `${INVOICE_STATUS_COLORS[inv.status]}18`,
+                  color: INVOICE_STATUS_COLORS[inv.status] || '#5a6080',
+                  background: `${INVOICE_STATUS_COLORS[inv.status] || '#5a6080'}18`,
                   textTransform: 'capitalize',
                 }}>
                   {inv.status}
                 </span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{inv.date}</div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{inv.dueDate}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{inv.date || (inv.created_at ? formatDate(new Date(inv.created_at)) : '')}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{inv.dueDate || (inv.due_date ? formatDate(new Date(inv.due_date)) : '')}</div>
             </div>
           ))}
         </div>

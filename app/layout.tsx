@@ -3,8 +3,8 @@ import type { Metadata } from 'next'
 import { Providers } from '@/components/shared/Providers'
 
 export const metadata: Metadata = {
-  title: 'USA Wrap Co — Ops Platform',
-  description: 'Operations and project management for USA Wrap Co',
+  title: 'USA Wrap Co | WrapShop Pro',
+  description: 'American Craftsmanship You Can Trust™ — Professional vehicle wrap shop CRM and operations platform',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
