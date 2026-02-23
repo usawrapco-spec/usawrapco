@@ -10,8 +10,10 @@ import {
   ClipboardList, Activity,
   ToggleLeft, ToggleRight, Wrench, CircleDot,
   TrendingUp, Calculator, Settings,
+  Package, Image, Link2, UserPlus, Ruler,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
+import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -303,6 +305,18 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // Collapsible sections per line item
   const [expandedSections, setExpandedSections] = useState<Record<string, Record<string, boolean>>>({})
 
+  // Products from DB
+  const [products, setProducts] = useState<{ id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]>([])
+
+  // Area calculator
+  const [areaCalcOpen, setAreaCalcOpen] = useState(false)
+  const [areaCalcItemId, setAreaCalcItemId] = useState<string | null>(null)
+
+  // Templates
+  const [templates, setTemplates] = useState<{ id: string; name: string; description: string; line_items: unknown[] }[]>([])
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
+  const templateMenuRef = useRef<HTMLDivElement>(null)
+
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const pdfMenuRef = useRef<HTMLDivElement>(null)
 
@@ -316,6 +330,29 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNewEstimate, isDemo])
 
+  // ─── Load products + templates from DB ──────────────────────────────────────
+  useEffect(() => {
+    async function loadProducts() {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, category, calculator_type, default_price, default_hours, description')
+        .eq('active', true)
+        .order('sort_order')
+      if (data) setProducts(data)
+    }
+    async function loadTemplates() {
+      const { data } = await supabase
+        .from('estimate_templates')
+        .select('id, name, description, line_items')
+        .order('use_count', { ascending: false })
+        .limit(20)
+      if (data) setTemplates(data as typeof templates)
+    }
+    loadProducts().catch(() => {})
+    loadTemplates().catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ─── Close menus on outside click ───────────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -324,6 +361,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target as Node)) {
         setPdfMenuOpen(false)
+      }
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setTemplateMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -495,9 +535,57 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     showToast('Create Copy -- coming soon')
   }
 
-  function handleSaveAsTemplate() {
+  async function handleSaveAsTemplate() {
     setMoreMenuOpen(false)
-    showToast('Save as Template -- coming soon')
+    if (lineItemsList.length === 0) { showToast('No line items to save'); return }
+    const name = prompt('Template name:', title || 'My Template')
+    if (!name) return
+    try {
+      const { error } = await supabase.from('estimate_templates').insert({
+        org_id: profile.org_id,
+        name,
+        description: `${lineItemsList.length} items - ${fmtCurrency(subtotal)}`,
+        category: 'custom',
+        line_items: lineItemsList.map(li => ({
+          product_type: li.product_type, name: li.name, description: li.description,
+          quantity: li.quantity, unit_price: li.unit_price, unit_discount: li.unit_discount,
+          total_price: li.total_price, specs: li.specs, sort_order: li.sort_order,
+        })),
+        form_data: { leadType, discount, taxRate, notes, customerNote },
+        created_by: profile.id,
+      })
+      if (error) throw error
+      showToast(`Template "${name}" saved`)
+      // Reload templates
+      const { data } = await supabase.from('estimate_templates').select('id, name, description, line_items').order('use_count', { ascending: false }).limit(20)
+      if (data) setTemplates(data as typeof templates)
+    } catch (err) {
+      console.error('Save template error:', err)
+      showToast('Error saving template')
+    }
+  }
+
+  async function handleLoadTemplate(tmpl: typeof templates[0]) {
+    setTemplateMenuOpen(false)
+    const items: LineItem[] = (tmpl.line_items as Partial<LineItem>[]).map((li, i) => ({
+      id: `tmpl-${Date.now()}-${i}`,
+      parent_type: 'estimate' as const,
+      parent_id: estimateId,
+      product_type: (li.product_type as LineItem['product_type']) || 'wrap',
+      name: li.name || '',
+      description: li.description || null,
+      quantity: li.quantity || 1,
+      unit_price: li.unit_price || 0,
+      unit_discount: li.unit_discount || 0,
+      total_price: li.total_price || 0,
+      specs: (li.specs || {}) as LineItemSpecs,
+      sort_order: li.sort_order || i,
+      created_at: new Date().toISOString(),
+    }))
+    setLineItemsList(items)
+    showToast(`Template "${tmpl.name}" loaded`)
+    // Increment use count
+    await supabase.rpc('increment_template_use', { template_id: tmpl.id }).catch(() => {})
   }
 
   async function handleDelete() {
@@ -555,15 +643,36 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     }
   }
 
-  function addNewLineItem() {
+  function addNewLineItem(product?: typeof products[0]) {
+    // Map product calculator_type to vehicleType for the calculator system
+    const calcToVehicleType: Record<string, string> = {
+      'vehicle': '', 'box-truck': 'box_truck', 'trailer': 'trailer',
+      'marine': 'marine', 'ppf': 'ppf', 'simple': 'custom',
+    }
+    const calcToProductType: Record<string, string> = {
+      'vehicle': 'wrap', 'box-truck': 'wrap', 'trailer': 'wrap',
+      'marine': 'decking', 'ppf': 'ppf', 'simple': 'wrap',
+    }
+    const vehicleType = product ? (calcToVehicleType[product.calculator_type] || '') : ''
+    const productType = product ? (calcToProductType[product.calculator_type] || 'wrap') : 'wrap'
     const newItem: LineItem = {
       id: `new-${Date.now()}`, parent_type: 'estimate', parent_id: estimateId,
-      product_type: 'wrap', name: '', description: null,
-      quantity: 1, unit_price: 0, unit_discount: 0, total_price: 0,
-      specs: { estimatedHours: 0, designFee: DESIGN_FEE_DEFAULT }, sort_order: lineItemsList.length,
+      product_type: productType as LineItem['product_type'],
+      name: product?.name || '', description: product?.description || null,
+      quantity: 1, unit_price: product?.default_price || 0,
+      unit_discount: 0, total_price: product?.default_price || 0,
+      specs: {
+        estimatedHours: product?.default_hours || 0,
+        designFee: DESIGN_FEE_DEFAULT,
+        vehicleType: vehicleType || undefined,
+        productId: product?.id,
+        calculatorType: product?.calculator_type,
+      },
+      sort_order: lineItemsList.length,
       created_at: new Date().toISOString(),
     }
     setLineItemsList(prev => [...prev, newItem])
+    // Auto-expand the new item so user can fill in details
     setExpandedSections(prev => ({ ...prev, [newItem.id]: { gpm: true } }))
   }
 
@@ -828,7 +937,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             )}
           </div>
 
-          {/* Column 2: Status */}
+          {/* Column 2: Status + Onboarding */}
           <div style={{ ...sectionPad, borderRight: '1px solid var(--border)' }}>
             <div style={{ ...fieldLabelStyle, marginBottom: 8 }}>
               <CircleDot size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
@@ -851,6 +960,23 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 Invoiced: <span style={{ color: 'var(--text2)', fontWeight: 600 }}>No</span>
               </span>
             </div>
+            {/* Onboarding link */}
+            {est.customer_id && (
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/onboard/${estimateId}`
+                  navigator.clipboard.writeText(url).then(() => showToast('Onboarding link copied!')).catch(() => showToast(url))
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, marginTop: 8,
+                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(79,127,255,0.25)',
+                  background: 'rgba(79,127,255,0.06)', color: 'var(--accent)',
+                }}
+              >
+                <UserPlus size={11} /> Onboarding Link
+              </button>
+            )}
           </div>
 
           {/* Column 3: Team Assignments */}
@@ -1095,7 +1221,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           {/* Items header */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: 12,
+            marginBottom: 12, flexWrap: 'wrap', gap: 8,
           }}>
             <div style={{
               fontSize: 14, fontWeight: 700, color: 'var(--text1)',
@@ -1103,7 +1229,71 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             }}>
               Items
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {/* Templates dropdown */}
+              <div ref={templateMenuRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setTemplateMenuOpen(!templateMenuOpen)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)',
+                    borderRadius: 8, padding: '7px 12px', color: 'var(--purple)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: headingFont, letterSpacing: '0.03em',
+                  }}
+                >
+                  <Layers size={12} />
+                  Templates
+                  <ChevronDown size={10} />
+                </button>
+                {templateMenuOpen && (
+                  <div style={{
+                    position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 10, padding: 6, minWidth: 240, zIndex: 100,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', padding: '4px 12px', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont }}>
+                      Load Template
+                    </div>
+                    {templates.length === 0 && (
+                      <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text3)' }}>No templates saved yet</div>
+                    )}
+                    {templates.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleLoadTemplate(t)}
+                        style={{
+                          display: 'block', width: '100%', padding: '8px 12px',
+                          border: 'none', borderRadius: 6, cursor: 'pointer',
+                          background: 'transparent', color: 'var(--text1)',
+                          fontSize: 12, textAlign: 'left',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ fontWeight: 600 }}>{t.name}</div>
+                        {t.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{t.description}</div>}
+                      </button>
+                    ))}
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <button
+                      onClick={handleSaveAsTemplate}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                        padding: '8px 12px', border: 'none', borderRadius: 6, cursor: 'pointer',
+                        background: 'transparent', color: 'var(--purple)',
+                        fontSize: 12, fontWeight: 600, textAlign: 'left',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Save size={12} /> Save Current as Template
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={handleCreateJob}
                 style={{
@@ -1119,7 +1309,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               </button>
               {canWrite && (
                 <button
-                  onClick={addNewLineItem}
+                  onClick={() => addNewLineItem()}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)',
@@ -1129,11 +1319,45 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   }}
                 >
                   <Plus size={13} />
-                  Add New Line Item
+                  Add Line Item
                 </button>
               )}
             </div>
           </div>
+
+          {/* ── Product Quick-Add Bar ──────────────────────────────────────── */}
+          {products.length > 0 && canWrite && (
+            <div style={{
+              display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12,
+              padding: '10px 14px', background: 'var(--bg)', borderRadius: 10,
+              border: '1px solid var(--border)',
+            }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: 'var(--text3)',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                fontFamily: headingFont, display: 'flex', alignItems: 'center', gap: 4,
+                marginRight: 4,
+              }}>
+                <Package size={10} /> Quick Add
+              </span>
+              {products.slice(0, 10).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => addNewLineItem(p)}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer', border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text2)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Proposal mode options */}
           {proposalMode && (
@@ -1258,6 +1482,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   onToggleSection={(section) => toggleSection(li.id, section)}
                   leadType={leadType}
                   team={team}
+                  products={products}
+                  allItems={lineItemsList}
+                  onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
                 />
               ))}
             </div>
@@ -1485,6 +1712,21 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
       )}
+
+      {/* ── Area Calculator Modal ──────────────────────────────────── */}
+      <AreaCalculatorModal
+        isOpen={areaCalcOpen}
+        onClose={() => { setAreaCalcOpen(false); setAreaCalcItemId(null) }}
+        onUseSqft={(sqft) => {
+          if (areaCalcItemId) {
+            setLineItemsList(prev => prev.map(li => {
+              if (li.id !== areaCalcItemId) return li
+              return { ...li, specs: { ...li.specs, vinylArea: sqft } }
+            }))
+          }
+        }}
+        currentSqft={areaCalcItemId ? (lineItemsList.find(li => li.id === areaCalcItemId)?.specs?.vinylArea as number) : undefined}
+      />
 
       {/* ── Email Compose Modal ──────────────────────────────────────── */}
       <EmailComposeModal
@@ -1854,17 +2096,21 @@ function VehicleAutocomplete({
 function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
   expandedSections, onToggleSection, leadType, team,
+  products, allItems, onOpenAreaCalc,
 }: {
   item: LineItem; index: number; canWrite: boolean
   onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void
   expandedSections: Record<string, boolean>; onToggleSection: (section: string) => void
   leadType: string; team: Pick<Profile, 'id' | 'name' | 'role'>[]
+  products: { id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]
+  allItems: LineItem[]
+  onOpenAreaCalc: () => void
 }) {
   const latestRef = useRef(item)
   latestRef.current = item
 
   const [showDescription, setShowDescription] = useState(!!item.description)
-  const [isCardExpanded, setIsCardExpanded] = useState(true)
+  const [isCardExpanded, setIsCardExpanded] = useState(false)
 
   function updateField<K extends keyof LineItem>(key: K, value: LineItem[K]) {
     const updated = { ...latestRef.current, [key]: value }
@@ -1962,7 +2208,25 @@ function LineItemCard({
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {/* Collapsed summary: qty, GPM badge */}
+          {!isCardExpanded && (
+            <>
+              {item.quantity > 1 && (
+                <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: monoFont }}>
+                  x{item.quantity}
+                </span>
+              )}
+              <span style={{
+                display: 'inline-flex', padding: '2px 7px', borderRadius: 4,
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.05em',
+                fontFamily: headingFont, textTransform: 'uppercase' as const,
+                color: badge.color, background: badge.bg,
+              }}>
+                {fmtPercent(gpm.gpm)}
+              </span>
+            </>
+          )}
           <div style={{ textAlign: 'right' }}>
             <span style={{
               ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' },
@@ -2073,6 +2337,123 @@ function LineItemCard({
               </div>
             </div>
           </div>
+
+          {/* ── Product Selector + Quick Actions ─────────────────────── */}
+          {products.length > 0 && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 200px', maxWidth: 280 }}>
+                <label style={fieldLabelStyle}>
+                  <Package size={10} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+                  Product
+                </label>
+                <select
+                  value={(specs.productId as string) || ''}
+                  onChange={e => {
+                    const prod = products.find(p => p.id === e.target.value)
+                    if (!prod) return
+                    const calcToVT: Record<string, string> = { 'vehicle': '', 'box-truck': 'box_truck', 'trailer': 'trailer', 'marine': 'marine', 'ppf': 'ppf', 'simple': 'custom' }
+                    const calcToPT: Record<string, string> = { 'vehicle': 'wrap', 'box-truck': 'wrap', 'trailer': 'wrap', 'marine': 'decking', 'ppf': 'ppf', 'simple': 'wrap' }
+                    const updated: LineItem = {
+                      ...latestRef.current,
+                      name: prod.name,
+                      product_type: (calcToPT[prod.calculator_type] || 'wrap') as LineItem['product_type'],
+                      unit_price: prod.default_price || latestRef.current.unit_price,
+                      total_price: ((prod.default_price || latestRef.current.unit_price) * latestRef.current.quantity) - latestRef.current.unit_discount,
+                      specs: {
+                        ...latestRef.current.specs,
+                        productId: prod.id,
+                        calculatorType: prod.calculator_type,
+                        vehicleType: calcToVT[prod.calculator_type] || latestRef.current.specs.vehicleType,
+                        estimatedHours: prod.default_hours || latestRef.current.specs.estimatedHours,
+                      },
+                    }
+                    onChange(updated)
+                  }}
+                  style={fieldSelectStyle}
+                  disabled={!canWrite}
+                >
+                  <option value="">Select Product...</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.default_price > 0 ? ` ($${p.default_price})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={onOpenAreaCalc}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(34,211,238,0.3)',
+                  background: 'rgba(34,211,238,0.06)', color: 'var(--cyan)',
+                }}
+              >
+                <Ruler size={12} /> Area Calculator
+              </button>
+              <button
+                onClick={() => showToast('Design link -- select from Design Studio')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(139,92,246,0.3)',
+                  background: 'rgba(139,92,246,0.06)', color: 'var(--purple)',
+                }}
+              >
+                <Link2 size={12} /> Design Link
+              </button>
+              <button
+                onClick={() => showToast('Media gallery -- coming soon')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid rgba(245,158,11,0.3)',
+                  background: 'rgba(245,158,11,0.06)', color: 'var(--amber)',
+                }}
+              >
+                <Image size={12} /> Photos
+              </button>
+            </div>
+          )}
+
+          {/* ── Rollup toggle ────────────────────────────────────────────── */}
+          {allItems.length > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginTop: 8,
+              padding: '6px 10px', background: 'var(--bg)', borderRadius: 6,
+              border: '1px solid var(--border)',
+            }}>
+              <button
+                onClick={() => {
+                  if (!canWrite) return
+                  updateSpec('rolledUp', !specs.rolledUp)
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                  color: specs.rolledUp ? 'var(--green)' : 'var(--text3)', fontSize: 11, fontWeight: 600,
+                }}
+              >
+                {specs.rolledUp
+                  ? <ToggleRight size={16} style={{ color: 'var(--green)' }} />
+                  : <ToggleLeft size={16} />}
+                Roll up into parent
+              </button>
+              {specs.rolledUp && (
+                <select
+                  value={(specs.parentItemId as string) || ''}
+                  onChange={e => updateSpec('parentItemId', e.target.value)}
+                  style={{ ...fieldSelectStyle, fontSize: 11, padding: '3px 8px', flex: 1, maxWidth: 240 }}
+                  disabled={!canWrite}
+                >
+                  <option value="">Select parent item...</option>
+                  {allItems.filter(li => li.id !== item.id && !li.specs?.rolledUp).map(li => (
+                    <option key={li.id} value={li.id}>{li.name || 'Untitled'}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* ── Quick Specs Row ─────────────────────────────────────────── */}
           <div style={{
