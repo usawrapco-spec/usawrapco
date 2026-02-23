@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
+import WrapZoneSelector from '@/components/estimates/WrapZoneSelector'
+import DeckingCalculator from '@/components/estimates/DeckingCalculator'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -2669,6 +2671,36 @@ function LineItemCard({
             </div>
           )}
 
+          {/* ── Wrap Zone Selector (vehicle wraps with sqft data) ──────── */}
+          {isVehicleProduct && (specs.vinylArea as number) > 0 && !isBoatProduct && (
+            <div style={{ marginTop: 12 }}>
+              <WrapZoneSelector
+                specs={specs}
+                updateSpec={updateSpec}
+                canWrite={canWrite}
+                vehicleSqft={(specs.vinylArea as number) || 0}
+              />
+            </div>
+          )}
+
+          {/* ── Decking Calculator ──────────────────────────────────────── */}
+          {(calcType === 'decking' || isBoatProduct) && (
+            <div style={{ marginTop: 12 }}>
+              <DeckingCalculator
+                specs={specs}
+                updateSpec={updateSpec}
+                canWrite={canWrite}
+                onPriceUpdate={(totalPrice, materialCost, laborCost, totalSqft) => {
+                  const updated = { ...latestRef.current }
+                  updated.unit_price = totalPrice
+                  updated.total_price = (updated.quantity * totalPrice) - updated.unit_discount
+                  updated.specs = { ...updated.specs, materialCost, laborCost, vinylArea: totalSqft }
+                  onChange(updated)
+                }}
+              />
+            </div>
+          )}
+
           {/* ── Custom Product Calculator ──────────────────────────────── */}
           {specs.vehicleType === 'custom' && (
             <div style={{
@@ -3191,6 +3223,36 @@ function LineItemCard({
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Paintbrush size={11} style={{ color: 'var(--purple)' }} /> Material Totals
+                  </div>
+                  {/* Material type quick-select */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {([
+                      { key: 'avery_mpi1105', name: 'Avery MPI 1105', cost: 2.10 },
+                      { key: 'avery_mpi1005', name: 'Avery MPI 1005', cost: 1.85 },
+                      { key: '3m_2080', name: '3M 2080 Series', cost: 2.50 },
+                      { key: '3m_ij180', name: '3M IJ180', cost: 2.30 },
+                      { key: 'avery_supreme', name: 'Avery Supreme', cost: 2.75 },
+                      { key: 'arlon_slx', name: 'Arlon SLX', cost: 2.20 },
+                      { key: 'hexis', name: 'Hexis Skintac', cost: 2.00 },
+                    ]).map(mat => {
+                      const selected = specs.vinylType === mat.name
+                      return (
+                        <button key={mat.key} onClick={() => {
+                          if (!canWrite) return
+                          updateSpec('vinylType', mat.name)
+                          const sqft = (specs.vinylArea as number) || 0
+                          if (sqft > 0) updateSpec('materialCost', Math.round(sqft * mat.cost * 100) / 100)
+                        }} style={{
+                          padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                          cursor: canWrite ? 'pointer' : 'default',
+                          border: selected ? '2px solid var(--purple)' : '1px solid var(--border)',
+                          background: selected ? 'rgba(139,92,246,0.08)' : 'transparent',
+                          color: selected ? 'var(--purple)' : 'var(--text3)',
+                        }}>
+                          {mat.name} <span style={{ fontFamily: monoFont }}>${mat.cost}</span>/sqft
+                        </button>
+                      )
+                    })}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
                     <div>
