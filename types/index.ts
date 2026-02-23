@@ -292,7 +292,7 @@ export interface Estimate {
 
 export interface LineItem {
   id: string
-  parent_type: 'estimate' | 'sales_order' | 'invoice'
+  parent_type: 'estimate' | 'sales_order' | 'invoice' | 'project'
   parent_id: string
   product_type: ProjectType
   name: string

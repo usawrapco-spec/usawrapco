@@ -18,6 +18,7 @@ import InstallTimer from '@/components/install/InstallTimer'
 import IntakeLinkGenerator from '@/components/customer/IntakeLinkGenerator'
 import ReferralPanel from '@/components/referral/ReferralPanel'
 import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
+import SalesTabBuilder from '@/components/projects/SalesTabBuilder'
 
 interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -603,7 +604,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ═══ SALES TAB ═══ */}
           {tab === 'sales' && (
-            <SalesTab f={f} ff={ff} jobType={jobType} setJobType={setJobTypeState} subType={subType} setSubType={setSubTypeState} selectedVehicle={selectedVehicle} setSelectedVehicle={setSelectedVehicle} wrapDetail={wrapDetail} setWrapDetail={setWrapDetail} selectedSides={selectedSides} setSelectedSides={setSelectedSides} selectedPPF={selectedPPF} setSelectedPPF={setSelectedPPF} calcSqft={calcSqft} fin={fin} canFinance={canFinance} teammates={teammates} profile={profile} project={project} />
+            <SalesTabBuilder profile={profile} project={project} teammates={teammates} />
           )}
 
           {/* ═══ DESIGN TAB ═══ */}
