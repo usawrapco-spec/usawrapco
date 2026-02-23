@@ -774,8 +774,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 180, zIndex: 100,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Standard PDF" onClick={() => { setPdfMenuOpen(false); window.print() }} />
-                <MenuButton icon={<DollarSign size={13} />} label="With Pricing" onClick={() => { setPdfMenuOpen(false); window.print() }} />
+                <MenuButton icon={<FileText size={13} />} label="Branded PDF" onClick={() => { setPdfMenuOpen(false); window.open(`/api/estimates/pdf?id=${estimateId}`, '_blank') }} />
+                <MenuButton icon={<DollarSign size={13} />} label="Quick Print" onClick={() => { setPdfMenuOpen(false); window.print() }} />
                 <MenuButton icon={<Layers size={13} />} label="Proposal View" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
