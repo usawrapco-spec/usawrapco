@@ -31,7 +31,16 @@ async function getReplicateToken(req: NextRequest): Promise<string | null> {
       .eq('enabled', true)
       .single()
 
-    return integration?.config?.api_token || null
+    if (integration?.config?.api_token) return integration.config.api_token
+
+    // Third fallback: orgs.settings.integrations.replicate.api_token
+    const { data: org } = await admin
+      .from('orgs')
+      .select('settings')
+      .eq('id', profile.org_id)
+      .single()
+
+    return (org?.settings as any)?.integrations?.replicate?.api_token || null
   } catch {
     return null
   }

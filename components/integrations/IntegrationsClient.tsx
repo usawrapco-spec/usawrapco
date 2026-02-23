@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import {
-  Link, CheckCircle, XCircle, Settings, ExternalLink, Zap,
-  MessageSquare, BarChart3, CreditCard, Mail, Phone, Globe,
-  ChevronRight, AlertCircle, RefreshCw,
+  CheckCircle, XCircle, ExternalLink,
+  RefreshCw,
 } from 'lucide-react'
 
 interface Props {
@@ -154,7 +152,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 export default function IntegrationsClient({ profile, initialIntegrations }: Props) {
-  const supabase = createClient()
   const [configs, setConfigs] = useState<Record<string, Record<string, string>>>(() => {
     const c: Record<string, Record<string, string>> = {}
     initialIntegrations.forEach((i: any) => {
@@ -166,53 +163,43 @@ export default function IntegrationsClient({ profile, initialIntegrations }: Pro
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   function startEdit(integId: string) {
     setActiveEdit(integId)
     setFormValues(configs[integId] || {})
+    setSaveError(null)
   }
 
   async function saveIntegration(integId: string) {
     setSaving(true)
+    setSaveError(null)
     try {
-      const { data: existing } = await supabase
-        .from('integrations')
-        .select('id')
-        .eq('org_id', profile.org_id)
-        .eq('integration_id', integId)
-        .single()
+      const res = await fetch('/api/integrations/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrationId: integId, config: formValues, enabled: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
 
-      if (existing) {
-        await supabase.from('integrations').update({
-          config: formValues,
-          enabled: true,
-          updated_at: new Date().toISOString(),
-        }).eq('id', existing.id)
-      } else {
-        await supabase.from('integrations').insert({
-          org_id: profile.org_id,
-          integration_id: integId,
-          config: formValues,
-          enabled: true,
-        })
-      }
       setConfigs(prev => ({ ...prev, [integId]: formValues }))
       setActiveEdit(null)
       setSaved(integId)
       setTimeout(() => setSaved(null), 3000)
-    } catch (e) {
-      // Gracefully fail - integrations table may not exist yet
-      setConfigs(prev => ({ ...prev, [integId]: formValues }))
-      setActiveEdit(null)
-      setSaved(integId)
-      setTimeout(() => setSaved(null), 3000)
+    } catch (e: any) {
+      setSaveError(e.message || 'Failed to save. Please try again.')
     }
     setSaving(false)
   }
 
   async function disableIntegration(integId: string) {
     try {
-      await supabase.from('integrations').update({ enabled: false }).eq('integration_id', integId).eq('org_id', profile.org_id)
+      await fetch('/api/integrations/save', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrationId: integId }),
+      })
     } catch {}
     setConfigs(prev => {
       const next = { ...prev }
@@ -370,6 +357,15 @@ export default function IntegrationsClient({ profile, initialIntegrations }: Pro
                           </div>
                         ))}
                       </div>
+                      {saveError && (
+                        <div style={{
+                          marginTop: 10, padding: '8px 12px', borderRadius: 7,
+                          background: 'rgba(242,90,90,0.08)', border: '1px solid rgba(242,90,90,0.25)',
+                          fontSize: 12, color: 'var(--red)',
+                        }}>
+                          {saveError}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
                         {integ.docsUrl && (
                           <a href={integ.docsUrl} target="_blank" rel="noopener noreferrer" style={{
@@ -401,16 +397,15 @@ export default function IntegrationsClient({ profile, initialIntegrations }: Pro
         </div>
       ))}
 
-      {/* Note */}
+      {/* Info bar */}
       <div style={{
         marginTop: 8, padding: '12px 16px', borderRadius: 10,
-        background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+        background: 'rgba(34,192,122,0.06)', border: '1px solid rgba(34,192,122,0.2)',
         display: 'flex', alignItems: 'flex-start', gap: 8,
       }}>
-        <AlertCircle size={14} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
+        <CheckCircle size={14} style={{ color: 'var(--green)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-          <strong style={{ color: 'var(--amber)' }}>Note:</strong> Integrations require API keys in your environment variables to fully function.
-          Saving a config here stores credentials for the app to use. Integrations without keys degrade gracefully — they never crash the app.
+          API keys are saved securely to your organization settings. No environment variables required — manage all integrations from this page.
         </div>
       </div>
     </div>
