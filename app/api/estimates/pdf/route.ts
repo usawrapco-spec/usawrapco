@@ -145,6 +145,17 @@ export async function GET(req: NextRequest) {
       : 'font-size:13px;color:#e8eaed;font-weight:700;'
     const descStyle = 'font-size:11px;color:#5a6080;margin-top:2px;line-height:1.4;'
     const numStyle = 'font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;'
+    const metaStyle = 'font-size:10px;color:#5a6080;margin-top:3px;'
+    const s = li.specs || {} as Record<string, unknown>
+
+    // Build metadata lines
+    const metaLines: string[] = []
+    const vYear = s.vehicleYear as string, vMake = s.vehicleMake as string, vModel = s.vehicleModel as string
+    if (vMake && vModel) metaLines.push(`Vehicle: ${esc([vYear, vMake, vModel].filter(Boolean).join(' '))}`)
+    if (s.vinylType) metaLines.push(`Material: ${esc(s.vinylType as string)}`)
+    const zones = s.selectedZones as string[] | undefined
+    if (zones && zones.length > 0) metaLines.push(`Coverage: ${zones.map(z => esc(z)).join(', ')}`)
+    if (s.vinylArea) metaLines.push(`Area: ${s.vinylArea} sqft`)
 
     return `
       <tr style="border-bottom:1px solid #2a2d3a;">
@@ -152,6 +163,7 @@ export async function GET(req: NextRequest) {
         <td style="padding:12px 14px;${indent}vertical-align:top;">
           <div style="${nameStyle}">${esc(li.name)}</div>
           ${li.description ? `<div style="${descStyle}">${esc(li.description)}</div>` : ''}
+          ${metaLines.length > 0 ? `<div style="${metaStyle}">${metaLines.join(' &nbsp;&bull;&nbsp; ')}</div>` : ''}
         </td>
         <td style="padding:12px 14px;text-align:center;${numStyle}color:#e8eaed;font-size:13px;vertical-align:top;">${li.quantity}</td>
         <td style="padding:12px 14px;text-align:right;${numStyle}color:#9299b5;font-size:13px;vertical-align:top;">${fmtMoney(li.unit_price)}</td>
@@ -512,8 +524,8 @@ export async function GET(req: NextRequest) {
     <div class="logo-block">
       <div class="logo">USA <span class="logo-accent">WRAP</span> CO</div>
       <div class="company-info">
-        5678 Wrap Dr, Tacoma WA 98402<br/>
-        (253) 555-WRAP<br/>
+        4124 124th St NW, Gig Harbor, WA 98332<br/>
+        (253) 460-3125<br/>
         <a href="mailto:info@usawrapco.com">info@usawrapco.com</a><br/>
         <a href="https://usawrapco.com">usawrapco.com</a>
       </div>
@@ -609,6 +621,43 @@ export async function GET(req: NextRequest) {
     <p>${esc(est.customer_note)}</p>
   </div>` : ''}
 
+  <!-- ═══════════════ NEXT STEPS ═══════════════ -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-bottom:28px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px;">
+      Next Steps
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;">1</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">Review & Approve</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Review this estimate and let us know if you have any questions or changes.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;">2</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">50% Deposit</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Once approved, a 50% deposit is required to lock in your production date and order materials.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;">3</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">Design & Production</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">We design your wrap, send a proof for your approval, then print and laminate the graphics.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;">4</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">Install & Final Payment</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">Drop off your vehicle for install (typically 2-5 days). Remaining balance is due at pickup.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ TERMS ═══════════════ -->
   <div class="terms">
     <div class="terms-title">Terms & Conditions</div>
@@ -625,7 +674,7 @@ export async function GET(req: NextRequest) {
   <!-- ═══════════════ FOOTER ═══════════════ -->
   <div class="footer">
     <strong>USA WRAP CO</strong><br/>
-    5678 Wrap Dr, Tacoma WA 98402 &nbsp;|&nbsp; (253) 555-WRAP &nbsp;|&nbsp; info@usawrapco.com &nbsp;|&nbsp; usawrapco.com
+    4124 124th St NW, Gig Harbor, WA 98332 &nbsp;|&nbsp; (253) 460-3125 &nbsp;|&nbsp; info@usawrapco.com &nbsp;|&nbsp; usawrapco.com
   </div>
 </div>
 
