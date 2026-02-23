@@ -8,8 +8,9 @@ import {
   Layers, Mail, Calendar, User, Users, Briefcase, DollarSign,
   ClipboardList, Activity,
   ToggleLeft, ToggleRight, Wrench, CircleDot,
-  TrendingUp, Calculator, Settings,
+  TrendingUp, Calculator, Settings, Sparkles, ImageIcon,
 } from 'lucide-react'
+import MockupCreator from '@/components/estimates/MockupCreator'
 import type { Profile, Project, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
@@ -214,6 +215,12 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
 
+  // Initial Concepts
+  const [showConceptCreator, setShowConceptCreator] = useState(false)
+  const [savedConcepts, setSavedConcepts] = useState<string[]>((fd.initialConcepts as string[]) || [])
+  const [conceptsSentAt, setConceptsSentAt] = useState<string | null>(fd.conceptsSentAt || null)
+  const [conceptSpecs, setConceptSpecs] = useState<Record<string, unknown>>({})
+
   // Collapsible sections per line item
   const [expandedSections, setExpandedSections] = useState<Record<string, Record<string, boolean>>>({})
 
@@ -366,12 +373,64 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
     setLineItemsList(prev => prev.filter(x => x.id !== id))
   }
 
+  // ─── Initial Concepts handlers ──────────────────────────────────────────────
+  function updateConceptSpec(key: string, value: unknown) {
+    setConceptSpecs(prev => ({ ...prev, [key]: value }))
+    // If a mockup URL is set, save to savedConcepts
+    if (key === 'mockupUrl' && typeof value === 'string') {
+      setSavedConcepts(prev => prev.includes(value) ? prev : [...prev, value])
+    }
+    if (key === 'mockupSelected' && value === true) {
+      // Persist to project form_data
+      const url = conceptSpecs.mockupUrl as string | undefined
+      if (url) {
+        const allConcepts = savedConcepts.includes(url) ? savedConcepts : [...savedConcepts, url]
+        setSavedConcepts(allConcepts)
+        supabase.from('projects').update({
+          form_data: { ...fd, initialConcepts: allConcepts },
+          updated_at: new Date().toISOString(),
+        }).eq('id', project.id).then(() => showToast('Concept saved to job'))
+      }
+    }
+  }
+
+  async function handleSendConcepts() {
+    if (savedConcepts.length === 0) { showToast('No concepts saved yet'); return }
+    const sentAt = new Date().toISOString()
+    await supabase.from('projects').update({
+      form_data: { ...fd, initialConcepts: savedConcepts, conceptsSentAt: sentAt },
+      updated_at: new Date().toISOString(),
+    }).eq('id', project.id)
+    setConceptsSentAt(sentAt)
+    showToast('Portal link ready — share with customer')
+  }
+
+  async function handleRemoveConcept(url: string) {
+    const updated = savedConcepts.filter(c => c !== url)
+    setSavedConcepts(updated)
+    await supabase.from('projects').update({
+      form_data: { ...fd, initialConcepts: updated },
+      updated_at: new Date().toISOString(),
+    }).eq('id', project.id)
+  }
+
   // Team helpers
   const findTeamMember = (id: string | null) => id ? team.find(t => t.id === id) : null
 
   // Customer info from project
   const customerName = (project as any).customer?.name || fd.clientName || fd.client || project.title || ''
   const customerEmail = (project as any).customer?.email || fd.clientEmail || fd.email || ''
+
+  // Vehicle info for MockupCreator (first line item vehicle or project title)
+  const conceptVehicleInfo = (() => {
+    const li = lineItemsList[0]
+    if (!li) return project.title || 'Commercial Vehicle'
+    const s = li.specs as any
+    if (s?.vehicleYear && s?.vehicleMake && s?.vehicleModel) return `${s.vehicleYear} ${s.vehicleMake} ${s.vehicleModel}`
+    if (s?.vehicleMake && s?.vehicleModel) return `${s.vehicleMake} ${s.vehicleModel}`
+    if (s?.vehicleCategory) return s.vehicleCategory.replace(/_/g, ' ')
+    return li.name || project.title || 'Commercial Vehicle'
+  })()
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -880,6 +939,103 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
               </div>
             </div>
           </div>
+
+          {/* ── Initial Concepts ──────────────────────────────────────────── */}
+          <div style={{ marginTop: 24, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)' }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '14px 18px', borderBottom: savedConcepts.length > 0 ? '1px solid var(--border)' : 'none',
+              background: 'rgba(139,92,246,0.05)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Sparkles size={15} style={{ color: 'var(--purple)' }} />
+                <span style={{ fontSize: 13, fontWeight: 800, fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text1)' }}>
+                  Initial Concepts
+                </span>
+                {conceptsSentAt && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.25)', borderRadius: 20, padding: '2px 8px' }}>
+                    Concepts sent — awaiting customer selection
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {savedConcepts.length > 0 && (
+                  <button
+                    onClick={handleSendConcepts}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
+                      background: conceptsSentAt ? 'rgba(34,192,122,0.1)' : 'rgba(34,192,122,0.12)',
+                      border: '1px solid rgba(34,192,122,0.35)',
+                      color: 'var(--green)',
+                    }}
+                  >
+                    <Send size={11} />
+                    {conceptsSentAt ? 'Resend Portal Link' : 'Send Concepts to Customer'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowConceptCreator(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700,
+                    cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
+                    background: 'linear-gradient(135deg, rgba(79,127,255,0.15), rgba(139,92,246,0.15))',
+                    border: '1px solid rgba(139,92,246,0.35)',
+                    color: 'var(--purple)',
+                  }}
+                >
+                  <Sparkles size={11} />
+                  Generate Initial Concepts
+                </button>
+              </div>
+            </div>
+
+            {/* Concepts grid */}
+            {savedConcepts.length === 0 ? (
+              <div style={{ padding: '32px 20px', textAlign: 'center' }}>
+                <ImageIcon size={28} style={{ color: 'var(--text3)', margin: '0 auto 10px', display: 'block' }} />
+                <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>No concepts generated yet</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Generate quick concepts during the sales call — customer picks direction before design starts.</div>
+              </div>
+            ) : (
+              <div style={{ padding: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                  {savedConcepts.map((url, i) => (
+                    <div key={i} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <img src={url} alt={`Concept ${i + 1}`} style={{ width: '100%', display: 'block' }} />
+                      <div style={{
+                        position: 'absolute', bottom: 0, left: 0, right: 0,
+                        padding: '4px 8px', background: 'rgba(0,0,0,0.65)',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: headingFont }}>Concept {i + 1}</span>
+                        <button
+                          onClick={() => handleRemoveConcept(url)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: 2, display: 'flex' }}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setShowConceptCreator(true)}
+                    style={{
+                      minHeight: 120, borderRadius: 8, border: '1px dashed var(--border)',
+                      background: 'var(--surface2)', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}
+                  >
+                    <Plus size={18} style={{ color: 'var(--text3)' }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', fontFamily: headingFont, textTransform: 'uppercase' }}>Add More</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1086,6 +1242,16 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
         estimateTotal={total}
         vehicleDescription={project.vehicle_desc || title}
         type={emailModalType}
+      />
+
+      {/* ── Concept Creator Modal ──────────────────────────────────────── */}
+      <MockupCreator
+        isOpen={showConceptCreator}
+        onClose={() => setShowConceptCreator(false)}
+        lineItemId={lineItemsList[0]?.id || project.id}
+        specs={conceptSpecs}
+        updateSpec={updateConceptSpec}
+        vehicleInfo={conceptVehicleInfo}
       />
 
       {/* ── Toast ──────────────────────────────────────────────────────── */}
