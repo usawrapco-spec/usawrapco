@@ -10,14 +10,36 @@ export default function LoginPage({
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <Truck size={30} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 32, fontWeight: 900, letterSpacing: '-.01em', color: 'var(--text1)' }}>
-              USA WRAP CO
-            </span>
+          <img
+            src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+            alt="USA Wrap Co"
+            style={{
+              height: 80,
+              width: 'auto',
+              margin: '0 auto 12px',
+              display: 'block',
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://usawrapco.com/wp-content/uploads/2025/10/cropped-main_logo-removebg-preview.png'
+            }}
+          />
+          <div style={{
+            fontSize: 15,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            color: 'var(--text2)',
+            marginBottom: 4,
+          }}>
+            American Craftsmanship You Can Trust™
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--text3)', textTransform: 'uppercase' }}>
-            Operations Platform
+          <div style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '.1em',
+            color: 'var(--text3)',
+            textTransform: 'uppercase',
+          }}>
+            WrapShop Pro v6.0
           </div>
         </div>
 

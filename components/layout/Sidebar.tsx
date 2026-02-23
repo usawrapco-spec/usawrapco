@@ -332,34 +332,45 @@ export function Sidebar({ profile }: SidebarProps) {
       }}>
 
         {/* ── Logo ─────────────────────────────────────────── */}
-        <div style={{
-          padding: '14px 16px',
+        <Link href="/dashboard" style={{
+          padding: '16px',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 10,
+          gap: 8,
           flexShrink: 0,
+          textDecoration: 'none',
+          cursor: 'pointer',
         }}>
-          <Truck size={20} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <div>
+          <img
+            src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp"
+            alt="USA Wrap Co"
+            style={{
+              height: 48,
+              width: 'auto',
+              objectFit: 'contain',
+            }}
+            onError={(e) => {
+              // Fallback to backup logo if main logo fails
+              (e.target as HTMLImageElement).src = 'https://usawrapco.com/wp-content/uploads/2025/10/cropped-main_logo-removebg-preview.png'
+            }}
+          />
+          <div style={{ textAlign: 'center' }}>
             <div style={{
               fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: 900,
-              letterSpacing: '-0.02em',
               color: 'var(--text1)',
               lineHeight: 1,
             }}>
-              USA WRAP CO
+              WrapShop Pro
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
-              Ops Platform
-              <span style={{ marginLeft: 4, color: 'var(--accent)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' }}>
-                v6.1
-              </span>
+            <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
+              v6.0
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* ── New Estimate button ───────────────────────────── */}
         {(isAdmin || hasPermission(profile.role, 'jobs.write')) && (
