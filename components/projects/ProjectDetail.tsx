@@ -787,6 +787,68 @@ function SimilarPhotosPanel({ vehicleType, wrapType, description }: { vehicleTyp
   )
 }
 
+function LinkedEstimatePanel({ project }: { project: any }) {
+  const supabase = createClient()
+  const router = useRouter()
+  const [estimates, setEstimates] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const estId = project.form_data?.estimateId
+    if (estId) {
+      supabase.from('estimates').select('id, estimate_number, title, status, total, subtotal, created_at').eq('id', estId)
+        .then(({ data }) => { if (data) setEstimates(data); setLoading(false) })
+    } else {
+      supabase.from('estimates').select('id, estimate_number, title, status, total, subtotal, created_at').eq('org_id', project.org_id).ilike('title', `%${project.title || ''}%`).limit(5)
+        .then(({ data }) => { if (data) setEstimates(data); setLoading(false) })
+    }
+  }, [project.id])
+
+  const statusColors: Record<string, string> = {
+    draft: '#5a6080', sent: '#4f7fff', accepted: '#22c07a', expired: '#f59e0b', rejected: '#f25a5a', void: '#5a6080',
+  }
+
+  return (
+    <Section label="Linked Estimates" color="#4f7fff">
+      {loading ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Loading estimates...</div>
+      ) : estimates.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {estimates.map(est => (
+            <div key={est.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer' }}
+              onClick={() => router.push(`/estimates/${est.id}`)}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
+                  <span style={{ color: 'var(--text3)', fontWeight: 600 }}>QT</span> #{est.estimate_number} — {est.title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                  Created {new Date(est.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>
+                  {fM(est.total || 0)}
+                </span>
+                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, background: `${statusColors[est.status] || '#5a6080'}18`, color: statusColors[est.status] || '#5a6080' }}>
+                  {est.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>No linked estimates found for this job.</div>
+      )}
+      <button
+        onClick={() => router.push('/estimates/new')}
+        style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)', color: 'var(--green)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+      >
+        + Create New Estimate
+      </button>
+    </Section>
+  )
+}
+
 function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project }: any) {
   const isVehicle = jobType === 'Commercial' && subType === 'Vehicle'
   const isBox = jobType === 'Commercial' && subType === 'Box Truck'
@@ -798,6 +860,9 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Linked Estimates */}
+      <LinkedEstimatePanel project={project} />
+
       {/* Client Info */}
       <Section label="Client Info">
         <Grid cols={3}>

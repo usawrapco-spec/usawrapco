@@ -8,7 +8,7 @@ import {
   ArrowRight, Copy, AlertTriangle, MoreHorizontal, FileDown, Ban,
   Layers, Mail, Calendar, User, Users, Briefcase, DollarSign,
   ClipboardList, Activity,
-  Link2, ToggleLeft, ToggleRight, Image, Wrench, CircleDot,
+  ToggleLeft, ToggleRight, Wrench, CircleDot,
   TrendingUp, Calculator, Settings,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
@@ -55,7 +55,7 @@ const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: 
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'tasks' | 'assets' | 'notes' | 'related' | 'emails' | 'activity'
+type TabKey = 'items' | 'design' | 'production' | 'install' | 'notes' | 'activity'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
@@ -258,6 +258,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [taxRate, setTaxRate] = useState(est.tax_rate)
   const [quoteDate, setQuoteDate] = useState(est.quote_date || '')
   const [dueDate, setDueDate] = useState(est.due_date || '')
+  const [installDate, setInstallDate] = useState((est.form_data?.installDate as string) || '')
   const [lineItemsList, setLineItemsList] = useState<LineItem[]>(initialLineItems)
   const [activeTab, setActiveTab] = useState<TabKey>('items')
   const [saving, setSaving] = useState(false)
@@ -341,7 +342,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         sales_rep_id: salesRepId || null,
         production_manager_id: prodMgrId || null,
         project_manager_id: projMgrId || null,
-        form_data: { ...est.form_data, leadType, proposalOptions: proposalMode ? proposalOptions : undefined },
+        form_data: { ...est.form_data, leadType, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined },
       }
       if (!savedId) {
         // First save — create estimate in DB
@@ -490,6 +491,47 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     }
   }
 
+  async function handleCreateJob() {
+    if (!canWrite) return
+    showToast('Creating job...')
+    try {
+      const firstWrap = lineItemsList.find(li => li.product_type === 'wrap' || li.product_type === 'ppf')
+      const specs = firstWrap?.specs || {}
+      const vDesc = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel, specs.vehicleColor ? `- ${specs.vehicleColor}` : ''].filter(Boolean).join(' ').trim() || null
+      const { data, error } = await supabase.from('projects').insert({
+        org_id: est.org_id || profile.org_id,
+        type: 'wrap',
+        title: est.title || 'Untitled Job',
+        status: 'estimate',
+        agent_id: salesRepId || profile.id,
+        division: 'wraps',
+        pipe_stage: 'sales_in',
+        vehicle_desc: vDesc,
+        install_date: installDate || null,
+        priority: 'normal',
+        revenue: total,
+        fin_data: { sales: total, revenue: total, cogs: 0, profit: total, gpm: 100, commission: 0, labor: 0, laborHrs: 0, material: 0, designFee: 0, misc: 0 },
+        form_data: {
+          clientName: est.customer?.name || est.title,
+          clientEmail: est.customer?.email || '',
+          estimateId: isDemo ? null : estimateId,
+          notes: notes,
+        },
+        actuals: {},
+        checkout: {},
+        send_backs: [],
+      }).select().single()
+      if (error) throw error
+      if (data) {
+        showToast('Job created!')
+        router.push(`/projects/${data.id}/edit`)
+      }
+    } catch (err) {
+      console.error('Create Job error:', err)
+      showToast('Error creating job')
+    }
+  }
+
   function addNewLineItem() {
     const newItem: LineItem = {
       id: `new-${Date.now()}`, parent_type: 'estimate', parent_id: estimateId,
@@ -622,20 +664,52 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             Email PDF
           </button>
 
-          {/* Send to Customer */}
-          <button
-            onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--accent)', border: 'none',
-              borderRadius: 8, padding: '8px 14px', color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              fontFamily: headingFont, letterSpacing: '0.03em',
-            }}
-          >
-            <Send size={14} />
-            Send to Customer
-          </button>
+          {/* Status-based action button */}
+          {status === 'draft' && (
+            <button
+              onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--accent)', border: 'none',
+                borderRadius: 8, padding: '8px 14px', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <Send size={14} />
+              Send Quote
+            </button>
+          )}
+          {status === 'sent' && (
+            <button
+              onClick={() => handleStatusChange('accepted')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--green)', border: 'none',
+                borderRadius: 8, padding: '8px 14px', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <CheckCircle2 size={14} />
+              Mark Accepted
+            </button>
+          )}
+          {status === 'accepted' && (
+            <button
+              onClick={handleConvertToSO}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--green)', border: 'none',
+                borderRadius: 8, padding: '8px 14px', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <ArrowRight size={14} />
+              Convert to Sales Order
+            </button>
+          )}
 
           {/* ... More menu */}
           <div ref={moreMenuRef} style={{ position: 'relative' }}>
@@ -826,6 +900,16 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 />
               </div>
               <div>
+                <label style={{ fontSize: 11, color: 'var(--text3)' }}>Install Date</label>
+                <input
+                  type="date"
+                  value={installDate}
+                  onChange={e => setInstallDate(e.target.value)}
+                  disabled={!canWrite}
+                  style={{ ...fieldInputStyle, padding: '4px 8px', fontSize: 12 }}
+                />
+              </div>
+              <div>
                 <label style={{ fontSize: 11, color: 'var(--text3)' }}>Due Date</label>
                 <input
                   type="date"
@@ -942,11 +1026,10 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
-          { key: 'tasks' as TabKey, label: 'Tasks' },
-          { key: 'assets' as TabKey, label: 'Assets' },
+          { key: 'design' as TabKey, label: 'Design' },
+          { key: 'production' as TabKey, label: 'Production' },
+          { key: 'install' as TabKey, label: 'Install' },
           { key: 'notes' as TabKey, label: 'Notes' },
-          { key: 'related' as TabKey, label: 'Related' },
-          { key: 'emails' as TabKey, label: 'Emails' },
           { key: 'activity' as TabKey, label: 'Activity' },
         ]).map(tab => (
           <button
@@ -999,26 +1082,25 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={() => showToast('Create Job coming soon')}
+                onClick={handleCreateJob}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '7px 14px', color: 'var(--text1)',
+                  background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
+                  borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
                   fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   fontFamily: headingFont, letterSpacing: '0.03em',
                 }}
               >
                 <Briefcase size={13} />
                 Create Job
-                <ChevronDown size={11} style={{ color: 'var(--text3)' }} />
               </button>
               {canWrite && (
                 <button
                   onClick={addNewLineItem}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
-                    borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
+                    background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)',
+                    borderRadius: 8, padding: '7px 14px', color: 'var(--green)',
                     fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     fontFamily: headingFont, letterSpacing: '0.03em',
                   }}
@@ -1228,11 +1310,124 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
       )}
 
-      {activeTab === 'tasks' && (
-        <PlaceholderTab icon={<ClipboardList size={28} />} label="Tasks" description="Task management for this estimate will appear here." />
+      {activeTab === 'design' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
+              <Paintbrush size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Design Notes
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {lineItemsList.map((li, idx) => (
+                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    {li.name || `Line Item ${idx + 1}`}
+                  </div>
+                  <textarea
+                    value={li.specs?.designDetails || ''}
+                    onChange={e => {
+                      const updated = [...lineItemsList]
+                      updated[idx] = { ...li, specs: { ...li.specs, designDetails: e.target.value } }
+                      setLineItemsList(updated)
+                    }}
+                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
+                    disabled={!canWrite}
+                    placeholder="Design instructions, colors, branding, files needed..."
+                    rows={5}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+            {lineItemsList.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                No line items yet. Add items in the Items tab to enter design notes.
+              </div>
+            )}
+          </div>
+        </div>
       )}
-      {activeTab === 'assets' && (
-        <PlaceholderTab icon={<Image size={28} />} label="Assets" description="File uploads, photos, and assets for this estimate." />
+      {activeTab === 'production' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
+              <Settings size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Production Notes
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {lineItemsList.map((li, idx) => (
+                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    {li.name || `Line Item ${idx + 1}`}
+                  </div>
+                  <textarea
+                    value={li.specs?.productionDetails || ''}
+                    onChange={e => {
+                      const updated = [...lineItemsList]
+                      updated[idx] = { ...li, specs: { ...li.specs, productionDetails: e.target.value } }
+                      setLineItemsList(updated)
+                    }}
+                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
+                    disabled={!canWrite}
+                    placeholder="Print specs, material handling, lamination, cut notes..."
+                    rows={5}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+            {lineItemsList.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                No line items yet. Add items in the Items tab to enter production notes.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {activeTab === 'install' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
+              <Wrench size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Install Notes
+            </div>
+            {installDate && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', background: 'rgba(34,192,122,0.06)', borderRadius: 8, border: '1px solid rgba(34,192,122,0.15)' }}>
+                <Calendar size={13} style={{ color: 'var(--green)' }} />
+                <span style={{ fontSize: 13, color: 'var(--text1)' }}>
+                  Install Date: <strong style={{ fontFamily: monoFont }}>{new Date(installDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {lineItemsList.map((li, idx) => (
+                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    {li.name || `Line Item ${idx + 1}`}
+                  </div>
+                  <textarea
+                    value={li.specs?.installDetails || ''}
+                    onChange={e => {
+                      const updated = [...lineItemsList]
+                      updated[idx] = { ...li, specs: { ...li.specs, installDetails: e.target.value } }
+                      setLineItemsList(updated)
+                    }}
+                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
+                    disabled={!canWrite}
+                    placeholder="Install instructions, special considerations, access notes..."
+                    rows={5}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
+                  />
+                </div>
+              ))}
+            </div>
+            {lineItemsList.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
+                No line items yet. Add items in the Items tab to enter install notes.
+              </div>
+            )}
+          </div>
+        </div>
       )}
       {activeTab === 'notes' && (
         <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 16 }}>
@@ -1263,12 +1458,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
         </div>
-      )}
-      {activeTab === 'related' && (
-        <PlaceholderTab icon={<Link2 size={28} />} label="Related" description="Linked sales orders, invoices, and projects." />
-      )}
-      {activeTab === 'emails' && (
-        <PlaceholderTab icon={<Mail size={28} />} label="Emails" description="Email history for this estimate." />
       )}
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
