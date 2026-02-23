@@ -1,0 +1,1 @@
+Read REQUIREMENTS.md with grep. NEVER ask questions. Build Job Board kanban. Build 5-stage approval. Build commission engine. Build customer onboarding Stripe. Build customer portal. Build proofing portal. Build unified inbox. Build contact management. npm run build zero errors. git add -A && git commit -m sprint3 && git push.

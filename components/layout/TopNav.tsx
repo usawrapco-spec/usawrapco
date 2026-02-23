@@ -25,7 +25,7 @@ interface DropdownItem {
 
 // ─── Nav definitions ──────────────────────────────────────────────────────────
 const QUICK_CREATE: DropdownItem[] = [
-  { href: '/estimates?new=true', label: 'New Estimate',  icon: FileText },
+  { href: '/estimates/new', label: 'New Estimate',  icon: FileText },
   { href: '/jobs?new=true',     label: 'New Job',       icon: Briefcase },
   { href: '/customers?new=true',label: 'New Customer',  icon: Users },
   { href: '/tasks?new=true',    label: 'New Task',      icon: CheckSquare },

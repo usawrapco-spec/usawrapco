@@ -104,6 +104,7 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
   const [estimates] = useState<Estimate[]>(allEstimates)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<TabFilter>('all')
+  const [creating, setCreating] = useState(false)
 
   const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
 
@@ -134,7 +135,8 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
   }, [estimates])
 
   function handleCreate() {
-    if (!canWrite) return
+    if (!canWrite || creating) return
+    setCreating(true)
     router.push('/estimates/new')
   }
 
