@@ -11,6 +11,7 @@ import {
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
+  Bot, Building2,
   type LucideIcon,
 } from 'lucide-react'
 import GenieFAB from '@/components/genie/GenieFAB'
@@ -55,7 +56,8 @@ const SETTINGS_ITEMS: DropdownItem[] = [
   { href: '/timeclock',         label: 'Time Clock',       icon: Clock },
   { href: '/integrations',      label: 'Integrations',     icon: Zap },
   { href: '/shop',              label: 'Online Shop',      icon: ShoppingCart },
-  { href: '/enterprise',        label: 'Enterprise Hub',   icon: HelpCircle },
+  { href: '/settings/ai',       label: 'AI Settings',      icon: Bot },
+  { href: '/enterprise',        label: 'Enterprise Hub',   icon: Building2 },
 ]
 
 // ─── Nav links (center) ───────────────────────────────────────────────────────
