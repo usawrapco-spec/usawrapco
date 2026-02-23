@@ -17,15 +17,43 @@
       "wasm": [],
       "assets": [],
       "env": {
-        "__NEXT_BUILD_ID": "MAHjiE1IQs3gqtDoAy7WB",
-        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "nfo7qA3N6Lbrc5Ayp1PVAfQTYFVw2OWBkDed+ZQ2SMQ=",
-        "__NEXT_PREVIEW_MODE_ID": "b4d2e19abdf3471a8cf9cfdd5c7594b8",
-        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "6c3fb053e2374cbf33b90f53fa6328b45e00f651ca9a3c024fbb2dd2e4d1fa3a",
-        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "1fcbb86768699e93ca843b7b3d0b406fef1c0c1d5c63efe1d52f7131e4242848"
+        "__NEXT_BUILD_ID": "8GXwzSpBpVYiYJYkMHuZH",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "h/lqO/kLC65clLoYE74iivZqhMtUwJXw589M/kJnxJI=",
+        "__NEXT_PREVIEW_MODE_ID": "3fc34876eda124e629ee31e8f709788e",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "62250efb1eac73a7529261355d2a8e1c63de1a4f5c45d2dcc25d019cc1e0cc5f",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "d18566c4b36608cbb72c26f064c0173349d4fbd7911de85d0ed02e781f531cb3"
       }
     }
   },
-  "functions": {},
+  "functions": {
+    "/api/vin/lookup/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/app/api/vin/lookup/route.js"
+      ],
+      "name": "app/api/vin/lookup/route",
+      "page": "/api/vin/lookup/route",
+      "matchers": [
+        {
+          "regexp": "^/api/vin/lookup$",
+          "originalSource": "/api/vin/lookup"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "8GXwzSpBpVYiYJYkMHuZH",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "h/lqO/kLC65clLoYE74iivZqhMtUwJXw589M/kJnxJI=",
+        "__NEXT_PREVIEW_MODE_ID": "3fc34876eda124e629ee31e8f709788e",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "62250efb1eac73a7529261355d2a8e1c63de1a4f5c45d2dcc25d019cc1e0cc5f",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "d18566c4b36608cbb72c26f064c0173349d4fbd7911de85d0ed02e781f531cb3"
+      }
+    }
+  },
   "sortedMiddleware": [
     "/"
   ]
