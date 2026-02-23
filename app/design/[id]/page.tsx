@@ -15,11 +15,25 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
 
   const [profileRes, designRes] = await Promise.all([
     admin.from('profiles').select('*').eq('id', user.id).single(),
-    admin.from('design_projects').select('*, linked_project:linked_project_id(id, title, vehicle_desc, form_data, revenue, profit)').eq('id', params.id).single(),
+    admin.from('design_projects').select('*').eq('id', params.id).single(),
   ])
 
   if (!profileRes.data) redirect('/login')
   if (!designRes.data) notFound()
+
+  // Load linked project separately to avoid FK join errors
+  let linkedProject: any = null
+  if (designRes.data.linked_project_id) {
+    const { data } = await admin
+      .from('projects')
+      .select('id, title, vehicle_desc, form_data, revenue, profit')
+      .eq('id', designRes.data.linked_project_id)
+      .single()
+    linkedProject = data || null
+  }
+
+  // Attach linked project to design object
+  const designWithLinked = { ...designRes.data, linked_project: linkedProject }
 
   // Load linked job's images if available
   let jobImages: any[] = []
@@ -46,7 +60,7 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
       <main style={{ flex: 1, overflow: 'hidden' }}>
         <DesignCanvasClient
           profile={profileRes.data as Profile}
-          design={designRes.data}
+          design={designWithLinked}
           jobImages={jobImages}
           comments={comments || []}
         />

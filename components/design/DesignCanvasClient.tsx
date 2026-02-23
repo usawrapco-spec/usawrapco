@@ -277,9 +277,13 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         const fabric = await import('fabric')
         if (!mounted || !canvasElRef.current) return
 
+        const container = canvasContainerRef.current
+        const w = container ? Math.max(container.clientWidth || 1200, 800) : 1200
+        const h = container ? Math.max(container.clientHeight || 800, 600) : 800
+
         const fc = new (fabric as any).Canvas(canvasElRef.current, {
-          width: 1800,
-          height: 1200,
+          width: w,
+          height: h,
           backgroundColor: '#1a1d27',
           selection: true,
           preserveObjectStacking: true,
@@ -323,12 +327,25 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         }
         window.addEventListener('keydown', handleKey)
 
+        // Resize canvas when container changes size
+        const handleResize = () => {
+          const container = canvasContainerRef.current
+          if (!container || !fabricRef.current) return
+          const newW = Math.max(container.clientWidth || 800, 800)
+          const newH = Math.max(container.clientHeight || 600, 600)
+          fabricRef.current.setWidth(newW)
+          fabricRef.current.setHeight(newH)
+          fabricRef.current.renderAll()
+        }
+        window.addEventListener('resize', handleResize)
+
         if (mounted) {
           fc.renderAll()
         }
 
         return () => {
           window.removeEventListener('keydown', handleKey)
+          window.removeEventListener('resize', handleResize)
         }
       } catch (err) {
         console.error('Fabric.js init error:', err)
@@ -390,15 +407,19 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     setSaving(true)
     try {
       const canvasData = fc.toJSON(['id', 'layerId', 'selectable'])
-      const { error } = await supabase.from('design_projects').update({
+      const updatePayload: Record<string, any> = {
         canvas_data: canvasData,
-        title: titleValue,
         status: designStatus,
         vehicle_type: vehicleType,
         panels: selectedPanels as any,
         vehicle_sqft: totalToOrder,
         updated_at: new Date().toISOString(),
-      }).eq('id', design.id)
+      }
+      // Only update title if the column exists (added by design_studio.sql migration)
+      if (titleValue && titleValue !== 'Untitled Canvas') {
+        updatePayload.title = titleValue
+      }
+      const { error } = await supabase.from('design_projects').update(updatePayload).eq('id', design.id)
       if (!error) {
         setLastSaved(new Date())
         setHasUnsaved(false)
