@@ -16,6 +16,8 @@ import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from 
 import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
 import WrapZoneSelector from '@/components/estimates/WrapZoneSelector'
 import DeckingCalculator from '@/components/estimates/DeckingCalculator'
+import PhotoInspection from '@/components/estimates/PhotoInspection'
+import MockupCreator from '@/components/estimates/MockupCreator'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -3466,19 +3468,56 @@ function LineItemCard({
             </div>
           </div>
 
-          {/* ── Add New Asset link ──────────────────────────────────────── */}
-          <div style={{ marginTop: 10 }}>
-            <button
-              onClick={() => showToast('Asset upload coming soon')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'transparent', border: 'none', color: 'var(--accent)',
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
-              }}
-            >
-              <Plus size={12} /> Add New Asset
-            </button>
-          </div>
+          {/* ── Photo Inspection (vehicle products) ────────────────────── */}
+          {isVehicleProduct && (
+            <div style={{ marginTop: 14 }}>
+              <CollapsibleHeader
+                icon={<Image size={13} style={{ color: 'var(--amber)' }} />}
+                label="Photo Inspection"
+                isOpen={expandedSections.photos ?? false}
+                onToggle={() => onToggleSection('photos')}
+                color="var(--text2)"
+              />
+              <div style={{
+                maxHeight: expandedSections.photos ? 800 : 0,
+                overflow: 'hidden',
+                transition: 'max-height 0.3s ease',
+              }}>
+                <PhotoInspection
+                  lineItemId={item.id}
+                  specs={specs}
+                  updateSpec={updateSpec}
+                  canWrite={canWrite}
+                  orgId=""
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── Generate Mockup button ─────────────────────────────────── */}
+          {isVehicleProduct && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => updateSpec('_mockupOpen', true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)',
+                  borderRadius: 8, padding: '7px 14px', color: 'var(--purple)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                <Paintbrush size={12} /> Generate Mockup
+              </button>
+            </div>
+          )}
+          <MockupCreator
+            isOpen={!!(specs._mockupOpen)}
+            onClose={() => updateSpec('_mockupOpen', false)}
+            lineItemId={item.id}
+            specs={specs}
+            updateSpec={updateSpec}
+            vehicleInfo={vehicleDesc || item.name}
+          />
         </div>
       </div>
     </div>
