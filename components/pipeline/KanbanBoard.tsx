@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react'
 import PipelineJobCard from '@/components/pipeline/PipelineJobCard'
+import StageGateModal from '@/components/pipeline/StageGateModal'
+import type { Profile } from '@/types'
 import type { LucideIcon } from 'lucide-react'
 
 export interface KanbanColumn {
@@ -19,6 +20,7 @@ interface KanbanBoardProps {
   department: 'sales' | 'production' | 'install'
   profileId: string
   orgId: string
+  profile?: Profile
   horizontal?: boolean  // production uses horizontal layout
   onProjectClick: (project: any) => void
   onStageChange?: (projectId: string, newStage: string) => void
@@ -32,6 +34,7 @@ export default function KanbanBoard({
   department,
   profileId,
   orgId,
+  profile,
   horizontal = false,
   onProjectClick,
   onStageChange,
@@ -39,6 +42,11 @@ export default function KanbanBoard({
   allProjects = [],
 }: KanbanBoardProps) {
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [gateModal, setGateModal] = useState<{
+    project: any
+    fromStage: string
+    toStage: string
+  } | null>(null)
 
   const handleDragStart = (e: React.DragEvent, projectId: string) => {
     e.dataTransfer.setData('projectId', projectId)
@@ -53,9 +61,24 @@ export default function KanbanBoard({
     e.preventDefault()
     setDragOver(null)
     const projectId = e.dataTransfer.getData('projectId')
-    if (projectId && onStageChange) {
+    if (!projectId || !onStageChange) return
+
+    const proj = projects.find(p => p.id === projectId) || allProjects.find(p => p.id === projectId)
+    const fromStage = proj?.pipe_stage || 'sales_in'
+
+    // If we have a profile and this is a major stage transition, show the gate modal
+    if (profile && fromStage !== columnKey && isGateRequired(fromStage, columnKey)) {
+      setGateModal({ project: proj, fromStage, toStage: columnKey })
+    } else {
       onStageChange(projectId, columnKey)
     }
+  }
+
+  function handleGateConfirm(notes: string) {
+    if (gateModal && onStageChange) {
+      onStageChange(gateModal.project.id, gateModal.toStage)
+    }
+    setGateModal(null)
   }
 
   // Count jobs per column
@@ -68,6 +91,18 @@ export default function KanbanBoard({
   }))
 
   return (
+    <>
+    {gateModal && profile && (
+      <StageGateModal
+        isOpen={true}
+        onClose={() => setGateModal(null)}
+        project={gateModal.project}
+        fromStage={gateModal.fromStage}
+        toStage={gateModal.toStage}
+        profile={profile}
+        onConfirm={handleGateConfirm}
+      />
+    )}
     <div style={{
       display: 'flex',
       flexDirection: horizontal ? 'row' : 'row',
@@ -178,7 +213,21 @@ export default function KanbanBoard({
         </div>
       ))}
     </div>
+    </>
   )
+}
+
+// Stage transitions that require a sign-off gate
+const GATED_TRANSITIONS = new Set([
+  'sales_in→production',
+  'production→install',
+  'install→prod_review',
+  'prod_review→sales_close',
+  'sales_close→done',
+])
+
+function isGateRequired(fromStage: string, toStage: string): boolean {
+  return GATED_TRANSITIONS.has(`${fromStage}→${toStage}`)
 }
 
 // Determine if a project should show as a ghost in a department

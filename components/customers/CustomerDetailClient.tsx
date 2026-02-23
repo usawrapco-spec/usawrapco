@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Mail, Phone, MapPin, Building2, User, Calendar, Briefcase, Edit2, Save, X, ExternalLink } from 'lucide-react'
+import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
 import type { Profile } from '@/types'
 import { format } from 'date-fns'
 
@@ -260,6 +261,14 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
             <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, fontFamily: 'JetBrains Mono, monospace' }}>{stat.value}</div>
           </div>
         ))}
+      </div>
+
+      {/* Loyalty */}
+      <div style={{ marginBottom: 16 }}>
+        <CustomerLoyaltyPanel
+          customerId={customer.id}
+          customerName={saved.contact_name || 'Customer'}
+        />
       </div>
 
       {/* Jobs table */}

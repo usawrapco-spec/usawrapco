@@ -7,7 +7,14 @@ import type { Profile } from '@/types'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
-const RATE = 0.025 // 2.5% cross-department referral rate
+const DEFAULT_RATE = 0.025 // 2.5% cross-department referral rate
+
+const REFERRAL_TYPES = [
+  { key: 'cross_dept', label: 'Cross-Department', rate: 0.025, desc: '2.5% of GP' },
+  { key: 'customer_referral', label: 'Customer Referral', rate: 0.05, desc: '5% of GP' },
+  { key: 'external', label: 'External Partner', rate: 0.03, desc: '3% of GP' },
+  { key: 'custom', label: 'Custom Split', rate: 0, desc: 'Set your own rate' },
+]
 
 const DIVISION_COLORS: Record<string, string> = {
   wraps: '#4f7fff',
@@ -50,6 +57,8 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
     project_id: '',
     division_from: 'wraps',
     division_to: 'decking',
+    referral_type: 'cross_dept',
+    custom_rate: 2.5,
     notes: '',
   })
 
@@ -65,8 +74,10 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
   const myReferrals = referrals.filter(r => r.referrer_id === profile.id)
 
   const selectedProject = projects.find(p => p.id === form.project_id)
+  const activeType = REFERRAL_TYPES.find(t => t.key === form.referral_type) || REFERRAL_TYPES[0]
+  const activeRate = form.referral_type === 'custom' ? (form.custom_rate / 100) : activeType.rate
   const estimatedCommission = selectedProject
-    ? Math.max(0, (selectedProject.revenue || 0) * ((selectedProject.gpm || 0) / 100) * RATE)
+    ? Math.max(0, (selectedProject.revenue || 0) * ((selectedProject.gpm || 0) / 100) * activeRate)
     : 0
 
   async function handleCreate() {
@@ -80,7 +91,8 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
         project_id: form.project_id,
         division_from: form.division_from,
         division_to: form.division_to,
-        commission_rate: RATE,
+        referral_type: form.referral_type,
+        commission_rate: activeRate,
         commission_amount: estimatedCommission,
         status: 'pending',
         notes: form.notes || null,
@@ -88,7 +100,7 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
       if (data) {
         setReferrals(prev => [data, ...prev])
         setShowCreate(false)
-        setForm({ referrer_id: profile.id, referee_id: '', project_id: '', division_from: 'wraps', division_to: 'decking', notes: '' })
+        setForm({ referrer_id: profile.id, referee_id: '', project_id: '', division_from: 'wraps', division_to: 'decking', referral_type: 'cross_dept', custom_rate: 2.5, notes: '' })
       }
     } catch {}
     setSaving(false)
@@ -148,6 +160,33 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
                     <option value="decking">Decking</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Referral Type */}
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase' }}>Referral Type</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                  {REFERRAL_TYPES.map(t => (
+                    <button key={t.key} onClick={() => setForm(p => ({ ...p, referral_type: t.key }))} style={{
+                      padding: '8px 12px', borderRadius: 8, border: `1px solid ${form.referral_type === t.key ? 'var(--accent)' : 'var(--border)'}`,
+                      background: form.referral_type === t.key ? 'rgba(79,127,255,0.1)' : 'var(--surface2)',
+                      color: form.referral_type === t.key ? 'var(--accent)' : 'var(--text2)',
+                      cursor: 'pointer', textAlign: 'left',
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>{t.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+                {form.referral_type === 'custom' && (
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 700 }}>Rate:</label>
+                    <input type="number" value={form.custom_rate} onChange={e => setForm(p => ({ ...p, custom_rate: Number(e.target.value) }))}
+                      min={0} max={20} step={0.5}
+                      style={{ width: 70, padding: '6px 8px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13, outline: 'none', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }} />
+                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>% of GP</span>
+                  </div>
+                )}
               </div>
 
               {/* Project */}
@@ -274,7 +313,7 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
       {/* Rate info */}
       <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, color: 'var(--text3)' }}>
         <DollarSign size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-        Cross-department referral rate: <strong style={{ color: 'var(--text2)' }}>2.5% of gross profit</strong> — applies when a sales agent from one division sends a qualified lead to another division that closes. Configurable in Settings.
+        Referral rates: <strong style={{ color: 'var(--text2)' }}>Cross-Dept 2.5%</strong> · <strong style={{ color: 'var(--text2)' }}>Customer Referral 5%</strong> · <strong style={{ color: 'var(--text2)' }}>External Partner 3%</strong> of gross profit. Custom splits also available. Configurable in Settings.
       </div>
     </div>
   )
