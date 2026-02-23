@@ -27,6 +27,59 @@ export type Permission =
   | 'sign_off_sales'
   | 'view_master_mode'
   | 'access_design_studio'
+  | 'create_estimates'
+  | 'approve_estimates'
+  | 'manage_customers'
+  | 'view_media'
+  | 'upload_media'
+  | 'delete_media'
+  | 'manage_invoices'
+  | 'view_payroll'
+  | 'manage_payroll'
+  | 'view_commissions'
+  | 'manage_campaigns'
+  | 'view_reports'
+  | 'manage_sourcing'
+
+// All permissions available in the system for settings UI
+export const ALL_PERMISSIONS: { key: Permission; label: string; group: string }[] = [
+  // Projects
+  { key: 'view_all_projects', label: 'View All Projects', group: 'Projects' },
+  { key: 'edit_projects', label: 'Edit Projects', group: 'Projects' },
+  { key: 'delete_projects', label: 'Delete Projects', group: 'Projects' },
+  // Pipeline Sign-offs
+  { key: 'sign_off_sales', label: 'Sign Off Sales', group: 'Pipeline' },
+  { key: 'sign_off_production', label: 'Sign Off Production', group: 'Pipeline' },
+  { key: 'sign_off_install', label: 'Sign Off Install', group: 'Pipeline' },
+  // Estimates & Sales
+  { key: 'create_estimates', label: 'Create Estimates', group: 'Estimates' },
+  { key: 'approve_estimates', label: 'Approve Estimates', group: 'Estimates' },
+  { key: 'manage_customers', label: 'Manage Customers', group: 'Estimates' },
+  { key: 'manage_invoices', label: 'Manage Invoices', group: 'Estimates' },
+  // Design
+  { key: 'access_design_studio', label: 'Access Design Studio', group: 'Design' },
+  { key: 'manage_bids', label: 'Manage Bids', group: 'Design' },
+  // Inventory & Media
+  { key: 'view_inventory', label: 'View Inventory', group: 'Inventory' },
+  { key: 'view_media', label: 'View Media Library', group: 'Media' },
+  { key: 'upload_media', label: 'Upload Media', group: 'Media' },
+  { key: 'delete_media', label: 'Delete Media', group: 'Media' },
+  // Analytics & Reports
+  { key: 'view_analytics', label: 'View Analytics', group: 'Analytics' },
+  { key: 'view_financials', label: 'View Financials', group: 'Analytics' },
+  { key: 'view_reports', label: 'View Reports', group: 'Analytics' },
+  { key: 'view_commissions', label: 'View Commissions', group: 'Analytics' },
+  // Admin
+  { key: 'view_all_agents', label: 'View All Agents', group: 'Admin' },
+  { key: 'manage_users', label: 'Manage Users', group: 'Admin' },
+  { key: 'manage_settings', label: 'Manage Settings', group: 'Admin' },
+  { key: 'manage_workflows', label: 'Manage Workflows', group: 'Admin' },
+  { key: 'view_master_mode', label: 'View Master Mode', group: 'Admin' },
+  { key: 'view_payroll', label: 'View Payroll', group: 'Admin' },
+  { key: 'manage_payroll', label: 'Manage Payroll', group: 'Admin' },
+  { key: 'manage_campaigns', label: 'Manage Campaigns', group: 'Admin' },
+  { key: 'manage_sourcing', label: 'Manage Sourcing', group: 'Admin' },
+]
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   owner: [
@@ -34,28 +87,37 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
     'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
     'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
+    'create_estimates', 'approve_estimates', 'manage_customers', 'view_media',
+    'upload_media', 'delete_media', 'manage_invoices', 'view_payroll', 'manage_payroll',
+    'view_commissions', 'manage_campaigns', 'view_reports', 'manage_sourcing',
   ],
   admin: [
     'view_analytics', 'view_financials', 'view_all_projects', 'view_all_agents',
     'view_inventory', 'manage_users', 'manage_settings', 'manage_workflows',
     'edit_projects', 'delete_projects', 'manage_bids', 'sign_off_production',
     'sign_off_install', 'sign_off_sales', 'view_master_mode', 'access_design_studio',
+    'create_estimates', 'approve_estimates', 'manage_customers', 'view_media',
+    'upload_media', 'delete_media', 'manage_invoices', 'view_payroll', 'manage_payroll',
+    'view_commissions', 'manage_campaigns', 'view_reports', 'manage_sourcing',
   ],
   sales_agent: [
     'view_financials', 'view_all_projects', 'view_all_agents',
-    'edit_projects', 'sign_off_sales',
+    'edit_projects', 'sign_off_sales', 'create_estimates', 'manage_customers',
+    'view_media', 'upload_media', 'view_commissions', 'view_reports',
   ],
   designer: [
-    'access_design_studio', 'view_all_projects',
+    'access_design_studio', 'view_all_projects', 'view_media', 'upload_media',
   ],
   production: [
     'view_all_projects', 'view_inventory', 'edit_projects',
     'sign_off_production', 'access_design_studio', 'manage_bids',
+    'view_media', 'upload_media',
   ],
   installer: [
     'sign_off_install', 'view_all_projects', 'view_inventory',
+    'view_media', 'upload_media',
   ],
-  viewer: [],
+  viewer: ['view_media'],
 }
 
 export function canAccess(role: UserRole | string, permission: Permission): boolean {
