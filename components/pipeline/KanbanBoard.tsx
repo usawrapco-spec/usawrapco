@@ -188,7 +188,10 @@ export default function KanbanBoard({
                 key={project.id}
                 draggable
                 onDragStart={e => handleDragStart(e, project.id)}
-                style={{ cursor: 'grab' }}
+                onClick={() => onProjectClick(project)}
+                style={{ cursor: 'pointer', borderRadius: 10 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 1px rgba(255,255,255,0.2)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
               >
                 <PipelineJobCard
                   project={project}
