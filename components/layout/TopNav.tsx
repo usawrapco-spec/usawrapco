@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { isAdminRole } from '@/types'
 import type { Profile } from '@/types'
 import {
-  Truck, Plus, Search, Bell, Settings, ChevronDown, X,
+  Truck, Plus, Search, Bell, Settings, ChevronDown, X, Menu,
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
@@ -105,6 +105,7 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [settingsOpen, setSettingsOpen]   = useState(false)
   const [profileOpen, setProfileOpen]     = useState(false)
   const [notifOpen, setNotifOpen]         = useState(false)
+  const [drawerOpen, setDrawerOpen]       = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [notifsLoaded, setNotifsLoaded]   = useState(false)
 
@@ -153,6 +154,14 @@ export function TopNav({ profile }: { profile: Profile }) {
       .then(r => r.json())
       .then(d => { setNotifications(d.notifications || []); setNotifsLoaded(true) })
       .catch(() => setNotifsLoaded(true))
+  }, [])
+
+  // ── Mobile drawer: close on route change, open via event ───────────────────
+  useEffect(() => { setDrawerOpen(false) }, [pathname])
+  useEffect(() => {
+    function onOpenDrawer() { setDrawerOpen(true) }
+    window.addEventListener('open-nav-drawer', onOpenDrawer)
+    return () => window.removeEventListener('open-nav-drawer', onOpenDrawer)
   }, [])
 
   // ── Global search ──────────────────────────────────────────────────────────
@@ -251,6 +260,20 @@ export function TopNav({ profile }: { profile: Profile }) {
       position: 'relative',
       zIndex: 100,
     }}>
+
+      {/* ── Mobile hamburger (shown only on < md) ─────────────── */}
+      <button
+        className="md:hidden"
+        onClick={() => setDrawerOpen(true)}
+        style={{
+          width: 44, height: 44, borderRadius: 8, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--text2)',
+        }}
+      >
+        <Menu size={20} />
+      </button>
 
       {/* ── Logo ──────────────────────────────────────────────── */}
       <Link
@@ -359,10 +382,10 @@ export function TopNav({ profile }: { profile: Profile }) {
         )}
       </div>
 
-      {/* ── Icon Nav Links ────────────────────────────────────── */}
+      {/* ── Icon Nav Links (desktop only) ─────────────────────── */}
       <nav
         className="hidden md:flex"
-        style={{ display: 'flex', alignItems: 'center', gap: 1, marginLeft: 4 }}
+        style={{ alignItems: 'center', gap: 1, marginLeft: 4 }}
       >
         {NAV_LINKS.map(link => {
           const active = isActive(link.href)
@@ -839,6 +862,125 @@ export function TopNav({ profile }: { profile: Profile }) {
     <GenieFAB userName={profile.name || profile.email || 'User'} userRole={profile.role} />
     <ProductTour userName={profile.name || profile.email || 'User'} open={tourOpen} onClose={closeTour} />
     {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
+
+    {/* ── Mobile left slide-out drawer ──────────────────────── */}
+    {drawerOpen && (
+      <>
+        <div
+          onClick={() => setDrawerOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 400,
+            background: 'rgba(0,0,0,0.72)',
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        />
+        <div style={{
+          position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 401,
+          width: 280,
+          background: 'var(--surface)',
+          borderRight: '1px solid var(--card-border)',
+          animation: 'slideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+          overflowY: 'auto',
+          display: 'flex', flexDirection: 'column',
+        }}>
+          {/* Drawer header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '16px 16px 12px',
+            borderBottom: '1px solid var(--card-border)',
+            flexShrink: 0,
+          }}>
+            <span style={{
+              fontFamily: 'Barlow Condensed, sans-serif',
+              fontSize: 18, fontWeight: 900, color: 'var(--text1)',
+              letterSpacing: '0.02em',
+            }}>
+              USA WRAP CO
+            </span>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              style={{
+                width: 36, height: 36, borderRadius: 8, border: 'none',
+                background: 'var(--surface2)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text2)',
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Nav links */}
+          <nav style={{ padding: 8, flex: 1 }}>
+            {NAV_LINKS.map(link => {
+              const active = isActive(link.href)
+              const Icon = link.icon
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 8,
+                    textDecoration: 'none', marginBottom: 2,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {link.label}
+                </Link>
+              )
+            })}
+
+            <div style={{ height: 1, background: 'var(--card-border)', margin: '8px 4px' }} />
+
+            {MORE_NAV.slice(0, 8).map(item => {
+              const active = isActive(item.href)
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 8,
+                    textDecoration: 'none', marginBottom: 2,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* Sign out */}
+          <div style={{ padding: 8, borderTop: '1px solid var(--card-border)', flexShrink: 0 }}>
+            <button
+              onClick={() => { setDrawerOpen(false); handleSignOut() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                width: '100%', padding: '10px 12px', borderRadius: 8,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--red)', fontSize: 14, fontWeight: 600,
+                textAlign: 'left',
+              }}
+            >
+              <LogOut size={17} />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </>
+    )}
     </>
   )
 }

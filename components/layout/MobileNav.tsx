@@ -31,6 +31,9 @@ import {
   Contact,
   Plus,
   Target,
+  PlusCircle,
+  MoreHorizontal,
+  Kanban,
 } from 'lucide-react'
 
 /* ─── Quick create items for the bottom sheet ─────────────────────── */
@@ -278,119 +281,71 @@ export function MobileNav() {
         </div>
       )}
 
-      {/* ── Bottom tab bar ────────────────────────────────────── */}
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
-        background: 'var(--surface)',
-        borderTop: '1px solid var(--border)',
-        display: 'flex', alignItems: 'flex-end',
-        height: 64,
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-      }}>
-        {/* Home tab */}
+      {/* ── Bottom tab bar (mobile only) ───────────────────────── */}
+      <nav
+        className="md:hidden"
+        style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
+          background: 'var(--surface)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'stretch',
+          height: 56,
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        {/* Home */}
         <Link
           href="/dashboard"
           style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            gap: 2, padding: '8px 0',
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
             textDecoration: 'none', minHeight: 44,
           }}
         >
-          <LayoutDashboard size={20} style={{ color: isActive('/dashboard') ? 'var(--accent)' : 'var(--text3)' }} />
-          <span style={{
-            fontSize: 10, fontWeight: isActive('/dashboard') ? 700 : 500,
-            color: isActive('/dashboard') ? 'var(--accent)' : 'var(--text2)',
-          }}>
-            Home
-          </span>
+          <LayoutDashboard size={22} style={{ color: isActive('/dashboard') ? 'var(--accent)' : 'var(--text3)' }} />
         </Link>
 
-        {/* Pipeline tab */}
+        {/* Jobs */}
+        <Link
+          href="/projects"
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            textDecoration: 'none', minHeight: 44,
+          }}
+        >
+          <Briefcase size={22} style={{ color: isActive('/projects') ? 'var(--accent)' : 'var(--text3)' }} />
+        </Link>
+
+        {/* +New */}
+        <Link
+          href="/projects/new"
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            textDecoration: 'none', minHeight: 44,
+          }}
+        >
+          <PlusCircle size={28} style={{ color: 'var(--accent)' }} />
+        </Link>
+
+        {/* Pipeline */}
         <Link
           href="/pipeline"
           style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            gap: 2, padding: '8px 0',
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
             textDecoration: 'none', minHeight: 44,
           }}
         >
-          <TrendingUp size={20} style={{ color: isActive('/pipeline') ? 'var(--accent)' : 'var(--text3)' }} />
-          <span style={{
-            fontSize: 10, fontWeight: isActive('/pipeline') ? 700 : 500,
-            color: isActive('/pipeline') ? 'var(--accent)' : 'var(--text2)',
-          }}>
-            Pipeline
-          </span>
+          <Kanban size={22} style={{ color: isActive('/pipeline') ? 'var(--accent)' : 'var(--text3)' }} />
         </Link>
 
-        {/* ── Center + New button (raised) ──────────────────── */}
-        <div style={{
-          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative',
-        }}>
-          <button
-            onClick={() => { setMoreOpen(false); setCreateOpen(v => !v) }}
-            style={{
-              width: 52, height: 52,
-              borderRadius: '50%',
-              background: createOpen
-                ? 'linear-gradient(135deg, #3a66e0, var(--accent))'
-                : 'linear-gradient(135deg, var(--accent), #6a9cff)',
-              border: '3px solid var(--surface)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              position: 'absolute',
-              bottom: 8,
-              boxShadow: createOpen
-                ? '0 2px 12px rgba(79,127,255,0.5)'
-                : '0 4px 16px rgba(79,127,255,0.4)',
-              transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease',
-              transform: createOpen ? 'rotate(45deg)' : 'none',
-            }}
-          >
-            <Plus size={24} style={{ color: '#fff', strokeWidth: 2.5 }} />
-          </button>
-        </div>
-
-        {/* Jobs tab */}
-        <Link
-          href="/jobs"
-          style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            gap: 2, padding: '8px 0',
-            textDecoration: 'none', minHeight: 44,
-          }}
-        >
-          <Briefcase size={20} style={{ color: isActive('/jobs') ? 'var(--accent)' : 'var(--text3)' }} />
-          <span style={{
-            fontSize: 10, fontWeight: isActive('/jobs') ? 700 : 500,
-            color: isActive('/jobs') ? 'var(--accent)' : 'var(--text2)',
-          }}>
-            Jobs
-          </span>
-        </Link>
-
-        {/* More tab */}
+        {/* Menu — opens left drawer */}
         <button
-          onClick={() => { setCreateOpen(false); setMoreOpen(v => !v) }}
+          onClick={() => window.dispatchEvent(new CustomEvent('open-nav-drawer'))}
           style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            gap: 2, padding: '8px 0',
-            background: 'none', border: 'none', cursor: 'pointer',
-            minHeight: 44,
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', cursor: 'pointer', minHeight: 44,
           }}
         >
-          <Menu size={20} style={{ color: moreOpen ? 'var(--accent)' : 'var(--text3)' }} />
-          <span style={{
-            fontSize: 10, fontWeight: moreOpen ? 700 : 500,
-            color: moreOpen ? 'var(--accent)' : 'var(--text2)',
-          }}>
-            More
-          </span>
+          <MoreHorizontal size={22} style={{ color: 'var(--text3)' }} />
         </button>
       </nav>
     </>

@@ -346,8 +346,8 @@
   to   { transform: translateY(0); }
 }
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-40px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
 }
 @keyframes flowDot {
   0%   { transform: translateX(0); opacity: 0; }
@@ -407,3 +407,62 @@
 /* Glow effects for active elements */
 .glow-accent { box-shadow: 0 0 20px var(--glow-accent); }
 .glow-green  { box-shadow: 0 0 20px var(--glow-green); }
+
+/* ─── Mobile Responsive Base ─────────────────────────────────────── */
+html { overflow-x: hidden; }
+
+@media (max-width: 767px) {
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    /* Space for sticky bottom nav (56px) */
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input, textarea, select { font-size: 16px !important; }
+
+  /* Min touch target height */
+  .btn { min-height: 44px; }
+
+  /* Single-column grid overrides */
+  .grid-cols-2, .grid-cols-3, .grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+  form .grid { grid-template-columns: 1fr !important; }
+
+  /* Tables become card stacks */
+  .data-table { display: block; overflow-x: hidden; width: 100%; }
+  .data-table thead { display: none; }
+  .data-table tbody { display: block; width: 100%; }
+  .data-table tr {
+    display: block;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    padding: 4px 0;
+  }
+  .data-table td {
+    display: flex;
+    align-items: center;
+    border-bottom: none;
+    padding: 6px 12px;
+    font-size: 13px;
+    gap: 8px;
+  }
+  .data-table td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--text3);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  /* Word wrap instead of overflow */
+  td, th { word-break: break-word; }
+}
