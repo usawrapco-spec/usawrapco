@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 550" width="2000" height="550">
+  <rect width="2000" height="550" fill="none"/>
+  <!-- SUV Mid - Side View -->
+  <path d="M 180,390 L 180,260 Q 195,210 270,190 L 530,165 Q 650,145 800,140 L 1200,140 Q 1380,145 1550,185 L 1750,250 L 1820,330 L 1830,390 Z" fill="none" stroke="white" stroke-width="3"/>
+  <!-- Rear hatch outline -->
+  <path d="M 1620,185 L 1750,255 L 1820,335 L 1820,390 L 1620,390 Z" fill="none" stroke="white" stroke-width="2" stroke-dasharray="6,3"/>
+  <!-- Windows -->
+  <path d="M 530,170 L 800,150 L 1200,150 L 1540,190 L 1490,300 L 540,300 Z" fill="none" stroke="white" stroke-width="2"/>
+  <line x1="800" y1="152" x2="780" y2="300" stroke="white" stroke-width="2"/>
+  <line x1="1090" y1="152" x2="1100" y2="300" stroke="white" stroke-width="2"/>
+  <line x1="1340" y1="185" x2="1370" y2="300" stroke="white" stroke-width="2"/>
+  <!-- Wheels -->
+  <circle cx="400" cy="415" r="78" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="400" cy="415" r="39" fill="none" stroke="white" stroke-width="2"/>
+  <circle cx="1570" cy="415" r="78" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="1570" cy="415" r="39" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Labels -->
+  <text x="980" y="215" fill="#9299b5" font-size="24" font-family="sans-serif" text-anchor="middle">DRIVER SIDE</text>
+  <text x="980" y="242" fill="#5a6080" font-size="18" font-family="sans-serif" text-anchor="middle">182" × 60"</text>
+  <text x="980" y="170" fill="#9299b5" font-size="18" font-family="sans-serif" text-anchor="middle">ROOF</text>
+  <text x="1720" y="320" fill="#9299b5" font-size="16" font-family="sans-serif" text-anchor="middle">REAR</text>
+</svg>

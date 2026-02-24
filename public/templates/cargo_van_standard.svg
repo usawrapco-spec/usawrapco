@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 600" width="2000" height="600">
+  <rect width="2000" height="600" fill="none"/>
+  <!-- Cargo Van Standard - Side View -->
+  <!-- Body - boxy shape -->
+  <path d="M 150,380 L 150,180 Q 160,140 200,130 L 600,120 Q 700,115 760,130 L 800,150 L 1850,150 L 1860,200 L 1870,380 Z" fill="none" stroke="white" stroke-width="3"/>
+  <!-- Cab divider -->
+  <line x1="800" y1="150" x2="800" y2="380" stroke="white" stroke-width="2" stroke-dasharray="8,4"/>
+  <!-- Front cab windows -->
+  <path d="M 200,145 L 720,135 L 760,155 L 760,280 L 210,280 Z" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Van body - rear doors outline -->
+  <rect x="1700" y="155" width="155" height="220" fill="none" stroke="white" stroke-width="2" stroke-dasharray="6,3"/>
+  <!-- Wheels -->
+  <circle cx="340" cy="400" r="80" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="340" cy="400" r="40" fill="none" stroke="white" stroke-width="2"/>
+  <circle cx="1650" cy="400" r="80" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="1650" cy="400" r="40" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Panel labels -->
+  <text x="1300" y="230" fill="#9299b5" font-size="24" font-family="sans-serif" text-anchor="middle">DRIVER SIDE</text>
+  <text x="1300" y="258" fill="#5a6080" font-size="18" font-family="sans-serif" text-anchor="middle">210" × 72"</text>
+  <text x="1770" y="240" fill="#9299b5" font-size="16" font-family="sans-serif" text-anchor="middle">REAR</text>
+  <text x="350" y="210" fill="#9299b5" font-size="18" font-family="sans-serif" text-anchor="middle">FRONT</text>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 500" width="2000" height="500">
+  <rect width="2000" height="500" fill="none"/>
+  <!-- Sedan - Side View -->
+  <path d="M 180,350 L 180,280 Q 190,240 250,220 L 500,180 Q 600,140 750,130 L 1100,130 Q 1300,140 1450,175 L 1700,230 L 1820,290 L 1820,350 Z" fill="none" stroke="white" stroke-width="3"/>
+  <!-- Roof/windows -->
+  <path d="M 500,185 L 750,140 L 1100,140 L 1430,180 L 1380,285 L 500,285 Z" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Window pillars -->
+  <line x1="730" y1="145" x2="680" y2="285" stroke="white" stroke-width="2"/>
+  <line x1="1070" y1="145" x2="1100" y2="285" stroke="white" stroke-width="2"/>
+  <line x1="1280" y1="180" x2="1330" y2="285" stroke="white" stroke-width="2"/>
+  <!-- Wheels -->
+  <circle cx="420" cy="375" r="75" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="420" cy="375" r="38" fill="none" stroke="white" stroke-width="2"/>
+  <circle cx="1560" cy="375" r="75" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="1560" cy="375" r="38" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Labels -->
+  <text x="1000" y="205" fill="#9299b5" font-size="24" font-family="sans-serif" text-anchor="middle">DRIVER SIDE</text>
+  <text x="1000" y="232" fill="#5a6080" font-size="18" font-family="sans-serif" text-anchor="middle">170" × 54"</text>
+  <text x="870" y="165" fill="#9299b5" font-size="18" font-family="sans-serif" text-anchor="middle">ROOF</text>
+</svg>

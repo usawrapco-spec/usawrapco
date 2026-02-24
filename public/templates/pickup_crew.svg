@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 600" width="2000" height="600">
+  <rect width="2000" height="600" fill="none"/>
+  <!-- Pickup Crew Cab - Side View -->
+  <!-- Body -->
+  <path d="M 200,380 L 200,200 Q 220,160 300,150 L 700,140 Q 800,130 900,150 L 1100,150 Q 1200,140 1300,160 L 1400,200 L 1700,220 L 1780,280 L 1800,380 Z" fill="none" stroke="white" stroke-width="3"/>
+  <!-- Cab outline -->
+  <path d="M 300,150 L 700,140 Q 800,130 900,150 L 900,380" fill="none" stroke="white" stroke-width="2" stroke-dasharray="8,4"/>
+  <!-- Windows -->
+  <path d="M 320,165 L 680,158 Q 750,150 820,162 L 820,260 L 330,260 Z" fill="none" stroke="white" stroke-width="2"/>
+  <path d="M 840,162 L 1080,155 L 1080,260 L 850,260 Z" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Wheels -->
+  <circle cx="420" cy="400" r="80" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="420" cy="400" r="40" fill="none" stroke="white" stroke-width="2"/>
+  <circle cx="1550" cy="400" r="80" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="1550" cy="400" r="40" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Ground line -->
+  <line x1="100" y1="480" x2="1900" y2="480" stroke="white" stroke-width="1" stroke-dasharray="4,8" opacity="0.3"/>
+  <!-- Panel labels -->
+  <text x="750" y="210" fill="#9299b5" font-size="24" font-family="sans-serif" text-anchor="middle">DRIVER SIDE</text>
+  <text x="750" y="238" fill="#5a6080" font-size="18" font-family="sans-serif" text-anchor="middle">180" × 60"</text>
+  <text x="420" y="310" fill="#9299b5" font-size="18" font-family="sans-serif" text-anchor="middle">HOOD</text>
+  <text x="1100" y="310" fill="#9299b5" font-size="18" font-family="sans-serif" text-anchor="middle">ROOF</text>
+  <text x="1700" y="310" fill="#9299b5" font-size="18" font-family="sans-serif" text-anchor="middle">REAR</text>
+</svg>

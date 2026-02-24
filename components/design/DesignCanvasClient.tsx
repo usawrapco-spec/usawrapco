@@ -244,6 +244,21 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   })
   const [exporting, setExporting] = useState(false)
 
+  // High-res export state
+  const [savingHighRes, setSavingHighRes] = useState(false)
+  const [highResExportUrl, setHighResExportUrl] = useState<string | null>(design.print_export_url || null)
+
+  // Vehicle template picker
+  const [showVehicleTemplatePicker, setShowVehicleTemplatePicker] = useState(false)
+  const VEHICLE_SILHOUETTES: Record<string, string> = {
+    'pickup_crew': 'Pickup Truck — Crew Cab',
+    'cargo_van_standard': 'Cargo Van — Standard',
+    'cargo_van_high_roof': 'Cargo Van — High Roof',
+    'box_truck_16': 'Box Truck — 16ft',
+    'sedan': 'Sedan',
+    'suv_mid': 'SUV — Mid Size',
+  }
+
   // Undo/redo
   const [undoStack, setUndoStack] = useState<any[]>([])
   const [redoStack, setRedoStack] = useState<any[]>([])
@@ -608,20 +623,38 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   }
 
   // ── Image placement ──
-  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      const fabric = await import('fabric')
-      const fc = fabricRef.current
-      if (!fc || !ev.target?.result) return
-      pushUndo()
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    // Upload to storage for persistence
+    let imageUrl = ''
+    try {
+      const ext = file.name.split('.').pop() || 'png'
+      const path = `designs/${design.id}/files/${Date.now()}_${file.name}`
+      const { error: upErr } = await supabase.storage.from('job-images').upload(path, file, { upsert: false })
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+        imageUrl = urlData?.publicUrl || ''
+        // Update brand_files array
+        const currentBrandFiles: string[] = design.brand_files || []
+        await supabase.from('design_projects').update({ brand_files: [...currentBrandFiles, imageUrl] }).eq('id', design.id)
+      }
+    } catch { /* use data URL fallback */ }
+
+    const fabric = await import('fabric')
+    const fc = fabricRef.current
+    if (!fc) return
+    pushUndo()
+
+    if (imageUrl) {
+      // Use storage URL for persistent reference
       const imgEl = document.createElement('img')
+      imgEl.crossOrigin = 'anonymous'
       imgEl.onload = () => {
         const img = new (fabric as any).Image(imgEl, {
-          left: 100,
-          top: 100,
+          left: 100, top: 100,
           scaleX: Math.min(1, 400 / imgEl.width),
           scaleY: Math.min(1, 400 / imgEl.width),
           opacity: opacity / 100,
@@ -631,10 +664,28 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         fc.renderAll()
         setTool('select')
       }
-      imgEl.src = ev.target.result as string
+      imgEl.src = imageUrl
+    } else {
+      // Fallback: data URL
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const imgEl = document.createElement('img')
+        imgEl.onload = () => {
+          const img = new (fabric as any).Image(imgEl, {
+            left: 100, top: 100,
+            scaleX: Math.min(1, 400 / imgEl.width),
+            scaleY: Math.min(1, 400 / imgEl.width),
+            opacity: opacity / 100,
+          })
+          fc.add(img)
+          fc.setActiveObject(img)
+          fc.renderAll()
+          setTool('select')
+        }
+        imgEl.src = ev.target?.result as string
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   // ── Load vehicle template ──
@@ -891,6 +942,63 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     setShowExportModal(false)
   }
 
+  // ── Save High-Res Export ──
+  const saveHighResExport = useCallback(async () => {
+    const fc = fabricRef.current
+    if (!fc || savingHighRes) return
+    setSavingHighRes(true)
+    try {
+      const dataUrl = fc.toDataURL({ format: 'png', multiplier: 4 })
+      // Convert data URL to blob
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const path = `designs/${design.id}/canvas-print-export.png`
+      const { error: upErr } = await supabase.storage.from('job-images').upload(path, blob, { upsert: true, contentType: 'image/png' })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const url = urlData?.publicUrl || ''
+      await supabase.from('design_projects').update({ print_export_url: url }).eq('id', design.id)
+      setHighResExportUrl(url)
+      alert('High-res export saved — ready for print layout')
+    } catch (err: any) {
+      console.error('High-res export error:', err)
+      alert('Failed to save high-res export: ' + (err.message || err))
+    }
+    setSavingHighRes(false)
+  }, [savingHighRes, design.id, supabase])
+
+  // ── Load vehicle SVG template ──
+  const loadVehicleSVGTemplate = async (svgKey: string) => {
+    const fc = fabricRef.current
+    if (!fc) return
+    const fabric = await import('fabric')
+    pushUndo()
+    const existing = fc.getObjects().filter((o: any) => o.layerId === 'svgTemplate')
+    existing.forEach((o: any) => fc.remove(o))
+    try {
+      (fabric as any).loadSVGFromURL(`/templates/${svgKey}.svg`, (objects: any[], options: any) => {
+        if (!objects || objects.length === 0) return
+        const group = (fabric as any).util.groupSVGElements(objects, options)
+        group.set({
+          left: 50, top: 50,
+          scaleX: Math.min(1, (fc.width! - 100) / (group.width || 800)),
+          scaleY: Math.min(1, (fc.height! - 100) / (group.height || 500)),
+          selectable: true,
+          layerId: 'svgTemplate',
+          opacity: 0.5,
+        })
+        fc.add(group)
+        fc.sendObjectToBack(group)
+        fc.renderAll()
+        setHasUnsaved(true)
+      })
+    } catch (err) {
+      console.error('SVG load error:', err)
+    }
+    setShowVehicleTemplatePicker(false)
+    setVehicleType(VEHICLE_SILHOUETTES[svgKey] || vehicleType)
+  }
+
   // ── Status display ──
   const statusMeta: Record<string, { label: string; color: string }> = {
     brief: { label: 'Brief', color: '#f59e0b' },
@@ -1037,6 +1145,20 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           Export Print-Ready
         </button>
 
+        <button onClick={() => router.push(`/design/${design.id}/print-layout`)} style={{ ...accentBtnStyle, background: 'rgba(34,211,238,0.08)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.2)' }}>
+          <Printer size={13} />
+          Print Layout
+        </button>
+
+        <button
+          onClick={saveHighResExport}
+          disabled={savingHighRes}
+          title="Render canvas at 4x and save for print use"
+          style={{ ...accentBtnStyle, background: savingHighRes ? 'rgba(79,127,255,0.05)' : highResExportUrl ? 'rgba(34,192,122,0.08)' : 'rgba(79,127,255,0.1)', color: highResExportUrl ? '#22c07a' : '#4f7fff', border: `1px solid ${highResExportUrl ? 'rgba(34,192,122,0.2)' : 'rgba(79,127,255,0.2)'}` }}>
+          <Download size={13} />
+          {savingHighRes ? 'Exporting...' : highResExportUrl ? 'High-Res Saved' : 'Save High-Res Export'}
+        </button>
+
         <button onClick={saveCanvas} disabled={saving} style={{ ...accentBtnStyle, background: '#4f7fff', color: '#fff', border: 'none' }}>
           <Save size={13} />
           {saving ? 'Saving...' : 'Save'}
@@ -1143,6 +1265,11 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           <ToolBtn icon={Copy} label="Duplicate" active={false} onClick={duplicateSelected} />
           <ToolBtn icon={ChevronRight} label="Bring Forward" active={false} onClick={bringForward} />
           <ToolBtn icon={ChevronLeft} label="Send Backward" active={false} onClick={sendBackward} />
+
+          <div style={{ width: '80%', height: 1, background: '#1a1d27', margin: '4px 0' }} />
+
+          {/* Vehicle Template SVG */}
+          <ToolBtn icon={Package} label="Vehicle Template" active={showVehicleTemplatePicker} onClick={() => setShowVehicleTemplatePicker(v => !v)} />
         </div>
 
         {/* ── CENTER CANVAS ── */}
@@ -1482,6 +1609,41 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
 
       {/* Hidden file input for image placement */}
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageFile} />
+
+      {/* ─── VEHICLE TEMPLATE PICKER ─── */}
+      {showVehicleTemplatePicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setShowVehicleTemplatePicker(false)}>
+          <div style={{ background: '#13151c', borderRadius: 14, border: '1px solid #1a1d27', padding: 20, minWidth: 360, maxWidth: 480 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif', color: '#e8eaed' }}>Vehicle Template</span>
+              <button onClick={() => setShowVehicleTemplatePicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a6080' }}><X size={16} /></button>
+            </div>
+            <div style={{ fontSize: 11, color: '#5a6080', marginBottom: 14 }}>
+              Loads an SVG silhouette as a background template layer. Use it to plan panel coverage.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {Object.entries(VEHICLE_SILHOUETTES).map(([key, label]) => (
+                <button key={key} onClick={() => loadVehicleSVGTemplate(key)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                    background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 8,
+                    cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.12s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#4f7fff')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#1a1d27')}>
+                  <Package size={14} style={{ color: '#4f7fff', flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: '#e8eaed' }}>{label}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ marginTop: 12, fontSize: 10, color: '#5a6080' }}>
+              Template loads at 50% opacity on a locked layer. Use the Layers panel to adjust visibility.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════ */}
       {/* ─── AI GENERATE MODAL ─── */}
