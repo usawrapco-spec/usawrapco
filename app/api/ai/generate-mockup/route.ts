@@ -33,19 +33,64 @@ async function getReplicateToken(): Promise<string | null> {
   }
 }
 
+async function storeInSupabase(imageUrl: string, orgId?: string): Promise<string | null> {
+  try {
+    const res = await fetch(imageUrl)
+    if (!res.ok) return null
+    const buffer = await res.arrayBuffer()
+    const admin = getSupabaseAdmin()
+    const fileName = `mockup-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+    const path = orgId ? `${orgId}/${fileName}` : fileName
+    const { error } = await admin.storage
+      .from('mockups')
+      .upload(path, Buffer.from(buffer), { contentType: 'image/jpeg', upsert: false })
+    if (error) return imageUrl // fallback to original URL
+    const { data: { publicUrl } } = admin.storage.from('mockups').getPublicUrl(path)
+    return publicUrl
+  } catch {
+    return imageUrl
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const { vehicleType, vehicleColor, designDescription, colors, style } = await req.json()
+    const body = await req.json()
+
+    // Support both old params (vehicleType, vehicleColor, etc.) and new params (vehicleImageBase64, brandAssets, wrapStyle, coverage)
+    const {
+      vehicleType,
+      vehicleColor,
+      designDescription,
+      colors,
+      style,
+      vehicleImageBase64,
+      brandAssets,
+      wrapStyle,
+      coverage,
+    } = body
 
     const replicateToken = await getReplicateToken()
     if (!replicateToken) {
-      return Response.json(
-        { error: 'Replicate API token not configured. Add it in Settings → Integrations → Replicate.' },
-        { status: 503 }
-      )
+      return Response.json({
+        message: 'Mockup generation not configured — add REPLICATE_API_TOKEN to env',
+        mockupUrl: null,
+        thumbnailUrl: null,
+      })
     }
 
-    const prompt = `Professional vehicle wrap mockup, ${vehicleType || 'cargo van'}, ${vehicleColor || 'white'} base vehicle, ${designDescription || 'custom vinyl wrap design'}, ${colors || 'bold colors'}, ${style || 'commercial business wrap'}, photorealistic, studio lighting, clean background, high quality`
+    // Build prompt from whichever params are provided
+    let prompt: string
+    if (vehicleImageBase64 || wrapStyle || coverage) {
+      const styleDesc = wrapStyle || 'custom vinyl wrap'
+      const coverageDesc = coverage || 'full wrap'
+      const colorsDesc = Array.isArray(brandAssets) && brandAssets.length > 0
+        ? `brand colors: ${brandAssets.slice(0, 3).join(', ')}`
+        : 'bold commercial colors'
+      prompt = `Professional vehicle wrap mockup, ${vehicleType || 'cargo van'}, ${styleDesc}, ${coverageDesc} coverage, ${colorsDesc}, photorealistic, studio lighting, clean background, high quality render`
+    } else {
+      prompt = `Professional vehicle wrap mockup, ${vehicleType || 'cargo van'}, ${vehicleColor || 'white'} base vehicle, ${designDescription || 'custom vinyl wrap design'}, ${colors || 'bold colors'}, ${style || 'commercial business wrap'}, photorealistic, studio lighting, clean background, high quality`
+    }
+
     const negativePrompt = 'cartoon, illustration, low quality, blurry, distorted, watermark'
 
     const replicateResponse = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-pro/predictions', {
@@ -75,9 +120,23 @@ export async function POST(req: Request) {
 
     const prediction = await replicateResponse.json()
 
+    // If prediction is already complete with output, store it
+    if (prediction.status === 'succeeded' && prediction.output?.[0]) {
+      const storedUrl = await storeInSupabase(prediction.output[0])
+      return Response.json({
+        predictionId: prediction.id,
+        status: prediction.status,
+        mockupUrl: storedUrl || prediction.output[0],
+        thumbnailUrl: storedUrl || prediction.output[0],
+        prompt,
+      })
+    }
+
     return Response.json({
       predictionId: prediction.id,
       status: prediction.status,
+      mockupUrl: null,
+      thumbnailUrl: null,
       prompt,
     })
   } catch (err) {
@@ -105,9 +164,19 @@ export async function GET(req: Request) {
 
   const prediction = await res.json()
 
+  let mockupUrl = prediction.output?.[0] ?? null
+
+  // Store in Supabase if succeeded
+  if (prediction.status === 'succeeded' && mockupUrl) {
+    const stored = await storeInSupabase(mockupUrl)
+    if (stored) mockupUrl = stored
+  }
+
   return Response.json({
     status: prediction.status,
-    imageUrl: prediction.output?.[0] ?? null,
+    imageUrl: mockupUrl,
+    mockupUrl,
+    thumbnailUrl: mockupUrl,
     error: prediction.error ?? null,
   })
 }
