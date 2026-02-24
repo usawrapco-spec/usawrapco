@@ -35,9 +35,7 @@ export default async function AppLayout({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-      <div className="hidden md:block">
-        <TopNav profile={profile as Profile} />
-      </div>
+      <TopNav profile={profile as Profile} />
       <main className="flex-1 overflow-y-auto p-4 md:px-5 md:py-4 pb-20 md:pb-4">
         {children}
       </main>

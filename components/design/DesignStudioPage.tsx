@@ -29,6 +29,8 @@ import {
   Eye,
   Download,
   RotateCcw,
+  RotateCw,
+  Hash,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -36,7 +38,7 @@ interface DesignStudioPageProps {
   profile: Profile
 }
 
-type DesignStatus = 'brief' | 'in_progress' | 'proof_sent' | 'approved'
+type DesignStatus = 'brief' | 'in_progress' | 'proof_sent' | 'revision' | 'approved'
 
 interface DesignProject {
   id: string
@@ -89,7 +91,8 @@ const STAGES: { key: DesignStatus; label: string; color: string }[] = [
   { key: 'brief',       label: 'Brief',       color: '#f59e0b' },
   { key: 'in_progress', label: 'In Progress', color: '#4f7fff' },
   { key: 'proof_sent',  label: 'Proof Sent',  color: '#22d3ee' },
-  { key: 'approved',    label: 'Approved',     color: '#22c07a' },
+  { key: 'revision',    label: 'Revision',    color: '#f97316' },
+  { key: 'approved',    label: 'Approved',    color: '#22c07a' },
 ]
 
 const DESIGN_TYPES = [
@@ -103,8 +106,13 @@ function getStageIcon(stage: DesignStatus, size = 14) {
     case 'brief': return <FileText size={size} />
     case 'in_progress': return <Clock size={size} />
     case 'proof_sent': return <Send size={size} />
+    case 'revision': return <RotateCw size={size} />
     case 'approved': return <CheckCircle size={size} />
   }
+}
+
+function daysInStage(updatedAt: string): number {
+  return Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86400000)
 }
 
 function getStageColor(stage: DesignStatus): string {
@@ -182,6 +190,13 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Version map: design_project_id -> max version number
+  const [versionMap, setVersionMap] = useState<Record<string, number>>({})
+
+  // Drag-and-drop state
+  const [dragProjectId, setDragProjectId] = useState<string | null>(null)
+  const [dragOverColumn, setDragOverColumn] = useState<DesignStatus | null>(null)
+
   // ─── Load data ───
   useEffect(() => {
     loadData()
@@ -215,7 +230,59 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     if (teamRes.data) setTeam(teamRes.data)
     if (jobsRes.data) setJobRefs(jobsRes.data)
 
+    // Load max file version per design project
+    if (designRes.data && designRes.data.length > 0) {
+      const ids = designRes.data.map((d: any) => d.id)
+      const { data: fileVersions } = await supabase
+        .from('design_project_files')
+        .select('design_project_id, version')
+        .in('design_project_id', ids)
+      if (fileVersions) {
+        const vMap: Record<string, number> = {}
+        fileVersions.forEach((f: any) => {
+          if (!vMap[f.design_project_id] || f.version > vMap[f.design_project_id]) {
+            vMap[f.design_project_id] = f.version
+          }
+        })
+        setVersionMap(vMap)
+      }
+    }
+
     setLoading(false)
+  }
+
+  // ─── Drag handlers ───
+  function handleCardDragStart(e: React.DragEvent, projectId: string) {
+    setDragProjectId(projectId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('projectId', projectId)
+  }
+
+  function handleColumnDragOver(e: React.DragEvent, stageKey: DesignStatus) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverColumn(stageKey)
+  }
+
+  function handleColumnDragLeave() {
+    setDragOverColumn(null)
+  }
+
+  async function handleColumnDrop(e: React.DragEvent, targetStage: DesignStatus) {
+    e.preventDefault()
+    setDragOverColumn(null)
+    const projectId = e.dataTransfer.getData('projectId') || dragProjectId
+    setDragProjectId(null)
+    if (!projectId) return
+    const project = projects.find(p => p.id === projectId)
+    if (!project || project.status === targetStage) return
+    setProjects(prev => prev.map(p =>
+      p.id === projectId ? { ...p, status: targetStage, updated_at: new Date().toISOString() } : p
+    ))
+    await supabase
+      .from('design_projects')
+      .update({ status: targetStage, updated_at: new Date().toISOString() })
+      .eq('id', projectId)
   }
 
   // ─── Filtered + grouped by stage ───
@@ -235,9 +302,9 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     // Filter by designer
     if (filterDesigner !== 'all') {
       if (filterDesigner === 'unassigned') {
-        result = result.filter(dp => !dp.assigned_to)
+        result = result.filter(dp => !dp.designer_id)
       } else {
-        result = result.filter(dp => dp.assigned_to === filterDesigner)
+        result = result.filter(dp => dp.designer_id === filterDesigner)
       }
     }
 
@@ -269,7 +336,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
   const columnData = useMemo(() => {
     const result: Record<DesignStatus, DesignProject[]> = {
-      brief: [], in_progress: [], proof_sent: [], approved: [],
+      brief: [], in_progress: [], proof_sent: [], revision: [], approved: [],
     }
     filteredProjects.forEach(dp => {
       if (result[dp.status]) result[dp.status].push(dp)

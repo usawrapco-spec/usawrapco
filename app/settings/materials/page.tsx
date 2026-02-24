@@ -20,7 +20,7 @@ export default async function MaterialsSettingsPage() {
   if (!isAdminRole(profile.role) && !canAccess(profile.role, 'manage_settings')) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-        <div className="hidden md:block"><TopNav profile={profile as Profile} /></div>
+        <TopNav profile={profile as Profile} />
         <main className="flex-1 overflow-y-auto p-4 md:px-5 md:py-4 pb-20 md:pb-4">
           <div className="card text-center py-16 max-w-md mx-auto">
             <Lock size={36} className="mx-auto mb-3 text-text3" />
@@ -35,7 +35,7 @@ export default async function MaterialsSettingsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-      <div className="hidden md:block"><TopNav profile={profile as Profile} /></div>
+      <TopNav profile={profile as Profile} />
       <main className="flex-1 overflow-y-auto p-4 md:px-5 md:py-4 pb-20 md:pb-4">
         <MaterialsCatalog profile={profile as Profile} />
       </main>
