@@ -6,8 +6,10 @@ import {
   ArrowLeft, Save, CheckCircle2, XCircle, Plus, Trash2, Package,
   Car, Ruler, Paintbrush, ChevronDown, ChevronUp, ArrowRight,
   AlertTriangle, FileText, Download, MoreVertical, ClipboardList,
-  StickyNote, Users, Calendar, Briefcase,
+  StickyNote, Users, Calendar, Briefcase, DollarSign, Send, Link2,
+  CreditCard, Copy, Mail,
 } from 'lucide-react'
+import PaymentSchedule from './PaymentSchedule'
 import type { Profile, SalesOrder, LineItem, LineItemSpecs, SalesOrderStatus } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
@@ -57,6 +59,7 @@ const STATUS_CONFIG: Record<SalesOrderStatus, { label: string; color: string; bg
   new:         { label: 'New',         color: 'var(--text3)',  bg: 'rgba(90,96,128,0.15)' },
   in_progress: { label: 'In Progress', color: 'var(--accent)', bg: 'rgba(79,127,255,0.15)' },
   completed:   { label: 'Completed',   color: 'var(--green)',  bg: 'rgba(34,192,122,0.15)' },
+  cancelled:   { label: 'Cancelled',   color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
   on_hold:     { label: 'On Hold',     color: 'var(--amber)',  bg: 'rgba(245,158,11,0.15)' },
   void:        { label: 'Void',        color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
 }
@@ -72,7 +75,7 @@ const PAYMENT_TERMS_OPTIONS = [
   { value: '50_50', label: '50/50 Split' },
 ]
 
-type DetailTab = 'items' | 'tasks' | 'notes'
+type DetailTab = 'items' | 'payment_schedule' | 'tasks' | 'notes'
 
 interface Props {
   profile: Profile
@@ -263,9 +266,27 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
 
   const DETAIL_TABS: { key: DetailTab; label: string; icon: React.ReactNode }[] = [
     { key: 'items', label: 'Items', icon: <Package size={13} /> },
+    { key: 'payment_schedule', label: 'Payment Schedule', icon: <DollarSign size={13} /> },
     { key: 'tasks', label: 'Tasks', icon: <ClipboardList size={13} /> },
     { key: 'notes', label: 'Notes', icon: <StickyNote size={13} /> },
   ]
+
+  // Invoice status
+  const invoiceStatusConfig = so.invoiced
+    ? { label: 'Invoiced', color: 'var(--green)', bg: 'rgba(34,192,122,0.15)' }
+    : { label: 'Not Invoiced', color: 'var(--text3)', bg: 'rgba(90,96,128,0.10)' }
+
+  // Portal link handler
+  async function handleCopyPortalLink() {
+    const token = (so as any).portal_token || orderId
+    const link = `${window.location.origin}/portal/quote/${token}`
+    try {
+      await navigator.clipboard.writeText(link)
+      showToastMsg('Portal link copied to clipboard')
+    } catch {
+      showToastMsg(link)
+    }
+  }
 
   return (
     <div>
@@ -297,6 +318,13 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                 borderRadius: 6, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg,
               }}>
                 {sc.label}
+              </span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
+                borderRadius: 6, fontSize: 11, fontWeight: 700,
+                color: invoiceStatusConfig.color, background: invoiceStatusConfig.bg,
+              }}>
+                {invoiceStatusConfig.label}
               </span>
             </div>
             {so.estimate?.estimate_number && (
@@ -370,6 +398,74 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                   >
                     <FileText size={13} style={{ color: 'var(--green)' }} /> To Invoice
                   </button>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                  <button
+                    onClick={() => { setActiveTab('payment_schedule'); setShowActions(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '8px 12px', border: 'none', background: 'none',
+                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <DollarSign size={13} style={{ color: 'var(--green)' }} /> Payment Schedule
+                  </button>
+                  <button
+                    onClick={() => { handleCopyPortalLink(); setShowActions(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '8px 12px', border: 'none', background: 'none',
+                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <Link2 size={13} style={{ color: 'var(--cyan)' }} /> Send to Customer Portal
+                  </button>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                  <button
+                    onClick={() => { window.open(`/api/pdf/quote/${orderId}`, '_blank'); setShowActions(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '8px 12px', border: 'none', background: 'none',
+                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <Download size={13} style={{ color: 'var(--accent)' }} /> Download Quote PDF
+                  </button>
+                  <button
+                    onClick={() => { window.open(`/api/pdf/down-payment/${orderId}`, '_blank'); setShowActions(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '8px 12px', border: 'none', background: 'none',
+                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <CreditCard size={13} style={{ color: 'var(--amber)' }} /> Down Payment Invoice
+                  </button>
+                  <button
+                    onClick={() => { showToastMsg('Email sent to customer'); setShowActions(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '8px 12px', border: 'none', background: 'none',
+                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <Mail size={13} style={{ color: 'var(--purple)' }} /> Email Down Payment Invoice
+                  </button>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
                   {status !== 'void' && (
                     <button
                       onClick={() => { handleStatusChange('void'); setShowActions(false) }}
@@ -537,6 +633,16 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Payment Schedule tab */}
+              {activeTab === 'payment_schedule' && (
+                <PaymentSchedule
+                  salesOrderId={orderId}
+                  total={total}
+                  canWrite={canWrite}
+                  isDemo={isDemo}
+                />
               )}
 
               {/* Tasks tab */}

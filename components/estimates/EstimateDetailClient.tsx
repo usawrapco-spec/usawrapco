@@ -18,6 +18,7 @@ import WrapZoneSelector from '@/components/estimates/WrapZoneSelector'
 import DeckingCalculator from '@/components/estimates/DeckingCalculator'
 import PhotoInspection from '@/components/estimates/PhotoInspection'
 import MockupCreator from '@/components/estimates/MockupCreator'
+import EstimateCalculators from '@/components/estimates/EstimateCalculators'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -78,18 +79,20 @@ const VEHICLE_CATEGORIES: Record<string, VehicleCategory> = {
 const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: string }> = {
   draft:    { label: 'DRAFT',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.18)' },
   sent:     { label: 'SENT',     color: 'var(--accent)', bg: 'rgba(79,127,255,0.18)' },
+  viewed:   { label: 'VIEWED',   color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.18)' },
   accepted: { label: 'ACCEPTED', color: 'var(--green)',  bg: 'rgba(34,192,122,0.18)' },
+  declined: { label: 'DECLINED', color: 'var(--red)',    bg: 'rgba(242,90,90,0.18)' },
   expired:  { label: 'EXPIRED',  color: 'var(--amber)',  bg: 'rgba(245,158,11,0.18)' },
   rejected: { label: 'REJECTED', color: 'var(--red)',    bg: 'rgba(242,90,90,0.18)' },
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'design' | 'production' | 'install' | 'notes' | 'activity'
+type TabKey = 'items' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
 const DEMO_ESTIMATE: Estimate = {
-  id: 'demo-est-1', org_id: '', estimate_number: 1001, title: 'Ford F-150 Full Wrap + PPF',
+  id: 'demo-est-1', org_id: '', estimate_number: '1001', title: 'Ford F-150 Full Wrap + PPF',
   customer_id: null, status: 'draft', sales_rep_id: null, production_manager_id: null,
   project_manager_id: null, quote_date: '2026-02-18', due_date: '2026-03-01',
   subtotal: 5000, discount: 0, tax_rate: DEFAULT_TAX_RATE, tax_amount: 412.50, total: 5412.50,
@@ -753,7 +756,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     setLineItemsList(items)
     showToast(`Template "${tmpl.name}" loaded`)
     // Increment use count
-    await supabase.rpc('increment_template_use', { template_id: tmpl.id }).catch(() => {})
+    await supabase.rpc('increment_template_use', { template_id: tmpl.id })
   }
 
   async function handleDelete() {
@@ -1366,6 +1369,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
+          { key: 'calculators' as TabKey, label: 'Calculators' },
           { key: 'design' as TabKey, label: 'Design' },
           { key: 'production' as TabKey, label: 'Production' },
           { key: 'install' as TabKey, label: 'Install' },
@@ -1749,6 +1753,31 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'calculators' && (
+        <EstimateCalculators
+          onAddLineItems={(newItems) => {
+            const items = newItems.map((item, idx) => ({
+              id: `calc-${Date.now()}-${idx}`,
+              parent_type: 'estimate' as const,
+              parent_id: estimateId,
+              product_type: (item.product_type || 'wrap') as any,
+              name: item.name,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              unit_discount: 0,
+              total_price: item.total_price,
+              specs: item.specs as any,
+              sort_order: lineItemsList.length + idx,
+              created_at: new Date().toISOString(),
+            }))
+            setLineItemsList(prev => [...prev, ...items])
+            setActiveTab('items')
+          }}
+          onClose={() => setActiveTab('items')}
+        />
       )}
 
       {activeTab === 'design' && (

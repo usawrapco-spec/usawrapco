@@ -302,7 +302,13 @@ export interface DesignProject {
   status: DesignProjectStatus
   project_id: string | null
   designer_id: string | null
+  assigned_to?: string | null
   created_by: string | null
+  title?: string | null
+  notes?: string | null
+  vehicle_type?: string | null
+  brand_files?: Record<string, unknown> | null
+  design_canvas_data?: Record<string, unknown> | null
   created_at: string
   updated_at: string
   linked_project?: Pick<Project, 'id' | 'title'>
@@ -322,12 +328,13 @@ export interface TeamInvite {
 }
 
 // ─── Estimate (Quote) ────────────────────────────────────────────────────────
-export type EstimateStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired' | 'void'
+export type EstimateStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired' | 'void' | 'rejected'
 
 export interface Estimate {
   id: string
   org_id: string
   estimate_number: string
+  title?: string
   customer_id: string | null
   contact_id: string | null
   status: EstimateStatus
@@ -336,14 +343,19 @@ export interface Estimate {
   project_manager_id: string | null
   line_items: any[]
   subtotal: number
+  discount: number
   discount_percent: number
   discount_amount: number
+  tax_rate: number
   tax_percent: number
   tax_amount: number
   total: number
   notes: string | null
+  customer_note?: string | null
   internal_notes: string | null
   tags: string[]
+  division?: string | null
+  form_data?: Record<string, unknown>
   quote_date: string | null
   due_date: string | null
   expires_at: string | null
@@ -412,12 +424,13 @@ export interface LineItemSpecs {
   [key: string]: unknown
 }
 
-export type SalesOrderStatus = 'new' | 'in_progress' | 'completed' | 'cancelled'
+export type SalesOrderStatus = 'new' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold' | 'void'
 
 export interface SalesOrder {
   id: string
   org_id: string
   so_number: string
+  title?: string
   estimate_id: string | null
   customer_id: string | null
   contact_id: string | null
@@ -426,16 +439,22 @@ export interface SalesOrder {
   sales_rep_id: string | null
   production_manager_id: string | null
   project_manager_id: string | null
+  designer_id?: string | null
   line_items: any[]
   subtotal: number
+  discount: number
   discount_percent: number
   discount_amount: number
+  tax_rate: number
   tax_percent: number
   tax_amount: number
   total: number
   notes: string | null
   internal_notes: string | null
   tags: string[]
+  install_date?: string | null
+  payment_terms?: string | null
+  down_payment_pct?: number | null
   so_date: string | null
   due_date: string | null
   invoiced: boolean
@@ -449,14 +468,16 @@ export interface SalesOrder {
   invoice?: Pick<Invoice, 'id' | 'invoice_number'>
 }
 
-export type InvoiceStatus = 'open' | 'partial' | 'paid' | 'overdue' | 'void'
+export type InvoiceStatus = 'draft' | 'open' | 'sent' | 'partial' | 'paid' | 'overdue' | 'void'
 
 export interface Invoice {
   id: string
   org_id: string
   invoice_number: string
+  title?: string
   estimate_id: string | null
   so_id: string | null
+  sales_order_id?: string | null
   customer_id: string | null
   contact_id: string | null
   invoice_contact_id: string | null
@@ -464,12 +485,15 @@ export interface Invoice {
   sales_rep_id: string | null
   line_items: any[]
   subtotal: number
+  discount: number
   discount_amount: number
+  tax_rate: number
   tax_percent: number
   tax_amount: number
   total: number
   amount_paid: number
   balance: number
+  balance_due?: number
   notes: string | null
   payment_terms: string
   invoice_date: string | null

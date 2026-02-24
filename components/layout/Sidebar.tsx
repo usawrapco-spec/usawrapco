@@ -225,6 +225,12 @@ const NAV: NavItem[] = [
     permission: 'bids.read',
   },
   {
+    href: '/installer',
+    label: 'Installer Dashboard',
+    icon: Hammer,
+    permission: 'install.view',
+  },
+  {
     href: '/analytics',
     label: 'Analytics',
     icon: Activity,
