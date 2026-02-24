@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Car, RotateCcw, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Camera, Paperclip, Search, AlertCircle, type LucideIcon } from 'lucide-react'
+import { Car, RotateCcw, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Camera, Paperclip, Search, AlertCircle, Globe, Check, X, Plus, type LucideIcon } from 'lucide-react'
 
 interface CustomerIntakePortalProps {
   token: string
@@ -79,6 +79,17 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
   const [vehiclePhotos, setVehiclePhotos] = useState<any[]>([])
   const [logoFiles, setLogoFiles] = useState<any[]>([])
   const [damagePhotos, setDamagePhotos] = useState<any[]>([])
+
+  // ── Branding state ─────────────────────────────────────────────────
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [scraping, setScraping] = useState(false)
+  const [scrapedData, setScrapedData] = useState<any>(null)
+  const [scrapedColors, setScrapedColors] = useState<string[]>([])
+  const [useScrapedColors, setUseScrapedColors] = useState<boolean | null>(null)
+  const [businessPhotos, setBusinessPhotos] = useState<any[]>([])
+  const [inspirationPhotos, setInspirationPhotos] = useState<any[]>([])
+  const [noGoPhotos, setNoGoPhotos] = useState<any[]>([])
+  const [uploadingBrand, setUploadingBrand] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -164,6 +175,48 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
     setVinDecoding(false)
   }
 
+  // ── Scrape website ──────────────────────────────────────────────────
+  async function scrapeWebsite() {
+    if (!websiteUrl) return
+    setScraping(true)
+    try {
+      const res = await fetch('/api/scrape-brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteUrl }),
+      })
+      const json = await res.json()
+      if (json.data || json.brand) {
+        const data = json.data || json.brand
+        setScrapedData(data)
+        // Auto-fill form fields
+        if (data.companyName || data.name) ff('customer_name', data.companyName || data.name || form.customer_name)
+        if (data.phone) ff('customer_phone', data.phone || form.customer_phone)
+        if (data.email) ff('customer_email', data.email || form.customer_email)
+        // Extract colors
+        const hexColors = (data.colors || []).map((c: any) => typeof c === 'string' ? c : c.hex).filter(Boolean)
+        if (hexColors.length) setScrapedColors(hexColors)
+      }
+    } catch { /* silently fail */ }
+    setScraping(false)
+  }
+
+  // ── Upload branding media ────────────────────────────────────────────
+  async function uploadBrandPhoto(type: 'business' | 'inspiration' | 'nogo', file: File) {
+    if (!intake) return
+    setUploadingBrand(type)
+    const path = `intake/${intake.project_id}/brand_${type}_${Date.now()}.${file.name.split('.').pop()}`
+    const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+    if (!error && data) {
+      const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(data.path)
+      const entry = { url: publicUrl, file_name: file.name, uploaded_at: new Date().toISOString() }
+      if (type === 'business') setBusinessPhotos(prev => [...prev, entry])
+      else if (type === 'inspiration') setInspirationPhotos(prev => [...prev, entry])
+      else setNoGoPhotos(prev => [...prev, entry])
+    }
+    setUploadingBrand(null)
+  }
+
   // ── Wrap area toggles ─────────────────────────────────────────────
   function toggleWrapArea(key: string) {
     setForm(prev => {
@@ -235,18 +288,38 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
 
   const submit = async () => {
     setSaving(true)
+
+    // Include branding data in intake update
+    const brandingMeta = {
+      website_url: websiteUrl || null,
+      scraped_data: scrapedData || null,
+      business_photos: businessPhotos,
+      inspiration_photos: inspirationPhotos,
+      nogo_photos: noGoPhotos,
+      brand_colors_confirmed: useScrapedColors ? scrapedColors : null,
+    }
+
     await supabase.from('customer_intake').update({
       ...form,
       vehicle_photos: vehiclePhotos,
       logo_files: logoFiles,
       damage_photos: damagePhotos,
+      design_brief: [form.design_brief, websiteUrl ? `Website: ${websiteUrl}` : ''].filter(Boolean).join('\n'),
       completed: true,
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      branding_meta: brandingMeta,
     }).eq('token', token)
 
     // Award intake_submitted XP to the creating agent via server route
     fetch('/api/xp/intake-submitted', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    }).catch(() => {})
+
+    // Auto-generate brand portfolio in background
+    fetch('/api/brand-portfolio/generate-from-intake', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
@@ -278,6 +351,148 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
         <div style={{ fontSize: 28, fontWeight: 900, color: '#e8ecf4', letterSpacing: '-.02em' }}>USA WRAP CO</div>
         <div style={{ fontSize: 14, color: '#8892a8', marginTop: 4 }}>Vehicle Wrap Intake Form</div>
       </div>
+
+      {/* ── SCREEN 0: BUSINESS BRANDING ── */}
+      <Section label="Tell Us About Your Brand">
+        {/* Website Scrape */}
+        <div style={{ marginBottom: 16 }}>
+          <Field label="Business Website (optional — we'll auto-fill your info)">
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...inp, flex: 1 }}
+                value={websiteUrl}
+                onChange={e => setWebsiteUrl(e.target.value)}
+                placeholder="https://yourcompany.com"
+                type="url"
+              />
+              <button
+                onClick={scrapeWebsite}
+                disabled={!websiteUrl || scraping}
+                style={{
+                  padding: '0 16px', borderRadius: 8, border: '1px solid #1e2d4a',
+                  background: websiteUrl ? '#4f7fff' : '#0c1222',
+                  color: websiteUrl ? '#fff' : '#5a6478',
+                  fontSize: 12, fontWeight: 700, cursor: websiteUrl ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                }}>
+                <Globe size={13} />
+                {scraping ? 'Analyzing...' : 'Analyze Website'}
+              </button>
+            </div>
+          </Field>
+          {scrapedData && (
+            <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {scrapedData.logoUrl && <span style={{ fontSize: 11, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />Logo found</span>}
+              {scrapedColors.length > 0 && <span style={{ fontSize: 11, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />{scrapedColors.length} brand colors</span>}
+              {(scrapedData.phone || scrapedData.companyName) && <span style={{ fontSize: 11, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />Contact info</span>}
+              {scrapedData.services?.length > 0 && <span style={{ fontSize: 11, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />{scrapedData.services.length} services</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Color swatches from scrape */}
+        {scrapedColors.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <Field label="Brand Colors Found on Your Website">
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                {scrapedColors.map(hex => (
+                  <div key={hex} style={{ textAlign: 'center' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 8, background: hex, border: '2px solid rgba(255,255,255,0.1)' }} />
+                    <div style={{ fontSize: 9, color: '#5a6478', marginTop: 2, fontFamily: 'monospace' }}>{hex}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: '#8892a8', marginBottom: 6 }}>Are these your brand colors?</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { val: true, label: 'Yes, these are my colors' },
+                  { val: false, label: 'No, I\'ll add my own' },
+                ].map(({ val, label }) => (
+                  <button key={String(val)} onClick={() => setUseScrapedColors(val)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      border: `1px solid ${useScrapedColors === val ? '#4f7fff' : '#1e2d4a'}`,
+                      background: useScrapedColors === val ? 'rgba(79,127,255,0.12)' : '#0c1222',
+                      color: useScrapedColors === val ? '#4f7fff' : '#8892a8',
+                    }}>{label}</button>
+                ))}
+                <button onClick={() => setUseScrapedColors(null)}
+                  style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #1e2d4a', background: '#0c1222', color: '#8892a8' }}>
+                  I don't have brand colors yet
+                </button>
+              </div>
+            </Field>
+          </div>
+        )}
+
+        {/* Logo upload */}
+        <div style={{ marginBottom: 16 }}>
+          <Field label="Your Logo">
+            {scrapedData?.logoUrl && (
+              <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src={scrapedData.logoUrl} alt="Logo from website" style={{ height: 40, objectFit: 'contain', borderRadius: 6, background: '#fff', padding: '4px 8px' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                <span style={{ fontSize: 11, color: '#8892a8' }}>Found on your website</span>
+              </div>
+            )}
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer',
+              border: '1px dashed #1e2d4a', borderRadius: 8, fontSize: 13, color: '#8892a8',
+              background: '#0c1222',
+            }}>
+              <Paperclip size={14} />
+              {logoFiles.length > 0 ? `${logoFiles.length} logo file(s) uploaded` : 'Upload your logo (PNG, SVG, PDF, AI, EPS, JPG)'}
+              <input type="file" accept="image/*,.pdf,.ai,.svg,.eps" style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
+            </label>
+            {logoFiles.map((f, i) => (
+              <div key={i} style={{ marginTop: 6, fontSize: 11, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Check size={11} />{f.file_name}
+              </div>
+            ))}
+          </Field>
+        </div>
+
+        {/* Business photos */}
+        <div style={{ marginBottom: 16 }}>
+          <Field label="Photos of Your Business / Fleet / Work (helps us design the perfect wrap)">
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer',
+              border: '1px dashed #1e2d4a', borderRadius: 8, fontSize: 13, color: '#8892a8', background: '#0c1222',
+            }}>
+              <Camera size={14} />
+              {uploadingBrand === 'business' ? 'Uploading...' : businessPhotos.length > 0 ? `${businessPhotos.length} photo(s)` : 'Upload up to 10 photos'}
+              <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                onChange={e => { if (e.target.files) Array.from(e.target.files).slice(0, 10).forEach(f => uploadBrandPhoto('business', f)) }} />
+            </label>
+          </Field>
+        </div>
+
+        {/* Inspiration photos */}
+        <Grid cols={2}>
+          <Field label="Wraps You Love (inspiration)">
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', cursor: 'pointer',
+              border: '1px dashed rgba(34,197,94,0.3)', borderRadius: 8, fontSize: 12, color: '#8892a8', background: '#0c1222',
+            }}>
+              <Plus size={13} style={{ color: '#22c55e' }} />
+              {inspirationPhotos.length > 0 ? `${inspirationPhotos.length} added` : 'Add up to 5 images'}
+              <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                onChange={e => { if (e.target.files) Array.from(e.target.files).slice(0, 5).forEach(f => uploadBrandPhoto('inspiration', f)) }} />
+            </label>
+          </Field>
+          <Field label="Wraps You Hate (what NOT to do)">
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', cursor: 'pointer',
+              border: '1px dashed rgba(239,68,68,0.3)', borderRadius: 8, fontSize: 12, color: '#8892a8', background: '#0c1222',
+            }}>
+              <X size={13} style={{ color: '#ef4444' }} />
+              {noGoPhotos.length > 0 ? `${noGoPhotos.length} added` : 'Add up to 3 images'}
+              <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                onChange={e => { if (e.target.files) Array.from(e.target.files).slice(0, 3).forEach(f => uploadBrandPhoto('nogo', f)) }} />
+            </label>
+          </Field>
+        </Grid>
+      </Section>
 
       {/* Contact Info */}
       <Section label="Your Contact Info">

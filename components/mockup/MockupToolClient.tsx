@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Wand2, Download, RefreshCw, AlertCircle, ImageIcon, Save } from 'lucide-react'
+import { Wand2, Download, RefreshCw, AlertCircle, ImageIcon, Save, Globe, Check, Palette, Building2, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 
@@ -32,10 +32,73 @@ export default function MockupToolClient({ profile }: Props) {
   const [saved, setSaved]               = useState(false)
   const supabase = createClient()
 
+  // Brand profile state
+  const [websiteUrl, setWebsiteUrl]   = useState('')
+  const [scraping, setScraping]       = useState(false)
+  const [brandProfile, setBrandProfile] = useState<any>(null)
+  const [editingProfile, setEditingProfile] = useState(false)
+
+  const scrapeWebsite = async () => {
+    if (!websiteUrl) return
+    setScraping(true)
+    try {
+      const res = await fetch('/api/scrape-brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteUrl }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        const d = json.data
+        setBrandProfile({
+          companyName: d.companyName || d.name || '',
+          logoUrl: d.logoUrl || '',
+          tagline: d.tagline || '',
+          colors: d.colors || [],
+          phone: d.phone || '',
+          email: d.email || '',
+          services: d.services || [],
+        })
+        // Auto-fill colors and description
+        const hexColors = (d.colors || []).map((c: any) => typeof c === 'string' ? c : c.hex).filter(Boolean)
+        if (hexColors.length > 0) setColors(hexColors.slice(0, 3).join(', '))
+        if (d.companyName || d.name) {
+          const co = d.companyName || d.name
+          setDescription(prev => prev || `Vehicle wrap for ${co}. Include company name prominently. Professional commercial branding.`)
+        }
+        // Run AI analysis in background to enhance prompt
+        fetch('/api/analyze-brand', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyName: d.companyName,
+            url: websiteUrl,
+            tagline: d.tagline,
+            colors: d.colors,
+            services: d.services,
+            aboutText: d.aboutText,
+          }),
+        }).then(r => r.json()).then(aiJson => {
+          if (aiJson.analysis?.enhanced_prompt) {
+            setBrandProfile((prev: any) => ({ ...prev, aiAnalysis: aiJson.analysis }))
+            setDescription(aiJson.analysis.enhanced_prompt)
+          }
+        }).catch(() => {})
+      }
+    } catch { /* silent */ }
+    setScraping(false)
+  }
+
   const generate = async () => {
     setGenerating(true)
     setError('')
     setImageUrl('')
+
+    // Build enhanced description using brand profile
+    let finalDescription = description
+    if (brandProfile && !finalDescription) {
+      finalDescription = `Professional vehicle wrap for ${brandProfile.companyName}. Use their brand colors ${(brandProfile.colors || []).slice(0, 3).map((c: any) => typeof c === 'string' ? c : c.hex).join(', ')}. Clean commercial branding design.`
+    }
 
     try {
       const res = await fetch('/api/ai/generate-mockup', {
@@ -44,8 +107,10 @@ export default function MockupToolClient({ profile }: Props) {
         body: JSON.stringify({
           vehicleType, vehicleColor, wrapStyle,
           colors: colors || 'brand colors',
-          designDescription: description || wrapStyle,
+          designDescription: finalDescription || wrapStyle,
           style: 'commercial vehicle wrap',
+          companyName: brandProfile?.companyName,
+          logoUrl: brandProfile?.logoUrl,
         }),
       })
       const data = await res.json()
@@ -55,7 +120,6 @@ export default function MockupToolClient({ profile }: Props) {
         return
       }
       setPredictionId(data.predictionId)
-      // Start polling
       pollForResult(data.predictionId, 0)
     } catch {
       setError('Network error. Please try again.')
@@ -80,7 +144,6 @@ export default function MockupToolClient({ profile }: Props) {
         setError(data.error || 'Generation failed')
         setGenerating(false)
       } else {
-        // Still processing — poll again in 2s
         setPollCount(count + 1)
         setTimeout(() => pollForResult(id, count + 1), 2000)
       }
@@ -98,9 +161,7 @@ export default function MockupToolClient({ profile }: Props) {
       await supabase.storage.from('job-images').upload(path, blob)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch {
-      // Silent fail - image is still available via URL
-    }
+    } catch { /* Silent fail */ }
   }
 
   const S: Record<string, React.CSSProperties> = {
@@ -109,6 +170,10 @@ export default function MockupToolClient({ profile }: Props) {
     input: { width: '100%', padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' },
     card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px' },
   }
+
+  const primaryColor = brandProfile?.colors?.[0]
+    ? (typeof brandProfile.colors[0] === 'string' ? brandProfile.colors[0] : brandProfile.colors[0].hex)
+    : '#4f7fff'
 
   return (
     <div>
@@ -119,6 +184,106 @@ export default function MockupToolClient({ profile }: Props) {
         <p style={{ fontSize: 13, color: 'var(--text3)' }}>
           Generate photorealistic vehicle wrap mockups using AI. Powered by Flux Pro.
         </p>
+      </div>
+
+      {/* Brand Profile Section */}
+      <div style={{ ...S.card, marginBottom: 20, borderColor: brandProfile ? `${primaryColor}40` : 'var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <Building2 size={14} style={{ color: 'var(--text3)' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text3)' }}>
+            Brand Profile
+          </span>
+          {brandProfile && (
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#22c07a', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Check size={11} /> Profile Built
+            </span>
+          )}
+        </div>
+
+        {brandProfile && !editingProfile ? (
+          /* Brand Profile Card */
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              {brandProfile.logoUrl && (
+                <img
+                  src={brandProfile.logoUrl}
+                  alt="Logo"
+                  style={{ height: 36, objectFit: 'contain', borderRadius: 6, background: '#fff', padding: '4px 8px', flexShrink: 0 }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              )}
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text1)' }}>{brandProfile.companyName}</div>
+                {brandProfile.tagline && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>{brandProfile.tagline}</div>
+                )}
+              </div>
+              <button
+                onClick={() => setEditingProfile(true)}
+                style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+              >
+                <Pencil size={10} /> Edit
+              </button>
+            </div>
+            {brandProfile.colors?.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Palette size={12} style={{ color: 'var(--text3)' }} />
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {brandProfile.colors.slice(0, 5).map((c: any, i: number) => {
+                    const hex = typeof c === 'string' ? c : c.hex
+                    return (
+                      <div key={i} style={{ width: 20, height: 20, borderRadius: 4, background: hex, border: '1px solid rgba(255,255,255,0.1)' }} title={hex} />
+                    )
+                  })}
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>Brand colors auto-applied</span>
+              </div>
+            )}
+            {brandProfile.aiAnalysis?.wrap_recommendation && (
+              <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(34,192,122,0.06)', border: '1px solid rgba(34,192,122,0.2)', borderRadius: 8, fontSize: 12, color: '#9299b5' }}>
+                <strong style={{ color: '#22c07a' }}>AI Rec: </strong>
+                {brandProfile.aiAnalysis.wrap_recommendation}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Website URL input */
+          <div>
+            {editingProfile && (
+              <button onClick={() => setEditingProfile(false)} style={{ marginBottom: 10, fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                ← Back to profile
+              </button>
+            )}
+            <label style={S.label}>Customer Website (optional — auto-fills brand data)</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={websiteUrl}
+                onChange={e => setWebsiteUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && scrapeWebsite()}
+                placeholder="https://customer-website.com"
+                style={{ ...S.input, flex: 1 }}
+              />
+              <button
+                onClick={scrapeWebsite}
+                disabled={!websiteUrl || scraping}
+                style={{
+                  padding: '0 14px', borderRadius: 8, border: 'none',
+                  background: websiteUrl ? 'var(--accent)' : 'var(--surface2)',
+                  color: websiteUrl ? '#fff' : 'var(--text3)',
+                  fontSize: 12, fontWeight: 700,
+                  cursor: websiteUrl && !scraping ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                }}
+              >
+                <Globe size={13} />
+                {scraping ? 'Analyzing...' : 'Analyze'}
+              </button>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text3)' }}>
+              Extracts logo, brand colors, and company info — auto-fills the description below
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]" style={{ gap: 20 }}>
@@ -144,7 +309,7 @@ export default function MockupToolClient({ profile }: Props) {
               </select>
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={S.label}>Colors (optional)</label>
+              <label style={S.label}>Colors</label>
               <input
                 value={colors}
                 onChange={e => setColors(e.target.value)}
@@ -181,7 +346,7 @@ export default function MockupToolClient({ profile }: Props) {
               ) : (
                 <>
                   <Wand2 size={16} />
-                  Generate Mockup
+                  {brandProfile ? `Generate for ${brandProfile.companyName || 'Client'}` : 'Generate Mockup'}
                 </>
               )}
             </button>
@@ -257,6 +422,7 @@ export default function MockupToolClient({ profile }: Props) {
           )}
         </div>
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
