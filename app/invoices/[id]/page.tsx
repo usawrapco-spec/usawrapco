@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import type { Profile, Invoice, LineItem } from '@/types'
+import type { Profile, Invoice, Payment } from '@/types'
 import InvoiceDetailClient from '@/components/invoices/InvoiceDetailClient'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
@@ -17,7 +17,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   if (!profile) redirect('/login')
 
   let invoice: Invoice | null = null
-  let lineItems: LineItem[] = []
+  let payments: Payment[] = []
   let isDemo = false
 
   try {
@@ -26,7 +26,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .select(`
         *,
         customer:customer_id(id, name, email),
-        sales_order:sales_order_id(id, so_number)
+        sales_rep:sales_rep_id(id, name)
       `)
       .eq('id', params.id)
       .single()
@@ -34,15 +34,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
     if (error) throw error
     invoice = data as Invoice
 
-    // Fetch line items for this invoice
-    const { data: items } = await admin
-      .from('line_items')
-      .select('*')
-      .eq('parent_type', 'invoice')
-      .eq('parent_id', params.id)
-      .order('sort_order', { ascending: true })
+    // Fetch payments for this invoice
+    const { data: paymentData } = await admin
+      .from('payments')
+      .select(`
+        *,
+        recorder:recorded_by(id, name)
+      `)
+      .eq('invoice_id', params.id)
+      .order('payment_date', { ascending: false })
 
-    lineItems = (items as LineItem[]) || []
+    payments = (paymentData as Payment[]) || []
   } catch (err) {
     console.error('[invoice detail] fetch error:', err)
     isDemo = true
@@ -52,7 +54,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
     <InvoiceDetailClient
       profile={profile as Profile}
       invoice={invoice}
-      lineItems={lineItems}
+      payments={payments}
       isDemo={isDemo}
       invoiceId={params.id}
     />
