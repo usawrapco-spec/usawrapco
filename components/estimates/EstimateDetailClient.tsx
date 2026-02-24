@@ -19,6 +19,7 @@ import DeckingCalculator from '@/components/estimates/DeckingCalculator'
 import PhotoInspection from '@/components/estimates/PhotoInspection'
 import MockupCreator from '@/components/estimates/MockupCreator'
 import EstimateCalculators from '@/components/estimates/EstimateCalculators'
+import ProposalBuilder from '@/components/estimates/ProposalBuilder'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -106,7 +107,7 @@ const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: 
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity'
+type TabKey = 'items' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
@@ -1400,6 +1401,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           { key: 'production' as TabKey, label: 'Production' },
           { key: 'install' as TabKey, label: 'Install' },
           { key: 'notes' as TabKey, label: 'Notes' },
+          { key: 'proposal' as TabKey, label: 'Proposal' },
           { key: 'activity' as TabKey, label: 'Activity' },
         ]).map(tab => (
           <button
@@ -1955,6 +1957,15 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
         </div>
+      )}
+      {activeTab === 'proposal' && (
+        <ProposalBuilder
+          estimateId={estimateId}
+          customerId={est.customer_id}
+          customerEmail={est.customer?.email || null}
+          customerName={est.customer?.name || null}
+          customerPhone={null}
+        />
       )}
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
