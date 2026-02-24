@@ -1,0 +1,143 @@
+{
+  "pickup_crew": {
+    "label": "Pickup Truck — Crew Cab",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 180, "height": 60, "sqft": 75 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 180, "height": 60, "sqft": 75 },
+      { "id": "hood", "label": "Hood", "width": 70, "height": 58, "sqft": 28.2 },
+      { "id": "roof", "label": "Roof", "width": 70, "height": 68, "sqft": 33 },
+      { "id": "rear", "label": "Rear / Tailgate", "width": 66, "height": 54, "sqft": 24.75 },
+      { "id": "front_bumper", "label": "Front Bumper", "width": 66, "height": 14, "sqft": 6.4 },
+      { "id": "rear_bumper", "label": "Rear Bumper", "width": 66, "height": 14, "sqft": 6.4 }
+    ],
+    "full_wrap_sqft": 249
+  },
+  "pickup_regular": {
+    "label": "Pickup Truck — Regular Cab",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 140, "height": 60, "sqft": 58 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 140, "height": 60, "sqft": 58 },
+      { "id": "hood", "label": "Hood", "width": 70, "height": 58, "sqft": 28.2 },
+      { "id": "roof", "label": "Roof", "width": 55, "height": 60, "sqft": 22.9 },
+      { "id": "rear", "label": "Rear / Tailgate", "width": 66, "height": 54, "sqft": 24.75 }
+    ],
+    "full_wrap_sqft": 192
+  },
+  "cargo_van_standard": {
+    "label": "Cargo Van — Standard (Transit 250)",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 210, "height": 72, "sqft": 105 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 210, "height": 72, "sqft": 105 },
+      { "id": "roof", "label": "Roof", "width": 180, "height": 72, "sqft": 90 },
+      { "id": "rear_doors", "label": "Rear Doors", "width": 72, "height": 72, "sqft": 36 },
+      { "id": "front", "label": "Front / Hood", "width": 72, "height": 60, "sqft": 30 }
+    ],
+    "full_wrap_sqft": 366
+  },
+  "cargo_van_high_roof": {
+    "label": "Cargo Van — High Roof (Sprinter / Transit HR)",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 228, "height": 88, "sqft": 139.5 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 228, "height": 88, "sqft": 139.5 },
+      { "id": "roof", "label": "Roof", "width": 200, "height": 72, "sqft": 100 },
+      { "id": "rear", "label": "Rear Doors", "width": 72, "height": 80, "sqft": 40 },
+      { "id": "front", "label": "Front / Hood", "width": 72, "height": 60, "sqft": 30 }
+    ],
+    "full_wrap_sqft": 449
+  },
+  "box_truck_16": {
+    "label": "Box Truck — 16ft",
+    "panels": [
+      { "id": "box_driver", "label": "Box Body — Driver Side", "width": 192, "height": 96, "sqft": 128 },
+      { "id": "box_passenger", "label": "Box Body — Passenger Side", "width": 192, "height": 96, "sqft": 128 },
+      { "id": "box_rear", "label": "Box Rear Door", "width": 96, "height": 96, "sqft": 64 },
+      { "id": "cab_driver", "label": "Cab — Driver Side", "width": 60, "height": 60, "sqft": 25 },
+      { "id": "cab_passenger", "label": "Cab — Passenger Side", "width": 60, "height": 60, "sqft": 25 }
+    ],
+    "full_wrap_sqft": 370
+  },
+  "box_truck_20": {
+    "label": "Box Truck — 20ft",
+    "panels": [
+      { "id": "box_driver", "label": "Box Body — Driver Side", "width": 240, "height": 96, "sqft": 160 },
+      { "id": "box_passenger", "label": "Box Body — Passenger Side", "width": 240, "height": 96, "sqft": 160 },
+      { "id": "box_rear", "label": "Box Rear Door", "width": 96, "height": 96, "sqft": 64 },
+      { "id": "cab_driver", "label": "Cab — Driver", "width": 60, "height": 60, "sqft": 25 },
+      { "id": "cab_passenger", "label": "Cab — Passenger", "width": 60, "height": 60, "sqft": 25 }
+    ],
+    "full_wrap_sqft": 434
+  },
+  "box_truck_24": {
+    "label": "Box Truck — 24ft",
+    "panels": [
+      { "id": "box_driver", "label": "Box Body — Driver Side", "width": 288, "height": 96, "sqft": 192 },
+      { "id": "box_passenger", "label": "Box Body — Passenger Side", "width": 288, "height": 96, "sqft": 192 },
+      { "id": "box_rear", "label": "Box Rear Door", "width": 96, "height": 96, "sqft": 64 },
+      { "id": "cab_driver", "label": "Cab — Driver", "width": 60, "height": 60, "sqft": 25 },
+      { "id": "cab_passenger", "label": "Cab — Passenger", "width": 60, "height": 60, "sqft": 25 }
+    ],
+    "full_wrap_sqft": 498
+  },
+  "box_truck_26": {
+    "label": "Box Truck — 26ft",
+    "panels": [
+      { "id": "box_driver", "label": "Box Body — Driver Side", "width": 312, "height": 96, "sqft": 208 },
+      { "id": "box_passenger", "label": "Box Body — Passenger Side", "width": 312, "height": 96, "sqft": 208 },
+      { "id": "box_rear", "label": "Box Rear Door", "width": 96, "height": 96, "sqft": 64 },
+      { "id": "cab_driver", "label": "Cab — Driver", "width": 60, "height": 60, "sqft": 25 },
+      { "id": "cab_passenger", "label": "Cab — Passenger", "width": 60, "height": 60, "sqft": 25 }
+    ],
+    "full_wrap_sqft": 530
+  },
+  "sedan": {
+    "label": "Sedan",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 170, "height": 54, "sqft": 63.75 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 170, "height": 54, "sqft": 63.75 },
+      { "id": "hood", "label": "Hood", "width": 62, "height": 52, "sqft": 22.4 },
+      { "id": "roof", "label": "Roof", "width": 55, "height": 52, "sqft": 19.8 },
+      { "id": "trunk", "label": "Trunk / Deck Lid", "width": 58, "height": 40, "sqft": 16.1 }
+    ],
+    "full_wrap_sqft": 186
+  },
+  "suv_full": {
+    "label": "SUV — Full Size (Suburban / Expedition / Yukon XL)",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 196, "height": 64, "sqft": 87.1 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 196, "height": 64, "sqft": 87.1 },
+      { "id": "hood", "label": "Hood", "width": 68, "height": 56, "sqft": 26.4 },
+      { "id": "roof", "label": "Roof", "width": 80, "height": 60, "sqft": 33.3 },
+      { "id": "rear", "label": "Rear Hatch", "width": 66, "height": 54, "sqft": 24.75 }
+    ],
+    "full_wrap_sqft": 259
+  },
+  "suv_mid": {
+    "label": "SUV — Mid Size (Tahoe / Explorer / 4Runner)",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 182, "height": 60, "sqft": 75.8 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 182, "height": 60, "sqft": 75.8 },
+      { "id": "hood", "label": "Hood", "width": 64, "height": 54, "sqft": 24 },
+      { "id": "roof", "label": "Roof", "width": 72, "height": 58, "sqft": 29 },
+      { "id": "rear", "label": "Rear Hatch", "width": 62, "height": 50, "sqft": 21.5 }
+    ],
+    "full_wrap_sqft": 226
+  },
+  "trailer_48": {
+    "label": "Semi Trailer — 48ft",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 576, "height": 102, "sqft": 408 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 576, "height": 102, "sqft": 408 },
+      { "id": "rear", "label": "Rear Doors", "width": 98, "height": 102, "sqft": 69.4 }
+    ],
+    "full_wrap_sqft": 885
+  },
+  "trailer_53": {
+    "label": "Semi Trailer — 53ft",
+    "panels": [
+      { "id": "driver_side", "label": "Driver Side", "width": 636, "height": 102, "sqft": 450 },
+      { "id": "passenger_side", "label": "Passenger Side", "width": 636, "height": 102, "sqft": 450 },
+      { "id": "rear", "label": "Rear Doors", "width": 98, "height": 102, "sqft": 69.4 }
+    ],
+    "full_wrap_sqft": 969
+  }
+}

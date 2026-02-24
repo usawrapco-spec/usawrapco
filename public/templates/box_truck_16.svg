@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 600" width="2000" height="600">
+  <rect width="2000" height="600" fill="none"/>
+  <!-- Box Truck 16ft - Side View -->
+  <!-- Box body -->
+  <rect x="600" y="100" width="1250" height="340" fill="none" stroke="white" stroke-width="3" data-panel="box_driver"/>
+  <!-- Cab -->
+  <path d="M 150,440 L 150,200 Q 165,150 220,140 L 620,140 L 620,440 Z" fill="none" stroke="white" stroke-width="3" data-panel="cab_driver"/>
+  <!-- Cab window -->
+  <path d="M 220,155 L 590,155 L 590,290 L 230,290 Z" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Box rear doors -->
+  <rect x="1720" y="105" width="125" height="330" fill="none" stroke="white" stroke-width="2" stroke-dasharray="6,3"/>
+  <!-- Wheels -->
+  <circle cx="310" cy="460" r="70" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="310" cy="460" r="35" fill="none" stroke="white" stroke-width="2"/>
+  <circle cx="1540" cy="460" r="70" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="1540" cy="460" r="35" fill="none" stroke="white" stroke-width="2"/>
+  <circle cx="1660" cy="460" r="70" fill="none" stroke="white" stroke-width="3"/>
+  <circle cx="1660" cy="460" r="35" fill="none" stroke="white" stroke-width="2"/>
+  <!-- Labels -->
+  <text x="1220" y="260" fill="#9299b5" font-size="28" font-family="sans-serif" text-anchor="middle">BOX BODY — DRIVER SIDE</text>
+  <text x="1220" y="295" fill="#5a6080" font-size="20" font-family="sans-serif" text-anchor="middle">192" × 96"</text>
+  <text x="375" y="290" fill="#9299b5" font-size="20" font-family="sans-serif" text-anchor="middle">CAB</text>
+  <text x="1782" y="270" fill="#9299b5" font-size="16" font-family="sans-serif" text-anchor="middle">REAR</text>
+</svg>
