@@ -11,9 +11,9 @@ import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 
 // ─── Demo data when DB tables don't exist yet ────────────────────────────────
-const DEMO_ESTIMATES: Estimate[] = [
+const DEMO_ESTIMATES = [
   {
-    id: 'demo-est-1', org_id: '', estimate_number: 1001, title: 'Ford F-150 Full Wrap',
+    id: 'demo-est-1', org_id: '', estimate_number: '1001', title: 'Ford F-150 Full Wrap',
     customer_id: null, status: 'draft', sales_rep_id: null, production_manager_id: null,
     project_manager_id: null, quote_date: '2026-02-18', due_date: '2026-03-01',
     subtotal: 3200, discount: 0, tax_rate: 0.0825, tax_amount: 264, total: 3464,
@@ -24,7 +24,7 @@ const DEMO_ESTIMATES: Estimate[] = [
     sales_rep: { id: 's1', name: 'Tyler Reid' },
   },
   {
-    id: 'demo-est-2', org_id: '', estimate_number: 1002, title: 'Tesla Model 3 PPF + Tint',
+    id: 'demo-est-2', org_id: '', estimate_number: '1002', title: 'Tesla Model 3 PPF + Tint',
     customer_id: null, status: 'sent', sales_rep_id: null, production_manager_id: null,
     project_manager_id: null, quote_date: '2026-02-15', due_date: '2026-02-25',
     subtotal: 4800, discount: 200, tax_rate: 0.0825, tax_amount: 379.50, total: 4979.50,
@@ -35,7 +35,7 @@ const DEMO_ESTIMATES: Estimate[] = [
     sales_rep: { id: 's1', name: 'Tyler Reid' },
   },
   {
-    id: 'demo-est-3', org_id: '', estimate_number: 1003, title: 'Sprinter Van Commercial Wrap',
+    id: 'demo-est-3', org_id: '', estimate_number: '1003', title: 'Sprinter Van Commercial Wrap',
     customer_id: null, status: 'accepted', sales_rep_id: null, production_manager_id: null,
     project_manager_id: null, quote_date: '2026-02-10', due_date: '2026-02-20',
     subtotal: 5600, discount: 300, tax_rate: 0.0825, tax_amount: 437.25, total: 5737.25,
@@ -46,7 +46,7 @@ const DEMO_ESTIMATES: Estimate[] = [
     sales_rep: { id: 's2', name: 'Amanda Cross' },
   },
   {
-    id: 'demo-est-4', org_id: '', estimate_number: 1004, title: 'BMW M4 Color Change',
+    id: 'demo-est-4', org_id: '', estimate_number: '1004', title: 'BMW M4 Color Change',
     customer_id: null, status: 'expired', sales_rep_id: null, production_manager_id: null,
     project_manager_id: null, quote_date: '2026-01-20', due_date: '2026-02-01',
     subtotal: 4200, discount: 0, tax_rate: 0.0825, tax_amount: 346.50, total: 4546.50,
@@ -57,7 +57,7 @@ const DEMO_ESTIMATES: Estimate[] = [
     sales_rep: { id: 's1', name: 'Tyler Reid' },
   },
   {
-    id: 'demo-est-5', org_id: '', estimate_number: 1005, title: 'Fleet Wraps - 3 Trucks',
+    id: 'demo-est-5', org_id: '', estimate_number: '1005', title: 'Fleet Wraps - 3 Trucks',
     customer_id: null, status: 'sent', sales_rep_id: null, production_manager_id: null,
     project_manager_id: null, quote_date: '2026-02-19', due_date: '2026-03-05',
     subtotal: 9600, discount: 500, tax_rate: 0.0825, tax_amount: 750.75, total: 9850.75,
@@ -68,7 +68,7 @@ const DEMO_ESTIMATES: Estimate[] = [
     sales_rep: { id: 's2', name: 'Amanda Cross' },
   },
   {
-    id: 'demo-est-6', org_id: '', estimate_number: 1006, title: 'Composite Deck Install',
+    id: 'demo-est-6', org_id: '', estimate_number: '1006', title: 'Composite Deck Install',
     customer_id: null, status: 'draft', sales_rep_id: null, production_manager_id: null,
     project_manager_id: null, quote_date: '2026-02-20', due_date: '2026-03-10',
     subtotal: 12400, discount: 0, tax_rate: 0.0825, tax_amount: 1023, total: 13423,
@@ -78,12 +78,14 @@ const DEMO_ESTIMATES: Estimate[] = [
     customer: { id: 'c6', name: 'Jennifer Adams', email: 'jen@example.com' },
     sales_rep: { id: 's1', name: 'Tyler Reid' },
   },
-]
+] as Estimate[]
 
 const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: string }> = {
   draft:    { label: 'Draft',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.15)' },
   sent:     { label: 'Sent',     color: 'var(--accent)', bg: 'rgba(79,127,255,0.15)' },
+  viewed:   { label: 'Viewed',   color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.15)' },
   accepted: { label: 'Accepted', color: 'var(--green)',  bg: 'rgba(34,192,122,0.15)' },
+  declined: { label: 'Declined', color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
   expired:  { label: 'Expired',  color: 'var(--amber)',  bg: 'rgba(245,158,11,0.15)' },
   rejected: { label: 'Rejected', color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
   void:     { label: 'Void',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
@@ -115,7 +117,7 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(e =>
-        e.title.toLowerCase().includes(q) ||
+        String(e.title || '').toLowerCase().includes(q) ||
         e.customer?.name?.toLowerCase().includes(q) ||
         e.customer?.email?.toLowerCase().includes(q) ||
         String(e.estimate_number).includes(q)

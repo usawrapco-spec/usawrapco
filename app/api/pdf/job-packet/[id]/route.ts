@@ -567,10 +567,10 @@ export async function GET(
     const sectionLabel = section === 'production' ? '-Production' : section === 'install' ? '-Install' : ''
 
     const buffer = await renderToBuffer(
-      React.createElement(JobPacketPDF, { project, customer, lineItems, section })
+      React.createElement(JobPacketPDF, { project, customer, lineItems, section }) as any
     )
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="USA-Wrap-Co-Job-Packet${sectionLabel}-${jobNum}.pdf"`,

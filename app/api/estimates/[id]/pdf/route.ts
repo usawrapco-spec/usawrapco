@@ -33,8 +33,9 @@ export async function GET(
       )
     }
 
-    // Generate HTML for PDF
-    const html = generateEstimateHTML(estimate)
+    // Generate HTML for PDF — mode=customer hides rolled-up items, mode=internal shows all
+    const mode = request.nextUrl.searchParams.get('mode') || 'customer'
+    const html = generateEstimateHTML(estimate, mode)
 
     // Return HTML that can be printed to PDF by browser
     return new NextResponse(html, {
@@ -52,12 +53,31 @@ export async function GET(
   }
 }
 
-function generateEstimateHTML(estimate: any): string {
-  const lineItems = (estimate.line_items || []) as any[]
+function generateEstimateHTML(estimate: any, mode: string = 'customer'): string {
+  const allLineItems = (estimate.line_items || []) as any[]
   const customer = estimate.customer || {}
   const org = estimate.org || {}
+  const isCustomerMode = mode === 'customer'
 
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.total || 0), 0)
+  // Build rolled-up parent/child mapping
+  const rolledUpIds = new Set<string>()
+  const childrenTotals = new Map<string, number>()
+
+  for (const li of allLineItems) {
+    const specs = li.specs || {}
+    if (specs.rolledUp && specs.parentItemId) {
+      rolledUpIds.add(li.id)
+      const pid = specs.parentItemId as string
+      childrenTotals.set(pid, (childrenTotals.get(pid) || 0) + (li.total || li.total_price || 0))
+    }
+  }
+
+  // In customer mode, filter out rolled-up items; in internal mode, show all
+  const lineItems = isCustomerMode
+    ? allLineItems.filter((li: any) => !rolledUpIds.has(li.id))
+    : allLineItems
+
+  const subtotal = allLineItems.reduce((sum: number, item: any) => sum + (item.total || 0), 0)
   const taxRate = org.settings?.tax_rate || 8.25
   const tax = subtotal * (taxRate / 100)
   const total = subtotal + tax
@@ -280,18 +300,29 @@ function generateEstimateHTML(estimate: any): string {
       </tr>
     </thead>
     <tbody>
-      ${lineItems.map(item => `
-        <tr>
-          <td>
-            <div class="item-name">${item.product || 'Line Item'}</div>
+      ${lineItems.map((item: any) => {
+        const specs = item.specs || {}
+        const isChild = !!(specs.rolledUp && specs.parentItemId)
+        const extraTotal = childrenTotals.get(item.id) || 0
+        const displayTotal = isCustomerMode ? (item.total || 0) + extraTotal : (item.total || 0)
+        const rolledUpBadge = (!isCustomerMode && isChild)
+          ? ' <span style="font-size:9px;color:#999;background:#f0f0f0;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:0.04em;">ROLLED UP</span>'
+          : ''
+        const rowStyle = isChild ? 'style="background:#fafafa;border-left:3px solid #ddd;"' : ''
+        const indent = isChild ? 'style="padding-left:24px;"' : ''
+        return `
+        <tr ${rowStyle}>
+          <td ${indent}>
+            <div class="item-name">${item.product || item.name || 'Line Item'}${rolledUpBadge}</div>
             ${item.vehicle ? `<div class="item-desc">${item.vehicle}</div>` : ''}
+            ${item.description ? `<div class="item-desc">${item.description}</div>` : ''}
             ${item.notes ? `<div class="item-desc">${item.notes}</div>` : ''}
           </td>
-          <td>${item.qty || 1}</td>
-          <td class="text-right">${formatMoney(item.price || 0)}</td>
-          <td class="text-right"><strong>${formatMoney(item.total || 0)}</strong></td>
-        </tr>
-      `).join('')}
+          <td>${item.qty || item.quantity || 1}</td>
+          <td class="text-right">${formatMoney(item.price || item.unit_price || 0)}</td>
+          <td class="text-right"><strong>${formatMoney(displayTotal)}</strong></td>
+        </tr>`
+      }).join('')}
     </tbody>
   </table>
 

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Car, RotateCcw, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Camera, Paperclip, Search, AlertCircle, Globe, Check, X, Plus, type LucideIcon } from 'lucide-react'
+import VinLookupField from '@/components/shared/VinLookupField'
+import type { VehicleDecodeResult } from '@/components/shared/VinLookupField'
 
 interface CustomerIntakePortalProps {
   token: string
@@ -44,8 +46,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
-  const [vinDecoding, setVinDecoding] = useState(false)
-  const [vinResult, setVinResult] = useState<string>('')
+  // vinDecoding and vinResult removed -- VinLookupField handles this internally
 
   const [form, setForm] = useState({
     customer_name: '',
@@ -139,40 +140,15 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
 
   const ff = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }))
 
-  // ── VIN Decode ─────────────────────────────────────────────────────
-  async function decodeVIN(vin: string) {
-    if (vin.length !== 17) return
-    setVinDecoding(true)
-    setVinResult('')
-    try {
-      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`)
-      const json = await res.json()
-      const results = json.Results || []
-      const get = (id: number) => {
-        const r = results.find((r: any) => r.VariableId === id)
-        return r?.Value && r.Value !== 'Not Applicable' ? r.Value : ''
-      }
-      const year = get(29)
-      const make = get(26)
-      const model = get(28)
-      const trim = get(38)
-
-      if (make && model) {
-        setForm(prev => ({
-          ...prev,
-          vehicle_year: year || prev.vehicle_year,
-          vehicle_make: make || prev.vehicle_make,
-          vehicle_model: model || prev.vehicle_model,
-          vehicle_trim: trim || prev.vehicle_trim,
-        }))
-        setVinResult(`Found: ${[year, make, model, trim].filter(Boolean).join(' ')}`)
-      } else {
-        setVinResult('Could not decode VIN — please enter vehicle info manually')
-      }
-    } catch {
-      setVinResult('VIN lookup failed — please enter vehicle info manually')
-    }
-    setVinDecoding(false)
+  // ── VIN Decode callback ─────────────────────────────────────────────
+  function handleVehicleDecoded(data: VehicleDecodeResult) {
+    setForm(prev => ({
+      ...prev,
+      vehicle_year: data.year || prev.vehicle_year,
+      vehicle_make: data.make || prev.vehicle_make,
+      vehicle_model: data.model || prev.vehicle_model,
+      vehicle_trim: data.trim || prev.vehicle_trim,
+    }))
   }
 
   // ── Scrape website ──────────────────────────────────────────────────
@@ -511,69 +487,42 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
 
       {/* Vehicle Information */}
       <Section label="Vehicle Information">
-        {/* VIN Lookup */}
-        <div style={{ marginBottom: 16 }}>
-          <Field label="VIN (Vehicle Identification Number)">
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                style={{ ...inp, flex: 1, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.05em', textTransform: 'uppercase' }}
-                value={form.vehicle_vin}
-                onChange={e => {
-                  const v = e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '').slice(0, 17)
-                  ff('vehicle_vin', v)
-                  if (v.length === 17) decodeVIN(v)
-                }}
-                placeholder="1HGBH41JXMN109186"
-                maxLength={17}
-              />
-              <button
-                onClick={() => form.vehicle_vin.length === 17 && decodeVIN(form.vehicle_vin)}
-                disabled={form.vehicle_vin.length !== 17 || vinDecoding}
-                style={{
-                  padding: '0 16px', borderRadius: 8, border: '1px solid #1e2d4a',
-                  background: form.vehicle_vin.length === 17 ? '#4f7fff' : '#0c1222',
-                  color: form.vehicle_vin.length === 17 ? '#fff' : '#5a6478',
-                  fontSize: 12, fontWeight: 700, cursor: form.vehicle_vin.length === 17 ? 'pointer' : 'default',
-                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-                }}
-              >
-                <Search size={13} />
-                {vinDecoding ? 'Looking up...' : 'Decode VIN'}
-              </button>
-            </div>
-            {vinResult && (
-              <div style={{
-                marginTop: 8, padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-                background: vinResult.startsWith('Found') ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
-                color: vinResult.startsWith('Found') ? '#22c55e' : '#f59e0b',
-                border: `1px solid ${vinResult.startsWith('Found') ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}`,
-              }}>
-                {vinResult}
-              </div>
-            )}
-            <div style={{ fontSize: 11, color: '#5a6478', marginTop: 6 }}>
-              Enter your 17-character VIN and we will auto-fill your vehicle details
-            </div>
-          </Field>
-        </div>
+        <VinLookupField
+          value={form.vehicle_vin}
+          onChange={(vin) => ff('vehicle_vin', vin)}
+          onVehicleDecoded={handleVehicleDecoded}
+          showCamera
+          showManualFallback
+          portalMode
+        />
 
-        <Grid cols={2}>
-          <Field label="Year">
-            <input style={inp} value={form.vehicle_year} onChange={e => ff('vehicle_year', e.target.value)} placeholder="2024" />
-          </Field>
-          <Field label="Make">
-            <input style={inp} value={form.vehicle_make} onChange={e => ff('vehicle_make', e.target.value)} placeholder="Toyota" />
-          </Field>
-          <Field label="Model">
-            <input style={inp} value={form.vehicle_model} onChange={e => ff('vehicle_model', e.target.value)} placeholder="Tacoma" />
-          </Field>
-          <Field label="Trim (optional)">
-            <input style={inp} value={form.vehicle_trim} onChange={e => ff('vehicle_trim', e.target.value)} placeholder="TRD Pro" />
-          </Field>
-          <Field label="Current Color">
-            <input style={inp} value={form.vehicle_color} onChange={e => ff('vehicle_color', e.target.value)} placeholder="White" />
-          </Field>
-        </Grid>
+        {/* Show decoded / manually entered Y/M/M as editable fields */}
+        {(form.vehicle_year || form.vehicle_make || form.vehicle_model) && (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.12)' }}>
+            <Grid cols={3}>
+              <Field label="Year">
+                <input style={inp} value={form.vehicle_year} onChange={e => ff('vehicle_year', e.target.value)} placeholder="2024" />
+              </Field>
+              <Field label="Make">
+                <input style={inp} value={form.vehicle_make} onChange={e => ff('vehicle_make', e.target.value)} placeholder="Ford" />
+              </Field>
+              <Field label="Model">
+                <input style={inp} value={form.vehicle_model} onChange={e => ff('vehicle_model', e.target.value)} placeholder="F-150" />
+              </Field>
+            </Grid>
+          </div>
+        )}
+
+        <div style={{ marginTop: 12 }}>
+          <Grid cols={2}>
+            <Field label="Trim (optional)">
+              <input style={inp} value={form.vehicle_trim} onChange={e => ff('vehicle_trim', e.target.value)} placeholder="TRD Pro" />
+            </Field>
+            <Field label="Current Color">
+              <input style={inp} value={form.vehicle_color} onChange={e => ff('vehicle_color', e.target.value)} placeholder="White" />
+            </Field>
+          </Grid>
+        </div>
       </Section>
 
       {/* Vehicle Condition */}

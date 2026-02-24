@@ -47,6 +47,7 @@ interface DesignProject {
   status: DesignStatus
   deadline: string | null
   designer_id: string | null
+  assigned_to?: string | null
   project_id: string | null
   created_by: string | null
   created_at: string
@@ -321,22 +322,51 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       }
     }
 
-    const { data, error } = await supabase
+    const insertPayload: Record<string, unknown> = {
+      org_id: profile.org_id,
+      client_name: formClientName.trim(),
+      title: formClientName.trim(),
+      design_type: formDesignType,
+      description: briefDescription,
+      notes: briefDescription,
+      deadline: formDeadline || null,
+      designer_id: formDesignerId || null,
+      project_id: formProjectId || null,
+      created_by: profile.id,
+      status: 'brief',
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any = null
+    let error: { message: string } | null = null
+
+    // Try insert — if it fails (e.g. column mismatch), retry with minimal payload
+    const res1 = await supabase
       .from('design_projects')
-      .insert({
-        org_id: profile.org_id,
-        client_name: formClientName.trim(),
-        title: formClientName.trim(),
-        design_type: formDesignType,
-        description: briefDescription,
-        deadline: formDeadline || null,
-        designer_id: formDesignerId || null,
-        project_id: formProjectId || null,
-        created_by: profile.id,
-        status: 'brief',
-      })
+      .insert(insertPayload)
       .select('*')
       .single()
+
+    if (res1.error) {
+      // Retry with minimal columns (handles schema variants)
+      const minimalPayload: Record<string, unknown> = {
+        org_id: profile.org_id,
+        title: formClientName.trim(),
+        status: 'brief',
+        designer_id: formDesignerId || null,
+        created_by: profile.id,
+      }
+      const res2 = await supabase
+        .from('design_projects')
+        .insert(minimalPayload)
+        .select('*')
+        .single()
+      data = res2.data
+      error = res2.error
+    } else {
+      data = res1.data
+      error = null
+    }
 
     if (error) {
       console.error('Design canvas create error:', error)
@@ -1080,47 +1110,16 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
             {/* Form */}
             <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Client Name */}
+              {/* Project Title */}
               <div>
-                <label style={labelStyle}>Client Name *</label>
-                <input type="text" placeholder="Enter client name" value={formClientName} onChange={e => setFormClientName(e.target.value)} style={fieldStyle} autoFocus />
+                <label style={labelStyle}>Project Title *</label>
+                <input type="text" placeholder="Enter project title" value={formClientName} onChange={e => setFormClientName(e.target.value)} style={fieldStyle} autoFocus />
               </div>
 
-              {/* Design Type */}
-              <div>
-                <label style={labelStyle}>Design Type</label>
-                <select value={formDesignType} onChange={e => setFormDesignType(e.target.value)} style={selectStyle}>
-                  {DESIGN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label style={labelStyle}>Description</label>
-                <textarea placeholder="Design brief, brand colors, requests..." value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' as const }} />
-              </div>
-
-              {/* Deadline + Designer */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={labelStyle}>Deadline</label>
-                  <input type="date" value={formDeadline} onChange={e => setFormDeadline(e.target.value)} style={fieldStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Designer</label>
-                  <select value={formDesignerId} onChange={e => setFormDesignerId(e.target.value)} style={selectStyle}>
-                    <option value="">Unassigned</option>
-                    {designers.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Link to Job */}
+              {/* Linked Job */}
               <div>
                 <label style={labelStyle}>
-                  Link to Job <span style={{ fontWeight: 400, textTransform: 'none', color: '#5a6080' }}>(optional)</span>
+                  Linked Job <span style={{ fontWeight: 400, textTransform: 'none', color: '#5a6080' }}>(optional)</span>
                 </label>
                 <select value={formProjectId} onChange={e => setFormProjectId(e.target.value)} style={selectStyle}>
                   <option value="">No linked job</option>
@@ -1141,6 +1140,37 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                     Sales will be notified to review and send a quote
                   </div>
                 )}
+              </div>
+
+              {/* Assigned Designer */}
+              <div>
+                <label style={labelStyle}>Assigned Designer</label>
+                <select value={formDesignerId} onChange={e => setFormDesignerId(e.target.value)} style={selectStyle}>
+                  <option value="">Unassigned</option>
+                  {designers.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Design Type + Deadline */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={labelStyle}>Design Type</label>
+                  <select value={formDesignType} onChange={e => setFormDesignType(e.target.value)} style={selectStyle}>
+                    {DESIGN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Deadline</label>
+                  <input type="date" value={formDeadline} onChange={e => setFormDeadline(e.target.value)} style={fieldStyle} />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label style={labelStyle}>Notes</label>
+                <textarea placeholder="Design brief, brand colors, requests..." value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' as const }} />
               </div>
             </div>
 

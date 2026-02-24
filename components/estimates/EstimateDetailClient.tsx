@@ -11,6 +11,7 @@ import {
   ToggleLeft, ToggleRight, Wrench, CircleDot,
   TrendingUp, Calculator, Settings,
   Package, Image, Link2, UserPlus, Ruler,
+  FoldVertical, UnfoldVertical,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
@@ -18,11 +19,33 @@ import WrapZoneSelector from '@/components/estimates/WrapZoneSelector'
 import DeckingCalculator from '@/components/estimates/DeckingCalculator'
 import PhotoInspection from '@/components/estimates/PhotoInspection'
 import MockupCreator from '@/components/estimates/MockupCreator'
+import EstimateCalculators from '@/components/estimates/EstimateCalculators'
+import ProposalBuilder from '@/components/estimates/ProposalBuilder'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
+import PanelSelector from '@/components/vehicle/PanelSelector'
+import type { Panel } from '@/components/vehicle/PanelSelector'
+import VinLookupField from '@/components/shared/VinLookupField'
 import vehiclesData from '@/lib/data/vehicles.json'
+
+// ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
+const TIER_TO_PANEL_KEY: Record<string, string> = {
+  small_car: 'sedan',
+  med_car: 'sedan',
+  full_car: 'suv_mid',
+  sm_truck: 'pickup_regular',
+  med_truck: 'pickup_crew',
+  full_truck: 'pickup_crew',
+  med_van: 'cargo_van_standard',
+  large_van: 'cargo_van_standard',
+  van: 'cargo_van_standard',
+  high_roof_van: 'cargo_van_high_roof',
+  truck: 'pickup_crew',
+  box_truck: 'box_truck_16',
+  trailer: 'trailer_48',
+}
 
 // ─── Vehicle Database ────────────────────────────────────────────────────────────
 
@@ -78,18 +101,20 @@ const VEHICLE_CATEGORIES: Record<string, VehicleCategory> = {
 const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: string }> = {
   draft:    { label: 'DRAFT',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.18)' },
   sent:     { label: 'SENT',     color: 'var(--accent)', bg: 'rgba(79,127,255,0.18)' },
+  viewed:   { label: 'VIEWED',   color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.18)' },
   accepted: { label: 'ACCEPTED', color: 'var(--green)',  bg: 'rgba(34,192,122,0.18)' },
+  declined: { label: 'DECLINED', color: 'var(--red)',    bg: 'rgba(242,90,90,0.18)' },
   expired:  { label: 'EXPIRED',  color: 'var(--amber)',  bg: 'rgba(245,158,11,0.18)' },
   rejected: { label: 'REJECTED', color: 'var(--red)',    bg: 'rgba(242,90,90,0.18)' },
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'design' | 'production' | 'install' | 'notes' | 'activity'
+type TabKey = 'items' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
-const DEMO_ESTIMATE: Estimate = {
-  id: 'demo-est-1', org_id: '', estimate_number: 1001, title: 'Ford F-150 Full Wrap + PPF',
+const DEMO_ESTIMATE = {
+  id: 'demo-est-1', org_id: '', estimate_number: '1001', title: 'Ford F-150 Full Wrap + PPF',
   customer_id: null, status: 'draft', sales_rep_id: null, production_manager_id: null,
   project_manager_id: null, quote_date: '2026-02-18', due_date: '2026-03-01',
   subtotal: 5000, discount: 0, tax_rate: DEFAULT_TAX_RATE, tax_amount: 412.50, total: 5412.50,
@@ -98,7 +123,7 @@ const DEMO_ESTIMATE: Estimate = {
   updated_at: '2026-02-18T10:00:00Z',
   customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
   sales_rep: { id: 's1', name: 'Tyler Reid' },
-}
+} as Estimate
 
 const DEMO_LINE_ITEMS: LineItem[] = [
   {
@@ -137,11 +162,12 @@ const headingFont = 'Barlow Condensed, sans-serif'
 const monoFont = 'JetBrains Mono, monospace'
 
 const cardStyle: React.CSSProperties = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 12,
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
+  borderRadius: 16,
   padding: 0,
   overflow: 'hidden',
+  transition: 'border-color 0.2s',
 }
 
 const sectionPad: React.CSSProperties = {
@@ -161,10 +187,10 @@ const fieldLabelStyle: React.CSSProperties = {
 
 const fieldInputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '7px 10px',
+  padding: '8px 12px',
   background: 'var(--bg)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
+  border: '1px solid var(--card-border)',
+  borderRadius: 10,
   color: 'var(--text1)',
   fontSize: 13,
   outline: 'none',
@@ -262,7 +288,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     ...DEMO_ESTIMATE,
     id: `new-${Date.now()}`,
     title: 'New Estimate',
-    estimate_number: 0,
+    estimate_number: '',
     subtotal: 0, discount: 0, tax_rate: DEFAULT_TAX_RATE, tax_amount: 0, total: 0,
     notes: '', customer_note: null, customer: null, sales_rep: null,
     sales_rep_id: profile.id, org_id: profile.org_id,
@@ -459,6 +485,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   async function handleLineItemSave(item: LineItem) {
     if (isDemo || item.id.startsWith('new-')) return
     try {
+      // Rollup state is stored in specs (rolledUp, parentItemId) for compatibility.
+      // The DB columns rolled_up_into / is_rolled_up are added if the migration has run;
+      // Supabase ignores unknown columns gracefully, so we always send them.
       await supabase.from('line_items').update({
         name: item.name, description: item.description,
         quantity: item.quantity, unit_price: item.unit_price,
@@ -526,17 +555,181 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   async function handleConvertToInvoice() {
     setMoreMenuOpen(false)
-    showToast('Convert to Invoice -- coming soon')
+    if (!canWrite) {
+      showToast('You do not have permission to create invoices')
+      return
+    }
+    showToast('Creating invoice...')
+    try {
+      // Create invoice from estimate
+      const { data: invoiceData, error: invError } = await supabase.from('invoices').insert({
+        org_id: est.org_id || profile.org_id,
+        title: est.title,
+        estimate_id: isDemo ? null : estimateId,
+        customer_id: est.customer_id,
+        status: 'draft',
+        subtotal,
+        discount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total,
+        amount_paid: 0,
+        balance_due: total,
+        invoice_date: new Date().toISOString().split('T')[0],
+        notes: est.notes,
+      }).select().single()
+
+      if (invError) throw invError
+      if (!invoiceData) throw new Error('No invoice data returned')
+
+      // Copy line items to invoice
+      if (lineItemsList.length > 0 && !isDemo) {
+        const invItems = lineItemsList.map(li => ({
+          parent_type: 'invoice' as const,
+          parent_id: invoiceData.id,
+          product_type: li.product_type,
+          name: li.name,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          unit_discount: li.unit_discount,
+          total_price: li.total_price,
+          specs: li.specs,
+          sort_order: li.sort_order,
+        }))
+        const { error: itemsError } = await supabase.from('line_items').insert(invItems)
+        if (itemsError) throw itemsError
+      }
+
+      // Mark estimate as converted (optional - update status or add flag)
+      if (!isDemo) {
+        await supabase.from('estimates').update({
+          status: 'accepted',
+          updated_at: new Date().toISOString()
+        }).eq('id', estimateId)
+      }
+
+      // Navigate to the new invoice
+      router.push(`/invoices/${invoiceData.id}`)
+    } catch (err) {
+      console.error('Invoice conversion error:', err)
+      showToast('Could not create invoice. Check permissions and try again.')
+    }
   }
 
-  function handleDuplicate() {
+  async function handleDuplicate() {
     setMoreMenuOpen(false)
-    showToast('Duplicate for New Customer -- coming soon')
+    if (!canWrite) {
+      showToast('You do not have permission to create estimates')
+      return
+    }
+    const customerName = prompt('Enter customer name for the duplicate estimate:')
+    if (!customerName || !customerName.trim()) {
+      showToast('Customer name is required')
+      return
+    }
+    showToast('Creating duplicate estimate...')
+    try {
+      // Create new estimate with same data but no customer_id (for new customer)
+      const { data: newEst, error: estError } = await supabase.from('estimates').insert({
+        org_id: est.org_id || profile.org_id,
+        title: `${est.title} (Copy for ${customerName.trim()})`,
+        customer_id: null, // New customer
+        status: 'draft',
+        sales_rep_id: profile.id,
+        subtotal,
+        discount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total,
+        notes: est.notes,
+        customer_note: `Estimate created for ${customerName.trim()}`,
+        division: est.division,
+        form_data: est.form_data,
+      }).select().single()
+
+      if (estError) throw estError
+      if (!newEst) throw new Error('No estimate data returned')
+
+      // Copy line items
+      if (lineItemsList.length > 0 && !isDemo) {
+        const newItems = lineItemsList.map(li => ({
+          parent_type: 'estimate' as const,
+          parent_id: newEst.id,
+          product_type: li.product_type,
+          name: li.name,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          unit_discount: li.unit_discount,
+          total_price: li.total_price,
+          specs: li.specs,
+          sort_order: li.sort_order,
+        }))
+        const { error: itemsError } = await supabase.from('line_items').insert(newItems)
+        if (itemsError) throw itemsError
+      }
+
+      router.push(`/estimates/${newEst.id}`)
+    } catch (err) {
+      console.error('Duplicate estimate error:', err)
+      showToast('Could not duplicate estimate. Check permissions and try again.')
+    }
   }
 
-  function handleCreateCopy() {
+  async function handleCreateCopy() {
     setMoreMenuOpen(false)
-    showToast('Create Copy -- coming soon')
+    if (!canWrite) {
+      showToast('You do not have permission to create estimates')
+      return
+    }
+    showToast('Creating copy...')
+    try {
+      // Create exact copy with same customer
+      const { data: newEst, error: estError } = await supabase.from('estimates').insert({
+        org_id: est.org_id || profile.org_id,
+        title: `${est.title} (Copy)`,
+        customer_id: est.customer_id,
+        status: 'draft',
+        sales_rep_id: profile.id,
+        subtotal,
+        discount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total,
+        notes: est.notes,
+        customer_note: est.customer_note,
+        division: est.division,
+        form_data: est.form_data,
+      }).select().single()
+
+      if (estError) throw estError
+      if (!newEst) throw new Error('No estimate data returned')
+
+      // Copy line items
+      if (lineItemsList.length > 0 && !isDemo) {
+        const newItems = lineItemsList.map(li => ({
+          parent_type: 'estimate' as const,
+          parent_id: newEst.id,
+          product_type: li.product_type,
+          name: li.name,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          unit_discount: li.unit_discount,
+          total_price: li.total_price,
+          specs: li.specs,
+          sort_order: li.sort_order,
+        }))
+        const { error: itemsError } = await supabase.from('line_items').insert(newItems)
+        if (itemsError) throw itemsError
+      }
+
+      router.push(`/estimates/${newEst.id}`)
+    } catch (err) {
+      console.error('Copy estimate error:', err)
+      showToast('Could not create copy. Check permissions and try again.')
+    }
   }
 
   async function handleSaveAsTemplate() {
@@ -589,7 +782,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     setLineItemsList(items)
     showToast(`Template "${tmpl.name}" loaded`)
     // Increment use count
-    await supabase.rpc('increment_template_use', { template_id: tmpl.id }).catch(() => {})
+    await supabase.rpc('increment_template_use', { template_id: tmpl.id })
   }
 
   async function handleDelete() {
@@ -704,7 +897,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <div className="anim-fade-up" style={{ maxWidth: 1280, margin: '0 auto' }}>
       {/* Print styles + print-only logo header */}
       <style>{`
         @media print {
@@ -745,7 +938,12 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
+        background: 'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.03) 100%)',
+        border: '1px solid var(--card-border)', borderRadius: 20,
+        padding: '18px 22px', position: 'relative', overflow: 'hidden',
       }}>
+        {/* Accent glow */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${STATUS_CONFIG[est.status as EstimateStatus]?.color || 'var(--accent)'}, transparent)`, opacity: 0.5 }} />
         {/* Left: Back + QT number */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
@@ -916,9 +1114,10 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 background: 'var(--green)', border: 'none',
-                borderRadius: 8, padding: '8px 16px', color: '#fff',
+                borderRadius: 12, padding: '9px 18px', color: '#fff',
                 fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
                 opacity: saving ? 0.6 : 1, fontFamily: headingFont, letterSpacing: '0.03em',
+                boxShadow: '0 2px 12px rgba(34,192,122,0.25)', transition: 'all 0.15s',
               }}
             >
               <Save size={14} />
@@ -950,13 +1149,14 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               </div>
             ) : (
               <button
-                onClick={() => showToast('Add Customer -- coming soon')}
+                onClick={() => router.push('/customers')}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)',
                   borderRadius: 6, padding: '8px 12px', color: 'var(--accent)',
                   fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
                 }}
+                title="Go to Customers page to create or select a customer, then return here to link them"
               >
                 <Plus size={12} /> Add Customer
               </button>
@@ -1201,10 +1401,12 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
+          { key: 'calculators' as TabKey, label: 'Calculators' },
           { key: 'design' as TabKey, label: 'Design' },
           { key: 'production' as TabKey, label: 'Production' },
           { key: 'install' as TabKey, label: 'Install' },
           { key: 'notes' as TabKey, label: 'Notes' },
+          { key: 'proposal' as TabKey, label: 'Proposal' },
           { key: 'activity' as TabKey, label: 'Activity' },
         ]).map(tab => (
           <button
@@ -1491,28 +1693,93 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {lineItemsList.map((li, idx) => (
-                <LineItemCard
-                  key={li.id}
-                  item={li}
-                  index={idx}
-                  canWrite={canWrite}
-                  onChange={(updated) => {
-                    setLineItemsList(prev => prev.map(x => x.id === li.id ? updated : x))
-                  }}
-                  onBlurSave={(updated) => handleLineItemSave(updated)}
-                  onRemove={() => {
-                    setLineItemsList(prev => prev.filter(x => x.id !== li.id))
-                  }}
-                  expandedSections={expandedSections[li.id] || {}}
-                  onToggleSection={(section) => toggleSection(li.id, section)}
-                  leadType={leadType}
-                  team={team}
-                  products={products}
-                  allItems={lineItemsList}
-                  onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
-                />
-              ))}
+              {lineItemsList.map((li, idx) => {
+                // Compute rolled-up children total for parent items
+                const childrenTotal = lineItemsList
+                  .filter(child => {
+                    const isChild = child.is_rolled_up || (child.specs as Record<string, unknown>)?.rolledUp
+                    const parentId = child.rolled_up_into || (child.specs as Record<string, unknown>)?.parentItemId
+                    return isChild && parentId === li.id
+                  })
+                  .reduce((sum, child) => sum + child.total_price, 0)
+
+                return (
+                  <LineItemCard
+                    key={li.id}
+                    item={li}
+                    index={idx}
+                    canWrite={canWrite}
+                    onChange={(updated) => {
+                      setLineItemsList(prev => prev.map(x => x.id === li.id ? updated : x))
+                    }}
+                    onBlurSave={(updated) => handleLineItemSave(updated)}
+                    onRemove={() => {
+                      // When removing a parent, unroll its children first
+                      setLineItemsList(prev => {
+                        const children = prev.filter(child => {
+                          const parentId = child.rolled_up_into || (child.specs as Record<string, unknown>)?.parentItemId
+                          return parentId === li.id
+                        })
+                        let updated = prev.filter(x => x.id !== li.id)
+                        if (children.length > 0) {
+                          updated = updated.map(x => {
+                            const parentId = x.rolled_up_into || (x.specs as Record<string, unknown>)?.parentItemId
+                            if (parentId === li.id) {
+                              return {
+                                ...x,
+                                is_rolled_up: false,
+                                rolled_up_into: null,
+                                specs: { ...x.specs, rolledUp: false, parentItemId: null },
+                              }
+                            }
+                            return x
+                          })
+                        }
+                        return updated
+                      })
+                    }}
+                    expandedSections={expandedSections[li.id] || {}}
+                    onToggleSection={(section) => toggleSection(li.id, section)}
+                    leadType={leadType}
+                    team={team}
+                    products={products}
+                    allItems={lineItemsList}
+                    onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
+                    rolledUpChildrenTotal={childrenTotal}
+                    onRollUp={() => {
+                      // Find the nearest non-rolled-up item above this one
+                      let parentItem: LineItem | null = null
+                      for (let i = idx - 1; i >= 0; i--) {
+                        const candidate = lineItemsList[i]
+                        const candidateRolledUp = candidate.is_rolled_up || (candidate.specs as Record<string, unknown>)?.rolledUp
+                        if (!candidateRolledUp) {
+                          parentItem = candidate
+                          break
+                        }
+                      }
+                      if (!parentItem) return
+                      const updatedItem: LineItem = {
+                        ...li,
+                        is_rolled_up: true,
+                        rolled_up_into: parentItem.id,
+                        specs: { ...li.specs, rolledUp: true, parentItemId: parentItem.id },
+                      }
+                      setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
+                      handleLineItemSave(updatedItem)
+                    }}
+                    onUnroll={() => {
+                      const updatedItem: LineItem = {
+                        ...li,
+                        is_rolled_up: false,
+                        rolled_up_into: null,
+                        specs: { ...li.specs, rolledUp: false, parentItemId: null },
+                      }
+                      setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
+                      handleLineItemSave(updatedItem)
+                    }}
+                  />
+                )
+              })}
             </div>
           )}
 
@@ -1565,7 +1832,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   label={`Tax (${(taxRate * 100).toFixed(2)}%)`}
                   value={fmtCurrency(taxAmount)}
                 />
-                <div style={{ borderTop: '2px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ borderTop: '2px solid var(--card-border)', paddingTop: 14, marginTop: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{
                       fontSize: 14, fontWeight: 700, color: 'var(--text1)',
@@ -1574,7 +1841,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                       Total
                     </span>
                     <span style={{
-                      ...monoStyle, fontSize: 22, fontWeight: 800, color: 'var(--green)',
+                      ...monoStyle, fontSize: 24, fontWeight: 800, color: 'var(--green)',
+                      textShadow: '0 0 20px rgba(34,192,122,0.15)',
                     }}>
                       {fmtCurrency(total)}
                     </span>
@@ -1584,6 +1852,31 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'calculators' && (
+        <EstimateCalculators
+          onAddLineItems={(newItems) => {
+            const items = newItems.map((item, idx) => ({
+              id: `calc-${Date.now()}-${idx}`,
+              parent_type: 'estimate' as const,
+              parent_id: estimateId,
+              product_type: (item.product_type || 'wrap') as any,
+              name: item.name,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              unit_discount: 0,
+              total_price: item.total_price,
+              specs: item.specs as any,
+              sort_order: lineItemsList.length + idx,
+              created_at: new Date().toISOString(),
+            }))
+            setLineItemsList(prev => [...prev, ...items])
+            setActiveTab('items')
+          }}
+          onClose={() => setActiveTab('items')}
+        />
       )}
 
       {activeTab === 'design' && (
@@ -1734,6 +2027,15 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
         </div>
+      )}
+      {activeTab === 'proposal' && (
+        <ProposalBuilder
+          estimateId={estimateId}
+          customerId={est.customer_id}
+          customerEmail={est.customer?.email || null}
+          customerName={est.customer?.name || null}
+          customerPhone={null}
+        />
       )}
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
@@ -2128,50 +2430,6 @@ function VehicleInfoBlock({
   canWrite: boolean
   onVehicleSelect: (v: VehicleEntry) => void
 }) {
-  const [vinLoading, setVinLoading] = useState(false)
-  const [vinResult, setVinResult] = useState<string | null>(null)
-
-  async function decodeVIN(vin: string) {
-    if (vin.length !== 17) return
-    setVinLoading(true)
-    setVinResult(null)
-    try {
-      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`)
-      const data = await res.json()
-      const results = data.Results as { Variable: string; Value: string | null }[]
-      const get = (name: string) => results.find(r => r.Variable === name)?.Value || ''
-      const year = get('Model Year')
-      const make = get('Make')
-      const model = get('Model')
-      const trim = get('Trim')
-      const bodyClass = get('Body Class')
-      const driveType = get('Drive Type')
-      const engine = [get('Displacement (L)'), get('Engine Number of Cylinders') ? `${get('Engine Number of Cylinders')}cyl` : ''].filter(Boolean).join('L ')
-      if (make && model) {
-        updateSpec('vehicleYear', year)
-        updateSpec('vehicleMake', make)
-        updateSpec('vehicleModel', model)
-        if (trim) updateSpec('vehicleTrim', trim)
-        if (bodyClass) updateSpec('bodyClass', bodyClass)
-        if (driveType) updateSpec('driveType', driveType)
-        if (engine) updateSpec('engine', engine)
-        // Cross-reference vehicles.json
-        const v = findVehicle(make, model, year)
-        if (v) {
-          onVehicleSelect(v)
-          setVinResult(`Vehicle found: ${year} ${make} ${model}${trim ? ` ${trim}` : ''} - ${v.sqft} sqft`)
-        } else {
-          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''} - enter sqft manually`)
-        }
-      } else {
-        setVinResult('VIN not found - enter vehicle info manually')
-      }
-    } catch {
-      setVinResult('VIN lookup failed - enter manually')
-    }
-    setVinLoading(false)
-  }
-
   return (
     <div style={{
       marginTop: 12, padding: 14, background: 'var(--bg)',
@@ -2181,51 +2439,31 @@ function VehicleInfoBlock({
         <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Information
       </div>
 
-      {/* VIN Field */}
+      {/* VIN Lookup Field */}
       <div style={{ marginBottom: 10 }}>
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto]" style={{ gap: 8, alignItems: 'flex-end' }}>
-          <div>
-            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>VIN (17 characters)</label>
-            <input
-              value={(specs.vin as string) || ''}
-              onChange={e => {
-                const v = e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '')
-                updateSpec('vin', v)
-                if (v.length === 17) decodeVIN(v)
-              }}
-              style={{ ...fieldInputStyle, fontSize: 12, fontFamily: monoFont, letterSpacing: '0.1em' }}
-              disabled={!canWrite}
-              placeholder="1FTFW1E50MFA12345"
-              maxLength={17}
-            />
-          </div>
-          <button
-            onClick={() => { if ((specs.vin as string)?.length === 17) decodeVIN(specs.vin as string) }}
-            disabled={vinLoading || !canWrite}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '7px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-              cursor: vinLoading ? 'not-allowed' : 'pointer',
-              border: '1px solid rgba(34,192,122,0.3)',
-              background: 'rgba(34,192,122,0.08)', color: 'var(--green)',
-              opacity: vinLoading ? 0.6 : 1,
-              whiteSpace: 'nowrap' as const,
-            }}
-          >
-            {vinLoading ? 'Looking up...' : 'Decode VIN'}
-          </button>
-        </div>
-        {vinResult && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
-            padding: '5px 10px', borderRadius: 6, fontSize: 11,
-            background: vinResult.includes('found') ? 'rgba(34,192,122,0.08)' : 'rgba(245,158,11,0.08)',
-            border: `1px solid ${vinResult.includes('found') ? 'rgba(34,192,122,0.2)' : 'rgba(245,158,11,0.2)'}`,
-            color: vinResult.includes('found') ? 'var(--green)' : 'var(--amber)',
-          }}>
-            {vinResult}
-          </div>
-        )}
+        <VinLookupField
+          value={(specs.vin as string) || ''}
+          onChange={(vin) => {
+            updateSpec('vin', vin)
+          }}
+          onVehicleDecoded={(data) => {
+            updateSpec('vehicleYear', data.year)
+            updateSpec('vehicleMake', data.make)
+            updateSpec('vehicleModel', data.model)
+            if (data.trim) updateSpec('vehicleTrim', data.trim)
+            if (data.bodyClass) updateSpec('bodyClass', data.bodyClass)
+            if (data.driveType) updateSpec('driveType', data.driveType)
+            if (data.engineCylinders && data.engineLiters) {
+              updateSpec('engine', `${data.engineLiters}L ${data.engineCylinders}cyl`)
+            }
+            // Cross-reference vehicles.json for sqft/pricing
+            const v = findVehicle(data.make, data.model, data.year)
+            if (v) onVehicleSelect(v)
+          }}
+          showCamera
+          showManualFallback={false}
+          disabled={!canWrite}
+        />
       </div>
 
       {/* Year / Make / Model / Color */}
@@ -2248,6 +2486,7 @@ function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
   expandedSections, onToggleSection, leadType, team,
   products, allItems, onOpenAreaCalc,
+  onRollUp, onUnroll, rolledUpChildrenTotal,
 }: {
   item: LineItem; index: number; canWrite: boolean
   onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void
@@ -2256,7 +2495,11 @@ function LineItemCard({
   products: { id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]
   allItems: LineItem[]
   onOpenAreaCalc: () => void
+  onRollUp?: () => void
+  onUnroll?: () => void
+  rolledUpChildrenTotal?: number
 }) {
+  const router = useRouter()
   const latestRef = useRef(item)
   latestRef.current = item
 
@@ -2316,16 +2559,25 @@ function LineItemCard({
   }
   const ptc = productTypeConfig[item.product_type] || { label: item.product_type.toUpperCase(), color: 'var(--text3)', bg: 'rgba(90,96,128,0.12)' }
 
+  const isRolledUp = !!(item.is_rolled_up || (item.specs as Record<string, unknown>)?.rolledUp)
+  const hasRolledUpChildren = (rolledUpChildrenTotal ?? 0) > 0
+  const displayTotal = hasRolledUpChildren ? item.total_price + (rolledUpChildrenTotal ?? 0) : item.total_price
+
   return (
     <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, overflow: 'hidden',
+      background: isRolledUp ? 'var(--bg)' : 'var(--card-bg)',
+      border: isRolledUp ? '1px solid var(--border, #2a2d3a)' : '1px solid var(--card-border)',
+      borderLeft: isRolledUp ? '3px solid var(--text3)' : undefined,
+      borderRadius: isRolledUp ? 8 : 14,
+      overflow: 'hidden', transition: 'all 0.2s',
+      marginLeft: isRolledUp ? 24 : 0,
+      opacity: isRolledUp ? 0.75 : 1,
     }}>
       {/* ── Header Row ─────────────────────────────────────────────────── */}
       <div
         style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 16px',
+          padding: isRolledUp ? '8px 12px' : '12px 16px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
@@ -2347,6 +2599,16 @@ function LineItemCard({
           }}>
             {index + 1}
           </span>
+          {isRolledUp && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', padding: '2px 6px',
+              borderRadius: 4, fontSize: 9, fontWeight: 800,
+              letterSpacing: '0.05em', fontFamily: headingFont,
+              color: 'var(--text3)', background: 'rgba(90,96,128,0.15)',
+            }}>
+              ROLLED UP
+            </span>
+          )}
           <span style={{
             display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
             borderRadius: 4, fontSize: 10, fontWeight: 800,
@@ -2356,7 +2618,7 @@ function LineItemCard({
             {ptc.label}
           </span>
           <span style={{
-            fontSize: 14, fontWeight: 700, color: 'var(--text1)',
+            fontSize: isRolledUp ? 13 : 14, fontWeight: 700, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
           }}>
             {item.name || 'Untitled Item'}
@@ -2367,7 +2629,46 @@ function LineItemCard({
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {/* Roll Up / Unroll buttons */}
+          {canWrite && isRolledUp && onUnroll && (
+            <button
+              onClick={onUnroll}
+              title="Unroll this item"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'rgba(90,96,128,0.15)', border: '1px solid var(--border, #2a2d3a)',
+                borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                color: 'var(--text2)', fontSize: 10, fontWeight: 700,
+                fontFamily: headingFont, letterSpacing: '0.04em',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(90,96,128,0.3)'; e.currentTarget.style.color = 'var(--text1)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(90,96,128,0.15)'; e.currentTarget.style.color = 'var(--text2)' }}
+            >
+              <UnfoldVertical size={12} />
+              UNROLL
+            </button>
+          )}
+          {canWrite && !isRolledUp && onRollUp && index > 0 && (
+            <button
+              onClick={onRollUp}
+              title="Roll up into the previous line item"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.2)',
+                borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                color: 'var(--accent)', fontSize: 10, fontWeight: 700,
+                fontFamily: headingFont, letterSpacing: '0.04em',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(79,127,255,0.2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(79,127,255,0.1)' }}
+            >
+              <FoldVertical size={12} />
+              ROLL UP
+            </button>
+          )}
           {/* Collapsed summary: qty, GPM badge */}
           {!isCardExpanded && (
             <>
@@ -2389,10 +2690,15 @@ function LineItemCard({
           <div style={{ textAlign: 'right' }}>
             <span style={{
               ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' },
-              fontSize: 16, fontWeight: 800, color: 'var(--text1)',
+              fontSize: isRolledUp ? 14 : 16, fontWeight: 800, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
             }}>
-              {fmtCurrency(item.total_price)}
+              {fmtCurrency(isRolledUp ? item.total_price : displayTotal)}
             </span>
+            {hasRolledUpChildren && !isRolledUp && (
+              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: monoFont, marginTop: 1 }}>
+                incl. rolled-up
+              </div>
+            )}
           </div>
           {canWrite && (
             <button
@@ -2421,23 +2727,46 @@ function LineItemCard({
 
           {/* ── VIN + Vehicle Info (vehicle products only) ────────────── */}
           {isVehicleProduct && (
-            <VehicleInfoBlock
-              specs={specs}
-              updateSpec={updateSpec}
-              handleBlur={handleBlur}
-              canWrite={canWrite}
-              onVehicleSelect={(v) => {
-                const updated = { ...latestRef.current }
-                const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model }
-                if (v.basePrice > 0) {
-                  updated.unit_price = v.basePrice
-                  updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
-                  newSpecs.estimatedHours = v.installHours
-                }
-                updated.specs = newSpecs
-                onChange(updated)
-              }}
-            />
+            <>
+              <VehicleInfoBlock
+                specs={specs}
+                updateSpec={updateSpec}
+                handleBlur={handleBlur}
+                canWrite={canWrite}
+                onVehicleSelect={(v) => {
+                  const updated = { ...latestRef.current }
+                  const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model, vehicleTier: v.tier }
+                  if (v.basePrice > 0) {
+                    updated.unit_price = v.basePrice
+                    updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
+                    newSpecs.estimatedHours = v.installHours
+                  }
+                  updated.specs = newSpecs
+                  onChange(updated)
+                }}
+              />
+
+              {/* ── Panel Selector (after vehicle is selected) ──────────── */}
+              {specs.vehicleMake && specs.vehicleModel && (() => {
+                const tier = (specs.vehicleTier as string) || (specs.vehicleType as string) || ''
+                const panelKey = TIER_TO_PANEL_KEY[tier] || ''
+                if (!panelKey && !tier) return null
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <PanelSelector
+                      vehicleType={panelKey || tier}
+                      onPanelsChange={(_panels: Panel[], totalSqft: number) => {
+                        if (totalSqft > 0) {
+                          const updated = { ...latestRef.current }
+                          updated.specs = { ...updated.specs, vinylArea: totalSqft }
+                          onChange(updated)
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              })()}
+            </>
           )}
 
           {/* ── Core Fields Row ─────────────────────────────────────────── */}
@@ -2583,13 +2912,14 @@ function LineItemCard({
                 <Link2 size={12} /> Design Link
               </button>
               <button
-                onClick={() => showToast('Media gallery -- coming soon')}
+                onClick={() => router.push('/media')}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
                   padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                   cursor: 'pointer', border: '1px solid rgba(245,158,11,0.3)',
                   background: 'rgba(245,158,11,0.06)', color: 'var(--amber)',
                 }}
+                title="Go to Media Library"
               >
                 <Image size={12} /> Photos
               </button>
@@ -2619,7 +2949,7 @@ function LineItemCard({
                   : <ToggleLeft size={16} />}
                 Roll up into parent
               </button>
-              {specs.rolledUp && (
+              {!!specs.rolledUp && (
                 <select
                   value={(specs.parentItemId as string) || ''}
                   onChange={e => updateSpec('parentItemId', e.target.value)}
@@ -3054,7 +3384,7 @@ function LineItemCard({
                   display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
                   background: 'rgba(34,211,238,0.06)', borderRadius: 8, fontSize: 12,
                 }}>
-                  <span style={{ color: 'var(--text2)' }}>Linear Ft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.linearFeet}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Linear Ft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.linearFeet as number}</span></span>
                   <span style={{ color: 'var(--text2)' }}>Passes: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.marinePasses as number) || 1}</span></span>
                   <span style={{ color: 'var(--cyan)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
                 </div>

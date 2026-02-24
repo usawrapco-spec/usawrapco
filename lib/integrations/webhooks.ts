@@ -239,7 +239,7 @@ export async function onJobClosed(orgId: string, project: any, actorName: string
         commRate, commission, torqBonus, gpmBonus, productionBonus,
         totalCommission, leadType, agentOverride,
       },
-    }).catch(() => {})
+    })
   } catch (err) {
     console.error('Commission auto-calc error:', err)
   }

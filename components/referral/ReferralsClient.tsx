@@ -203,7 +203,7 @@ export default function ReferralsClient({ profile, referrals: initial, team, pro
                 <div style={{ padding: '10px 14px', background: 'rgba(34,192,122,.08)', border: '1px solid rgba(34,192,122,.2)', borderRadius: 8, fontSize: 13 }}>
                   <span style={{ color: 'var(--text3)' }}>Estimated referral commission: </span>
                   <span style={{ color: '#22c07a', fontWeight: 800 }}>{fmt(estimatedCommission)}</span>
-                  <span style={{ color: 'var(--text3)', fontSize: 11, marginLeft: 6 }}>({fmtPct(RATE)} of GP)</span>
+                  <span style={{ color: 'var(--text3)', fontSize: 11, marginLeft: 6 }}>({fmtPct(activeRate)} of GP)</span>
                 </div>
               )}
 

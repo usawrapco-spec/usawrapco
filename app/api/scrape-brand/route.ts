@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     extracted.ogImage = ogImageMatch?.[1] || ''
 
     // Colors from CSS (hex values)
-    const colorMatches = html.match(/#[0-9A-Fa-f]{6}\b/g) || []
+    const colorMatches: string[] = html.match(/#[0-9A-Fa-f]{6}\b/g) || []
     const colorCount: Record<string, number> = {}
     colorMatches.forEach(c => {
       const hex = c.toLowerCase()

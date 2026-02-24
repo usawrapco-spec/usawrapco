@@ -135,6 +135,7 @@ export interface Profile {
   role: UserRole
   is_owner?: boolean
   name: string
+  display_name?: string | null
   email: string
   phone: string | null
   avatar_url: string | null
@@ -302,7 +303,13 @@ export interface DesignProject {
   status: DesignProjectStatus
   project_id: string | null
   designer_id: string | null
+  assigned_to?: string | null
   created_by: string | null
+  title?: string | null
+  notes?: string | null
+  vehicle_type?: string | null
+  brand_files?: Record<string, unknown> | null
+  design_canvas_data?: Record<string, unknown> | null
   created_at: string
   updated_at: string
   linked_project?: Pick<Project, 'id' | 'title'>
@@ -322,34 +329,46 @@ export interface TeamInvite {
 }
 
 // ─── Estimate (Quote) ────────────────────────────────────────────────────────
-export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'expired' | 'rejected' | 'void'
+export type EstimateStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired' | 'void' | 'rejected'
 
 export interface Estimate {
   id: string
   org_id: string
-  estimate_number: number
-  title: string
+  estimate_number: string
+  title?: string
   customer_id: string | null
+  contact_id: string | null
   status: EstimateStatus
   sales_rep_id: string | null
   production_manager_id: string | null
   project_manager_id: string | null
-  quote_date: string | null
-  due_date: string | null
+  line_items: any[]
   subtotal: number
   discount: number
+  discount_percent: number
+  discount_amount: number
   tax_rate: number
+  tax_percent: number
   tax_amount: number
   total: number
   notes: string | null
-  customer_note: string | null
-  division: 'wraps' | 'decking'
-  form_data: Record<string, unknown>
+  customer_note?: string | null
+  internal_notes: string | null
+  tags: string[]
+  division?: string | null
+  form_data?: Record<string, unknown>
+  quote_date: string | null
+  due_date: string | null
+  expires_at: string | null
+  ordered: boolean
+  invoiced: boolean
+  converted_to_so_id: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
   customer?: Pick<Profile, 'id' | 'name' | 'email'>
   sales_rep?: Pick<Profile, 'id' | 'name'>
-  line_items?: LineItem[]
+  sales_order?: Pick<SalesOrder, 'id' | 'so_number'>
 }
 
 export interface LineItem {
@@ -365,6 +384,8 @@ export interface LineItem {
   total_price: number
   specs: LineItemSpecs
   sort_order: number
+  rolled_up_into?: string | null
+  is_rolled_up?: boolean
   created_at: string
 }
 
@@ -406,67 +427,106 @@ export interface LineItemSpecs {
   [key: string]: unknown
 }
 
-export type SalesOrderStatus = 'new' | 'in_progress' | 'completed' | 'on_hold' | 'void'
+export type SalesOrderStatus = 'new' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold' | 'void'
 
 export interface SalesOrder {
   id: string
   org_id: string
-  so_number: number
-  title: string
+  so_number: string
+  title?: string
   estimate_id: string | null
   customer_id: string | null
+  contact_id: string | null
+  invoice_contact_id: string | null
   status: SalesOrderStatus
   sales_rep_id: string | null
   production_manager_id: string | null
   project_manager_id: string | null
-  designer_id: string | null
-  so_date: string | null
-  due_date: string | null
-  install_date: string | null
+  designer_id?: string | null
+  line_items: any[]
   subtotal: number
   discount: number
+  discount_percent: number
+  discount_amount: number
   tax_rate: number
+  tax_percent: number
   tax_amount: number
   total: number
-  down_payment_pct: number
-  payment_terms: string | null
   notes: string | null
+  internal_notes: string | null
+  form_data?: Record<string, unknown>
+  tags: string[]
+  install_date?: string | null
+  payment_terms?: string | null
+  down_payment_pct?: number | null
+  so_date: string | null
+  due_date: string | null
   invoiced: boolean
-  form_data: Record<string, unknown>
+  converted_to_invoice_id: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
   customer?: Pick<Profile, 'id' | 'name' | 'email'>
   sales_rep?: Pick<Profile, 'id' | 'name'>
   estimate?: Pick<Estimate, 'id' | 'estimate_number'>
-  line_items?: LineItem[]
+  invoice?: Pick<Invoice, 'id' | 'invoice_number'>
 }
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
+export type InvoiceStatus = 'draft' | 'open' | 'sent' | 'partial' | 'paid' | 'overdue' | 'void'
 
 export interface Invoice {
   id: string
   org_id: string
-  invoice_number: number
-  title: string
-  sales_order_id: string | null
+  invoice_number: string
+  title?: string
+  estimate_id: string | null
+  so_id: string | null
+  sales_order_id?: string | null
   customer_id: string | null
+  contact_id: string | null
+  invoice_contact_id: string | null
   status: InvoiceStatus
-  invoice_date: string | null
-  due_date: string | null
+  sales_rep_id: string | null
+  line_items: any[]
   subtotal: number
   discount: number
+  discount_amount: number
   tax_rate: number
+  tax_percent: number
   tax_amount: number
   total: number
   amount_paid: number
-  balance_due: number
+  balance: number
+  balance_due?: number
   notes: string | null
-  form_data: Record<string, unknown>
+  form_data?: Record<string, unknown>
+  payment_terms: string
+  invoice_date: string | null
+  due_date: string | null
+  paid_at: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
   customer?: Pick<Profile, 'id' | 'name' | 'email'>
+  sales_rep?: Pick<Profile, 'id' | 'name'>
+  estimate?: Pick<Estimate, 'id' | 'estimate_number'>
   sales_order?: Pick<SalesOrder, 'id' | 'so_number'>
-  line_items?: LineItem[]
+  payments?: Payment[]
+}
+
+export interface Payment {
+  id: string
+  org_id: string
+  invoice_id: string
+  customer_id: string | null
+  amount: number
+  method: 'cash' | 'check' | 'card' | 'stripe' | 'zelle' | 'venmo' | 'ach' | 'wire' | 'other'
+  reference_number: string | null
+  notes: string | null
+  recorded_by: string | null
+  payment_date: string
+  created_at: string
+  recorder?: Pick<Profile, 'id' | 'name'>
 }
 
 export interface ChatMessage {

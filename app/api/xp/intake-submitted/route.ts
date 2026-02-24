@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       agentId,
       'intake_submitted',
       'intake',
-      intake.project_id || token,
+      (intake as any)?.project_id || token,
     )
 
     return Response.json({ ok: true, result })

@@ -6,6 +6,9 @@ export const runtime = 'edge'
  * VIN Lookup API - NHTSA Integration
  * Decodes vehicle VIN using NHTSA vPIC API
  * GET /api/vin/lookup?vin=<17-char-vin>
+ *
+ * NHTSA Results return objects with { Variable: string, Value: string | null, VariableId: number }
+ * We use Variable name strings for reliable lookup since VariableId can vary.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Call NHTSA vPIC API
-    const url = `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`
+    const url = `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${encodeURIComponent(vin)}?format=json`
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
@@ -40,34 +43,39 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Parse relevant fields from NHTSA response
-    const results = data.Results
-    const getValue = (variableId: number) => {
-      const item = results.find((r: any) => r.VariableId === variableId)
-      return item?.Value || null
+    // Parse relevant fields from NHTSA response using Variable name strings
+    const results: { Variable: string; Value: string | null; VariableId: number }[] = data.Results
+    const getByName = (name: string): string | null => {
+      const item = results.find((r) => r.Variable === name)
+      return item?.Value && item.Value.trim() && item.Value !== 'Not Applicable' ? item.Value.trim() : null
     }
 
     const vehicleData = {
       vin: vin.toUpperCase(),
-      year: getValue(29) || getValue(26),  // ModelYear or VariableId 26
-      make: getValue(26) || getValue(27),  // Make
-      model: getValue(28),                  // Model
-      trim: getValue(109),                  // Trim
-      bodyClass: getValue(5),               // Body Class
-      vehicleType: getValue(10),            // Vehicle Type
-      driveType: getValue(8),               // Drive Type
-      engineCylinders: getValue(9),         // Engine Number of Cylinders
-      engineLiters: getValue(11),           // Displacement (L)
-      fuelType: getValue(24),               // Fuel Type Primary
-      doors: getValue(14),                  // Number of Doors
-      plantCity: getValue(31),              // Plant City
-      plantCountry: getValue(32),           // Plant Country
-      manufacturer: getValue(27),           // Manufacturer Name
-      errorCode: getValue(143),             // Error Code (if any)
+      year: getByName('Model Year'),
+      make: getByName('Make'),
+      model: getByName('Model'),
+      trim: getByName('Trim'),
+      bodyClass: getByName('Body Class'),
+      vehicleType: getByName('Vehicle Type'),
+      driveType: getByName('Drive Type'),
+      engineCylinders: getByName('Engine Number of Cylinders'),
+      engineLiters: getByName('Displacement (L)'),
+      fuelType: getByName('Fuel Type - Primary'),
+      doors: getByName('Doors'),
+      plantCity: getByName('Plant City'),
+      plantCountry: getByName('Plant Country'),
+      manufacturer: getByName('Manufacturer Name'),
+      errorCode: getByName('Error Code'),
     }
 
-    // Check for errors in the VIN decode
-    if (vehicleData.errorCode && vehicleData.errorCode !== '0') {
+    // NHTSA error codes: "0" means no error. Anything else is a decode issue.
+    // However, partial results can still be useful, so we only reject if
+    // make+model are both missing AND there's an error code.
+    const hasError = vehicleData.errorCode && vehicleData.errorCode !== '0'
+    const hasUsableData = vehicleData.make && vehicleData.model
+
+    if (hasError && !hasUsableData) {
       return NextResponse.json(
         { error: 'Invalid VIN or VIN decode failed', data: vehicleData },
         { status: 400 }

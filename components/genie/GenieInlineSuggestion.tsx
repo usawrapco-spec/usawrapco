@@ -116,7 +116,7 @@ export default function GenieInlineSuggestion({ context, maxSuggestions = 2, com
               )}
             </div>
             <button
-              onClick={() => setDismissed(prev => new Set([...prev, s.id]))}
+              onClick={() => setDismissed(prev => new Set([...Array.from(prev), s.id]))}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'var(--text3)', padding: 2, flexShrink: 0,

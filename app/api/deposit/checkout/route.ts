@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         actuals: {},
         checkout: {},
         send_backs: [],
-      }).catch(() => {})
+      })
     }
 
     // Update conversation if linked
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         lead_stage: 'converted',
         status: 'converted',
         updated_at: new Date().toISOString(),
-      }).eq('id', conversation_id).catch(() => {})
+      }).eq('id', conversation_id)
     }
 
     // Log payment
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       method: 'stripe_demo',
       reference: `demo_${Date.now()}`,
       metadata: { conversation_id, vehicle_desc },
-    }).catch(() => {})
+    })
 
     return NextResponse.json({ success: true, demo: true })
   }

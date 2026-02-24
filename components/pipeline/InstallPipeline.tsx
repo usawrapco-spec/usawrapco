@@ -32,7 +32,7 @@ const COLUMNS: KanbanColumn[] = [
     label: 'Accepted',
     color: '#22c07a',
     icon: Check,
-    filterFn: (p) => p.pipe_stage === 'install' && getInstaller(p) && getInstallStatus(p) !== 'bid_sent' && getInstallStatus(p) !== 'in_progress' && getInstallStatus(p) !== 'complete',
+    filterFn: (p): boolean => p.pipe_stage === 'install' && !!getInstaller(p) && getInstallStatus(p) !== 'bid_sent' && getInstallStatus(p) !== 'in_progress' && getInstallStatus(p) !== 'complete',
   },
   {
     key: 'scheduled',

@@ -30,6 +30,7 @@ import {
   UserPlus,
   Contact,
   Plus,
+  Target,
 } from 'lucide-react'
 
 /* ─── Quick create items for the bottom sheet ─────────────────────── */
@@ -54,6 +55,7 @@ const MORE_ITEMS = [
   { href: '/inventory',    label: 'Inventory',      icon: Package },
   { href: '/catalog',      label: 'Catalog',        icon: BookOpen },
   { href: '/prospects',    label: 'Prospects',      icon: UserPlus },
+  { href: '/sales/prospector', label: 'Prospector', icon: Target },
   { href: '/contacts',     label: 'Contacts',       icon: Contact },
   { href: '/customers',    label: 'Customers',      icon: Users },
   { href: '/network',      label: 'Network Map',    icon: Network },

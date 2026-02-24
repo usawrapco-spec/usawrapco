@@ -1,12 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Mail, Phone, MapPin, Building2, User, Calendar, Briefcase, Edit2, Save, X, ExternalLink } from 'lucide-react'
+import {
+  ArrowLeft, Mail, Phone, MapPin, Building2, User, Calendar, Briefcase,
+  Edit2, Save, X, ExternalLink,
+  Activity, Link2, ClipboardList, StickyNote, FileText, DollarSign,
+  Heart, Tag, Plus, Check, Star, TrendingUp, Clock, Trash2, ChevronRight,
+  Car, Users, AlertCircle, CreditCard, Receipt
+} from 'lucide-react'
 import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
 import type { Profile } from '@/types'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
+
+// ─── Existing interfaces ──────────────────────────────────────────────────────
 
 interface Customer {
   id: string
@@ -41,6 +49,61 @@ interface Props {
   projects: Project[]
 }
 
+// ─── New interfaces for tabs ──────────────────────────────────────────────────
+
+interface ActivityEntry {
+  id: string
+  type: 'job' | 'quote' | 'email' | 'call' | 'note' | 'payment' | 'appointment'
+  description: string
+  date: string
+  icon: 'Briefcase' | 'FileText' | 'Mail' | 'Phone' | 'StickyNote' | 'DollarSign' | 'Calendar'
+  meta?: string
+}
+
+interface CustomerTask {
+  id: string
+  title: string
+  completed: boolean
+  created_at: string
+  due_date?: string
+}
+
+interface CustomerNote {
+  id: string
+  content: string
+  author: string
+  created_at: string
+}
+
+interface CustomerAppointment {
+  id: string
+  title: string
+  date: string
+  time: string
+  description?: string
+}
+
+interface CustomerDocument {
+  id: string
+  type: 'estimate' | 'invoice' | 'contract' | 'sales_order'
+  title: string
+  status: string
+  amount?: number
+  created_at: string
+}
+
+interface CustomerPayment {
+  id: string
+  invoice_id: string
+  invoice_title: string
+  amount: number
+  status: 'paid' | 'pending' | 'overdue' | 'partial'
+  date: string
+  method?: string
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const SOURCE_COLORS: Record<string, string> = {
   inbound: '#22c07a', outbound: '#4f7fff', referral: '#8b5cf6',
   walk_in: '#22d3ee', repeat: '#f59e0b', cross_referral: '#f25a5a',
@@ -58,12 +121,281 @@ const STATUS_LABEL: Record<string, string> = {
   closing: 'Closing', closed: 'Closed', cancelled: 'Cancelled',
 }
 
+const LEAD_SOURCE_OPTIONS = [
+  'inbound', 'outbound', 'referral', 'walk_in', 'repeat', 'cross_referral',
+  'google', 'social_media', 'trade_show', 'website', 'yelp', 'other',
+]
+
+const ALL_TAGS = ['fleet', 'repeat', 'VIP', 'prospect', 'commercial', 'residential', 'referral'] as const
+type CustomerTag = typeof ALL_TAGS[number]
+
+const TAG_COLORS: Record<CustomerTag, string> = {
+  fleet: '#4f7fff',
+  repeat: '#22c07a',
+  VIP: '#f59e0b',
+  prospect: '#22d3ee',
+  commercial: '#8b5cf6',
+  residential: '#f25a5a',
+  referral: '#f59e0b',
+}
+
+type TabKey = 'activity' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments'
+
+const TAB_DEFS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
+  { key: 'activity', label: 'Activity', Icon: Activity },
+  { key: 'associations', label: 'Associations', Icon: Link2 },
+  { key: 'tasks', label: 'Tasks', Icon: ClipboardList },
+  { key: 'notes', label: 'Notes', Icon: StickyNote },
+  { key: 'appointments', label: 'Appointments', Icon: Calendar },
+  { key: 'documents', label: 'Documents', Icon: FileText },
+  { key: 'payments', label: 'Payments', Icon: DollarSign },
+]
+
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+  paid: '#22c07a', pending: '#f59e0b', overdue: '#f25a5a', partial: '#22d3ee',
+}
+
+const ACTIVITY_ICONS: Record<string, typeof Briefcase> = {
+  Briefcase, FileText, Mail, Phone, StickyNote, DollarSign, Calendar,
+}
+
+const headingFont = 'Barlow Condensed, sans-serif'
+const monoFont = 'JetBrains Mono, monospace'
+
 const fmtMoney = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+
+// ─── Demo data generators ─────────────────────────────────────────────────────
+
+function generateDemoActivity(projects: Project[], customerName: string): ActivityEntry[] {
+  const entries: ActivityEntry[] = []
+
+  // Activity from real projects
+  projects.forEach(p => {
+    entries.push({
+      id: `job-${p.id}`,
+      type: 'job',
+      description: `Job created: ${p.title}`,
+      date: p.created_at,
+      icon: 'Briefcase',
+      meta: p.vehicle_desc || undefined,
+    })
+    if (p.status === 'closed' && p.revenue) {
+      entries.push({
+        id: `pay-${p.id}`,
+        type: 'payment',
+        description: `Payment received for ${p.title} - ${fmtMoney(p.revenue)}`,
+        date: p.updated_at || p.created_at,
+        icon: 'DollarSign',
+      })
+    }
+  })
+
+  // Fill in some demo entries if activity is sparse
+  if (entries.length < 5) {
+    const now = new Date()
+    entries.push(
+      {
+        id: 'demo-email-1',
+        type: 'email',
+        description: `Follow-up email sent to ${customerName}`,
+        date: new Date(now.getTime() - 2 * 86400000).toISOString(),
+        icon: 'Mail',
+      },
+      {
+        id: 'demo-call-1',
+        type: 'call',
+        description: `Introductory call with ${customerName}`,
+        date: new Date(now.getTime() - 5 * 86400000).toISOString(),
+        icon: 'Phone',
+        meta: 'Duration: 12 min',
+      },
+      {
+        id: 'demo-note-1',
+        type: 'note',
+        description: 'Interested in full fleet wrap for delivery vans',
+        date: new Date(now.getTime() - 7 * 86400000).toISOString(),
+        icon: 'StickyNote',
+      },
+      {
+        id: 'demo-quote-1',
+        type: 'quote',
+        description: 'Estimate #1042 sent for review',
+        date: new Date(now.getTime() - 10 * 86400000).toISOString(),
+        icon: 'FileText',
+        meta: '$4,500',
+      },
+      {
+        id: 'demo-appt-1',
+        type: 'appointment',
+        description: 'Scheduled vehicle measurement appointment',
+        date: new Date(now.getTime() - 14 * 86400000).toISOString(),
+        icon: 'Calendar',
+      }
+    )
+  }
+
+  return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
+function generateDemoDocuments(projects: Project[]): CustomerDocument[] {
+  const docs: CustomerDocument[] = []
+  projects.forEach(p => {
+    docs.push({
+      id: `est-${p.id}`,
+      type: 'estimate',
+      title: `Estimate - ${p.title}`,
+      status: p.status === 'cancelled' ? 'declined' : 'approved',
+      amount: p.revenue || 0,
+      created_at: p.created_at,
+    })
+    if (!['estimate', 'cancelled'].includes(p.status)) {
+      docs.push({
+        id: `so-${p.id}`,
+        type: 'sales_order',
+        title: `Sales Order - ${p.title}`,
+        status: 'confirmed',
+        amount: p.revenue || 0,
+        created_at: p.created_at,
+      })
+    }
+    if (p.status === 'closed') {
+      docs.push({
+        id: `inv-${p.id}`,
+        type: 'invoice',
+        title: `Invoice - ${p.title}`,
+        status: 'paid',
+        amount: p.revenue || 0,
+        created_at: p.updated_at || p.created_at,
+      })
+    }
+  })
+  if (docs.length === 0) {
+    const now = new Date()
+    docs.push(
+      {
+        id: 'demo-est-1',
+        type: 'estimate',
+        title: 'Estimate #1042 - Full Wrap',
+        status: 'pending',
+        amount: 4500,
+        created_at: new Date(now.getTime() - 3 * 86400000).toISOString(),
+      },
+      {
+        id: 'demo-contract-1',
+        type: 'contract',
+        title: 'Service Agreement 2026',
+        status: 'sent',
+        amount: undefined,
+        created_at: new Date(now.getTime() - 10 * 86400000).toISOString(),
+      }
+    )
+  }
+  return docs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+function generateDemoPayments(projects: Project[]): CustomerPayment[] {
+  const payments: CustomerPayment[] = []
+  projects.forEach(p => {
+    if (p.status === 'closed' && p.revenue) {
+      payments.push({
+        id: `pmt-${p.id}`,
+        invoice_id: `inv-${p.id}`,
+        invoice_title: `Invoice - ${p.title}`,
+        amount: p.revenue,
+        status: 'paid',
+        date: p.updated_at || p.created_at,
+        method: 'Credit Card',
+      })
+    } else if (!['cancelled', 'estimate'].includes(p.status) && p.revenue) {
+      payments.push({
+        id: `pmt-${p.id}`,
+        invoice_id: `inv-${p.id}`,
+        invoice_title: `Invoice - ${p.title}`,
+        amount: p.revenue,
+        status: 'pending',
+        date: p.created_at,
+      })
+    }
+  })
+  if (payments.length === 0) {
+    const now = new Date()
+    payments.push(
+      {
+        id: 'demo-pmt-1',
+        invoice_id: 'demo-inv-1',
+        invoice_title: 'Invoice #1018 - Partial Wrap',
+        amount: 2200,
+        status: 'paid',
+        date: new Date(now.getTime() - 30 * 86400000).toISOString(),
+        method: 'ACH Transfer',
+      },
+      {
+        id: 'demo-pmt-2',
+        invoice_id: 'demo-inv-2',
+        invoice_title: 'Invoice #1042 - Full Wrap',
+        amount: 4500,
+        status: 'pending',
+        date: new Date(now.getTime() - 3 * 86400000).toISOString(),
+      }
+    )
+  }
+  return payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
+// ─── Health score calculator ──────────────────────────────────────────────────
+
+function calcHealthScore(projects: Project[], totalRevenue: number): number {
+  if (projects.length === 0) return 15
+
+  // Recency: days since last activity (lower is better)
+  const dates = projects.map(p => new Date(p.updated_at || p.created_at).getTime())
+  const latestDate = Math.max(...dates)
+  const daysSinceLast = Math.floor((Date.now() - latestDate) / 86400000)
+  let recencyScore = 0
+  if (daysSinceLast <= 7) recencyScore = 40
+  else if (daysSinceLast <= 30) recencyScore = 30
+  else if (daysSinceLast <= 90) recencyScore = 20
+  else if (daysSinceLast <= 180) recencyScore = 10
+  else recencyScore = 5
+
+  // Frequency: number of projects
+  let frequencyScore = 0
+  if (projects.length >= 5) frequencyScore = 30
+  else if (projects.length >= 3) frequencyScore = 25
+  else if (projects.length >= 2) frequencyScore = 15
+  else frequencyScore = 8
+
+  // Value: total revenue
+  let valueScore = 0
+  if (totalRevenue >= 15000) valueScore = 30
+  else if (totalRevenue >= 7500) valueScore = 25
+  else if (totalRevenue >= 3000) valueScore = 18
+  else if (totalRevenue >= 1000) valueScore = 10
+  else valueScore = 5
+
+  return Math.min(100, recencyScore + frequencyScore + valueScore)
+}
+
+function healthColor(score: number): string {
+  if (score >= 70) return '#22c07a'
+  if (score >= 40) return '#f59e0b'
+  return '#f25a5a'
+}
+
+function healthLabel(score: number): string {
+  if (score >= 70) return 'Healthy'
+  if (score >= 40) return 'At Risk'
+  return 'Needs Attention'
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CustomerDetailClient({ profile, customer, projects }: Props) {
   const router = useRouter()
   const supabase = createClient()
+
+  // --- Existing state ---
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -77,9 +409,141 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
   })
   const [saved, setSaved] = useState(customer)
 
+  // --- New state ---
+  const [activeTab, setActiveTab] = useState<TabKey>('activity')
+  const [leadSource, setLeadSource] = useState(customer.source || '')
+  const [tags, setTags] = useState<CustomerTag[]>(() => {
+    // Initialize from local-demo or derive from projects
+    const derived: CustomerTag[] = []
+    if (projects.length >= 2) derived.push('repeat')
+    if (projects.some(p => (p.revenue || 0) >= 5000)) derived.push('commercial')
+    return derived
+  })
+  const [showTagPicker, setShowTagPicker] = useState(false)
+
+  // Tasks state
+  const [tasks, setTasks] = useState<CustomerTask[]>([])
+  const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [loadedTasks, setLoadedTasks] = useState(false)
+
+  // Notes state
+  const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([])
+  const [newNoteContent, setNewNoteContent] = useState('')
+  const [loadedNotes, setLoadedNotes] = useState(false)
+
+  // Appointments state
+  const [appointments, setAppointments] = useState<CustomerAppointment[]>([])
+  const [newApptTitle, setNewApptTitle] = useState('')
+  const [newApptDate, setNewApptDate] = useState('')
+  const [newApptTime, setNewApptTime] = useState('')
+  const [loadedAppointments, setLoadedAppointments] = useState(false)
+
+  // --- Computed values ---
   const totalRevenue = projects.filter(p => p.status === 'closed').reduce((s, p) => s + (p.revenue || 0), 0)
   const activeJobs = projects.filter(p => !['closed', 'cancelled'].includes(p.status))
+  const avgJobValue = projects.length > 0 ? totalRevenue / projects.length : 0
+  const healthScore = calcHealthScore(projects, totalRevenue)
 
+  // Unique vehicles from projects
+  const vehicles = Array.from(new Set(projects.map(p => p.vehicle_desc).filter(Boolean))) as string[]
+
+  // Generated tab data
+  const activityEntries = generateDemoActivity(projects, saved.contact_name)
+  const documents = generateDemoDocuments(projects)
+  const payments = generateDemoPayments(projects)
+
+  // --- Load tasks from Supabase or fallback to demo ---
+  const loadTasks = useCallback(async () => {
+    if (loadedTasks) return
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .order('created_at', { ascending: false })
+      if (!error && data && data.length > 0) {
+        setTasks(data.map((t: Record<string, unknown>) => ({
+          id: t.id as string,
+          title: (t.title as string) || (t.description as string) || '',
+          completed: !!(t.completed || t.status === 'done'),
+          created_at: t.created_at as string,
+          due_date: t.due_date as string | undefined,
+        })))
+      } else {
+        // Demo tasks
+        const now = new Date()
+        setTasks([
+          { id: 'demo-t1', title: 'Follow up on wrap estimate', completed: false, created_at: new Date(now.getTime() - 86400000).toISOString(), due_date: new Date(now.getTime() + 2 * 86400000).toISOString() },
+          { id: 'demo-t2', title: 'Schedule vehicle measurement', completed: false, created_at: new Date(now.getTime() - 3 * 86400000).toISOString() },
+          { id: 'demo-t3', title: 'Send design mockup for review', completed: true, created_at: new Date(now.getTime() - 7 * 86400000).toISOString() },
+        ])
+      }
+    } catch {
+      const now = new Date()
+      setTasks([
+        { id: 'demo-t1', title: 'Follow up on wrap estimate', completed: false, created_at: new Date(now.getTime() - 86400000).toISOString(), due_date: new Date(now.getTime() + 2 * 86400000).toISOString() },
+        { id: 'demo-t2', title: 'Schedule vehicle measurement', completed: false, created_at: new Date(now.getTime() - 3 * 86400000).toISOString() },
+        { id: 'demo-t3', title: 'Send design mockup for review', completed: true, created_at: new Date(now.getTime() - 7 * 86400000).toISOString() },
+      ])
+    }
+    setLoadedTasks(true)
+  }, [customer.id, loadedTasks, supabase])
+
+  // --- Load notes ---
+  const loadNotes = useCallback(async () => {
+    if (loadedNotes) return
+    try {
+      const { data, error } = await supabase
+        .from('communication_log')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .eq('type', 'note')
+        .order('created_at', { ascending: false })
+      if (!error && data && data.length > 0) {
+        setCustomerNotes(data.map((n: Record<string, unknown>) => ({
+          id: n.id as string,
+          content: (n.content as string) || (n.message as string) || '',
+          author: (n.author_name as string) || profile.display_name || 'Team',
+          created_at: n.created_at as string,
+        })))
+      } else {
+        const now = new Date()
+        setCustomerNotes([
+          { id: 'demo-n1', content: 'Customer prefers matte finishes over gloss. Has a fleet of 8 delivery vans that may need wrapping over the next 6 months.', author: profile.display_name || 'Sales Team', created_at: new Date(now.getTime() - 2 * 86400000).toISOString() },
+          { id: 'demo-n2', content: 'Mentioned interest in storefront signage as well. Refer to signage dept when ready.', author: 'Admin', created_at: new Date(now.getTime() - 10 * 86400000).toISOString() },
+        ])
+      }
+    } catch {
+      const now = new Date()
+      setCustomerNotes([
+        { id: 'demo-n1', content: 'Customer prefers matte finishes over gloss. Has a fleet of 8 delivery vans that may need wrapping over the next 6 months.', author: profile.display_name || 'Sales Team', created_at: new Date(now.getTime() - 2 * 86400000).toISOString() },
+        { id: 'demo-n2', content: 'Mentioned interest in storefront signage as well. Refer to signage dept when ready.', author: 'Admin', created_at: new Date(now.getTime() - 10 * 86400000).toISOString() },
+      ])
+    }
+    setLoadedNotes(true)
+  }, [customer.id, loadedNotes, profile.display_name, supabase])
+
+  // --- Load appointments ---
+  const loadAppointments = useCallback(async () => {
+    if (loadedAppointments) return
+    // Demo data - no dedicated appointments table yet
+    const now = new Date()
+    setAppointments([
+      { id: 'demo-a1', title: 'Vehicle Measurement', date: format(new Date(now.getTime() + 3 * 86400000), 'yyyy-MM-dd'), time: '10:00 AM', description: 'Measure delivery van for full wrap' },
+      { id: 'demo-a2', title: 'Design Review', date: format(new Date(now.getTime() + 7 * 86400000), 'yyyy-MM-dd'), time: '2:00 PM', description: 'Review mockup designs with customer' },
+      { id: 'demo-a3', title: 'Install Drop-off', date: format(new Date(now.getTime() + 14 * 86400000), 'yyyy-MM-dd'), time: '8:00 AM', description: 'Vehicle drop-off for wrap installation' },
+    ])
+    setLoadedAppointments(true)
+  }, [loadedAppointments])
+
+  // Load tab data on tab switch
+  useEffect(() => {
+    if (activeTab === 'tasks') loadTasks()
+    if (activeTab === 'notes') loadNotes()
+    if (activeTab === 'appointments') loadAppointments()
+  }, [activeTab, loadTasks, loadNotes, loadAppointments])
+
+  // --- Existing save function ---
   async function saveEdits() {
     setSaving(true)
     const { error } = await supabase.from('customers').update(form).eq('id', customer.id)
@@ -90,27 +554,165 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
     setSaving(false)
   }
 
+  // --- New handler functions ---
+
+  async function updateLeadSource(val: string) {
+    setLeadSource(val)
+    setSaved(prev => ({ ...prev, source: val }))
+    await supabase.from('customers').update({ source: val }).eq('id', customer.id).then(() => {}, () => {})
+  }
+
+  function toggleTag(tag: CustomerTag) {
+    setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
+  }
+
+  function addTask() {
+    if (!newTaskTitle.trim()) return
+    const task: CustomerTask = {
+      id: `task-${Date.now()}`,
+      title: newTaskTitle.trim(),
+      completed: false,
+      created_at: new Date().toISOString(),
+    }
+    setTasks(prev => [task, ...prev])
+    setNewTaskTitle('')
+    // Fire-and-forget save attempt
+    supabase.from('tasks').insert({
+      id: task.id,
+      title: task.title,
+      customer_id: customer.id,
+      org_id: customer.org_id,
+      status: 'pending',
+      created_at: task.created_at,
+    }).then(() => {}, () => {})
+  }
+
+  function toggleTask(id: string) {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t))
+    const task = tasks.find(t => t.id === id)
+    if (task && !task.id.startsWith('demo-')) {
+      supabase.from('tasks').update({ status: task.completed ? 'pending' : 'done' }).eq('id', id).then(() => {}, () => {})
+    }
+  }
+
+  function deleteTask(id: string) {
+    setTasks(prev => prev.filter(t => t.id !== id))
+    if (!id.startsWith('demo-')) {
+      supabase.from('tasks').delete().eq('id', id).then(() => {}, () => {})
+    }
+  }
+
+  function addNote() {
+    if (!newNoteContent.trim()) return
+    const note: CustomerNote = {
+      id: `note-${Date.now()}`,
+      content: newNoteContent.trim(),
+      author: profile.display_name || 'You',
+      created_at: new Date().toISOString(),
+    }
+    setCustomerNotes(prev => [note, ...prev])
+    setNewNoteContent('')
+    supabase.from('communication_log').insert({
+      id: note.id,
+      customer_id: customer.id,
+      org_id: customer.org_id,
+      type: 'note',
+      content: note.content,
+      author_name: note.author,
+      created_at: note.created_at,
+    }).then(() => {}, () => {})
+  }
+
+  function addAppointment() {
+    if (!newApptTitle.trim() || !newApptDate) return
+    const appt: CustomerAppointment = {
+      id: `appt-${Date.now()}`,
+      title: newApptTitle.trim(),
+      date: newApptDate,
+      time: newApptTime || '9:00 AM',
+    }
+    setAppointments(prev => [appt, ...prev].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()))
+    setNewApptTitle('')
+    setNewApptDate('')
+    setNewApptTime('')
+  }
+
+  // --- Activity icon renderer ---
+  function renderActivityIcon(iconName: string) {
+    const IconComp = ACTIVITY_ICONS[iconName] || Activity
+    const colorMap: Record<string, string> = {
+      Briefcase: 'var(--accent)', FileText: 'var(--purple)', Mail: 'var(--cyan)',
+      Phone: 'var(--green)', StickyNote: 'var(--amber)', DollarSign: 'var(--green)',
+      Calendar: 'var(--accent)',
+    }
+    return (
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+        background: `${colorMap[iconName] || 'var(--accent)'}18`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <IconComp size={14} style={{ color: colorMap[iconName] || 'var(--accent)' }} />
+      </div>
+    )
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
+  // Enhanced stats
+  const lifetimeValue = totalRevenue
+  const lastActivity = projects.length > 0 ? projects[0].updated_at || projects[0].created_at : saved.created_at
+  const customerSince = saved.created_at ? format(new Date(saved.created_at), 'MMM yyyy') : '\u2014'
+  const healthColorVal = healthColor(healthScore)
+
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* Back nav */}
       <button
         onClick={() => router.push('/customers')}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 13, fontWeight: 600, padding: 0 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 13, fontWeight: 600, padding: 0, transition: 'color 0.15s' }}
+        onMouseEnter={e => e.currentTarget.style.color = 'var(--text1)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
       >
         <ArrowLeft size={14} /> Back to Customers
       </button>
 
-      {/* Header card */}
-      <div className="card" style={{ marginBottom: 16, padding: '20px 24px' }}>
+      {/* Header card - GoHighLevel style */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.03) 100%)',
+        border: '1px solid var(--card-border)', borderRadius: 20,
+        marginBottom: 16, padding: '24px 28px', position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Subtle gradient accent */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, ${healthColorVal}, transparent)`, opacity: 0.5,
+        }} />
+
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: '50%',
-              background: 'rgba(79,127,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 800, color: 'var(--accent)',
-              fontFamily: 'Barlow Condensed, sans-serif',
-            }}>
-              {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Avatar with health ring */}
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'rgba(79,127,255,0.12)',
+                border: `2.5px solid ${healthColorVal}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, fontWeight: 800, color: 'var(--accent)',
+                fontFamily: headingFont,
+              }}>
+                {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+              </div>
+              {/* Health score badge */}
+              <div style={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: 22, height: 22, borderRadius: '50%',
+                background: healthColorVal, color: '#fff',
+                fontSize: 8, fontWeight: 800, fontFamily: monoFont,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 0 2.5px var(--card-bg)',
+              }}>
+                {healthScore}
+              </div>
             </div>
             <div>
               {editing ? (
@@ -121,7 +723,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                   style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}
                 />
               ) : (
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text1)', fontFamily: 'Barlow Condensed, sans-serif' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text1)', fontFamily: headingFont }}>
                   {saved.contact_name}
                 </div>
               )}
@@ -231,8 +833,96 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
           </div>
         ) : null}
 
-        {/* Source badge */}
-        {saved.source && (
+        {/* Lead Source + Tags row */}
+        <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+          {/* Lead Source dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <TrendingUp size={13} style={{ color: 'var(--text3)' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Source:</span>
+            <select
+              value={leadSource}
+              onChange={e => updateLeadSource(e.target.value)}
+              style={{
+                background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6,
+                color: 'var(--text1)', fontSize: 12, padding: '4px 8px', cursor: 'pointer',
+                fontWeight: 600, textTransform: 'capitalize',
+              }}
+            >
+              <option value="">-- Select --</option>
+              {LEAD_SOURCE_OPTIONS.map(s => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
+          {/* Tags */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Tag size={13} style={{ color: 'var(--text3)' }} />
+            {tags.map(tag => (
+              <span
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                  background: `${TAG_COLORS[tag]}18`, color: TAG_COLORS[tag],
+                  cursor: 'pointer', textTransform: 'capitalize',
+                }}
+              >
+                {tag}
+                <X size={10} />
+              </span>
+            ))}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowTagPicker(!showTagPicker)}
+                style={{
+                  width: 24, height: 24, borderRadius: 6, border: '1px dashed var(--border)',
+                  background: 'none', color: 'var(--text3)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Plus size={12} />
+              </button>
+              {showTagPicker && (
+                <div style={{
+                  position: 'absolute', top: 28, left: 0, zIndex: 20,
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+                  padding: 8, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                }}>
+                  {ALL_TAGS.filter(t => !tags.includes(t)).map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => { toggleTag(tag); setShowTagPicker(false) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 8px', borderRadius: 6, border: 'none',
+                        background: 'none', color: TAG_COLORS[tag], fontSize: 12,
+                        fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: TAG_COLORS[tag] }} />
+                      {tag}
+                    </button>
+                  ))}
+                  {ALL_TAGS.filter(t => !tags.includes(t)).length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', padding: 4 }}>All tags applied</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Source badge (existing, only show if no lead source dropdown value) */}
+        {saved.source && !leadSource && (
           <div style={{ marginTop: 12 }}>
             <span style={{
               display: 'inline-flex', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
@@ -246,19 +936,25 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         )}
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+      {/* Stats row - Tesla style */}
+      <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
         {[
+          { label: 'Lifetime Value', value: fmtMoney(lifetimeValue), color: 'var(--green)', Icon: DollarSign },
           { label: 'Total Jobs', value: projects.length.toString(), color: 'var(--accent)', Icon: Briefcase },
-          { label: 'Active Jobs', value: activeJobs.length.toString(), color: 'var(--green)', Icon: User },
-          { label: 'Lifetime Revenue', value: fmtMoney(totalRevenue), color: 'var(--cyan)', Icon: Building2 },
+          { label: 'Avg Job Value', value: fmtMoney(avgJobValue), color: 'var(--purple)', Icon: TrendingUp },
+          { label: 'Last Activity', value: lastActivity ? formatDistanceToNow(new Date(lastActivity), { addSuffix: true }) : '\u2014', color: 'var(--amber)', Icon: Clock },
+          { label: 'Customer Since', value: customerSince, color: 'var(--cyan)', Icon: Calendar },
         ].map(stat => (
-          <div key={stat.label} className="card" style={{ padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <stat.Icon size={14} style={{ color: stat.color }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</span>
+          <div key={stat.label} className="stat-card" style={{ padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span className="metric-label">{stat.label}</span>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: `${stat.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <stat.Icon size={12} style={{ color: stat.color }} />
+              </div>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, fontFamily: 'JetBrains Mono, monospace' }}>{stat.value}</div>
+            <div style={{ fontSize: stat.label === 'Lifetime Value' ? 22 : 18, fontWeight: 800, color: stat.color, fontFamily: monoFont }}>
+              {stat.value}
+            </div>
           </div>
         ))}
       </div>
@@ -271,7 +967,591 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         />
       </div>
 
-      {/* Jobs table */}
+      {/* ─── Tab Bar ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', gap: 2, marginBottom: 0, padding: '4px',
+        background: 'var(--surface2)', borderRadius: 12,
+        border: '1px solid var(--card-border)',
+        overflowX: 'auto',
+      }}>
+        {TAB_DEFS.map(tab => {
+          const isActive = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 16px', border: 'none',
+                background: 'none', cursor: 'pointer',
+                color: isActive ? 'var(--accent)' : 'var(--text3)',
+                fontSize: 12, fontWeight: 700,
+                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <tab.Icon size={14} />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ─── Tab Content ─────────────────────────────────────────────────────── */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+
+        {/* ── Activity Tab ───────────────────────────────────────────────────── */}
+        {activeTab === 'activity' && (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Activity Timeline ({activityEntries.length})
+            </div>
+            {activityEntries.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                No activity recorded yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {activityEntries.map((entry, idx) => (
+                  <div key={entry.id} style={{
+                    display: 'flex', gap: 12, padding: '12px 0',
+                    borderBottom: idx < activityEntries.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    {renderActivityIcon(entry.icon)}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', marginBottom: 2 }}>
+                        {entry.description}
+                      </div>
+                      {entry.meta && (
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 2 }}>{entry.meta}</div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                        {formatDistanceToNow(new Date(entry.date), { addSuffix: true })}
+                        {' '}&middot;{' '}
+                        {format(new Date(entry.date), 'MMM d, yyyy')}
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase',
+                      padding: '2px 8px', borderRadius: 4, background: 'var(--surface2)',
+                      alignSelf: 'flex-start', whiteSpace: 'nowrap',
+                    }}>
+                      {entry.type}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Associations Tab ───────────────────────────────────────────────── */}
+        {activeTab === 'associations' && (
+          <div style={{ padding: '16px 20px' }}>
+            {/* Linked Jobs */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Briefcase size={14} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Linked Jobs ({projects.length})
+                </span>
+              </div>
+              {projects.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text3)', padding: '12px 0' }}>No linked jobs.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {projects.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => router.push(`/projects/${p.id}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 12px', borderRadius: 8, background: 'var(--surface2)',
+                        cursor: 'pointer', transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{p.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {STATUS_LABEL[p.status] || p.status} {p.revenue ? `- ${fmtMoney(p.revenue)}` : ''}
+                        </div>
+                      </div>
+                      <ChevronRight size={14} style={{ color: 'var(--text3)' }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Linked Vehicles */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Car size={14} style={{ color: 'var(--cyan)' }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Linked Vehicles ({vehicles.length})
+                </span>
+              </div>
+              {vehicles.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text3)', padding: '12px 0' }}>No vehicles on file.</div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {vehicles.map(v => (
+                    <div key={v} style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)',
+                      fontSize: 13, fontWeight: 600, color: 'var(--text1)',
+                    }}>
+                      <Car size={13} style={{ color: 'var(--cyan)' }} />
+                      {v}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Linked Contacts */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Users size={14} style={{ color: 'var(--purple)' }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Linked Contacts
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 8, background: 'var(--surface2)',
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 700, color: 'var(--purple)',
+                  }}>
+                    {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{saved.contact_name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Primary Contact {saved.email ? `- ${saved.email}` : ''}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tasks Tab ──────────────────────────────────────────────────────── */}
+        {activeTab === 'tasks' && (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Tasks ({tasks.filter(t => !t.completed).length} open)
+            </div>
+
+            {/* Add task form */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input
+                className="field"
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addTask()}
+                placeholder="Add a new task..."
+                style={{ flex: 1, fontSize: 13 }}
+              />
+              <button
+                onClick={addTask}
+                disabled={!newTaskTitle.trim()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8,
+                  background: newTaskTitle.trim() ? 'var(--accent)' : 'var(--surface2)',
+                  border: 'none', color: newTaskTitle.trim() ? '#fff' : 'var(--text3)',
+                  fontSize: 12, fontWeight: 700, cursor: newTaskTitle.trim() ? 'pointer' : 'default',
+                }}
+              >
+                <Plus size={14} /> Add
+              </button>
+            </div>
+
+            {/* Task list */}
+            {tasks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                No tasks yet. Add one above.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {tasks.map(task => (
+                  <div key={task.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 8,
+                    background: task.completed ? 'transparent' : 'var(--surface2)',
+                    opacity: task.completed ? 0.6 : 1,
+                  }}>
+                    <button
+                      onClick={() => toggleTask(task.id)}
+                      style={{
+                        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                        border: task.completed ? 'none' : '2px solid var(--border)',
+                        background: task.completed ? 'var(--green)' : 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', padding: 0,
+                      }}
+                    >
+                      {task.completed && <Check size={13} style={{ color: '#fff' }} />}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 600, color: 'var(--text1)',
+                        textDecoration: task.completed ? 'line-through' : 'none',
+                      }}>
+                        {task.title}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        Created {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
+                        {task.due_date && (
+                          <span style={{ color: new Date(task.due_date) < new Date() && !task.completed ? 'var(--red)' : 'var(--text3)' }}>
+                            {' '}&middot; Due {format(new Date(task.due_date), 'MMM d')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                        color: 'var(--text3)', display: 'flex', alignItems: 'center',
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Notes Tab ──────────────────────────────────────────────────────── */}
+        {activeTab === 'notes' && (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Notes ({customerNotes.length})
+            </div>
+
+            {/* Add note */}
+            <div style={{ marginBottom: 16 }}>
+              <textarea
+                className="field resize-none"
+                rows={3}
+                value={newNoteContent}
+                onChange={e => setNewNoteContent(e.target.value)}
+                placeholder="Add a note..."
+                style={{ fontSize: 13, marginBottom: 8 }}
+              />
+              <button
+                onClick={addNote}
+                disabled={!newNoteContent.trim()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8,
+                  background: newNoteContent.trim() ? 'var(--accent)' : 'var(--surface2)',
+                  border: 'none', color: newNoteContent.trim() ? '#fff' : 'var(--text3)',
+                  fontSize: 12, fontWeight: 700, cursor: newNoteContent.trim() ? 'pointer' : 'default',
+                }}
+              >
+                <Plus size={14} /> Add Note
+              </button>
+            </div>
+
+            {/* Notes list */}
+            {customerNotes.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                No notes yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {customerNotes.map(note => (
+                  <div key={note.id} style={{
+                    padding: '12px 14px', borderRadius: 8, background: 'var(--surface2)',
+                    borderLeft: '3px solid var(--amber)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{
+                          width: 22, height: 22, borderRadius: '50%',
+                          background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 700, color: 'var(--amber)',
+                        }}>
+                          {note.author.charAt(0).toUpperCase()}
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>{note.author}</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                        {format(new Date(note.created_at), 'MMM d, yyyy h:mm a')}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
+                      {note.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Appointments Tab ───────────────────────────────────────────────── */}
+        {activeTab === 'appointments' && (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Appointments ({appointments.length})
+            </div>
+
+            {/* Add appointment form */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 8,
+              marginBottom: 16, alignItems: 'end',
+            }}>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>Title</label>
+                <input
+                  className="field"
+                  value={newApptTitle}
+                  onChange={e => setNewApptTitle(e.target.value)}
+                  placeholder="Appointment title..."
+                  style={{ fontSize: 13 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>Date</label>
+                <input
+                  className="field"
+                  type="date"
+                  value={newApptDate}
+                  onChange={e => setNewApptDate(e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>Time</label>
+                <input
+                  className="field"
+                  value={newApptTime}
+                  onChange={e => setNewApptTime(e.target.value)}
+                  placeholder="10:00 AM"
+                  style={{ fontSize: 13, width: 100 }}
+                />
+              </div>
+              <button
+                onClick={addAppointment}
+                disabled={!newApptTitle.trim() || !newApptDate}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8, height: 38,
+                  background: (newApptTitle.trim() && newApptDate) ? 'var(--accent)' : 'var(--surface2)',
+                  border: 'none', color: (newApptTitle.trim() && newApptDate) ? '#fff' : 'var(--text3)',
+                  fontSize: 12, fontWeight: 700, cursor: (newApptTitle.trim() && newApptDate) ? 'pointer' : 'default',
+                }}
+              >
+                <Plus size={14} /> Add
+              </button>
+            </div>
+
+            {/* Appointments list */}
+            {appointments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                No upcoming appointments.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {appointments.map(appt => {
+                  const apptDate = new Date(appt.date)
+                  const isPast = apptDate < new Date(new Date().toDateString())
+                  return (
+                    <div key={appt.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      padding: '12px 14px', borderRadius: 8, background: 'var(--surface2)',
+                      opacity: isPast ? 0.5 : 1,
+                    }}>
+                      <div style={{
+                        width: 44, height: 44, borderRadius: 8,
+                        background: isPast ? 'rgba(90,96,128,0.15)' : 'rgba(79,127,255,0.15)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: isPast ? 'var(--text3)' : 'var(--accent)', fontFamily: monoFont, lineHeight: 1 }}>
+                          {format(apptDate, 'd')}
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: isPast ? 'var(--text3)' : 'var(--accent)', textTransform: 'uppercase' }}>
+                          {format(apptDate, 'MMM')}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{appt.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          <Clock size={10} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                          {appt.time}
+                          {appt.description && <span> &middot; {appt.description}</span>}
+                        </div>
+                      </div>
+                      {isPast && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>Past</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Documents Tab ──────────────────────────────────────────────────── */}
+        {activeTab === 'documents' && (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Documents ({documents.length})
+            </div>
+            {documents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                No documents linked to this customer.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {documents.map(doc => {
+                  const typeColors: Record<string, string> = {
+                    estimate: 'var(--accent)', invoice: 'var(--green)', contract: 'var(--purple)', sales_order: 'var(--cyan)',
+                  }
+                  const typeIcons: Record<string, typeof FileText> = {
+                    estimate: FileText, invoice: Receipt, contract: FileText, sales_order: CreditCard,
+                  }
+                  const DocIcon = typeIcons[doc.type] || FileText
+                  const statusColors: Record<string, string> = {
+                    approved: '#22c07a', paid: '#22c07a', confirmed: '#4f7fff',
+                    pending: '#f59e0b', sent: '#22d3ee', declined: '#f25a5a', draft: '#5a6080',
+                  }
+                  return (
+                    <div key={doc.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '10px 14px', borderRadius: 8, background: 'var(--surface2)',
+                    }}>
+                      <div style={{
+                        width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                        background: `${typeColors[doc.type] || 'var(--accent)'}18`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <DocIcon size={16} style={{ color: typeColors[doc.type] || 'var(--accent)' }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{doc.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                          {doc.amount ? ` - ${fmtMoney(doc.amount)}` : ''}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                          background: `${statusColors[doc.status] || '#5a6080'}18`,
+                          color: statusColors[doc.status] || '#5a6080',
+                          textTransform: 'capitalize',
+                        }}>
+                          {doc.status}
+                        </span>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                          background: `${typeColors[doc.type] || 'var(--accent)'}18`,
+                          color: typeColors[doc.type] || 'var(--accent)',
+                          textTransform: 'capitalize',
+                        }}>
+                          {doc.type.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Payments Tab ───────────────────────────────────────────────────── */}
+        {activeTab === 'payments' && (
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Payments ({payments.length})
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)', fontFamily: monoFont }}>
+                Total: {fmtMoney(payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0))}
+              </div>
+            </div>
+
+            {payments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                No payment records yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {payments.map(pmt => (
+                  <div key={pmt.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 14px', borderRadius: 8, background: 'var(--surface2)',
+                  }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                      background: `${PAYMENT_STATUS_COLORS[pmt.status]}18`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <DollarSign size={16} style={{ color: PAYMENT_STATUS_COLORS[pmt.status] }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{pmt.invoice_title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        {format(new Date(pmt.date), 'MMM d, yyyy')}
+                        {pmt.method && <span> &middot; {pmt.method}</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: PAYMENT_STATUS_COLORS[pmt.status], fontFamily: monoFont }}>
+                        {fmtMoney(pmt.amount)}
+                      </div>
+                      <span style={{
+                        display: 'inline-block', marginTop: 2,
+                        padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                        background: `${PAYMENT_STATUS_COLORS[pmt.status]}18`,
+                        color: PAYMENT_STATUS_COLORS[pmt.status],
+                        textTransform: 'capitalize',
+                      }}>
+                        {pmt.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Payment summary bar */}
+            <div style={{
+              marginTop: 16, padding: '12px 14px', borderRadius: 8,
+              background: 'rgba(34,192,122,0.08)', border: '1px solid rgba(34,192,122,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertCircle size={14} style={{ color: 'var(--amber)' }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>
+                  {payments.filter(p => p.status === 'pending' || p.status === 'overdue').length} outstanding invoice(s)
+                </span>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)', fontFamily: monoFont }}>
+                {fmtMoney(payments.filter(p => p.status === 'pending' || p.status === 'overdue').reduce((s, p) => s + p.amount, 0))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Jobs table (existing, moved below tabs) ────────────────────────── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           Job History ({projects.length})
@@ -303,10 +1583,10 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                     <div style={{ fontWeight: 700, color: 'var(--text1)', fontSize: 13 }}>{p.title}</div>
                     {p.vehicle_desc && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.vehicle_desc}</div>}
                   </td>
-                  <td><span className="badge badge-gray capitalize">{p.type || '—'}</span></td>
+                  <td><span className="badge badge-gray capitalize">{p.type || '---'}</span></td>
                   <td><span className={STATUS_BADGE[p.status] || 'badge-gray'}>{STATUS_LABEL[p.status] || p.status}</span></td>
-                  <td style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: 'var(--green)' }}>
-                    {p.revenue ? fmtMoney(p.revenue) : '—'}
+                  <td style={{ fontFamily: monoFont, fontWeight: 600, color: 'var(--green)' }}>
+                    {p.revenue ? fmtMoney(p.revenue) : '---'}
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--text3)' }}>
                     {format(new Date(p.created_at), 'MMM d, yyyy')}

@@ -7,6 +7,27 @@
   "background_color": "#0d0f14",
   "theme_color": "#4f7fff",
   "orientation": "any",
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Time Clock",
+      "short_name": "Clock",
+      "url": "/timeclock",
+      "description": "Clock in/out and track time"
+    },
+    {
+      "name": "Pipeline",
+      "short_name": "Pipeline",
+      "url": "/pipeline",
+      "description": "View job pipeline"
+    },
+    {
+      "name": "Communications",
+      "short_name": "Inbox",
+      "url": "/communications",
+      "description": "Messages and calls"
+    }
+  ],
   "icons": [
     {
       "src": "/icon-192.png",

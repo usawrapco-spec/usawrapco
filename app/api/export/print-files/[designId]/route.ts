@@ -66,14 +66,14 @@ export async function POST(req: NextRequest, { params }: { params: { designId: s
     const jobName = design.client_name || design.linked_project?.title || 'Design'
 
     // ── Helper: generate strip PDF ──
-    function generateStripPDF(
+    const generateStripPDF = (
       panel: PanelDef,
       stripNumber: number,
       totalStrips: number,
       printWidth: number,
       printHeight: number,
       watermark = false
-    ): InstanceType<typeof jsPDF> {
+    ): InstanceType<typeof jsPDF> => {
       // Page size: print area + 0.5" margins + marks
       const margin = 0.5
       const pageW = printWidth + margin * 2
@@ -151,18 +151,18 @@ export async function POST(req: NextRequest, { params }: { params: { designId: s
 
         // ── Trim line (dashed red) ──
         doc.setDrawColor(255, 0, 0)
-        doc.setLineWidth(0.01)
-        doc.setLineDash([0.1, 0.05])
-        doc.rect(trimLeft, trimTop, printWidth, printHeight)
-        doc.setLineDash([])
+        doc.setLineWidth(0.01);
+        (doc as any).setLineDash([0.1, 0.05]);
+        doc.rect(trimLeft, trimTop, printWidth, printHeight);
+        (doc as any).setLineDash([]);
 
         // ── Safe zone indicator ──
         const safeZone = 0.5
         doc.setDrawColor(0, 0, 255)
-        doc.setLineWidth(0.005)
-        doc.setLineDash([0.05, 0.05])
-        doc.rect(trimLeft + safeZone, trimTop + safeZone, printWidth - safeZone * 2, printHeight - safeZone * 2)
-        doc.setLineDash([])
+        doc.setLineWidth(0.005);
+        (doc as any).setLineDash([0.05, 0.05]);
+        doc.rect(trimLeft + safeZone, trimTop + safeZone, printWidth - safeZone * 2, printHeight - safeZone * 2);
+        (doc as any).setLineDash([]);
 
         // ── Print area fill (light gray placeholder) ──
         doc.setFillColor(245, 245, 248)
@@ -248,10 +248,10 @@ export async function POST(req: NextRequest, { params }: { params: { designId: s
           combinedDoc.setFillColor(240, 240, 248)
           combinedDoc.rect(0.5, 0.6, strip.printWidth, strip.printHeight, 'F')
           combinedDoc.setDrawColor(200, 0, 0)
-          combinedDoc.setLineWidth(0.008)
-          combinedDoc.setLineDash([0.08, 0.04])
-          combinedDoc.rect(0.5, 0.6, strip.printWidth, strip.printHeight)
-          combinedDoc.setLineDash([])
+          combinedDoc.setLineWidth(0.008);
+          (combinedDoc as any).setLineDash([0.08, 0.04]);
+          combinedDoc.rect(0.5, 0.6, strip.printWidth, strip.printHeight);
+          (combinedDoc as any).setLineDash([]);
         }
       }
 
@@ -370,7 +370,7 @@ export async function POST(req: NextRequest, { params }: { params: { designId: s
     // ── Generate ZIP ──
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
