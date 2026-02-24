@@ -199,6 +199,12 @@ export default function MockupCreator({
   const [mockupImages, setMockupImages] = useState<string[]>([])
   const [mockupError, setMockupError] = useState<string | null>(null)
 
+  // ControlNet vehicle mapping state
+  const [vehiclePhotoUrl, setVehiclePhotoUrl] = useState<string | null>(null)
+  const [mappingToVehicle, setMappingToVehicle] = useState(false)
+  const [mappedImage, setMappedImage] = useState<string | null>(null)
+  const vehiclePhotoInputRef = useRef<HTMLInputElement>(null)
+
   // Trace state
   const [panels, setPanels] = useState<TracePanel[]>([{ id: '1', name: 'Panel 1', length: 0, width: 0 }])
 
@@ -351,6 +357,56 @@ export default function MockupCreator({
     if (mockupUrl) {
       const a = document.createElement('a'); a.href = mockupUrl as string
       a.download = `mockup-${lineItemId}.png`; a.click()
+    }
+  }
+
+  // ── ControlNet Vehicle Mapping ────────────────────────────────────────────
+
+  async function handleVehiclePhotoUpload(file: File) {
+    setUploading(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `vehicle-photos/${lineItemId}-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('job-images').upload(path, file, { cacheControl: '3600', upsert: true })
+      if (error) throw error
+      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      setVehiclePhotoUrl(urlData.publicUrl)
+      toast('Vehicle photo uploaded', 'success')
+    } catch {
+      toast('Failed to upload vehicle photo', 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleMapToVehicle() {
+    if (!mockupUrl || !vehiclePhotoUrl) {
+      toast('Please upload a vehicle photo first', 'warning')
+      return
+    }
+    setMappingToVehicle(true)
+    setMockupError(null)
+    try {
+      const res = await fetch('/api/map-to-vehicle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          designImageUrl: mockupUrl,
+          vehiclePhotoUrl,
+          prompt: 'Professional vehicle wrap design applied to real vehicle photo, photorealistic, high quality',
+          projectId: lineItemId,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setMappedImage(data.mappedImage)
+      updateSpec('mockupUrl', data.mappedImage)
+      toast('Design mapped to your vehicle!', 'success')
+    } catch (err: any) {
+      setMockupError(err.message)
+      toast('Vehicle mapping failed: ' + err.message, 'error')
+    } finally {
+      setMappingToVehicle(false)
     }
   }
 
@@ -640,10 +696,61 @@ export default function MockupCreator({
               {mockupUrl && (
                 <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                   <img src={mockupUrl as string} alt="Generated mockup" style={{ width: '100%', display: 'block', borderRadius: '10px 10px 0 0' }} />
-                  <div style={{ display: 'flex', gap: 8, padding: '12px 16px' }}>
-                    <button onClick={handleDownloadMockup} style={{ ...btnSecondary, flex: 1 }}>Download</button>
-                    <button onClick={handleUseMockup} style={{ ...btnGreen, flex: 1 }}>Use This</button>
+                  <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={handleDownloadMockup} style={{ ...btnSecondary, flex: 1 }}>Download</button>
+                      <button onClick={handleUseMockup} style={{ ...btnGreen, flex: 1 }}>Use This</button>
+                    </div>
+
+                    {/* ControlNet Vehicle Mapper */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                      <div style={{ ...labelStyle, marginBottom: 6, fontSize: 8 }}>Advanced: Map Design to Real Vehicle Photo</div>
+                      <input
+                        ref={vehiclePhotoInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleVehiclePhotoUpload(f) }}
+                        style={{ display: 'none' }}
+                      />
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <button
+                          onClick={() => vehiclePhotoInputRef.current?.click()}
+                          disabled={uploading}
+                          style={{ ...btnSecondary, flex: 1, fontSize: 10, padding: '5px 10px', opacity: uploading ? 0.6 : 1 }}
+                        >
+                          {uploading ? 'Uploading...' : vehiclePhotoUrl ? '✓ Photo Ready' : 'Upload Vehicle Photo'}
+                        </button>
+                        <button
+                          onClick={handleMapToVehicle}
+                          disabled={!vehiclePhotoUrl || mappingToVehicle}
+                          style={{
+                            ...btnSecondary,
+                            flex: 1,
+                            fontSize: 10,
+                            padding: '5px 10px',
+                            opacity: !vehiclePhotoUrl || mappingToVehicle ? 0.5 : 1,
+                            cursor: !vehiclePhotoUrl || mappingToVehicle ? 'not-allowed' : 'pointer',
+                            background: vehiclePhotoUrl && !mappingToVehicle ? 'rgba(79,127,255,0.1)' : 'var(--surface2)',
+                            borderColor: vehiclePhotoUrl ? 'var(--accent)' : 'var(--border)',
+                            color: vehiclePhotoUrl ? 'var(--accent)' : 'var(--text3)',
+                          }}
+                        >
+                          {mappingToVehicle ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={spinnerStyle} />Mapping...</span> : 'Map to Vehicle'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                </div>
+              )}
+
+              {mappedImage && (
+                <div style={{ background: 'var(--bg)', border: '2px solid var(--accent)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ padding: '8px 12px', background: 'rgba(79,127,255,0.08)', borderBottom: '1px solid var(--accent)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--accent)', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      ✨ Design Mapped to Your Vehicle
+                    </div>
+                  </div>
+                  <img src={mappedImage} alt="Mapped to vehicle" style={{ width: '100%', display: 'block' }} />
                 </div>
               )}
             </div>

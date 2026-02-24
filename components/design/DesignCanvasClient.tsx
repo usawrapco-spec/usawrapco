@@ -248,6 +248,10 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   const [savingHighRes, setSavingHighRes] = useState(false)
   const [highResExportUrl, setHighResExportUrl] = useState<string | null>(design.print_export_url || null)
 
+  // Prepare for print state (AI upscale + vectorize)
+  const [preparingForPrint, setPreparingForPrint] = useState(false)
+  const [printReadyUrl, setPrintReadyUrl] = useState<string | null>(null)
+
   // Vehicle template picker
   const [showVehicleTemplatePicker, setShowVehicleTemplatePicker] = useState(false)
   const VEHICLE_SILHOUETTES: Record<string, string> = {
@@ -967,6 +971,54 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     setSavingHighRes(false)
   }, [savingHighRes, design.id, supabase])
 
+  // ── Prepare for Print (AI Upscale + Vectorize) ──
+  const prepareForPrint = useCallback(async () => {
+    const fc = fabricRef.current
+    if (!fc || preparingForPrint) return
+
+    // Use existing high-res export or generate new one
+    let imageUrl = highResExportUrl
+    if (!imageUrl) {
+      const dataUrl = fc.toDataURL({ format: 'png', multiplier: 4 })
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const path = `designs/${design.id}/canvas-temp-${Date.now()}.png`
+      const { error: upErr } = await supabase.storage.from('job-images').upload(path, blob, { upsert: true, contentType: 'image/png' })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      imageUrl = urlData?.publicUrl || ''
+    }
+
+    setPreparingForPrint(true)
+    try {
+      const apiRes = await fetch('/api/prepare-for-print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl,
+          designId: design.id,
+          targetWidth: 8192,
+          targetHeight: 8192,
+          saveToProject: true,
+        }),
+      })
+      const data = await apiRes.json()
+      if (data.error) throw new Error(data.error)
+
+      setPrintReadyUrl(data.vectorFileUrl)
+      await supabase.from('design_projects').update({
+        approval_status: 'print_ready',
+        print_ready_url: data.vectorFileUrl,
+      }).eq('id', design.id)
+
+      alert(`✨ Print-ready file generated!\n\nUpscaled: ${data.models.upscale}\nVectorized: ${data.models.vectorize}\n\nFile saved to design files.`)
+    } catch (err: any) {
+      console.error('Prepare for print error:', err)
+      alert('Failed to prepare for print: ' + (err.message || err))
+    }
+    setPreparingForPrint(false)
+  }, [preparingForPrint, highResExportUrl, design.id, supabase])
+
   // ── Load vehicle SVG template ──
   const loadVehicleSVGTemplate = async (svgKey: string) => {
     const fc = fabricRef.current
@@ -1143,6 +1195,21 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         <button onClick={() => setShowExportModal(true)} style={{ ...accentBtnStyle, background: 'rgba(34,192,122,0.1)', color: '#22c07a', border: '1px solid rgba(34,192,122,0.25)' }}>
           <Package size={13} />
           Export Print-Ready
+        </button>
+
+        <button
+          onClick={prepareForPrint}
+          disabled={preparingForPrint}
+          title="AI upscale + vectorize for print production"
+          style={{
+            ...accentBtnStyle,
+            background: preparingForPrint ? 'rgba(139,92,246,0.05)' : printReadyUrl ? 'rgba(34,192,122,0.1)' : 'rgba(139,92,246,0.1)',
+            color: printReadyUrl ? '#22c07a' : '#8b5cf6',
+            border: `1px solid ${printReadyUrl ? 'rgba(34,192,122,0.25)' : 'rgba(139,92,246,0.25)'}`,
+          }}
+        >
+          <Sparkles size={13} />
+          {preparingForPrint ? 'Preparing...' : printReadyUrl ? '✓ Print-Ready' : 'Prepare for Print'}
         </button>
 
         <button onClick={() => router.push(`/design/${design.id}/print-layout`)} style={{ ...accentBtnStyle, background: 'rgba(34,211,238,0.08)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.2)' }}>
