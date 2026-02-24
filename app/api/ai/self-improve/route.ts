@@ -16,10 +16,10 @@ export async function POST(req: Request) {
   const oneWeekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
 
   const [conversationsRes, messagesRes, projectsRes, campaignsRes] = await Promise.all([
-    admin.from('conversations').select('*').eq('org_id', ORG_ID).gte('created_at', oneWeekAgo).catch(() => ({ data: [] })),
-    admin.from('messages').select('*').gte('created_at', oneWeekAgo).order('created_at', { ascending: false }).limit(500).catch(() => ({ data: [] })),
-    admin.from('projects').select('*').eq('org_id', ORG_ID).gte('created_at', oneWeekAgo).catch(() => ({ data: [] })),
-    admin.from('campaigns').select('*').eq('org_id', ORG_ID).catch(() => ({ data: [] })),
+    admin.from('conversations').select('*').eq('org_id', ORG_ID).gte('created_at', oneWeekAgo),
+    admin.from('messages').select('*').gte('created_at', oneWeekAgo).order('created_at', { ascending: false }).limit(500),
+    admin.from('projects').select('*').eq('org_id', ORG_ID).gte('created_at', oneWeekAgo),
+    admin.from('campaigns').select('*').eq('org_id', ORG_ID),
   ])
 
   const conversations = (conversationsRes as any).data || []
@@ -110,7 +110,7 @@ Return JSON:
       action: 'weekly_analysis',
       details: JSON.stringify({ report, analysis }),
       metadata: { type: 'self_improve' },
-    }).catch(() => {})
+    })
 
     return NextResponse.json({ report, analysis })
   } catch (err: any) {

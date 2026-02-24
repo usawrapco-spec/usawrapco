@@ -7,22 +7,22 @@ import {
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
   ExternalLink, Ban,
 } from 'lucide-react'
-import type { Profile, Invoice, InvoiceStatus, LineItem } from '@/types'
+import type { Profile, Invoice, InvoiceStatus, LineItem, Payment } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
-const DEMO_INVOICE: Invoice = {
-  id: 'demo-inv-1', org_id: '', invoice_number: 2001, title: 'Ford F-150 Full Wrap',
+const DEMO_INVOICE = {
+  id: 'demo-inv-1', org_id: '', invoice_number: '2001', title: 'Ford F-150 Full Wrap',
   sales_order_id: 'so-demo', customer_id: null, status: 'sent',
   invoice_date: '2026-02-18', due_date: '2026-03-04',
   subtotal: 3200, discount: 0, tax_rate: 0.0825, tax_amount: 264, total: 3464,
   amount_paid: 1000, balance_due: 2464, notes: 'Matte black full wrap with chrome delete',
   form_data: {}, created_at: '2026-02-18T10:00:00Z', updated_at: '2026-02-18T10:00:00Z',
   customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
-  sales_order: { id: 'so-demo', so_number: 3001 },
-}
+  sales_order: { id: 'so-demo', so_number: '3001' },
+} as Invoice
 
 const DEMO_LINE_ITEMS: LineItem[] = [
   {
@@ -48,7 +48,9 @@ const DEMO_LINE_ITEMS: LineItem[] = [
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
   draft:   { label: 'Draft',   color: 'var(--text3)',  bg: 'rgba(90,96,128,0.15)' },
+  open:    { label: 'Open',    color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.15)' },
   sent:    { label: 'Sent',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.15)' },
+  partial: { label: 'Partial', color: 'var(--amber)',  bg: 'rgba(245,158,11,0.15)' },
   paid:    { label: 'Paid',    color: 'var(--green)',  bg: 'rgba(34,192,122,0.15)' },
   overdue: { label: 'Overdue', color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
   void:    { label: 'Void',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
@@ -57,12 +59,13 @@ const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: s
 interface Props {
   profile: Profile
   invoice: Invoice | null
-  lineItems: LineItem[]
+  lineItems?: LineItem[]
+  payments?: Payment[]
   isDemo: boolean
   invoiceId: string
 }
 
-export default function InvoiceDetailClient({ profile, invoice, lineItems, isDemo, invoiceId }: Props) {
+export default function InvoiceDetailClient({ profile, invoice, lineItems = [], payments = [], isDemo, invoiceId }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const inv = invoice || DEMO_INVOICE

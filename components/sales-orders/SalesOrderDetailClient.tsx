@@ -16,8 +16,8 @@ import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
-const DEMO_SO: SalesOrder = {
-  id: 'demo-so-1', org_id: '', so_number: 2001, title: 'Ford F-150 Full Wrap',
+const DEMO_SO = {
+  id: 'demo-so-1', org_id: '', so_number: '2001', title: 'Ford F-150 Full Wrap',
   estimate_id: 'demo-est-1', customer_id: null, status: 'new',
   sales_rep_id: null, production_manager_id: null, project_manager_id: null, designer_id: null,
   so_date: '2026-02-18', due_date: '2026-03-01', install_date: '2026-03-05',
@@ -27,8 +27,8 @@ const DEMO_SO: SalesOrder = {
   created_at: '2026-02-18T10:00:00Z', updated_at: '2026-02-18T10:00:00Z',
   customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
   sales_rep: { id: 's1', name: 'Tyler Reid' },
-  estimate: { id: 'demo-est-1', estimate_number: 1001 },
-}
+  estimate: { id: 'demo-est-1', estimate_number: '1001' },
+} as SalesOrder
 
 const DEMO_LINE_ITEMS: LineItem[] = [
   {

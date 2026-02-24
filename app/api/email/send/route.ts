@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       body,
       status: success ? 'sent' : 'failed',
       sent_at: success ? new Date().toISOString() : null,
-    }).catch(() => {})
+    })
   }
 
   return NextResponse.json({ success })

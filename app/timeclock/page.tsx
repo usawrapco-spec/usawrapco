@@ -26,7 +26,6 @@ export default async function TimeclockPage() {
     .eq('employee_id', user.id)
     .gte('clock_in', today + 'T00:00:00')
     .order('clock_in', { ascending: false })
-    .catch(() => ({ data: [] }))
 
   // Fetch this week's entries for timesheet
   const weekStart = new Date()
@@ -38,7 +37,6 @@ export default async function TimeclockPage() {
     .eq('employee_id', user.id)
     .gte('clock_in', weekStartStr + 'T00:00:00')
     .order('clock_in', { ascending: true })
-    .catch(() => ({ data: [] }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>

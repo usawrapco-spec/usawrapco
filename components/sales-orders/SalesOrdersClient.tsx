@@ -12,9 +12,9 @@ import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 
 // ─── Demo data when DB tables don't exist yet ────────────────────────────────
-const DEMO_ORDERS: SalesOrder[] = [
+const DEMO_ORDERS = [
   {
-    id: 'demo-so-1', org_id: '', so_number: 2001, title: 'Ford F-150 Full Wrap',
+    id: 'demo-so-1', org_id: '', so_number: '2001', title: 'Ford F-150 Full Wrap',
     estimate_id: 'demo-est-1', customer_id: null, status: 'new',
     sales_rep_id: null, production_manager_id: null, project_manager_id: null,
     designer_id: null, so_date: '2026-02-18', due_date: '2026-03-01', install_date: '2026-03-05',
@@ -23,10 +23,10 @@ const DEMO_ORDERS: SalesOrder[] = [
     form_data: {}, created_at: '2026-02-18T10:00:00Z', updated_at: '2026-02-18T10:00:00Z',
     customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
     sales_rep: { id: 's1', name: 'Tyler Reid' },
-    estimate: { id: 'demo-est-1', estimate_number: 1001 },
+    estimate: { id: 'demo-est-1', estimate_number: '1001' },
   },
   {
-    id: 'demo-so-2', org_id: '', so_number: 2002, title: 'Sprinter Van Commercial Wrap',
+    id: 'demo-so-2', org_id: '', so_number: '2002', title: 'Sprinter Van Commercial Wrap',
     estimate_id: 'demo-est-3', customer_id: null, status: 'in_progress',
     sales_rep_id: null, production_manager_id: null, project_manager_id: null,
     designer_id: null, so_date: '2026-02-14', due_date: '2026-02-25', install_date: '2026-02-28',
@@ -35,10 +35,10 @@ const DEMO_ORDERS: SalesOrder[] = [
     form_data: {}, created_at: '2026-02-14T16:00:00Z', updated_at: '2026-02-17T09:00:00Z',
     customer: { id: 'c3', name: 'ABC Plumbing LLC', email: 'info@abcplumbing.com' },
     sales_rep: { id: 's2', name: 'Amanda Cross' },
-    estimate: { id: 'demo-est-3', estimate_number: 1003 },
+    estimate: { id: 'demo-est-3', estimate_number: '1003' },
   },
   {
-    id: 'demo-so-3', org_id: '', so_number: 2003, title: 'Fleet Wraps - 3 Trucks',
+    id: 'demo-so-3', org_id: '', so_number: '2003', title: 'Fleet Wraps - 3 Trucks',
     estimate_id: 'demo-est-5', customer_id: null, status: 'in_progress',
     sales_rep_id: null, production_manager_id: null, project_manager_id: null,
     designer_id: null, so_date: '2026-02-19', due_date: '2026-03-10', install_date: null,
@@ -47,10 +47,10 @@ const DEMO_ORDERS: SalesOrder[] = [
     form_data: {}, created_at: '2026-02-19T08:30:00Z', updated_at: '2026-02-20T14:00:00Z',
     customer: { id: 'c5', name: 'Quick Move Co', email: 'ops@quickmove.com' },
     sales_rep: { id: 's2', name: 'Amanda Cross' },
-    estimate: { id: 'demo-est-5', estimate_number: 1005 },
+    estimate: { id: 'demo-est-5', estimate_number: '1005' },
   },
   {
-    id: 'demo-so-4', org_id: '', so_number: 2004, title: 'Composite Deck Install',
+    id: 'demo-so-4', org_id: '', so_number: '2004', title: 'Composite Deck Install',
     estimate_id: 'demo-est-6', customer_id: null, status: 'on_hold',
     sales_rep_id: null, production_manager_id: null, project_manager_id: null,
     designer_id: null, so_date: '2026-02-20', due_date: '2026-03-15', install_date: null,
@@ -59,10 +59,10 @@ const DEMO_ORDERS: SalesOrder[] = [
     form_data: {}, created_at: '2026-02-20T15:00:00Z', updated_at: '2026-02-20T15:00:00Z',
     customer: { id: 'c6', name: 'Jennifer Adams', email: 'jen@example.com' },
     sales_rep: { id: 's1', name: 'Tyler Reid' },
-    estimate: { id: 'demo-est-6', estimate_number: 1006 },
+    estimate: { id: 'demo-est-6', estimate_number: '1006' },
   },
   {
-    id: 'demo-so-5', org_id: '', so_number: 2005, title: 'Tesla Model Y PPF',
+    id: 'demo-so-5', org_id: '', so_number: '2005', title: 'Tesla Model Y PPF',
     estimate_id: null, customer_id: null, status: 'completed',
     sales_rep_id: null, production_manager_id: null, project_manager_id: null,
     designer_id: null, so_date: '2026-01-25', due_date: '2026-02-05', install_date: '2026-02-03',
@@ -72,12 +72,13 @@ const DEMO_ORDERS: SalesOrder[] = [
     customer: { id: 'c7', name: 'Lisa Wang', email: 'lisa@example.com' },
     sales_rep: { id: 's1', name: 'Tyler Reid' },
   },
-]
+] as SalesOrder[]
 
 const STATUS_CONFIG: Record<SalesOrderStatus, { label: string; color: string; bg: string }> = {
   new:         { label: 'New',         color: 'var(--text3)',  bg: 'rgba(90,96,128,0.15)' },
   in_progress: { label: 'In Progress', color: 'var(--accent)', bg: 'rgba(79,127,255,0.15)' },
   completed:   { label: 'Completed',   color: 'var(--green)',  bg: 'rgba(34,192,122,0.15)' },
+  cancelled:   { label: 'Cancelled',   color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
   on_hold:     { label: 'On Hold',     color: 'var(--amber)',  bg: 'rgba(245,158,11,0.15)' },
   void:        { label: 'Void',        color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
 }

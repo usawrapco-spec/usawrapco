@@ -297,7 +297,7 @@ export async function runPipeline(
     p_cost: cost,
     p_latency: latencyMs,
     p_success: success
-  }).catch((e) => console.error('Failed to update pipeline stats:', e))
+  }).then(({ error }) => { if (error) console.error('Failed to update pipeline stats:', error) })
 
   return { success, result, model: modelUsed, cost, latencyMs }
 }

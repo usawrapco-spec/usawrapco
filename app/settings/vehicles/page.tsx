@@ -25,7 +25,6 @@ export default async function VehicleDatabasePage() {
     .eq('org_id', profile.org_id || ORG_ID)
     .order('year', { ascending: false })
     .limit(500)
-    .catch(() => ({ data: [] }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>

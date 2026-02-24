@@ -16,8 +16,7 @@ export default function Timeline({ profile }: { profile: Profile }) {
     supabase.from('projects').select('*, agent:agent_id(id, name), installer:installer_id(id, name)')
       .eq('org_id', profile.org_id)
       .neq('status', 'closed').order('install_date', { ascending: true })
-      .then(({ data }) => setJobs(data || []))
-      .catch(() => setJobs([]))
+      .then(({ data, error }) => { setJobs(data || []) })
   }, [profile.org_id])
 
   const today = new Date()

@@ -377,10 +377,10 @@ export async function GET(
         invoice,
         lineItems: items || [],
         payments: payments || [],
-      })
+      }) as any
     )
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="USA-Wrap-Co-Invoice-${invNumber}.pdf"`,

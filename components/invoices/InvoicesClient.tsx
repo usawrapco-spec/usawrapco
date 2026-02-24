@@ -12,39 +12,39 @@ import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 
 // ─── Demo data when DB tables don't exist yet ────────────────────────────────
-const DEMO_INVOICES: Invoice[] = [
+const DEMO_INVOICES = [
   {
-    id: 'demo-inv-1', org_id: '', invoice_number: 2001, title: 'Ford F-150 Full Wrap',
+    id: 'demo-inv-1', org_id: '', invoice_number: '2001', title: 'Ford F-150 Full Wrap',
     sales_order_id: null, customer_id: null, status: 'draft',
     invoice_date: '2026-02-18', due_date: '2026-03-04',
     subtotal: 3200, discount: 0, tax_rate: 0.0825, tax_amount: 264, total: 3464,
     amount_paid: 0, balance_due: 3464, notes: null, form_data: {},
     created_at: '2026-02-18T10:00:00Z', updated_at: '2026-02-18T10:00:00Z',
     customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
-    sales_order: { id: 'so1', so_number: 3001 },
+    sales_order: { id: 'so1', so_number: '3001' },
   },
   {
-    id: 'demo-inv-2', org_id: '', invoice_number: 2002, title: 'Tesla Model 3 PPF + Tint',
+    id: 'demo-inv-2', org_id: '', invoice_number: '2002', title: 'Tesla Model 3 PPF + Tint',
     sales_order_id: null, customer_id: null, status: 'sent',
     invoice_date: '2026-02-12', due_date: '2026-02-26',
     subtotal: 4800, discount: 200, tax_rate: 0.0825, tax_amount: 379.50, total: 4979.50,
     amount_paid: 0, balance_due: 4979.50, notes: null, form_data: {},
     created_at: '2026-02-12T14:00:00Z', updated_at: '2026-02-13T09:00:00Z',
     customer: { id: 'c2', name: 'Sarah Chen', email: 'sarah@example.com' },
-    sales_order: { id: 'so2', so_number: 3002 },
+    sales_order: { id: 'so2', so_number: '3002' },
   },
   {
-    id: 'demo-inv-3', org_id: '', invoice_number: 2003, title: 'Sprinter Van Commercial Wrap',
+    id: 'demo-inv-3', org_id: '', invoice_number: '2003', title: 'Sprinter Van Commercial Wrap',
     sales_order_id: null, customer_id: null, status: 'paid',
     invoice_date: '2026-02-01', due_date: '2026-02-15',
     subtotal: 5600, discount: 300, tax_rate: 0.0825, tax_amount: 437.25, total: 5737.25,
     amount_paid: 5737.25, balance_due: 0, notes: null, form_data: {},
     created_at: '2026-02-01T11:00:00Z', updated_at: '2026-02-14T16:00:00Z',
     customer: { id: 'c3', name: 'ABC Plumbing LLC', email: 'info@abcplumbing.com' },
-    sales_order: { id: 'so3', so_number: 3003 },
+    sales_order: { id: 'so3', so_number: '3003' },
   },
   {
-    id: 'demo-inv-4', org_id: '', invoice_number: 2004, title: 'BMW M4 Color Change',
+    id: 'demo-inv-4', org_id: '', invoice_number: '2004', title: 'BMW M4 Color Change',
     sales_order_id: null, customer_id: null, status: 'overdue',
     invoice_date: '2026-01-15', due_date: '2026-01-29',
     subtotal: 4200, discount: 0, tax_rate: 0.0825, tax_amount: 346.50, total: 4546.50,
@@ -53,20 +53,22 @@ const DEMO_INVOICES: Invoice[] = [
     customer: { id: 'c4', name: 'David Park', email: 'david@example.com' },
   },
   {
-    id: 'demo-inv-5', org_id: '', invoice_number: 2005, title: 'Fleet Wraps - 3 Trucks',
+    id: 'demo-inv-5', org_id: '', invoice_number: '2005', title: 'Fleet Wraps - 3 Trucks',
     sales_order_id: null, customer_id: null, status: 'sent',
     invoice_date: '2026-02-19', due_date: '2026-03-05',
     subtotal: 9600, discount: 500, tax_rate: 0.0825, tax_amount: 750.75, total: 9850.75,
     amount_paid: 0, balance_due: 9850.75, notes: null, form_data: {},
     created_at: '2026-02-19T08:30:00Z', updated_at: '2026-02-19T08:30:00Z',
     customer: { id: 'c5', name: 'Quick Move Co', email: 'ops@quickmove.com' },
-    sales_order: { id: 'so5', so_number: 3005 },
+    sales_order: { id: 'so5', so_number: '3005' },
   },
-]
+] as Invoice[]
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
   draft:   { label: 'Draft',   color: 'var(--text3)',  bg: 'rgba(90,96,128,0.15)' },
+  open:    { label: 'Open',    color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.15)' },
   sent:    { label: 'Sent',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.15)' },
+  partial: { label: 'Partial', color: 'var(--amber)',  bg: 'rgba(245,158,11,0.15)' },
   paid:    { label: 'Paid',    color: 'var(--green)',  bg: 'rgba(34,192,122,0.15)' },
   overdue: { label: 'Overdue', color: 'var(--red)',    bg: 'rgba(242,90,90,0.15)' },
   void:    { label: 'Void',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },

@@ -461,10 +461,10 @@ export async function GET(
     const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
 
     const buffer = await renderToBuffer(
-      React.createElement(EstimatePDF, { estimate, lineItems })
+      React.createElement(EstimatePDF, { estimate, lineItems }) as any
     )
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="USA-Wrap-Co-Estimate-${estNumber}.pdf"`,

@@ -47,6 +47,7 @@ interface DesignProject {
   status: DesignStatus
   deadline: string | null
   designer_id: string | null
+  assigned_to?: string | null
   project_id: string | null
   created_by: string | null
   created_at: string

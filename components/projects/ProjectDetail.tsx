@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -432,16 +432,16 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       {toast && (
-        <div style={{ position:'fixed', bottom:20, right:20, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 20px', fontSize:13, fontWeight:700, color:'var(--text1)', zIndex:9999, boxShadow:'0 8px 32px rgba(0,0,0,.4)' }}>
+        <div style={{ position:'fixed', bottom:20, right:20, background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:14, padding:'14px 22px', fontSize:13, fontWeight:700, color:'var(--text1)', zIndex:9999, boxShadow:'0 12px 40px rgba(0,0,0,.5)', backdropFilter:'blur(12px)', animation:'fadeUp .2s ease' }}>
           {toast}
         </div>
       )}
 
       {/* Send Back Modal */}
       {sendBackOpen && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => setSendBackOpen(null)}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:24, width:460, maxHeight:'80vh', overflow:'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:18, fontWeight:800, color:'var(--red)', marginBottom:16 }}>Send Back from{PIPE_STAGES.find(s=>s.key===curStageKey)?.label}</div>
+        <div className="drawer-overlay" onClick={() => setSendBackOpen(null)}>
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:18, padding:28, width:480, maxHeight:'80vh', overflow:'auto', animation:'fadeUp .2s ease' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:18, fontWeight:800, color:'var(--red)', marginBottom:16, display:'flex', alignItems:'center', gap:8 }}><AlertTriangle size={18} /> Send Back from {PIPE_STAGES.find(s=>s.key===curStageKey)?.label}</div>
             <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:8 }}>Select Reason</div>
             <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
               {(SEND_BACK_REASONS[curStageKey] || SEND_BACK_REASONS.production).map(r => (
@@ -467,12 +467,21 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       )}
 
       {/* ── HEADER ─────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <button onClick={() => router.push('/dashboard')} style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 14px', fontSize:12, fontWeight:700, color:'var(--text2)', cursor:'pointer' }}>← Back</button>
+      <div style={{ background:'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.04) 100%)', border:'1px solid var(--card-border)', borderRadius:20, padding:'20px 24px', marginBottom:16, position:'relative', overflow:'hidden' }}>
+        {/* Accent line top */}
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:`linear-gradient(90deg, ${PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)'}, transparent)`, opacity:0.6 }} />
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <button onClick={() => router.push('/dashboard')} style={{ background:'var(--surface2)', border:'1px solid var(--card-border)', borderRadius:10, padding:'8px 16px', fontSize:12, fontWeight:700, color:'var(--text2)', cursor:'pointer', transition:'all 0.15s' }}>
+            <ArrowLeft size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />Back
+          </button>
           <div>
-            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:22, fontWeight:900, color:'var(--text1)', lineHeight:1 }}>{f.client || 'Untitled Job'}</div>
-            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>#{project.id.slice(-8)} · {f.vehicle || 'No vehicle'}</div>
+            <div style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:24, fontWeight:900, color:'var(--text1)', lineHeight:1 }}>{f.client || 'Untitled Job'}</div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:3, display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ fontFamily:'JetBrains Mono, monospace' }}>#{project.id.slice(-8)}</span>
+              <span style={{ width:3, height:3, borderRadius:'50%', background:'var(--text3)', display:'inline-block' }} />
+              <span>{f.vehicle || 'No vehicle'}</span>
+            </div>
           </div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
@@ -518,15 +527,16 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
               </div>
             )}
           </div>
-          <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, padding:'9px 18px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1 }}>
-            {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+          <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:12, padding:'9px 20px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1, boxShadow:'0 2px 12px rgba(79,127,255,0.25)', transition:'all 0.15s' }}>
+            {saving ? 'Saving…' : saved ? <><CheckCircle size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />Saved</> : <><Save size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />Save</>}
           </button>
         </div>
+      </div>
       </div>
 
       {/* ── AI RECAP PANEL ────────────────────────────── */}
       {showAiRecap && (
-        <div style={{ background:'rgba(79,127,255,.06)', border:'1px solid rgba(79,127,255,.25)', borderRadius:12, padding:16, marginBottom:12 }}>
+        <div style={{ background:'rgba(79,127,255,.04)', border:'1px solid rgba(79,127,255,.2)', borderRadius:16, padding:18, marginBottom:12, animation:'fadeUp .2s ease' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:aiRecapLoading?0:12 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <Sparkles size={16} color="var(--accent)" />
@@ -574,14 +584,16 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       )}
 
       {/* ── PIPELINE PROGRESS ─────────────────────────── */}
-      <div style={{ display:'flex', gap:2, marginBottom:12 }}>
+      <div style={{ display:'flex', gap:4, marginBottom:12, padding:'14px 16px', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:16 }}>
         {PIPE_STAGES.map((s, i) => {
           const done = stageOrder.indexOf(s.key) < curIdx
           const active = s.key === curStageKey
           return (
-            <div key={s.key} style={{ flex:1, textAlign:'center', padding:'8px 4px', borderRadius:8, background: done ? 'rgba(34,192,122,.12)' : active ? `${s.color}15` : 'var(--surface)', border: `1px solid ${done ? 'rgba(34,192,122,.3)' : active ? `${s.color}40` : 'var(--border)'}` }}>
-              <div style={{ display:'flex', justifyContent:'center' }}>{done ? <CheckCircle size={16} color="#22c07a" /> : active ? <s.Icon size={16} color={s.color} /> : <Circle size={16} color="var(--border)" />}</div>
-              <div style={{ fontSize:9, fontWeight:700, color: done ? '#22c07a' : active ? s.color : 'var(--text3)', textTransform:'uppercase', marginTop:2 }}>{s.label}</div>
+            <div key={s.key} style={{ flex:1, textAlign:'center', padding:'10px 6px', borderRadius:12, background: done ? 'rgba(34,192,122,.10)' : active ? `${s.color}12` : 'transparent', border: `1px solid ${done ? 'rgba(34,192,122,.25)' : active ? `${s.color}35` : 'transparent'}`, transition:'all 0.2s', position:'relative' }}>
+              {active && <div style={{ position:'absolute', bottom:0, left:'20%', right:'20%', height:2, borderRadius:1, background:s.color }} />}
+              <div style={{ display:'flex', justifyContent:'center', marginBottom:3 }}>{done ? <CheckCircle size={18} color="#22c07a" /> : active ? <s.Icon size={18} color={s.color} /> : <Circle size={16} color="var(--text3)" style={{ opacity:0.3 }} />}</div>
+              <div style={{ fontSize:9, fontWeight:800, color: done ? '#22c07a' : active ? s.color : 'var(--text3)', textTransform:'uppercase', letterSpacing:'.05em' }}>{s.label}</div>
+              {i < PIPE_STAGES.length - 1 && <div style={{ position:'absolute', right:-3, top:'50%', transform:'translateY(-50%)', width:6, height:6, display:'none' }} />}
             </div>
           )
         })}
@@ -589,11 +601,13 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
       {/* Send-back alert banner */}
       {latestSendBack && stageOrder.indexOf(latestSendBack.to_stage) >= curIdx && (
-        <div style={{ background:'rgba(242,90,90,.12)', border:'2px solid rgba(242,90,90,.5)', borderRadius:10, padding:'12px 16px', marginBottom:12, display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ width:14, height:14, borderRadius:'50%', background:'var(--red)', flexShrink:0 }} />
+        <div style={{ background:'rgba(242,90,90,.08)', border:'1px solid rgba(242,90,90,.3)', borderRadius:14, padding:'14px 18px', marginBottom:12, display:'flex', alignItems:'center', gap:14, animation:'fadeUp .2s ease' }}>
+          <div style={{ width:36, height:36, borderRadius:10, background:'rgba(242,90,90,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <AlertTriangle size={18} color="var(--red)" />
+          </div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:11, fontWeight:900, color:'#ff6b6b', textTransform:'uppercase', letterSpacing:'.07em' }}>SENT BACK — NEEDS ACTION</div>
-            <div style={{ fontSize:13, color:'var(--text1)', fontWeight:700, marginTop:2 }}>{latestSendBack.reason}</div>
+            <div style={{ fontSize:11, fontWeight:900, color:'var(--red)', textTransform:'uppercase', letterSpacing:'.07em' }}>SENT BACK — NEEDS ACTION</div>
+            <div style={{ fontSize:13, color:'var(--text1)', fontWeight:700, marginTop:3 }}>{latestSendBack.reason}</div>
             {latestSendBack.notes && <div style={{ fontSize:11, color:'var(--text2)', marginTop:2, fontStyle:'italic' }}>"{latestSendBack.notes}"</div>}
           </div>
         </div>
@@ -607,8 +621,8 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       )}
 
       {/* ── TABS ──────────────────────────────────────── */}
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
-        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', overflowX:'auto' }}>
+      <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:18, overflow:'hidden' }}>
+        <div style={{ display:'flex', gap:2, padding:'8px 10px', overflowX:'auto', background:'var(--surface2)', borderBottom:'1px solid var(--card-border)' }}>
           {TABS.map(t => {
             const isActive = tab === t.key
             const stageIdx = t.stageKey ? stageOrder.indexOf(t.stageKey) : -1
@@ -616,15 +630,16 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             const isCurrent = t.stageKey === curStageKey
             return (
               <button key={t.key} onClick={() => setTab(t.key)} style={{
-                display:'flex', alignItems:'center', gap:6, padding:'11px 18px',
+                display:'flex', alignItems:'center', gap:6, padding:'8px 14px',
                 fontSize:12, fontWeight:700, cursor:'pointer', border:'none',
-                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
-                background:'transparent', whiteSpace:'nowrap', marginBottom:-1,
+                borderRadius:10, whiteSpace:'nowrap', transition:'all 0.15s',
+                background: isActive ? 'var(--card-bg)' : 'transparent',
+                boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
                 color: isActive ? 'var(--accent)' : isDone ? '#22c07a' : isCurrent ? 'var(--text1)' : 'var(--text3)',
               }}>
                 {isDone ? <CheckCircle size={14} /> : <t.Icon size={14} />}
                 {t.label}
-                {isCurrent && !isDone && <span style={{ width:6, height:6, borderRadius:'50%', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)' }} />}
+                {isCurrent && !isDone && <span style={{ width:5, height:5, borderRadius:'50%', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)', boxShadow:`0 0 6px ${PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)'}` }} />}
               </button>
             )
           })}
@@ -691,25 +706,25 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ── Stage Action Bar ──────────────────────────── */}
           {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && (
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:24, paddingTop:18, borderTop:'1px solid var(--card-border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (
-                  <button onClick={() => setSendBackOpen(curStageKey)} style={{ padding:'9px 18px', borderRadius:9, fontWeight:700, fontSize:12, cursor:'pointer', background:'rgba(242,90,90,.1)', border:'1px solid rgba(242,90,90,.3)', color:'var(--red)' }}>
-                    Send Back
+                  <button onClick={() => setSendBackOpen(curStageKey)} style={{ padding:'10px 20px', borderRadius:12, fontWeight:700, fontSize:12, cursor:'pointer', background:'rgba(242,90,90,.08)', border:'1px solid rgba(242,90,90,.25)', color:'var(--red)', transition:'all 0.15s', display:'flex', alignItems:'center', gap:6 }}>
+                    <AlertTriangle size={13} /> Send Back
                   </button>
                 )}
               </div>
               <div style={{ display:'flex', gap:10 }}>
-                <button onClick={() => save()} style={{ padding:'9px 18px', borderRadius:9, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text2)' }}>
-                  Save Progress
+                <button onClick={() => save()} style={{ padding:'10px 20px', borderRadius:12, fontWeight:700, fontSize:13, cursor:'pointer', background:'var(--surface2)', border:'1px solid var(--card-border)', color:'var(--text2)', transition:'all 0.15s' }}>
+                  <Save size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:5 }} />Save Progress
                 </button>
                 {tab === 'close' ? (
-                  <button onClick={closeJob} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background:'#8b5cf6', border:'none', color:'#fff' }}>
-                    Close & Approve Job
+                  <button onClick={closeJob} style={{ padding:'11px 28px', borderRadius:12, fontWeight:800, fontSize:13, cursor:'pointer', background:'linear-gradient(135deg, #8b5cf6, #7c3aed)', border:'none', color:'#fff', boxShadow:'0 4px 16px rgba(139,92,246,0.3)', transition:'all 0.15s' }}>
+                    <CheckCircle size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:5 }} />Close & Approve Job
                   </button>
                 ) : (
-                  <button onClick={advanceStage} style={{ padding:'10px 24px', borderRadius:9, fontWeight:800, fontSize:13, cursor:'pointer', background: PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)', border:'none', color:'#fff' }}>
-                    Sign Off & Advance →
+                  <button onClick={advanceStage} style={{ padding:'11px 28px', borderRadius:12, fontWeight:800, fontSize:13, cursor:'pointer', background:`linear-gradient(135deg, ${PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)'}, ${PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)'}dd)`, border:'none', color:'#fff', boxShadow:`0 4px 16px ${PIPE_STAGES.find(s=>s.key===curStageKey)?.color || 'var(--accent)'}40`, transition:'all 0.15s' }}>
+                    Sign Off & Advance
                   </button>
                 )}
               </div>
@@ -720,14 +735,14 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
       {/* Send-back history */}
       {sendBacks.length > 0 && (
-        <div style={{ marginTop:16, background:'var(--surface)', border:'1px solid rgba(242,90,90,.2)', borderRadius:12, padding:16 }}>
-          <div style={{ fontSize:10, fontWeight:900, color:'var(--red)', textTransform:'uppercase', marginBottom:10 }}>Send-Back History ({sendBacks.length})</div>
+        <div style={{ marginTop:16, background:'var(--card-bg)', border:'1px solid rgba(242,90,90,.15)', borderRadius:16, padding:18 }}>
+          <div style={{ fontSize:10, fontWeight:900, color:'var(--red)', textTransform:'uppercase', marginBottom:12, letterSpacing:'.06em', display:'flex', alignItems:'center', gap:6 }}><AlertTriangle size={12} /> Send-Back History ({sendBacks.length})</div>
           {sendBacks.slice(0, 5).map((sb: any, i: number) => (
-            <div key={i} style={{ padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.04)', fontSize:12 }}>
-              <div style={{ color:'var(--amber)', fontWeight:600 }}>{sb.reason}</div>
-              <div style={{ color:'var(--text3)', fontSize:10, marginTop:2 }}>
+            <div key={i} style={{ padding:'10px 12px', borderRadius:10, marginBottom:6, background:'rgba(242,90,90,.04)', border:'1px solid rgba(242,90,90,.08)', fontSize:12 }}>
+              <div style={{ color:'var(--amber)', fontWeight:700 }}>{sb.reason}</div>
+              <div style={{ color:'var(--text3)', fontSize:10, marginTop:3, fontFamily:'JetBrains Mono, monospace' }}>
                 {sb.from_stage?.replace('_',' ')} → {sb.to_stage?.replace('_',' ')} · {new Date(sb.created_at).toLocaleDateString()}
-                {sb.notes && ` · ${sb.notes}`}
+                {sb.notes && <span style={{ color:'var(--text2)', fontStyle:'italic', fontFamily:'inherit' }}> · {sb.notes}</span>}
               </div>
             </div>
           ))}
@@ -741,7 +756,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 function Section({ label, children, color }: { label:string; children:React.ReactNode; color?:string }) {
   return (
     <div>
-      <div style={{ fontSize:10, fontWeight:900, color: color || 'var(--text3)', textTransform:'uppercase', letterSpacing:'.08em', paddingBottom:8, marginBottom:14, borderBottom:'1px solid var(--border)' }}>{label}</div>
+      <div style={{ fontSize:10, fontWeight:900, color: color || 'var(--text3)', textTransform:'uppercase', letterSpacing:'.08em', paddingBottom:8, marginBottom:14, borderBottom:'1px solid var(--card-border)' }}>{label}</div>
       {children}
     </div>
   )
@@ -757,7 +772,7 @@ function Field({ label, children }: { label:string; children:React.ReactNode }) 
     </div>
   )
 }
-const inp: React.CSSProperties = { width:'100%', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'9px 12px', fontSize:13, color:'var(--text1)', outline:'none' }
+const inp: React.CSSProperties = { width:'100%', background:'var(--surface2)', border:'1px solid var(--card-border)', borderRadius:10, padding:'10px 13px', fontSize:13, color:'var(--text1)', outline:'none', transition:'border-color 0.15s' }
 const sel: React.CSSProperties = { ...inp }
 function Check({ label, checked, onChange }: { label:string; checked:boolean; onChange:(v:boolean)=>void }) {
   return (

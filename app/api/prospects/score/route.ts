@@ -14,7 +14,7 @@ interface ScoreInput {
   phone: string | null
 }
 
-export function calculateProspectScore(input: ScoreInput): number {
+function calculateProspectScore(input: ScoreInput): number {
   let score = 0
 
   // Has email (+30) — most important for outreach

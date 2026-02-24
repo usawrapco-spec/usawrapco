@@ -135,6 +135,7 @@ export interface Profile {
   role: UserRole
   is_owner?: boolean
   name: string
+  display_name?: string | null
   email: string
   phone: string | null
   avatar_url: string | null
@@ -451,6 +452,7 @@ export interface SalesOrder {
   total: number
   notes: string | null
   internal_notes: string | null
+  form_data?: Record<string, unknown>
   tags: string[]
   install_date?: string | null
   payment_terms?: string | null
@@ -495,6 +497,7 @@ export interface Invoice {
   balance: number
   balance_due?: number
   notes: string | null
+  form_data?: Record<string, unknown>
   payment_terms: string
   invoice_date: string | null
   due_date: string | null

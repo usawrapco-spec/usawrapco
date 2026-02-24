@@ -15,8 +15,7 @@ export default function Leaderboard({ profile }: { profile: Profile }) {
   useEffect(() => {
     supabase.from('projects').select('*, agent:agent_id(id, name), installer:installer_id(id, name)')
       .eq('org_id', profile.org_id)
-      .then(({ data }) => setJobs(data || []))
-      .catch(() => setJobs([]))
+      .then(({ data, error }) => { setJobs(data || []) })
   }, [profile.org_id])
 
   // Period filter

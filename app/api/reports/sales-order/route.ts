@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { calculateCommission } from '@/lib/commission'
+import { calculateCommission, type CommissionInput } from '@/lib/commission'
 
 /**
  * GET /api/reports/sales-order?projectId={id}
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     installLaborCost: fin.labor || 0,
     designFee: fin.designFee || 0,
     additionalFees: fin.misc || 0,
-    source: (form as Record<string, string>).source || 'inbound',
+    source: ((form as Record<string, string>).source || 'inbound') as CommissionInput['source'],
   })
 
   const report = {

@@ -205,12 +205,11 @@ function KanbanCard({ job, onClick }: { job: Project; onClick: () => void }) {
             </span>
           )}
           {agentName && (
-            <span style={{
+            <span title={agentName} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 20, height: 20, borderRadius: '50%',
               background: 'rgba(79,127,255,0.15)',
               fontSize: 9, fontWeight: 800, color: 'var(--accent)',
-              title: agentName,
             }}>
               {agentName.charAt(0)}
             </span>

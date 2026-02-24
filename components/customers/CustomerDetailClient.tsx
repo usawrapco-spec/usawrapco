@@ -559,7 +559,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
   async function updateLeadSource(val: string) {
     setLeadSource(val)
     setSaved(prev => ({ ...prev, source: val }))
-    await supabase.from('customers').update({ source: val }).eq('id', customer.id).catch(() => {})
+    await supabase.from('customers').update({ source: val }).eq('id', customer.id).then(() => {}, () => {})
   }
 
   function toggleTag(tag: CustomerTag) {
@@ -584,21 +584,21 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
       org_id: customer.org_id,
       status: 'pending',
       created_at: task.created_at,
-    }).catch(() => {})
+    }).then(() => {}, () => {})
   }
 
   function toggleTask(id: string) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t))
     const task = tasks.find(t => t.id === id)
     if (task && !task.id.startsWith('demo-')) {
-      supabase.from('tasks').update({ status: task.completed ? 'pending' : 'done' }).eq('id', id).catch(() => {})
+      supabase.from('tasks').update({ status: task.completed ? 'pending' : 'done' }).eq('id', id).then(() => {}, () => {})
     }
   }
 
   function deleteTask(id: string) {
     setTasks(prev => prev.filter(t => t.id !== id))
     if (!id.startsWith('demo-')) {
-      supabase.from('tasks').delete().eq('id', id).catch(() => {})
+      supabase.from('tasks').delete().eq('id', id).then(() => {}, () => {})
     }
   }
 
@@ -620,7 +620,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
       content: note.content,
       author_name: note.author,
       created_at: note.created_at,
-    }).catch(() => {})
+    }).then(() => {}, () => {})
   }
 
   function addAppointment() {
@@ -658,27 +658,61 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
+  // Enhanced stats
+  const lifetimeValue = totalRevenue
+  const lastActivity = projects.length > 0 ? projects[0].updated_at || projects[0].created_at : saved.created_at
+  const customerSince = saved.created_at ? format(new Date(saved.created_at), 'MMM yyyy') : '\u2014'
+  const healthColorVal = healthColor(healthScore)
+
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* Back nav */}
       <button
         onClick={() => router.push('/customers')}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 13, fontWeight: 600, padding: 0 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 13, fontWeight: 600, padding: 0, transition: 'color 0.15s' }}
+        onMouseEnter={e => e.currentTarget.style.color = 'var(--text1)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
       >
         <ArrowLeft size={14} /> Back to Customers
       </button>
 
-      {/* Header card */}
-      <div className="card" style={{ marginBottom: 16, padding: '20px 24px' }}>
+      {/* Header card - GoHighLevel style */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.03) 100%)',
+        border: '1px solid var(--card-border)', borderRadius: 20,
+        marginBottom: 16, padding: '24px 28px', position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Subtle gradient accent */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, ${healthColorVal}, transparent)`, opacity: 0.5,
+        }} />
+
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: '50%',
-              background: 'rgba(79,127,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 800, color: 'var(--accent)',
-              fontFamily: headingFont,
-            }}>
-              {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Avatar with health ring */}
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'rgba(79,127,255,0.12)',
+                border: `2.5px solid ${healthColorVal}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, fontWeight: 800, color: 'var(--accent)',
+                fontFamily: headingFont,
+              }}>
+                {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+              </div>
+              {/* Health score badge */}
+              <div style={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: 22, height: 22, borderRadius: '50%',
+                background: healthColorVal, color: '#fff',
+                fontSize: 8, fontWeight: 800, fontFamily: monoFont,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 0 2.5px var(--card-bg)',
+              }}>
+                {healthScore}
+              </div>
             </div>
             <div>
               {editing ? (
@@ -902,54 +936,25 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         )}
       </div>
 
-      {/* Enhanced Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
-        {/* Lifetime Value - large */}
-        <div className="card" style={{ padding: '16px 20px', gridColumn: '1 / -1' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <DollarSign size={16} style={{ color: 'var(--green)' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Lifetime Value</span>
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--green)', fontFamily: monoFont }}>
-                {fmtMoney(totalRevenue)}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-              {/* Health Score */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: '50%',
-                  border: `3px solid ${healthColor(healthScore)}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexDirection: 'column',
-                }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: healthColor(healthScore), fontFamily: monoFont, lineHeight: 1 }}>
-                    {healthScore}
-                  </div>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: healthColor(healthScore), marginTop: 4, textTransform: 'uppercase' }}>
-                  {healthLabel(healthScore)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat cards */}
+      {/* Stats row - Tesla style */}
+      <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
         {[
+          { label: 'Lifetime Value', value: fmtMoney(lifetimeValue), color: 'var(--green)', Icon: DollarSign },
           { label: 'Total Jobs', value: projects.length.toString(), color: 'var(--accent)', Icon: Briefcase },
-          { label: 'Active Jobs', value: activeJobs.length.toString(), color: 'var(--green)', Icon: User },
-          { label: 'Avg Job Value', value: fmtMoney(avgJobValue), color: 'var(--cyan)', Icon: TrendingUp },
-          { label: 'Health Score', value: `${healthScore}/100`, color: healthColor(healthScore), Icon: Heart },
+          { label: 'Avg Job Value', value: fmtMoney(avgJobValue), color: 'var(--purple)', Icon: TrendingUp },
+          { label: 'Last Activity', value: lastActivity ? formatDistanceToNow(new Date(lastActivity), { addSuffix: true }) : '\u2014', color: 'var(--amber)', Icon: Clock },
+          { label: 'Customer Since', value: customerSince, color: 'var(--cyan)', Icon: Calendar },
         ].map(stat => (
-          <div key={stat.label} className="card" style={{ padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <stat.Icon size={14} style={{ color: stat.color }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</span>
+          <div key={stat.label} className="stat-card" style={{ padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span className="metric-label">{stat.label}</span>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: `${stat.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <stat.Icon size={12} style={{ color: stat.color }} />
+              </div>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, fontFamily: monoFont }}>{stat.value}</div>
+            <div style={{ fontSize: stat.label === 'Lifetime Value' ? 22 : 18, fontWeight: 800, color: stat.color, fontFamily: monoFont }}>
+              {stat.value}
+            </div>
           </div>
         ))}
       </div>
@@ -964,8 +969,9 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
 
       {/* ─── Tab Bar ─────────────────────────────────────────────────────────── */}
       <div style={{
-        display: 'flex', gap: 0, marginBottom: 0,
-        borderBottom: '1px solid var(--border)',
+        display: 'flex', gap: 2, marginBottom: 0, padding: '4px',
+        background: 'var(--surface2)', borderRadius: 12,
+        border: '1px solid var(--card-border)',
         overflowX: 'auto',
       }}>
         {TAB_DEFS.map(tab => {

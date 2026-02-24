@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     // Extract emails (basic regex)
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
-    const emails = text.match(emailRegex) || []
+    const emails: string[] = text.match(emailRegex) || []
     // Filter out common false positives
     const validEmails = emails.filter(e =>
       !e.includes('example.com') &&

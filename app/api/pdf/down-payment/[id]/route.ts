@@ -242,10 +242,10 @@ export async function GET(
     const invNum = `DP-${String(salesOrder.so_number || '').padStart(4, '0')}`
 
     const buffer = await renderToBuffer(
-      React.createElement(DownPaymentPDF, { salesOrder, customer })
+      React.createElement(DownPaymentPDF, { salesOrder, customer }) as any
     )
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="USA-Wrap-Co-Deposit-Invoice-${invNum}.pdf"`,

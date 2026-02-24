@@ -34,8 +34,7 @@ export default async function MapPage() {
     admin.from('referral_tracking')
       .select('*')
       .eq('org_id', orgId).limit(500)
-      .then(res => res)
-      .catch(() => ({ data: [] })),
+      .then(res => res, () => ({ data: [] as any[] })),
   ])
 
   return (
