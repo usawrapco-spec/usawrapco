@@ -95,8 +95,37 @@ const VEHICLE_CATEGORIES: Record<string, VehicleCategory> = {
   trailer:      { label: 'Trailer',       flatRate: 0,    estimatedHours: 0,  group: 'Commercial' },
   marine:       { label: 'Marine',        flatRate: 0,    estimatedHours: 0,  group: 'Specialty' },
   ppf:          { label: 'PPF',           flatRate: 0,    estimatedHours: 0,  group: 'Specialty' },
-  custom:       { label: 'Custom',        flatRate: 0,    estimatedHours: 0,  group: 'Other' },
+  custom:       { label: 'Custom',        flatRate: 0,    estimatedHours: 0,  group: 'Other' }
 }
+
+// â”€â”€â”€ Commercial Vehicle 3Ã—3 Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+interface CVGridCell {
+  key: string; size: 'Compact' | 'Mid' | 'Full'
+  coverage: 'Partial' | 'Full Wrap' | 'Chrome Delete'
+  price: number; estimatedHours: number; vehicleType: string
+}
+const COMMERCIAL_VEHICLE_GRID: CVGridCell[] = [
+  { key: 'compact_partial', size: 'Compact', coverage: 'Partial',       price: 500, estimatedHours: 14, vehicleType: 'small_car' },
+  { key: 'compact_full',    size: 'Compact', coverage: 'Full Wrap',     price: 525, estimatedHours: 14, vehicleType: 'small_car' },
+  { key: 'compact_chrome',  size: 'Compact', coverage: 'Chrome Delete', price: 625, estimatedHours: 12, vehicleType: 'small_car' },
+  { key: 'mid_partial',     size: 'Mid',     coverage: 'Partial',       price: 525, estimatedHours: 16, vehicleType: 'med_car'   },
+  { key: 'mid_full',        size: 'Mid',     coverage: 'Full Wrap',     price: 550, estimatedHours: 16, vehicleType: 'med_car'   },
+  { key: 'mid_chrome',      size: 'Mid',     coverage: 'Chrome Delete', price: 625, estimatedHours: 14, vehicleType: 'med_car'   },
+  { key: 'full_partial',    size: 'Full',    coverage: 'Partial',       price: 550, estimatedHours: 17, vehicleType: 'full_car'  },
+  { key: 'full_full',       size: 'Full',    coverage: 'Full Wrap',     price: 575, estimatedHours: 17, vehicleType: 'full_car'  },
+  { key: 'full_chrome',     size: 'Full',    coverage: 'Chrome Delete', price: 625, estimatedHours: 16, vehicleType: 'full_car'  },
+]
+
+// â”€â”€â”€ Product Type Options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const PRODUCT_TYPE_OPTIONS = [
+  { key: 'commercial_vehicle', label: 'Commercial Vehicle', vehicleType: 'med_car',  calcType: '',        productType: 'wrap'    as const, color: '#4f7fff' },
+  { key: 'box_truck',          label: 'Box Truck',          vehicleType: 'box_truck', calcType: '',        productType: 'wrap'    as const, color: '#4f7fff' },
+  { key: 'trailer',            label: 'Trailer',            vehicleType: 'trailer',   calcType: '',        productType: 'wrap'    as const, color: '#f59e0b' },
+  { key: 'marine',             label: 'Marine',             vehicleType: 'marine',    calcType: 'marine',  productType: 'wrap'    as const, color: '#22d3ee' },
+  { key: 'ppf',                label: 'PPF',                vehicleType: 'ppf',       calcType: '',        productType: 'ppf'     as const, color: '#22d3ee' },
+  { key: 'boat_decking',       label: 'Boat Decking',       vehicleType: 'marine',    calcType: 'decking', productType: 'decking' as const, color: '#22c07a' },
+  { key: 'custom',             label: 'Custom',             vehicleType: 'custom',    calcType: '',        productType: 'wrap'    as const, color: '#8b5cf6' },
+]
 
 const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: string }> = {
   draft:    { label: 'DRAFT',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.18)' },
@@ -404,6 +433,26 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const subtotal = useMemo(() => lineItemsList.reduce((s, li) => s + li.total_price, 0), [lineItemsList])
   const taxAmount = useMemo(() => (subtotal - discount) * taxRate, [subtotal, discount, taxRate])
   const total = useMemo(() => subtotal - discount + taxAmount, [subtotal, discount, taxAmount])
+
+  // Aggregate GP / COGS / commission across all line items
+  const totalCOGS = useMemo(() => lineItemsList.reduce((s, li) => s + calcGPM(li, leadType).cogs, 0), [lineItemsList, leadType])
+  const totalGP = useMemo(() => subtotal - totalCOGS, [subtotal, totalCOGS])
+  const overallGPM = useMemo(() => subtotal > 0 ? (totalGP / subtotal) * 100 : 0, [totalGP, subtotal])
+  const totalCommission = useMemo(() => lineItemsList.reduce((s, li) => s + calcGPM(li, leadType).commission, 0), [lineItemsList, leadType])
+  const commRows = (() => {
+    const rows: { label: string; val: number }[] = [{ label: 'Base Commission', val: totalCommission }]
+    if (leadType === 'inbound' || leadType === 'outbound') {
+      if (overallGPM >= 73) rows.push({ label: 'GPM Bonus (+2%)', val: subtotal * 0.02 })
+      rows.push({ label: 'Torq Bonus (+1%)', val: subtotal * 0.01 })
+    }
+    return rows
+  })()
+  const totalComm = commRows.reduce((s, r) => s + r.val, 0)
+
+  // Convert to Job modal state
+  const [showConvertModal, setShowConvertModal] = useState(false)
+  const [convertMode, setConvertMode] = useState<'combined' | 'per_item'>('combined')
+  const [convertSelected, setConvertSelected] = useState<Set<string>>(new Set<string>())
 
   // ─── Toast ──────────────────────────────────────────────────────────────────
   function showToast(msg: string) {
@@ -799,17 +848,29 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     }
   }
 
-  async function handleCreateJob() {
+  function handleCreateJob() {
     if (!canWrite) return
-    showToast('Creating job...')
-    try {
-      const firstWrap = lineItemsList.find(li => li.product_type === 'wrap' || li.product_type === 'ppf')
-      const specs = firstWrap?.specs || {}
-      const vDesc = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel, specs.vehicleColor ? `- ${specs.vehicleColor}` : ''].filter(Boolean).join(' ').trim() || null
+    setConvertSelected(new Set(lineItemsList.map(li => li.id)))
+    setConvertMode('combined')
+    setShowConvertModal(true)
+  }
+
+  async function executeConvertToJob(mode: 'combined' | 'per_item', selectedIds: Set<string>) {
+    if (!canWrite) return
+    setShowConvertModal(false)
+    showToast('Creating job(s)...')
+    const items = lineItemsList.filter(li => selectedIds.has(li.id))
+    if (items.length === 0) { showToast('No items selected'); return }
+
+    async function createOneJob(jobItems: LineItem[], jobTitle: string) {
+      const firstSpecs = jobItems[0]?.specs || {}
+      const vDesc = [firstSpecs.vehicleYear, firstSpecs.vehicleMake, firstSpecs.vehicleModel].filter(Boolean).join(' ').trim() || null
+      const jobRevenue = jobItems.reduce((s, li) => s + li.total_price, 0)
+      const jobCOGS = jobItems.reduce((s, li) => s + calcGPM(li, leadType).cogs, 0)
       const { data, error } = await supabase.from('projects').insert({
         org_id: est.org_id || profile.org_id,
         type: 'wrap',
-        title: est.title || 'Untitled Job',
+        title: jobTitle,
         status: 'estimate',
         agent_id: salesRepId || profile.id,
         division: 'wraps',
@@ -817,26 +878,37 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         vehicle_desc: vDesc,
         install_date: installDate || null,
         priority: 'normal',
-        revenue: total,
-        fin_data: { sales: total, revenue: total, cogs: 0, profit: total, gpm: 100, commission: 0, labor: 0, laborHrs: 0, material: 0, designFee: 0, misc: 0 },
+        revenue: jobRevenue,
+        fin_data: { sales: jobRevenue, revenue: jobRevenue, cogs: jobCOGS, profit: jobRevenue - jobCOGS, gpm: jobRevenue > 0 ? ((jobRevenue - jobCOGS) / jobRevenue) * 100 : 0, commission: 0, labor: 0, laborHrs: 0, material: 0, designFee: 0, misc: 0 },
         form_data: {
           clientName: est.customer?.name || est.title,
           clientEmail: est.customer?.email || '',
           estimateId: isDemo ? null : estimateId,
           notes: notes,
         },
-        actuals: {},
-        checkout: {},
-        send_backs: [],
+        actuals: {}, checkout: {}, send_backs: [],
       }).select().single()
       if (error) throw error
-      if (data) {
-        showToast('Job created!')
-        router.push(`/projects/${data.id}/edit`)
+      return data
+    }
+
+    try {
+      if (mode === 'combined') {
+        const data = await createOneJob(items, title || 'Untitled Job')
+        if (data) { showToast('Job created!'); router.push(`/projects/${data.id}`) }
+      } else {
+        const created = []
+        for (const li of items) {
+          const data = await createOneJob([li], li.name || title || 'Untitled Job')
+          if (data) created.push(data)
+        }
+        showToast(`${created.length} jobs created!`)
+        if (created.length === 1) router.push(`/projects/${created[0].id}`)
+        else router.push('/pipeline')
       }
     } catch (err) {
       console.error('Create Job error:', err)
-      showToast('Error creating job')
+      showToast('Error creating job(s)')
     }
   }
 
@@ -1805,49 +1877,94 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               />
             </div>
 
-            {/* Right: Pricing Summary */}
-            <div style={{
-              ...cardStyle,
-            }}>
-              <div style={{ ...sectionPad, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <SummaryRow label="Subtotal" value={fmtCurrency(subtotal)} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>$</span>
-                    <input
-                      type="number"
-                      value={discount}
-                      onChange={e => setDiscount(Number(e.target.value))}
-                      disabled={!canWrite}
-                      min={0} step={0.01}
-                      style={{
-                        ...fieldInputStyle, ...monoStyle,
-                        width: 90, textAlign: 'right' as const, padding: '4px 8px', fontSize: 13,
-                      }}
-                    />
-                  </div>
+            {/* Right: Financial Sidebar */}
+            <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
+              {/* GP Summary */}
+              <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 10 }}>
+                  Financial Summary
                 </div>
-                <SummaryRow
-                  label={`Tax (${(taxRate * 100).toFixed(2)}%)`}
-                  value={fmtCurrency(taxAmount)}
-                />
-                <div style={{ borderTop: '2px solid var(--card-border)', paddingTop: 14, marginTop: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <SummaryRow label='Revenue' value={fmtCurrency(subtotal)} />
+                  <SummaryRow label='COGS' value={fmtCurrency(totalCOGS)} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{
-                      fontSize: 14, fontWeight: 700, color: 'var(--text1)',
-                      fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    }}>
-                      Total
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {fmtCurrency(totalGP)}
                     </span>
-                    <span style={{
-                      ...monoStyle, fontSize: 24, fontWeight: 800, color: 'var(--green)',
-                      textShadow: '0 0 20px rgba(34,192,122,0.15)',
-                    }}>
-                      {fmtCurrency(total)}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Overall GPM</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 800, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 60 ? 'var(--amber)' : 'var(--red)' }}>
+                      {fmtPercent(overallGPM)}
                     </span>
                   </div>
                 </div>
+              </div>
+              {/* Commission Section */}
+              <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>
+                  Commission
+                </div>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                  {(['inbound', 'outbound', 'presold'] as const).map(lt => (
+                    <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
+                      {lt === 'presold' ? 'Pre-Sold' : lt.charAt(0).toUpperCase() + lt.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {commRows.map(r => (
+                    <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)' }}>{r.label}</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 13, color: r.val >= 0 ? 'var(--text1)' : 'var(--red)' }}>{fmtCurrency(r.val)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Total Commission</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(totalComm)}</span>
+                  </div>
+                </div>
+              </div>
+              {/* Subtotal / Discount / Tax / Total */}
+              <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <SummaryRow label='Subtotal' value={fmtCurrency(subtotal)} />
+                  {discount > 0 && <SummaryRow label='Discount' value={fmtCurrency(-discount)} />}
+                  <SummaryRow label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(taxAmount)} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
+                  </div>
+                </div>
+              </div>
+              {/* Action Buttons */}
+              <div style={{ ...sectionPad, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {canWrite && (
+                  <button
+                    onClick={handleCreateJob}
+                    style={{
+                      width: '100%', padding: '10px', borderRadius: 8, border: 'none',
+                      background: 'var(--green)', color: '#fff', cursor: 'pointer',
+                      fontWeight: 700, fontFamily: headingFont, fontSize: 14,
+                      textTransform: 'uppercase', letterSpacing: '0.04em',
+                    }}
+                  >
+                    Convert to Job
+                  </button>
+                )}
+                <button
+                  onClick={handleSendEstimate}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: 8,
+                    border: '1px solid var(--accent)',
+                    background: 'transparent', color: 'var(--accent)', cursor: 'pointer',
+                    fontWeight: 700, fontFamily: headingFont, fontSize: 14,
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                  }}
+                >
+                  Send Estimate
+                </button>
               </div>
             </div>
           </div>
@@ -2041,7 +2158,110 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
       )}
 
-      {/* ── Area Calculator Modal ──────────────────────────────────── */}
+            {/* â”€â”€ Convert to Job Modal */}
+      {showConvertModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 16, padding: 28, width: 520,
+            maxHeight: '80vh', overflow: 'auto', border: '1px solid var(--border)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text1)', fontFamily: headingFont }}>Convert to Job</span>
+              <button onClick={() => setShowConvertModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 20 }}>x</button>
+            </div>
+            {/* Mode Select */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              {(['combined', 'per_item'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setConvertMode(m)}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: 8, cursor: 'pointer',
+                    fontFamily: headingFont, fontWeight: 700, fontSize: 13,
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                    border: convertMode === m ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: convertMode === m ? 'rgba(79,127,255,0.12)' : 'var(--bg)',
+                    color: convertMode === m ? 'var(--accent)' : 'var(--text2)',
+                  }}
+                >
+                  {m === 'combined' ? 'Single Job' : 'Per Line Item'}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+              {convertMode === 'combined'
+                ? 'All selected line items will be combined into one job.'
+                : 'Each selected line item becomes a separate job.'}
+            </p>
+            {/* Line Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              {lineItemsList.map(li => {
+                const liCogs = (li.cogs ?? 0) * (li.qty ?? 1)
+                const liRev = (li.price ?? 0) * (li.qty ?? 1)
+                const liGP = liRev - liCogs
+                const liGPM = liRev > 0 ? (liGP / liRev) * 100 : 0
+                const sel = convertSelected.has(li.id)
+                return (
+                  <div
+                    key={li.id}
+                    onClick={() => {
+                      const ns = new Set(convertSelected)
+                      if (sel) ns.delete(li.id); else ns.add(li.id)
+                      setConvertSelected(ns)
+                    }}
+                    style={{
+                      padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                      border: sel ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: sel ? 'rgba(79,127,255,0.07)' : 'var(--bg)',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{li.description}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>COGS: {fmtCurrency(liCogs)} Â· GPM: {fmtPercent(liGPM)}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(liRev)}</div>
+                      <div style={{ fontSize: 11, color: liGP >= 0 ? 'var(--green)' : 'var(--red)' }}>GP: {fmtCurrency(liGP)}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Footer */}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowConvertModal(false)}
+                style={{
+                  padding: '9px 18px', borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text2)',
+                  cursor: 'pointer', fontWeight: 600, fontFamily: headingFont, fontSize: 13,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => executeConvertToJob(convertMode, convertSelected)}
+                disabled={convertSelected.size === 0}
+                style={{
+                  padding: '9px 18px', borderRadius: 8, border: 'none',
+                  background: 'var(--green)', color: '#fff',
+                  cursor: convertSelected.size === 0 ? 'not-allowed' : 'pointer',
+                  fontWeight: 700, fontFamily: headingFont, fontSize: 14,
+                  opacity: convertSelected.size === 0 ? 0.5 : 1,
+                }}
+              >
+                Create Job
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+{/* ── Area Calculator Modal ──────────────────────────────────── */}
       <AreaCalculatorModal
         isOpen={areaCalcOpen}
         onClose={() => { setAreaCalcOpen(false); setAreaCalcItemId(null) }}
@@ -2546,10 +2766,9 @@ function LineItemCard({
   // Determine if this product involves a vehicle (show VIN + Y/M/M)
   const calcType = (specs.calculatorType as string) || ''
   const vType = (specs.vehicleType as string) || ''
-  const isVehicleProduct = ['vehicle', 'box-truck', 'trailer', 'ppf'].includes(calcType) ||
-    ['small_car', 'med_car', 'full_car', 'sm_truck', 'med_truck', 'full_truck', 'med_van', 'large_van', 'box_truck', 'trailer', 'ppf'].includes(vType) ||
-    item.product_type === 'wrap' || item.product_type === 'ppf'
-  const isBoatProduct = calcType === 'marine' || calcType === 'decking' || vType === 'marine'
+  const productLineType = (specs.productLineType as string) || ''
+  const isBoatProduct = calcType === 'marine' || calcType === 'decking' || vType === 'marine' || productLineType === 'boat_decking'
+  const isVehicleProduct = ['vehicle', 'box-truck', 'trailer', 'ppf', 'commercial_vehicle', 'box_truck'].includes(calcType) || ['commercial_vehicle', 'box_truck', 'trailer', 'ppf'].includes(productLineType) || (calcType === '' && !isBoatProduct && vType !== 'marine')
 
   const productTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
     wrap:    { label: 'WRAP',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
@@ -2725,7 +2944,40 @@ function LineItemCard({
       }}>
         <div style={{ borderTop: '1px solid var(--border)', padding: '0 16px 16px' }}>
 
-          {/* ── VIN + Vehicle Info (vehicle products only) ────────────── */}
+                    {/* Product Type Selector */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, fontFamily: headingFont }}>
+              Product Type
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {PRODUCT_TYPE_OPTIONS.map(opt => {
+                const isSel = (specs.productLineType as string) === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => {
+                      if (!canWrite) return
+                      updateSpec('productLineType', opt.key)
+                      if (opt.vehicleType) updateSpec('vehicleType', opt.vehicleType)
+                      if (opt.calcType) updateSpec('calculatorType', opt.calcType)
+                      updateSpec('product_type', opt.productType)
+                    }}
+                    style={{
+                      padding: '5px 10px', borderRadius: 6, cursor: canWrite ? 'pointer' : 'default',
+                      border: isSel ? '2px solid ' + opt.color : '1px solid var(--border)',
+                      background: isSel ? opt.color + '22' : 'var(--surface)',
+                      color: isSel ? opt.color : 'var(--text2)',
+                      fontSize: 12, fontWeight: 700, fontFamily: headingFont,
+                      textTransform: 'uppercase' as const, letterSpacing: '0.04em',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+{/* ── VIN + Vehicle Info (vehicle products only) ────────────── */}
           {isVehicleProduct && (
             <>
               <VehicleInfoBlock
@@ -2985,47 +3237,54 @@ function LineItemCard({
           {/* PRODUCT-TYPE CALCULATORS (conditional on category)           */}
           {/* ═══════════════════════════════════════════════════════════════ */}
 
-          {/* ── Commercial Vehicle Quick-Select Grid ───────────────────── */}
-          {specs.vehicleType && ['small_car', 'med_car', 'full_car', 'sm_truck', 'med_truck', 'full_truck', 'med_van', 'large_van'].includes(specs.vehicleType as string) && (
+          {/* â”€â”€ Commercial Vehicle 3Ã—3 Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {isVehicleProduct && (
             <div style={{
               marginTop: 12, padding: 14, background: 'var(--bg)',
               border: '1px solid var(--border)', borderRadius: 10,
             }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-                <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Size -- Quick Select
+              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Car size={12} style={{ color: 'var(--accent)' }} /> 3Ã—3 Quick Select
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9" style={{ gap: 6 }}>
-                {Object.entries(VEHICLE_CATEGORIES).filter(([, cat]) => ['Cars', 'Trucks', 'Vans'].includes(cat.group)).map(([key, cat]) => {
-                  const isSelected = (specs.vehicleType as string) === key
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => { if (canWrite) handleCategoryChange(key) }}
-                      style={{
-                        padding: '8px 4px', borderRadius: 8, cursor: canWrite ? 'pointer' : 'default',
-                        border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                        background: isSelected ? 'rgba(79,127,255,0.1)' : 'var(--surface)',
-                        textAlign: 'center' as const, minHeight: 44,
-                        display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 2,
-                      }}
-                    >
-                      <div style={{ fontSize: 10, fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text2)', lineHeight: 1.2 }}>
-                        {cat.label}
-                      </div>
-                      <div style={{ fontFamily: monoFont, fontSize: 12, fontWeight: 800, color: isSelected ? 'var(--accent)' : 'var(--text1)' }}>
-                        ${cat.flatRate}
-                      </div>
-                      <div style={{ fontSize: 9, color: 'var(--text3)' }}>
-                        {cat.estimatedHours}h
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {(['Compact', 'Mid', 'Full'] as const).map(size => (
+                <div key={size} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{size}</div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {COMMERCIAL_VEHICLE_GRID.filter(c => c.size === size).map(cell => {
+                      const isSelected = (specs.cvGridKey as string) === cell.key
+                      return (
+                        <button
+                          key={cell.key}
+                          onClick={() => {
+                            if (!canWrite) return
+                            updateSpec('cvGridKey', cell.key)
+                            updateSpec('vehicleType', cell.vehicleType)
+                            handleCategoryChange(cell.vehicleType)
+                          }}
+                          style={{
+                            flex: 1, padding: '6px 4px', borderRadius: 6, cursor: canWrite ? 'pointer' : 'default',
+                            border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                            background: isSelected ? 'rgba(79,127,255,0.1)' : 'var(--surface)',
+                            textAlign: 'center' as const,
+                          }}
+                        >
+                          <div style={{ fontSize: 9, fontWeight: 700, color: isSelected ? 'var(--accent)' : 'var(--text2)', textTransform: 'uppercase' as const }}>
+                            {cell.coverage}
+                          </div>
+                          <div style={{ fontFamily: monoFont, fontSize: 11, fontWeight: 800, color: isSelected ? 'var(--accent)' : 'var(--text1)' }}>
+                            ${cell.price}
+                          </div>
+                          <div style={{ fontSize: 9, color: 'var(--text3)' }}>{cell.estimatedHours}h</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* ── Wrap Zone Selector (vehicle wraps with sqft data) ──────── */}
+{/* ── Wrap Zone Selector (vehicle wraps with sqft data) ──────── */}
           {isVehicleProduct && (specs.vinylArea as number) > 0 && !isBoatProduct && (
             <div style={{ marginTop: 12 }}>
               <WrapZoneSelector
