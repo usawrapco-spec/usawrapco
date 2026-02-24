@@ -35,9 +35,9 @@ ALTER TABLE public.design_projects
 ALTER TABLE public.design_projects
   ADD COLUMN IF NOT EXISTS deadline timestamptz;
 
--- 8. Ensure assigned_to column exists
+-- 8. Ensure designer_id column exists (used by frontend; some schemas had 'assigned_to' instead)
 ALTER TABLE public.design_projects
-  ADD COLUMN IF NOT EXISTS assigned_to uuid;
+  ADD COLUMN IF NOT EXISTS designer_id uuid;
 
 -- 9. Consolidate RLS — drop old split policies, keep a single ALL policy
 DROP POLICY IF EXISTS "design_projects_select_org" ON public.design_projects;
