@@ -46,12 +46,11 @@ interface DesignProject {
   description: string | null
   status: DesignStatus
   deadline: string | null
-  assigned_to: string | null
+  designer_id: string | null
   linked_project_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
-  assignee?: { id: string; name: string } | null
   linked_project?: { id: string; title: string } | null
 }
 
@@ -195,7 +194,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     const [designRes, teamRes, jobsRes] = await Promise.all([
       supabase
         .from('design_projects')
-        .select('*, assignee:assigned_to(id, name), linked_project:linked_project_id(id, title)')
+        .select('*, linked_project:linked_project_id(id, title)')
         .eq('org_id', profile.org_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -328,15 +327,16 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       .insert({
         org_id: profile.org_id,
         client_name: formClientName.trim(),
+        title: formClientName.trim(),
         design_type: formDesignType,
         description: briefDescription,
         deadline: formDeadline || null,
-        assigned_to: formDesignerId || null,
+        designer_id: formDesignerId || null,
         linked_project_id: formProjectId || null,
         created_by: profile.id,
         status: 'brief',
       })
-      .select('*, assignee:assigned_to(id, name), linked_project:linked_project_id(id, title)')
+      .select('*, linked_project:linked_project_id(id, title)')
       .single()
 
     if (error) {
@@ -376,7 +376,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     setSelectedProject(dp)
     setDrawerTab('details')
     setDrawerStatus(dp.status)
-    setDrawerDesignerId(dp.assigned_to || '')
+    setDrawerDesignerId(dp.designer_id || '')
     setDrawerClientName(dp.client_name)
     setDrawerDesignType(dp.design_type)
     setDrawerDescription(dp.description || '')
@@ -626,7 +626,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       .from('design_projects')
       .update({
         status: drawerStatus,
-        assigned_to: drawerDesignerId || null,
+        designer_id: drawerDesignerId || null,
         client_name: drawerClientName.trim(),
         design_type: drawerDesignType,
         description: drawerDescription.trim() || null,
@@ -641,14 +641,11 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
           ? {
               ...p,
               status: drawerStatus,
-              assigned_to: drawerDesignerId || null,
+              designer_id: drawerDesignerId || null,
               client_name: drawerClientName.trim(),
               design_type: drawerDesignType,
               description: drawerDescription.trim() || null,
               deadline: drawerDeadline || null,
-              assignee: drawerDesignerId
-                ? (team.find(t => t.id === drawerDesignerId) ? { id: drawerDesignerId, name: team.find(t => t.id === drawerDesignerId)!.name } : p.assignee)
-                : null,
             }
           : p
       ))
@@ -1006,12 +1003,11 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
                         {/* Bottom row: designer, job link, deadline */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                          {dp.assignee && (
+                          {dp.designer_id && team.find(t => t.id === dp.designer_id) ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#9299b5' }}>
-                              <User size={10} /> {dp.assignee.name}
+                              <User size={10} /> {team.find(t => t.id === dp.designer_id)!.name}
                             </span>
-                          )}
-                          {!dp.assignee && (
+                          ) : (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#5a6080', fontStyle: 'italic' }}>
                               <User size={10} /> Unassigned
                             </span>
