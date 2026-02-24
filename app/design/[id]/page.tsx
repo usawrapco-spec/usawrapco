@@ -23,11 +23,11 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
 
   // Load linked project separately to avoid FK join errors
   let linkedProject: any = null
-  if (designRes.data.linked_project_id) {
+  if (designRes.data.project_id) {
     const { data } = await admin
       .from('projects')
       .select('id, title, vehicle_desc, form_data, revenue, profit')
-      .eq('id', designRes.data.linked_project_id)
+      .eq('id', designRes.data.project_id)
       .single()
     linkedProject = data || null
   }
@@ -37,11 +37,11 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
 
   // Load linked job's images if available
   let jobImages: any[] = []
-  if (designRes.data.linked_project_id) {
+  if (designRes.data.project_id) {
     const { data } = await admin
       .from('job_images')
       .select('id, public_url, file_name, mime_type')
-      .eq('project_id', designRes.data.linked_project_id)
+      .eq('project_id', designRes.data.project_id)
       .limit(20)
     jobImages = data || []
   }

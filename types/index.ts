@@ -300,14 +300,13 @@ export interface DesignProject {
   description: string | null
   deadline: string | null
   status: DesignProjectStatus
-  linked_project_id: string | null
-  created_by: string
-  assigned_to: string | null
+  project_id: string | null
+  designer_id: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
   linked_project?: Pick<Project, 'id' | 'title'>
   creator?: Pick<Profile, 'id' | 'name'>
-  assignee?: Pick<Profile, 'id' | 'name'>
 }
 
 // ─── Team Invite ───────────────────────────────────────────────────────────────
