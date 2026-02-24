@@ -707,8 +707,17 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             <ActivityLogTab projectId={project.id} />
           )}
 
+          {/* ═══ TIME TRACKING TAB ═══ */}
+          {tab === 'time_tracking' && (
+            <TimeTrackingTab
+              projectId={project.id}
+              revenue={project.revenue || 0}
+              materialCost={project.fin_data?.material || 0}
+            />
+          )}
+
           {/* ── Stage Action Bar ──────────────────────────── */}
-          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && (
+          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && tab !== 'time_tracking' && (
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:24, paddingTop:18, borderTop:'1px solid var(--card-border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (

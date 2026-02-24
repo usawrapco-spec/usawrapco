@@ -45,15 +45,26 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // --- Send via Twilio ---
-    const twilio = require('twilio')
-    const client = twilio(accountSid, authToken)
-
-    const smsResult = await client.messages.create({
-      to,
-      from: defaultFrom,
-      body: message,
-    })
+    // --- Send via Twilio REST API ---
+    const smsRes = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          To: to,
+          From: defaultFrom,
+          Body: message,
+        }).toString(),
+      }
+    )
+    const smsResult = await smsRes.json()
+    if (!smsRes.ok) {
+      return NextResponse.json({ error: smsResult.message || 'Twilio SMS failed' }, { status: 500 })
+    }
 
     // --- Resolve customer if not provided ---
     const supabase = getSupabaseAdmin()

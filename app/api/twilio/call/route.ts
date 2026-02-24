@@ -41,20 +41,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // --- Create Twilio call ---
-    const twilio = require('twilio')
-    const client = twilio(accountSid, authToken)
+    // --- Create Twilio call via REST API ---
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://usawrapco.com'
+    const statusCallbackUrl = `${siteUrl}/api/webhooks/twilio/voice/status`
 
-    const statusCallbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://usawrapco.com'}/api/webhooks/twilio/voice/status`
-
-    const call = await client.calls.create({
-      to,
-      from: fromNumber,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://usawrapco.com'}/api/webhooks/twilio/voice/outbound-twiml`,
-      statusCallback: statusCallbackUrl,
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-      statusCallbackMethod: 'POST',
-    })
+    const callRes = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          To: to,
+          From: fromNumber,
+          Url: `${siteUrl}/api/webhooks/twilio/voice/outbound-twiml`,
+          StatusCallback: statusCallbackUrl,
+          StatusCallbackEvent: 'initiated ringing answered completed',
+          StatusCallbackMethod: 'POST',
+        }).toString(),
+      }
+    )
+    const call = await callRes.json()
+    if (!callRes.ok) {
+      return NextResponse.json({ error: call.message || 'Twilio call failed' }, { status: 500 })
+    }
 
     // --- Look up customer by phone ---
     const supabase = getSupabaseAdmin()
