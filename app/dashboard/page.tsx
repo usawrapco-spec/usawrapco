@@ -6,6 +6,7 @@ import type { Profile, Project } from '@/types'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import DashboardWrapper from '@/components/dashboard/DashboardWrapper'
 import RoleDashboard from '@/components/dashboard/RoleDashboard'
+import DashboardHero from '@/components/dashboard/DashboardHero'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -62,6 +63,11 @@ export default async function DashboardPage() {
             role={profile.role}
         >
             <>
+                <DashboardHero
+                    profile={profile as Profile}
+                    projects={(projects as Project[]) || []}
+                    canSeeFinancials={canSeeFinancials}
+                />
                 <RoleDashboard
                     profile={profile as Profile}
                     projects={(projects as Project[]) || []}
