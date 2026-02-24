@@ -1,6 +1,7 @@
 import '@/app/globals.css'
 import type { Metadata } from 'next'
 import { Providers } from '@/components/shared/Providers'
+import VinylChat from '@/components/vinyl-chat'
 
 export const metadata: Metadata = {
   title: 'USA Wrap Co | WrapShop Pro',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           {children}
+          <VinylChat />
         </Providers>
         <script
           dangerouslySetInnerHTML={{
