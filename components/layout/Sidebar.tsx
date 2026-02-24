@@ -116,6 +116,12 @@ const NAV: NavItem[] = [
     permission: 'sales.read',
   },
   {
+    href: '/communications',
+    label: 'Messages',
+    icon: MessageSquare,
+    permission: 'sales.read',
+  },
+  {
     href: '/deposit',
     label: 'Deposits',
     icon: DollarSign,
