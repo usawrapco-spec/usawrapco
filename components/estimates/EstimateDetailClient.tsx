@@ -526,17 +526,181 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   async function handleConvertToInvoice() {
     setMoreMenuOpen(false)
-    showToast('Convert to Invoice -- coming soon')
+    if (!canWrite) {
+      showToast('You do not have permission to create invoices')
+      return
+    }
+    showToast('Creating invoice...')
+    try {
+      // Create invoice from estimate
+      const { data: invoiceData, error: invError } = await supabase.from('invoices').insert({
+        org_id: est.org_id || profile.org_id,
+        title: est.title,
+        estimate_id: isDemo ? null : estimateId,
+        customer_id: est.customer_id,
+        status: 'draft',
+        subtotal,
+        discount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total,
+        amount_paid: 0,
+        balance_due: total,
+        invoice_date: new Date().toISOString().split('T')[0],
+        notes: est.notes,
+      }).select().single()
+
+      if (invError) throw invError
+      if (!invoiceData) throw new Error('No invoice data returned')
+
+      // Copy line items to invoice
+      if (lineItemsList.length > 0 && !isDemo) {
+        const invItems = lineItemsList.map(li => ({
+          parent_type: 'invoice' as const,
+          parent_id: invoiceData.id,
+          product_type: li.product_type,
+          name: li.name,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          unit_discount: li.unit_discount,
+          total_price: li.total_price,
+          specs: li.specs,
+          sort_order: li.sort_order,
+        }))
+        const { error: itemsError } = await supabase.from('line_items').insert(invItems)
+        if (itemsError) throw itemsError
+      }
+
+      // Mark estimate as converted (optional - update status or add flag)
+      if (!isDemo) {
+        await supabase.from('estimates').update({
+          status: 'accepted',
+          updated_at: new Date().toISOString()
+        }).eq('id', estimateId)
+      }
+
+      // Navigate to the new invoice
+      router.push(`/invoices/${invoiceData.id}`)
+    } catch (err) {
+      console.error('Invoice conversion error:', err)
+      showToast('Could not create invoice. Check permissions and try again.')
+    }
   }
 
-  function handleDuplicate() {
+  async function handleDuplicate() {
     setMoreMenuOpen(false)
-    showToast('Duplicate for New Customer -- coming soon')
+    if (!canWrite) {
+      showToast('You do not have permission to create estimates')
+      return
+    }
+    const customerName = prompt('Enter customer name for the duplicate estimate:')
+    if (!customerName || !customerName.trim()) {
+      showToast('Customer name is required')
+      return
+    }
+    showToast('Creating duplicate estimate...')
+    try {
+      // Create new estimate with same data but no customer_id (for new customer)
+      const { data: newEst, error: estError } = await supabase.from('estimates').insert({
+        org_id: est.org_id || profile.org_id,
+        title: `${est.title} (Copy for ${customerName.trim()})`,
+        customer_id: null, // New customer
+        status: 'draft',
+        sales_rep_id: profile.id,
+        subtotal,
+        discount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total,
+        notes: est.notes,
+        customer_note: `Estimate created for ${customerName.trim()}`,
+        division: est.division,
+        form_data: est.form_data,
+      }).select().single()
+
+      if (estError) throw estError
+      if (!newEst) throw new Error('No estimate data returned')
+
+      // Copy line items
+      if (lineItemsList.length > 0 && !isDemo) {
+        const newItems = lineItemsList.map(li => ({
+          parent_type: 'estimate' as const,
+          parent_id: newEst.id,
+          product_type: li.product_type,
+          name: li.name,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          unit_discount: li.unit_discount,
+          total_price: li.total_price,
+          specs: li.specs,
+          sort_order: li.sort_order,
+        }))
+        const { error: itemsError } = await supabase.from('line_items').insert(newItems)
+        if (itemsError) throw itemsError
+      }
+
+      router.push(`/estimates/${newEst.id}`)
+    } catch (err) {
+      console.error('Duplicate estimate error:', err)
+      showToast('Could not duplicate estimate. Check permissions and try again.')
+    }
   }
 
-  function handleCreateCopy() {
+  async function handleCreateCopy() {
     setMoreMenuOpen(false)
-    showToast('Create Copy -- coming soon')
+    if (!canWrite) {
+      showToast('You do not have permission to create estimates')
+      return
+    }
+    showToast('Creating copy...')
+    try {
+      // Create exact copy with same customer
+      const { data: newEst, error: estError } = await supabase.from('estimates').insert({
+        org_id: est.org_id || profile.org_id,
+        title: `${est.title} (Copy)`,
+        customer_id: est.customer_id,
+        status: 'draft',
+        sales_rep_id: profile.id,
+        subtotal,
+        discount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total,
+        notes: est.notes,
+        customer_note: est.customer_note,
+        division: est.division,
+        form_data: est.form_data,
+      }).select().single()
+
+      if (estError) throw estError
+      if (!newEst) throw new Error('No estimate data returned')
+
+      // Copy line items
+      if (lineItemsList.length > 0 && !isDemo) {
+        const newItems = lineItemsList.map(li => ({
+          parent_type: 'estimate' as const,
+          parent_id: newEst.id,
+          product_type: li.product_type,
+          name: li.name,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          unit_discount: li.unit_discount,
+          total_price: li.total_price,
+          specs: li.specs,
+          sort_order: li.sort_order,
+        }))
+        const { error: itemsError } = await supabase.from('line_items').insert(newItems)
+        if (itemsError) throw itemsError
+      }
+
+      router.push(`/estimates/${newEst.id}`)
+    } catch (err) {
+      console.error('Copy estimate error:', err)
+      showToast('Could not create copy. Check permissions and try again.')
+    }
   }
 
   async function handleSaveAsTemplate() {
@@ -950,13 +1114,14 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               </div>
             ) : (
               <button
-                onClick={() => showToast('Add Customer -- coming soon')}
+                onClick={() => router.push('/customers')}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)',
                   borderRadius: 6, padding: '8px 12px', color: 'var(--accent)',
                   fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
                 }}
+                title="Go to Customers page to create or select a customer, then return here to link them"
               >
                 <Plus size={12} /> Add Customer
               </button>
@@ -2583,13 +2748,14 @@ function LineItemCard({
                 <Link2 size={12} /> Design Link
               </button>
               <button
-                onClick={() => showToast('Media gallery -- coming soon')}
+                onClick={() => router.push('/media')}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
                   padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                   cursor: 'pointer', border: '1px solid rgba(245,158,11,0.3)',
                   background: 'rgba(245,158,11,0.06)', color: 'var(--amber)',
                 }}
+                title="Go to Media Library"
               >
                 <Image size={12} /> Photos
               </button>

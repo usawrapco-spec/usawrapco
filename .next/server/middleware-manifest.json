@@ -1,6 +1,119 @@
 {
   "version": 3,
-  "middleware": {},
-  "functions": {},
-  "sortedMiddleware": []
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge-runtime-webpack.js",
+        "server/middleware.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!_next\\/static|_next\\/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*))(.json)?[\\/#\\?]?$",
+          "originalSource": "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "BGtoyKO2kXrnZjbop33pF",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "AM8ZOMBvPx579aUPoZttiA1FmWNAdL0Ih9o2VQCRfJQ=",
+        "__NEXT_PREVIEW_MODE_ID": "38f17657e296b6686050168628c002f4",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "8e47f53b3a29f8a76d22032e0c58df3f782660cd582e4a5b9879fd0b7e918e6a",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "6e8d6932306543e4ff5cbf1dc7a74f7bea8e4c4e42db88905760658d3553c427"
+      }
+    }
+  },
+  "functions": {
+    "/api/estimates/[id]/pdf/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/520.js",
+        "server/edge-chunks/956.js",
+        "server/app/api/estimates/[id]/pdf/route.js"
+      ],
+      "name": "app/api/estimates/[id]/pdf/route",
+      "page": "/api/estimates/[id]/pdf/route",
+      "matchers": [
+        {
+          "regexp": "^/api/estimates/(?<id>[^/]+?)/pdf$",
+          "originalSource": "/api/estimates/[id]/pdf"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "BGtoyKO2kXrnZjbop33pF",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "AM8ZOMBvPx579aUPoZttiA1FmWNAdL0Ih9o2VQCRfJQ=",
+        "__NEXT_PREVIEW_MODE_ID": "38f17657e296b6686050168628c002f4",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "8e47f53b3a29f8a76d22032e0c58df3f782660cd582e4a5b9879fd0b7e918e6a",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "6e8d6932306543e4ff5cbf1dc7a74f7bea8e4c4e42db88905760658d3553c427"
+      }
+    },
+    "/api/projects/[id]/recap/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/520.js",
+        "server/edge-chunks/956.js",
+        "server/app/api/projects/[id]/recap/route.js"
+      ],
+      "name": "app/api/projects/[id]/recap/route",
+      "page": "/api/projects/[id]/recap/route",
+      "matchers": [
+        {
+          "regexp": "^/api/projects/(?<id>[^/]+?)/recap$",
+          "originalSource": "/api/projects/[id]/recap"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "BGtoyKO2kXrnZjbop33pF",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "AM8ZOMBvPx579aUPoZttiA1FmWNAdL0Ih9o2VQCRfJQ=",
+        "__NEXT_PREVIEW_MODE_ID": "38f17657e296b6686050168628c002f4",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "8e47f53b3a29f8a76d22032e0c58df3f782660cd582e4a5b9879fd0b7e918e6a",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "6e8d6932306543e4ff5cbf1dc7a74f7bea8e4c4e42db88905760658d3553c427"
+      }
+    },
+    "/api/vin/lookup/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/edge-chunks/520.js",
+        "server/app/api/vin/lookup/route.js"
+      ],
+      "name": "app/api/vin/lookup/route",
+      "page": "/api/vin/lookup/route",
+      "matchers": [
+        {
+          "regexp": "^/api/vin/lookup$",
+          "originalSource": "/api/vin/lookup"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "BGtoyKO2kXrnZjbop33pF",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "AM8ZOMBvPx579aUPoZttiA1FmWNAdL0Ih9o2VQCRfJQ=",
+        "__NEXT_PREVIEW_MODE_ID": "38f17657e296b6686050168628c002f4",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "8e47f53b3a29f8a76d22032e0c58df3f782660cd582e4a5b9879fd0b7e918e6a",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "6e8d6932306543e4ff5cbf1dc7a74f7bea8e4c4e42db88905760658d3553c427"
+      }
+    }
+  },
+  "sortedMiddleware": [
+    "/"
+  ]
 }

@@ -82,8 +82,32 @@ export default function VINInput({ value, onChange, onVehicleData, showScanner =
   }
 
   const handleScan = async () => {
-    // TODO: Implement barcode scanner using html5-qrcode library
-    alert('Barcode scanner feature coming soon. Please enter VIN manually.')
+    // Use native file input to access camera on mobile devices
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.capture = 'environment' as any // Use rear camera on mobile
+
+    input.onchange = async (e: any) => {
+      const file = e.target?.files?.[0]
+      if (!file) return
+
+      // For now, just notify user that OCR is not implemented
+      // In future, could send to OCR API to extract VIN from image
+      alert('VIN photo captured. OCR extraction will be added in a future update. Please enter VIN manually for now.')
+
+      // Future: Send image to OCR service
+      // const formData = new FormData()
+      // formData.append('image', file)
+      // const response = await fetch('/api/ocr/vin', { method: 'POST', body: formData })
+      // const { vin } = await response.json()
+      // if (vin) {
+      //   setVin(vin)
+      //   onChange(vin)
+      // }
+    }
+
+    input.click()
   }
 
   return (

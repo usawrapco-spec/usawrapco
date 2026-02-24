@@ -322,10 +322,11 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
           )}
           {canWrite && (
             <button
-              onClick={() => showToastMsg('WO PDF download coming soon')}
+              onClick={() => window.print()}
               className="btn-ghost btn-sm"
+              title="Print this sales order"
             >
-              <Download size={13} /> Download WO PDF
+              <Download size={13} /> Print Sales Order
             </button>
           )}
           {canWrite && (
