@@ -91,6 +91,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const [sendBackReason, setSendBackReason] = useState('')
   const [sendBackNotes, setSendBackNotes] = useState('')
   const [sendBacks, setSendBacks] = useState<any[]>([])
+  const [portalToken, setPortalToken] = useState<string|null>(null)
 
   // Job type state
   const [jobType, setJobTypeState] = useState<'Commercial'|'Marine'|'PPF'>(
@@ -166,6 +167,12 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     supabase.from('send_backs').select('*').eq('project_id', project.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSendBacks(data) })
+    // Look up portal token from linked sales order
+    const soId = (initial.form_data as any)?.sales_order_id
+    if (soId) {
+      supabase.from('sales_orders').select('portal_token').eq('id', soId).single()
+        .then(({ data }) => { if (data?.portal_token) setPortalToken(data.portal_token) })
+    }
   }, [project.id])
 
   // ── Derived financials ─────────────────────────────────────────
@@ -476,6 +483,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           )}
           <button onClick={fetchAiRecap} disabled={aiRecapLoading} title="AI Job Recap" style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(79,127,255,.15)', color:'var(--accent)', border:'1px solid rgba(79,127,255,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer' }}>
             <Sparkles size={14} />{aiRecapLoading ? 'Analyzing…' : 'AI Recap'}
+          </button>
+          <button
+            onClick={async () => {
+              const token = portalToken || project.id
+              const link = `${window.location.origin}/portal/quote/${token}`
+              try { await navigator.clipboard.writeText(link); setToast('Customer portal link copied!') } catch { setToast(link) }
+              setTimeout(() => setToast(''), 3000)
+            }}
+            title="Copy customer portal link"
+            style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(34,211,238,.12)', border:'1px solid rgba(34,211,238,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer', color:'#22d3ee' }}
+          >
+            <Link2 size={14} /> Customer Portal
           </button>
           <div style={{ position:'relative' }} className="pdf-menu-container">
             <button
@@ -1072,7 +1091,7 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
       <SimilarPhotosPanel vehicleType={f.vehicle} wrapType={subType} description={f.coverage || f.salesNotes} />
 
       {/* Customer link generator */}
-      <IntakeLinkGenerator projectId={project.id} orgId={project.org_id} clientName={f.client} clientEmail={f.email} />
+      <IntakeLinkGenerator projectId={project.id} orgId={project.org_id} />
     </div>
   )
 }
