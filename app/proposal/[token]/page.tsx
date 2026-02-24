@@ -21,5 +21,18 @@ export default async function ProposalPage({ params }: { params: { token: string
       .eq('token', params.token)
   }
 
-  return <ProposalClient proposal={proposal} />
+  // Fetch brand portfolio for this proposal (by project or customer)
+  let brandPortfolio = null
+  if (proposal.project_id || proposal.customer_id) {
+    let bpQuery = supabase
+      .from('brand_portfolios')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (proposal.project_id) bpQuery = bpQuery.eq('project_id', proposal.project_id)
+    else if (proposal.customer_id) bpQuery = bpQuery.eq('customer_id', proposal.customer_id)
+    const { data: bpData } = await bpQuery.limit(1).single()
+    brandPortfolio = bpData || null
+  }
+
+  return <ProposalClient proposal={proposal} initialPortfolio={brandPortfolio} />
 }
