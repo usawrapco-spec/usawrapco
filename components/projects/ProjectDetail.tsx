@@ -82,6 +82,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const [aiRecap, setAiRecap] = useState<any>(null)
   const [aiRecapLoading, setAiRecapLoading] = useState(false)
   const [showAiRecap, setShowAiRecap] = useState(false)
+  const [showPdfMenu, setShowPdfMenu] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState('')
@@ -476,6 +477,28 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           <button onClick={fetchAiRecap} disabled={aiRecapLoading} title="AI Job Recap" style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(79,127,255,.15)', color:'var(--accent)', border:'1px solid rgba(79,127,255,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer' }}>
             <Sparkles size={14} />{aiRecapLoading ? 'Analyzing…' : 'AI Recap'}
           </button>
+          <div style={{ position:'relative' }} className="pdf-menu-container">
+            <button
+              onClick={() => setShowPdfMenu(m => !m)}
+              title="Print Job Packet"
+              style={{ display:'flex', alignItems:'center', gap:5, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer', color:'var(--text1)' }}
+            >
+              <Printer size={14} /> Print
+            </button>
+            {showPdfMenu && (
+              <div style={{ position:'absolute', right:0, top:'calc(100% + 4px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:6, minWidth:200, zIndex:100, boxShadow:'0 8px 32px rgba(0,0,0,.4)' }}>
+                <button onClick={() => { setShowPdfMenu(false); window.location.href=`/api/pdf/job-packet/${project.id}` }} style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:7, fontSize:12, fontWeight:600, background:'none', border:'none', color:'var(--text1)', cursor:'pointer', textAlign:'left' }}>
+                  <Printer size={13} /> Print Job Packet (All)
+                </button>
+                <button onClick={() => { setShowPdfMenu(false); window.location.href=`/api/pdf/job-packet/${project.id}?section=production` }} style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:7, fontSize:12, fontWeight:600, background:'none', border:'none', color:'var(--text1)', cursor:'pointer', textAlign:'left' }}>
+                  <Printer size={13} /> Production Brief Only
+                </button>
+                <button onClick={() => { setShowPdfMenu(false); window.location.href=`/api/pdf/job-packet/${project.id}?section=install` }} style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:7, fontSize:12, fontWeight:600, background:'none', border:'none', color:'var(--text1)', cursor:'pointer', textAlign:'left' }}>
+                  <Printer size={13} /> Install Order Only
+                </button>
+              </div>
+            )}
+          </div>
           <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, padding:'9px 18px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1 }}>
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </button>

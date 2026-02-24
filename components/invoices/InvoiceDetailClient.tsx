@@ -155,7 +155,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems, isDem
   }
 
   function handleExportPdf() {
-    window.print()
+    window.location.href = `/api/pdf/invoice/${invoiceId}`
   }
 
   function handleSendInvoice() {
