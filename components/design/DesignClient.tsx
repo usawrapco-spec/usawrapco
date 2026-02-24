@@ -104,9 +104,9 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
       description: briefDescription,
       deadline: formDeadline || null,
       status: 'brief' as DesignProjectStatus,
-      linked_project_id: formLinkedJob || null,
+      project_id: formLinkedJob || null,
       created_by: profile.id,
-      assigned_to: profile.role === 'designer' ? profile.id : null,
+      designer_id: profile.role === 'designer' ? profile.id : null,
     }
 
     const { data, error } = await supabase
@@ -233,7 +233,7 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
                       <span className="badge badge-gray capitalize text-[10px]">
                         {dp.design_type.replace('_', ' ')}
                       </span>
-                      {dp.linked_project_id && (
+                      {dp.project_id && (
                         <span className="badge badge-accent text-[10px] flex items-center gap-0.5">
                           <LinkIcon className="w-2.5 h-2.5" /> Linked
                         </span>
@@ -268,9 +268,9 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
                       >
                         Open Canvas
                       </button>
-                      {dp.linked_project_id && (
+                      {dp.project_id && (
                         <button
-                          onClick={() => router.push(`/projects/${dp.linked_project_id}`)}
+                          onClick={() => router.push(`/projects/${dp.project_id}`)}
                           className="text-[10px] font-600 text-text3 hover:text-accent transition-colors"
                         >
                           Open linked job

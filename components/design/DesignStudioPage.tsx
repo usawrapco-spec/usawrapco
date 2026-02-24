@@ -47,11 +47,10 @@ interface DesignProject {
   status: DesignStatus
   deadline: string | null
   designer_id: string | null
-  linked_project_id: string | null
+  project_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
-  linked_project?: { id: string; title: string } | null
 }
 
 interface TeamMember {
@@ -194,7 +193,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     const [designRes, teamRes, jobsRes] = await Promise.all([
       supabase
         .from('design_projects')
-        .select('*, linked_project:linked_project_id(id, title)')
+        .select('*')
         .eq('org_id', profile.org_id)
         .order('created_at', { ascending: false }),
       supabase
@@ -332,11 +331,11 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
         description: briefDescription,
         deadline: formDeadline || null,
         designer_id: formDesignerId || null,
-        linked_project_id: formProjectId || null,
+        project_id: formProjectId || null,
         created_by: profile.id,
         status: 'brief',
       })
-      .select('*, linked_project:linked_project_id(id, title)')
+      .select('*')
       .single()
 
     if (error) {
@@ -1012,7 +1011,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                               <User size={10} /> Unassigned
                             </span>
                           )}
-                          {dp.linked_project && (
+                          {dp.project_id && jobRefs.some(j => j.id === dp.project_id) && (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#4f7fff' }}>
                               <LinkIcon size={10} /> Job
                             </span>
@@ -1338,7 +1337,9 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                   </div>
 
                   {/* Linked job info */}
-                  {selectedProject.linked_project ? (
+                  {(() => {
+                    const linkedJob = selectedProject.project_id ? jobRefs.find(j => j.id === selectedProject.project_id) : null
+                    return linkedJob ? (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '10px 12px', background: 'rgba(79,127,255,0.06)',
@@ -1347,10 +1348,10 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                       <LinkIcon size={14} style={{ color: '#4f7fff', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: '#5a6080', fontWeight: 600 }}>Linked Job</div>
-                        <div style={{ fontSize: 13, color: '#4f7fff', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProject.linked_project.title}</div>
+                        <div style={{ fontSize: 13, color: '#4f7fff', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkedJob.title}</div>
                       </div>
                       <button
-                        onClick={() => router.push(`/projects/${selectedProject.linked_project!.id}`)}
+                        onClick={() => router.push(`/projects/${linkedJob.id}`)}
                         style={{
                           padding: '4px 10px', background: 'rgba(79,127,255,0.12)',
                           border: '1px solid rgba(79,127,255,0.2)', borderRadius: 6,
@@ -1371,7 +1372,8 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                       <AlertTriangle size={14} />
                       No job linked -- sales should review and send quote
                     </div>
-                  )}
+                  )
+                  })()}
 
                   {/* Timestamps */}
                   <div style={{ fontSize: 11, color: '#5a6080', borderTop: '1px solid #1a1d27', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
