@@ -148,6 +148,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   const [formDesignerId, setFormDesignerId] = useState('')
   const [formProjectId, setFormProjectId] = useState('')
   const [formSaving, setFormSaving] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   // Drawer state
   const [selectedProject, setSelectedProject] = useState<DesignProject | null>(null)
@@ -294,7 +295,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   // ─── Create new project ───
   function resetForm() {
     setFormClientName(''); setFormDesignType('Full Wrap'); setFormDescription('')
-    setFormDeadline(''); setFormDesignerId(''); setFormProjectId('')
+    setFormDeadline(''); setFormDesignerId(''); setFormProjectId(''); setCreateError(null)
   }
 
   async function handleCreate() {
@@ -339,21 +340,10 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       .single()
 
     if (error) {
-      console.error('Design canvas create error — full error object:', error)
-      console.error('Error message:', error.message)
-      console.error('Error code:', error.code)
-      console.error('Error details:', error.details)
-      console.error('Insert payload:', {
-        org_id: profile.org_id,
-        client_name: formClientName.trim(),
-        design_type: formDesignType,
-        description: briefDescription,
-        deadline: formDeadline || null,
-        assigned_to: formDesignerId || null,
-        linked_project_id: formProjectId || null,
-        created_by: profile.id,
-        status: 'brief',
-      })
+      console.error('Design canvas create error:', error)
+      setCreateError(error.message || 'Failed to create canvas. Please try again.')
+      setFormSaving(false)
+      return
     }
     if (!error && data) {
       setProjects(prev => [data as DesignProject, ...prev])
@@ -754,7 +744,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
             Design Studio
           </h1>
           <p style={{ fontSize: 13, color: '#5a6080', marginTop: 4 }}>
-            {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+            {filteredProjects.length} canvas{filteredProjects.length !== 1 ? 'es' : ''}
             {activeFilterCount > 0 && ` (filtered from ${projects.length})`}
           </p>
         </div>
@@ -906,7 +896,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
       {/* Kanban Board */}
       {loading ? (
-        <div style={{ padding: 48, textAlign: 'center', color: '#5a6080', fontSize: 14 }}>Loading design projects...</div>
+        <div style={{ padding: 48, textAlign: 'center', color: '#5a6080', fontSize: 14 }}>Loading canvases...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 16 }}>
           {STAGES.map(stage => {
@@ -963,7 +953,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                       border: '1px dashed #1a1d27',
                       borderRadius: 8,
                     }}>
-                      No projects
+                      No canvases
                     </div>
                   )}
 
@@ -1158,6 +1148,25 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                 )}
               </div>
             </div>
+
+            {/* Error message */}
+            {createError && (
+              <div style={{
+                margin: '0 20px',
+                padding: '10px 12px',
+                background: 'rgba(242,90,90,0.08)',
+                border: '1px solid rgba(242,90,90,0.25)',
+                borderRadius: 8,
+                fontSize: 12,
+                color: '#f25a5a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                {createError}
+              </div>
+            )}
 
             {/* Footer */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 20px', borderTop: '1px solid #1a1d27' }}>
@@ -1388,12 +1397,12 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
                         }}
                       >
                         <Trash2 size={13} />
-                        Delete Project
+                        Delete Canvas
                       </button>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'rgba(242,90,90,0.06)', border: '1px solid rgba(242,90,90,0.2)', borderRadius: 8 }}>
                         <div style={{ fontSize: 12, color: '#f25a5a', fontWeight: 600 }}>
-                          Are you sure? This will delete the project, files, comments, and proof links.
+                          Are you sure? This will delete the canvas, files, comments, and proof links.
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
