@@ -16,6 +16,8 @@ import {
   User,
   FileText,
 } from 'lucide-react'
+import VehicleSelector from '@/components/vehicle/VehicleSelector'
+import type { VehicleEntry } from '@/components/vehicle/VehicleSelector'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -566,94 +568,21 @@ export default function VehicleCheckinClient({ profile, job, jobId }: VehicleChe
               padding: 20,
             }}
           >
-            {/* VIN */}
-            <label style={labelStyle}>VIN</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <input
-                type="text"
-                value={vin}
-                onChange={(e) => setVin(e.target.value.toUpperCase())}
-                placeholder="Enter VIN..."
-                maxLength={17}
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              <button
-                onClick={decodeVin}
-                disabled={vinLoading}
-                style={{
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '0 16px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: vinLoading ? 'wait' : 'pointer',
-                  whiteSpace: 'nowrap',
-                  opacity: vinLoading ? 0.6 : 1,
-                }}
-              >
-                {vinLoading ? 'Decoding...' : 'Decode VIN'}
-              </button>
-            </div>
-            {vinError && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--red)',
-                  marginBottom: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <AlertTriangle size={13} /> {vinError}
-              </div>
-            )}
-
-            {/* Year / Make / Model */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
-              <div>
-                <label style={labelStyle}>
-                  Year <span style={{ color: 'var(--red)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  placeholder="2024"
-                  maxLength={4}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>
-                  Make <span style={{ color: 'var(--red)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={make}
-                  onChange={(e) => setMake(e.target.value)}
-                  placeholder="Ford"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>
-                  Model <span style={{ color: 'var(--red)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="Transit"
-                  style={inputStyle}
-                />
-              </div>
-            </div>
+            {/* Vehicle Selector with VIN */}
+            <VehicleSelector
+              showVinField={true}
+              onVehicleSelect={(veh: VehicleEntry) => {
+                setYear(String(veh.year))
+                setMake(veh.make)
+                setModel(veh.model)
+              }}
+              defaultYear={year ? parseInt(year) : undefined}
+              defaultMake={make || undefined}
+              defaultModel={model || undefined}
+            />
 
             {/* Color / Odometer / License Plate */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16, marginBottom: 16 }}>
               <div>
                 <label style={labelStyle}>Color</label>
                 <input

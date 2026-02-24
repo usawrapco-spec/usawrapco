@@ -42,6 +42,7 @@ import {
   Globe,
   Mail,
   Lightbulb,
+  Target,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -84,6 +85,12 @@ const NAV: NavItem[] = [
     href: '/prospects',
     label: 'Prospects',
     icon: UserPlus,
+    permission: 'sales.read',
+  },
+  {
+    href: '/sales/prospector',
+    label: 'Prospector',
+    icon: Target,
     permission: 'sales.read',
   },
   {
@@ -234,7 +241,7 @@ const NAV: NavItem[] = [
     href: '/installer',
     label: 'Installer Dashboard',
     icon: Hammer,
-    permission: 'install.view',
+    permission: 'jobs.read',
   },
   {
     href: '/analytics',

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Car, RotateCcw, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Camera, Paperclip, Search, AlertCircle, Globe, Check, X, Plus, type LucideIcon } from 'lucide-react'
+import VehicleSelector from '@/components/vehicle/VehicleSelector'
+import type { VehicleEntry } from '@/components/vehicle/VehicleSelector'
 
 interface CustomerIntakePortalProps {
   token: string
@@ -511,62 +513,21 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
 
       {/* Vehicle Information */}
       <Section label="Vehicle Information">
-        {/* VIN Lookup */}
-        <div style={{ marginBottom: 16 }}>
-          <Field label="VIN (Vehicle Identification Number)">
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                style={{ ...inp, flex: 1, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.05em', textTransform: 'uppercase' }}
-                value={form.vehicle_vin}
-                onChange={e => {
-                  const v = e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '').slice(0, 17)
-                  ff('vehicle_vin', v)
-                  if (v.length === 17) decodeVIN(v)
-                }}
-                placeholder="1HGBH41JXMN109186"
-                maxLength={17}
-              />
-              <button
-                onClick={() => form.vehicle_vin.length === 17 && decodeVIN(form.vehicle_vin)}
-                disabled={form.vehicle_vin.length !== 17 || vinDecoding}
-                style={{
-                  padding: '0 16px', borderRadius: 8, border: '1px solid #1e2d4a',
-                  background: form.vehicle_vin.length === 17 ? '#4f7fff' : '#0c1222',
-                  color: form.vehicle_vin.length === 17 ? '#fff' : '#5a6478',
-                  fontSize: 12, fontWeight: 700, cursor: form.vehicle_vin.length === 17 ? 'pointer' : 'default',
-                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-                }}
-              >
-                <Search size={13} />
-                {vinDecoding ? 'Looking up...' : 'Decode VIN'}
-              </button>
-            </div>
-            {vinResult && (
-              <div style={{
-                marginTop: 8, padding: '8px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-                background: vinResult.startsWith('Found') ? 'rgba(34,197,94,0.08)' : 'rgba(245,158,11,0.08)',
-                color: vinResult.startsWith('Found') ? '#22c55e' : '#f59e0b',
-                border: `1px solid ${vinResult.startsWith('Found') ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}`,
-              }}>
-                {vinResult}
-              </div>
-            )}
-            <div style={{ fontSize: 11, color: '#5a6478', marginTop: 6 }}>
-              Enter your 17-character VIN and we will auto-fill your vehicle details
-            </div>
-          </Field>
-        </div>
-
+        <VehicleSelector
+          showVinField
+          onVehicleSelect={(veh: VehicleEntry) => {
+            setForm(prev => ({
+              ...prev,
+              vehicle_year: String(veh.year),
+              vehicle_make: veh.make,
+              vehicle_model: veh.model,
+            }))
+          }}
+          defaultYear={form.vehicle_year ? parseInt(form.vehicle_year) : undefined}
+          defaultMake={form.vehicle_make || undefined}
+          defaultModel={form.vehicle_model || undefined}
+        />
         <Grid cols={2}>
-          <Field label="Year">
-            <input style={inp} value={form.vehicle_year} onChange={e => ff('vehicle_year', e.target.value)} placeholder="2024" />
-          </Field>
-          <Field label="Make">
-            <input style={inp} value={form.vehicle_make} onChange={e => ff('vehicle_make', e.target.value)} placeholder="Toyota" />
-          </Field>
-          <Field label="Model">
-            <input style={inp} value={form.vehicle_model} onChange={e => ff('vehicle_model', e.target.value)} placeholder="Tacoma" />
-          </Field>
           <Field label="Trim (optional)">
             <input style={inp} value={form.vehicle_trim} onChange={e => ff('vehicle_trim', e.target.value)} placeholder="TRD Pro" />
           </Field>

@@ -23,7 +23,26 @@ import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
+import PanelSelector from '@/components/vehicle/PanelSelector'
+import type { Panel } from '@/components/vehicle/PanelSelector'
 import vehiclesData from '@/lib/data/vehicles.json'
+
+// ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
+const TIER_TO_PANEL_KEY: Record<string, string> = {
+  small_car: 'sedan',
+  med_car: 'sedan',
+  full_car: 'suv_mid',
+  sm_truck: 'pickup_regular',
+  med_truck: 'pickup_crew',
+  full_truck: 'pickup_crew',
+  med_van: 'cargo_van_standard',
+  large_van: 'cargo_van_standard',
+  van: 'cargo_van_standard',
+  high_roof_van: 'cargo_van_high_roof',
+  truck: 'pickup_crew',
+  box_truck: 'box_truck_16',
+  trailer: 'trailer_48',
+}
 
 // ─── Vehicle Database ────────────────────────────────────────────────────────────
 
@@ -91,7 +110,7 @@ type TabKey = 'items' | 'calculators' | 'design' | 'production' | 'install' | 'n
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
-const DEMO_ESTIMATE: Estimate = {
+const DEMO_ESTIMATE = {
   id: 'demo-est-1', org_id: '', estimate_number: '1001', title: 'Ford F-150 Full Wrap + PPF',
   customer_id: null, status: 'draft', sales_rep_id: null, production_manager_id: null,
   project_manager_id: null, quote_date: '2026-02-18', due_date: '2026-03-01',
@@ -101,7 +120,7 @@ const DEMO_ESTIMATE: Estimate = {
   updated_at: '2026-02-18T10:00:00Z',
   customer: { id: 'c1', name: 'Mike Johnson', email: 'mike@example.com' },
   sales_rep: { id: 's1', name: 'Tyler Reid' },
-}
+} as Estimate
 
 const DEMO_LINE_ITEMS: LineItem[] = [
   {
@@ -140,11 +159,12 @@ const headingFont = 'Barlow Condensed, sans-serif'
 const monoFont = 'JetBrains Mono, monospace'
 
 const cardStyle: React.CSSProperties = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderRadius: 12,
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
+  borderRadius: 16,
   padding: 0,
   overflow: 'hidden',
+  transition: 'border-color 0.2s',
 }
 
 const sectionPad: React.CSSProperties = {
@@ -164,10 +184,10 @@ const fieldLabelStyle: React.CSSProperties = {
 
 const fieldInputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '7px 10px',
+  padding: '8px 12px',
   background: 'var(--bg)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
+  border: '1px solid var(--card-border)',
+  borderRadius: 10,
   color: 'var(--text1)',
   fontSize: 13,
   outline: 'none',
@@ -265,7 +285,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     ...DEMO_ESTIMATE,
     id: `new-${Date.now()}`,
     title: 'New Estimate',
-    estimate_number: 0,
+    estimate_number: '',
     subtotal: 0, discount: 0, tax_rate: DEFAULT_TAX_RATE, tax_amount: 0, total: 0,
     notes: '', customer_note: null, customer: null, sales_rep: null,
     sales_rep_id: profile.id, org_id: profile.org_id,
@@ -871,7 +891,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <div className="anim-fade-up" style={{ maxWidth: 1280, margin: '0 auto' }}>
       {/* Print styles + print-only logo header */}
       <style>{`
         @media print {
@@ -912,7 +932,12 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
+        background: 'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.03) 100%)',
+        border: '1px solid var(--card-border)', borderRadius: 20,
+        padding: '18px 22px', position: 'relative', overflow: 'hidden',
       }}>
+        {/* Accent glow */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${STATUS_CONFIG[est.status as EstimateStatus]?.color || 'var(--accent)'}, transparent)`, opacity: 0.5 }} />
         {/* Left: Back + QT number */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
@@ -1083,9 +1108,10 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 background: 'var(--green)', border: 'none',
-                borderRadius: 8, padding: '8px 16px', color: '#fff',
+                borderRadius: 12, padding: '9px 18px', color: '#fff',
                 fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
                 opacity: saving ? 0.6 : 1, fontFamily: headingFont, letterSpacing: '0.03em',
+                boxShadow: '0 2px 12px rgba(34,192,122,0.25)', transition: 'all 0.15s',
               }}
             >
               <Save size={14} />
@@ -1734,7 +1760,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   label={`Tax (${(taxRate * 100).toFixed(2)}%)`}
                   value={fmtCurrency(taxAmount)}
                 />
-                <div style={{ borderTop: '2px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ borderTop: '2px solid var(--card-border)', paddingTop: 14, marginTop: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{
                       fontSize: 14, fontWeight: 700, color: 'var(--text1)',
@@ -1743,7 +1769,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                       Total
                     </span>
                     <span style={{
-                      ...monoStyle, fontSize: 22, fontWeight: 800, color: 'var(--green)',
+                      ...monoStyle, fontSize: 24, fontWeight: 800, color: 'var(--green)',
+                      textShadow: '0 0 20px rgba(34,192,122,0.15)',
                     }}>
                       {fmtCurrency(total)}
                     </span>
@@ -2451,6 +2478,7 @@ function LineItemCard({
   allItems: LineItem[]
   onOpenAreaCalc: () => void
 }) {
+  const router = useRouter()
   const latestRef = useRef(item)
   latestRef.current = item
 
@@ -2512,8 +2540,8 @@ function LineItemCard({
 
   return (
     <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, overflow: 'hidden',
+      background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+      borderRadius: 14, overflow: 'hidden', transition: 'all 0.2s',
     }}>
       {/* ── Header Row ─────────────────────────────────────────────────── */}
       <div
@@ -2615,23 +2643,46 @@ function LineItemCard({
 
           {/* ── VIN + Vehicle Info (vehicle products only) ────────────── */}
           {isVehicleProduct && (
-            <VehicleInfoBlock
-              specs={specs}
-              updateSpec={updateSpec}
-              handleBlur={handleBlur}
-              canWrite={canWrite}
-              onVehicleSelect={(v) => {
-                const updated = { ...latestRef.current }
-                const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model }
-                if (v.basePrice > 0) {
-                  updated.unit_price = v.basePrice
-                  updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
-                  newSpecs.estimatedHours = v.installHours
-                }
-                updated.specs = newSpecs
-                onChange(updated)
-              }}
-            />
+            <>
+              <VehicleInfoBlock
+                specs={specs}
+                updateSpec={updateSpec}
+                handleBlur={handleBlur}
+                canWrite={canWrite}
+                onVehicleSelect={(v) => {
+                  const updated = { ...latestRef.current }
+                  const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model, vehicleTier: v.tier }
+                  if (v.basePrice > 0) {
+                    updated.unit_price = v.basePrice
+                    updated.total_price = (updated.quantity * v.basePrice) - updated.unit_discount
+                    newSpecs.estimatedHours = v.installHours
+                  }
+                  updated.specs = newSpecs
+                  onChange(updated)
+                }}
+              />
+
+              {/* ── Panel Selector (after vehicle is selected) ──────────── */}
+              {specs.vehicleMake && specs.vehicleModel && (() => {
+                const tier = (specs.vehicleTier as string) || (specs.vehicleType as string) || ''
+                const panelKey = TIER_TO_PANEL_KEY[tier] || ''
+                if (!panelKey && !tier) return null
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <PanelSelector
+                      vehicleType={panelKey || tier}
+                      onPanelsChange={(_panels: Panel[], totalSqft: number) => {
+                        if (totalSqft > 0) {
+                          const updated = { ...latestRef.current }
+                          updated.specs = { ...updated.specs, vinylArea: totalSqft }
+                          onChange(updated)
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              })()}
+            </>
           )}
 
           {/* ── Core Fields Row ─────────────────────────────────────────── */}
@@ -3249,7 +3300,7 @@ function LineItemCard({
                   display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
                   background: 'rgba(34,211,238,0.06)', borderRadius: 8, fontSize: 12,
                 }}>
-                  <span style={{ color: 'var(--text2)' }}>Linear Ft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.linearFeet}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Linear Ft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.linearFeet as number}</span></span>
                   <span style={{ color: 'var(--text2)' }}>Passes: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.marinePasses as number) || 1}</span></span>
                   <span style={{ color: 'var(--cyan)', fontWeight: 700 }}>Total: <span style={{ fontFamily: monoFont }}>{specs.vinylArea || 0} sqft</span></span>
                 </div>

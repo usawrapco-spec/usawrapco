@@ -11,6 +11,8 @@ import {
   Circle, ArrowRight, Upload, BadgeCheck, BadgeDollarSign, Info,
   Package, Layers, Hash, SquarePen, CircleDot, AlertTriangle
 } from 'lucide-react'
+import VehicleSelector from '@/components/vehicle/VehicleSelector'
+import type { VehicleEntry } from '@/components/vehicle/VehicleSelector'
 
 // ── Props ────────────────────────────────────────────────────────────
 interface OrderEditorProps {
@@ -615,7 +617,23 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
                     <input style={inp} value={f.vehicleColor} onChange={e => ff('vehicleColor', e.target.value)} placeholder="White" />
                   </Field>
                 </Grid>
-
+                <div style={{ marginTop: 12 }}>
+                  <VehicleSelector
+                    onVehicleSelect={(veh: VehicleEntry) => {
+                      ff('vehicleDesc', `${veh.year} ${veh.make} ${veh.model}`)
+                      ff('vehicleYear', String(veh.year))
+                      ff('vehicleMake', veh.make)
+                      ff('vehicleModel', veh.model)
+                      ff('vehicleSqft', veh.sqft)
+                      ff('vehicleTier', veh.tier)
+                      ff('totalSqft', String(veh.sqft))
+                      ff('estHours', String(veh.installHours))
+                    }}
+                    defaultYear={parseInt(String(fd.vehicleYear || '')) || undefined}
+                    defaultMake={(fd.vehicleMake as string) || undefined}
+                    defaultModel={(fd.vehicleModel as string) || undefined}
+                  />
+                </div>
                 <Grid cols={3} style={{ marginTop: 12 }}>
                   <Field label="Agent">
                     <select style={sel} value={f.agentId} onChange={e => {
