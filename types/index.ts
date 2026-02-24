@@ -384,6 +384,8 @@ export interface LineItem {
   total_price: number
   specs: LineItemSpecs
   sort_order: number
+  rolled_up_into?: string | null
+  is_rolled_up?: boolean
   created_at: string
 }
 

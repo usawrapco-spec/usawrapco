@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import YoYComparison from './YoYComparison'
 import {
   BarChart3,
   TrendingUp,
@@ -656,6 +657,11 @@ export default function AnalyticsPage({ profile, projects }: AnalyticsPageProps)
             </div>
           )}
         </div>
+      </div>
+
+      {/* Year-over-Year Comparison Section */}
+      <div style={{ marginTop: 24 }}>
+        <YoYComparison projects={projects} />
       </div>
     </div>
   )

@@ -63,6 +63,7 @@ interface CustomerRow {
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
+  const mode = req.nextUrl.searchParams.get('mode') || 'internal' // 'customer' hides rolled-up rows
   if (!id) {
     return NextResponse.json({ error: 'Missing ?id= parameter' }, { status: 400 })
   }
@@ -93,12 +94,16 @@ export async function GET(req: NextRequest) {
 
   // ── Build rolled-up tree ────────────────────────────────────────────────────
   // Items with specs.rolledUp=true and specs.parentItemId are nested under the
-  // parent. They still count toward the parent total but display indented.
+  // parent. In internal mode, they display indented under the parent.
+  // In customer mode, they are hidden and their totals are folded into the parent.
+
+  const isCustomerMode = mode === 'customer'
 
   interface DisplayItem {
     index: number
     item: LineItemRow
     children: LineItemRow[]
+    combinedTotal: number // parent total + rolled-up children totals
   }
 
   const rolledUpIds = new Set<string>()
@@ -118,10 +123,13 @@ export async function GET(req: NextRequest) {
   let idx = 1
   for (const li of lineItems) {
     if (rolledUpIds.has(li.id)) continue
+    const children = childrenMap.get(li.id) || []
+    const childrenTotal = children.reduce((sum, c) => sum + c.total_price, 0)
     displayItems.push({
       index: idx++,
       item: li,
-      children: childrenMap.get(li.id) || [],
+      children,
+      combinedTotal: li.total_price + childrenTotal,
     })
   }
 
@@ -138,7 +146,10 @@ export async function GET(req: NextRequest) {
 
   // ── Render line item rows ──────────────────────────────────────────────────
 
-  function renderLineItemRow(li: LineItemRow, num: string, isChild: boolean): string {
+  function renderLineItemRow(
+    li: LineItemRow, num: string, isChild: boolean,
+    overrideTotal?: number,
+  ): string {
     const indent = isChild ? 'padding-left:28px;' : ''
     const nameStyle = isChild
       ? 'font-size:12px;color:#9299b5;font-weight:500;'
@@ -147,6 +158,7 @@ export async function GET(req: NextRequest) {
     const numStyle = 'font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;'
     const metaStyle = 'font-size:10px;color:#5a6080;margin-top:3px;'
     const s = li.specs || {} as Record<string, unknown>
+    const rowTotal = overrideTotal ?? li.total_price
 
     // Build metadata lines
     const metaLines: string[] = []
@@ -157,25 +169,36 @@ export async function GET(req: NextRequest) {
     if (zones && zones.length > 0) metaLines.push(`Coverage: ${zones.map(z => esc(z)).join(', ')}`)
     if (s.vinylArea) metaLines.push(`Area: ${s.vinylArea} sqft`)
 
+    // For internal mode, add a "ROLLED UP" indicator for child items
+    const rolledUpBadge = isChild
+      ? '<span style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:0.06em;color:#5a6080;background:rgba(90,96,128,0.15);margin-left:6px;vertical-align:middle;">ROLLED UP</span>'
+      : ''
+
     return `
-      <tr style="border-bottom:1px solid #2a2d3a;">
+      <tr style="border-bottom:1px solid #2a2d3a;${isChild ? 'background:rgba(13,15,20,0.5);' : ''}">
         <td style="padding:12px 14px;${indent}vertical-align:top;font-size:12px;color:#5a6080;${numStyle}">${esc(num)}</td>
         <td style="padding:12px 14px;${indent}vertical-align:top;">
-          <div style="${nameStyle}">${esc(li.name)}</div>
+          <div style="${nameStyle}">${esc(li.name)}${rolledUpBadge}</div>
           ${li.description ? `<div style="${descStyle}">${esc(li.description)}</div>` : ''}
           ${metaLines.length > 0 ? `<div style="${metaStyle}">${metaLines.join(' &nbsp;&bull;&nbsp; ')}</div>` : ''}
         </td>
-        <td style="padding:12px 14px;text-align:center;${numStyle}color:#e8eaed;font-size:13px;vertical-align:top;">${li.quantity}</td>
+        <td style="padding:12px 14px;text-align:center;${numStyle}color:${isChild ? '#5a6080' : '#e8eaed'};font-size:13px;vertical-align:top;">${li.quantity}</td>
         <td style="padding:12px 14px;text-align:right;${numStyle}color:#9299b5;font-size:13px;vertical-align:top;">${fmtMoney(li.unit_price)}</td>
-        <td style="padding:12px 14px;text-align:right;${numStyle}color:#e8eaed;font-size:13px;font-weight:700;vertical-align:top;">${fmtMoney(li.total_price)}</td>
+        <td style="padding:12px 14px;text-align:right;${numStyle}color:${isChild ? '#5a6080' : '#e8eaed'};font-size:13px;font-weight:700;vertical-align:top;">${fmtMoney(rowTotal)}</td>
       </tr>`
   }
 
   let lineItemsHtml = ''
   for (const di of displayItems) {
-    lineItemsHtml += renderLineItemRow(di.item, String(di.index), false)
-    for (let c = 0; c < di.children.length; c++) {
-      lineItemsHtml += renderLineItemRow(di.children[c], `${di.index}.${c + 1}`, true)
+    if (isCustomerMode) {
+      // Customer mode: hide rolled-up children, show combined total on parent
+      lineItemsHtml += renderLineItemRow(di.item, String(di.index), false, di.combinedTotal)
+    } else {
+      // Internal mode: show parent with its own total, then indented children with indicators
+      lineItemsHtml += renderLineItemRow(di.item, String(di.index), false)
+      for (let c = 0; c < di.children.length; c++) {
+        lineItemsHtml += renderLineItemRow(di.children[c], `${di.index}.${c + 1}`, true)
+      }
     }
   }
 

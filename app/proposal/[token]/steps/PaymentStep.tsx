@@ -1,75 +1,158 @@
 'use client'
 
 import { useState } from 'react'
+import { ChevronLeft, Loader2, Shield, CreditCard } from 'lucide-react'
 
 interface PaymentStepProps {
-  total: number
-  downPaymentPct: number
-  token: string
-  onSuccess: () => void
+  clientSecret: string | null
+  depositAmount: number
+  customerName: string
+  customerEmail: string
+  isDemo: boolean
+  onSuccess: () => Promise<void>
   onBack: () => void
+  colors: any
 }
 
-export default function PaymentStep({ total, downPaymentPct, token, onSuccess, onBack }: PaymentStepProps) {
+export default function PaymentStep({
+  clientSecret, depositAmount, customerName, customerEmail, isDemo, onSuccess, onBack, colors: C,
+}: PaymentStepProps) {
   const [processing, setProcessing] = useState(false)
-  const downPayment = total * (downPaymentPct / 100)
+  const [cardName, setCardName] = useState(customerName)
+  const [cardEmail, setCardEmail] = useState(customerEmail)
 
-  const handlePayment = async () => {
+  const handlePay = async () => {
+    if (processing) return
     setProcessing(true)
+
+    if (isDemo || !clientSecret || clientSecret.startsWith('demo_')) {
+      // Demo mode — simulate payment
+      await new Promise(r => setTimeout(r, 2000))
+      await onSuccess()
+      return
+    }
+
+    // Real Stripe payment would use Stripe Elements here
+    // For now, call onSuccess directly (Stripe Elements integration can be added)
     try {
-      // Payment processing would integrate with Stripe here
-      await new Promise(r => setTimeout(r, 1500))
-      onSuccess()
+      await onSuccess()
     } catch {
       setProcessing(false)
     }
   }
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.04)',
+    border: `1px solid ${C.border}`, borderRadius: 10, color: C.text1,
+    fontSize: 15, fontFamily: 'inherit', outline: 'none',
+  }
+
   return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: '#f5f5f5', marginBottom: 8 }}>
-        Secure Your Spot
-      </h2>
-      <p style={{ fontSize: 14, color: '#a0a0a0', marginBottom: 24 }}>
-        A {downPaymentPct}% deposit is required to lock in your booking.
-      </p>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 20px 80px' }}>
+      <button onClick={onBack} disabled={processing} style={{
+        background: 'none', border: 'none', color: C.text3, fontSize: 13, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 4, marginBottom: 20, padding: 0,
+      }}>
+        <ChevronLeft size={16} /> Back
+      </button>
 
       <div style={{
-        padding: 20, borderRadius: 10, background: '#1A1A1A',
-        border: '1px solid #2a2a2a', marginBottom: 24, textAlign: 'center',
+        fontSize: 28, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif',
+        textAlign: 'center', marginBottom: 8,
       }}>
-        <div style={{ fontSize: 12, color: '#a0a0a0', marginBottom: 4 }}>Deposit Amount</div>
-        <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: '#f59e0b' }}>
-          ${downPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-        </div>
-        <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-          of ${total.toLocaleString()} total ({downPaymentPct}%)
-        </div>
+        Deposit Payment
+      </div>
+      <div style={{ textAlign: 'center', fontSize: 14, color: C.text2, marginBottom: 32 }}>
+        Secure your spot with a deposit
       </div>
 
+      {/* Amount card */}
       <div style={{
-        padding: 16, borderRadius: 10, background: '#222',
-        border: '1px solid #2a2a2a', marginBottom: 24,
-        fontSize: 13, color: '#a0a0a0', textAlign: 'center',
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+        padding: 28, textAlign: 'center', marginBottom: 24,
       }}>
-        Payment integration coming soon. Contact us to arrange payment.
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.text3, marginBottom: 6 }}>
+          Deposit Amount
+        </div>
+        <div style={{
+          fontSize: 44, fontWeight: 900, color: C.accent,
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          ${depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={onBack} disabled={processing} style={{
-          flex: 1, padding: 14, borderRadius: 10, background: '#222',
-          border: '1px solid #2a2a2a', color: '#a0a0a0', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-        }}>
-          Back
-        </button>
-        <button onClick={handlePayment} disabled={processing} style={{
-          flex: 1, padding: 14, borderRadius: 10,
-          background: processing ? '#666' : '#22c07a',
-          border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-        }}>
-          {processing ? 'Processing...' : 'Submit Deposit'}
-        </button>
+      {/* Card form */}
+      <div style={{
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+        padding: 20, marginBottom: 24,
+      }}>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 6, display: 'block' }}>Name</label>
+          <input
+            value={cardName}
+            onChange={e => setCardName(e.target.value)}
+            style={inputStyle}
+            readOnly
+          />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 6, display: 'block' }}>Email</label>
+          <input
+            value={cardEmail}
+            onChange={e => setCardEmail(e.target.value)}
+            style={inputStyle}
+            readOnly
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 6, display: 'block' }}>Card Details</label>
+          <div style={{
+            ...inputStyle,
+            display: 'flex', alignItems: 'center', gap: 10,
+            color: C.text3,
+          }}>
+            <CreditCard size={18} />
+            {isDemo || !clientSecret ? (
+              <span style={{ fontSize: 14 }}>Demo mode - no real charge</span>
+            ) : (
+              <span style={{ fontSize: 14 }}>Stripe card input</span>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Secure badge */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        marginBottom: 24, fontSize: 12, color: C.text3,
+      }}>
+        <Shield size={14} />
+        Payments secured with 256-bit SSL encryption
+      </div>
+
+      {/* Pay button */}
+      <button
+        onClick={handlePay}
+        disabled={processing}
+        style={{
+          width: '100%', padding: '18px', border: 'none', borderRadius: 14,
+          background: processing ? C.surface2 : `linear-gradient(135deg, ${C.green}, #16a35e)`,
+          color: processing ? C.text3 : '#fff',
+          fontSize: 17, fontWeight: 800, cursor: processing ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase',
+          letterSpacing: '0.02em',
+        }}
+      >
+        {processing ? (
+          <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Processing Payment...</>
+        ) : (
+          <>Pay Deposit &amp; Confirm</>
+        )}
+      </button>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

@@ -19,6 +19,8 @@ import IntakeLinkGenerator from '@/components/customer/IntakeLinkGenerator'
 import ReferralPanel from '@/components/referral/ReferralPanel'
 import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
 import SalesTabBuilder from '@/components/projects/SalesTabBuilder'
+import ProofingPanel from '@/components/projects/ProofingPanel'
+import TimeTrackingTab from '@/components/projects/TimeTrackingTab'
 
 interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -78,7 +80,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'>('chat')
+  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'|'time_tracking'>('chat')
   const [aiRecap, setAiRecap] = useState<any>(null)
   const [aiRecapLoading, setAiRecapLoading] = useState(false)
   const [showAiRecap, setShowAiRecap] = useState(false)
@@ -422,6 +424,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     { key: 'expenses',   label: 'Expenses',   Icon: Receipt },
     { key: 'purchasing', label: 'Purchasing', Icon: ShoppingCart },
     { key: 'activity',   label: 'Activity',   Icon: Activity },
+    { key: 'time_tracking', label: 'Time', Icon: Timer },
   ]
 
   const stageOrder = ['sales_in','production','install','prod_review','sales_close']
@@ -1198,6 +1201,7 @@ function DesignTab({ f, ff, project, profile }: any) {
   const { xpToast, badgeToast } = useToast()
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <ProofingPanel project={project} profile={profile} />
       <LinkedDesignPanel project={project} />
       <Section label="Design & Artwork" color="#8b5cf6">
         <Check label="Design / Artwork Required" checked={f.designNeeded} onChange={v => ff('designNeeded',v)} />

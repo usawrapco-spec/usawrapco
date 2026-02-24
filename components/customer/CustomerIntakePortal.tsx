@@ -46,8 +46,7 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
-  const [vinDecoding, setVinDecoding] = useState(false)
-  const [vinResult, setVinResult] = useState<string>('')
+  // vinDecoding and vinResult removed -- VinLookupField handles this internally
 
   const [form, setForm] = useState({
     customer_name: '',
@@ -150,7 +149,6 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
       vehicle_model: data.model || prev.vehicle_model,
       vehicle_trim: data.trim || prev.vehicle_trim,
     }))
-    setVinResult(`Found: ${[data.year, data.make, data.model, data.trim].filter(Boolean).join(' ')}`)
   }
 
   // ── Scrape website ──────────────────────────────────────────────────

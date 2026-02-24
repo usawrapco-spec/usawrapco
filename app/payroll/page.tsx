@@ -5,6 +5,7 @@ import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import type { Profile } from '@/types'
 import PayrollClient from '@/components/payroll/PayrollClient'
+import EnhancedPayrollClient from '@/components/payroll/EnhancedPayrollClient'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -51,7 +52,7 @@ export default async function PayrollPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
-          <PayrollClient profile={profile as Profile} employees={employees} projects={closedProjects} />
+          <EnhancedPayrollClient profile={profile as Profile} employees={employees} projects={closedProjects} />
         </main>
       <div className="md:hidden">
         <MobileNav />
