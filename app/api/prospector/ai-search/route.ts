@@ -77,9 +77,9 @@ export async function POST(req: Request) {
     const limitedPlaces = allPlaces.slice(0, Math.min(maxResults * 2, 60))
     const detailedPlaces: any[] = []
 
-    const detailBatches = []
+    const detailBatches: any[][] = [] as any[][]
     for (let i = 0; i < limitedPlaces.length; i += 10) {
-      detailBatches.push(limitedPlaces.slice(i, i + 10))
+      detailBatches.push(limitedPlaces.slice(i, i + 10) as any[])
     }
 
     for (const batch of detailBatches) {
@@ -137,9 +137,9 @@ export async function POST(req: Request) {
     const scoredProspects: any[] = []
 
     // Batch AI scoring
-    const scoreBatches = []
+    const scoreBatches: any[][] = [] as any[][]
     for (let i = 0; i < newPlaces.length; i += 5) {
-      scoreBatches.push(newPlaces.slice(i, i + 5))
+      scoreBatches.push(newPlaces.slice(i, i + 5) as any[])
     }
 
     for (const batch of scoreBatches) {

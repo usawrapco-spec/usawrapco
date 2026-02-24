@@ -2949,7 +2949,7 @@ function LineItemCard({
                   : <ToggleLeft size={16} />}
                 Roll up into parent
               </button>
-              {specs.rolledUp && (
+              {!!specs.rolledUp && (
                 <select
                   value={(specs.parentItemId as string) || ''}
                   onChange={e => updateSpec('parentItemId', e.target.value)}

@@ -117,7 +117,7 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(e =>
-        e.title.toLowerCase().includes(q) ||
+        String(e.title || '').toLowerCase().includes(q) ||
         e.customer?.name?.toLowerCase().includes(q) ||
         e.customer?.email?.toLowerCase().includes(q) ||
         String(e.estimate_number).includes(q)

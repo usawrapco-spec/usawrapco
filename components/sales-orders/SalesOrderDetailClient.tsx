@@ -104,7 +104,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [dueDate, setDueDate] = useState(so.due_date || '')
   const [installDate, setInstallDate] = useState(so.install_date || '')
   const [paymentTerms, setPaymentTerms] = useState(so.payment_terms || 'net_30')
-  const [downPaymentPct, setDownPaymentPct] = useState(so.down_payment_pct)
+  const [downPaymentPct, setDownPaymentPct] = useState<number>(so.down_payment_pct ?? 0)
   const [lineItemsList, setLineItemsList] = useState<LineItem[]>(items)
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -122,7 +122,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const subtotal = useMemo(() => lineItemsList.reduce((s, li) => s + li.total_price, 0), [lineItemsList])
   const taxAmount = useMemo(() => (subtotal - discount) * taxRate, [subtotal, discount, taxRate])
   const total = useMemo(() => subtotal - discount + taxAmount, [subtotal, discount, taxAmount])
-  const downPayment = useMemo(() => total * (downPaymentPct / 100), [total, downPaymentPct])
+  const downPayment = useMemo(() => total * ((downPaymentPct ?? 0) / 100), [total, downPaymentPct])
 
   const fmtCurrency = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -737,7 +737,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input
                     type="number"
-                    value={downPaymentPct}
+                    value={downPaymentPct ?? 0}
                     onChange={e => setDownPaymentPct(Number(e.target.value))}
                     className="field mono"
                     disabled={!canWrite}

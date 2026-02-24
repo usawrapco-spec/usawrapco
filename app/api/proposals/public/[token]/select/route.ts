@@ -59,8 +59,8 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
     // Create Stripe Payment Intent (or demo mode)
     const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
-    let clientSecret = null
-    let paymentIntentId = null
+    let clientSecret: string | null = null as string | null
+    let paymentIntentId: string | null = null as string | null
 
     if (STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.startsWith('PLACEHOLDER')) {
       const Stripe = require('stripe')

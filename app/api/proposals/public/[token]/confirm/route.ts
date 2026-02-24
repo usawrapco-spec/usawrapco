@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     })
 
     // 3. Auto-create Sales Order from estimate
-    let salesOrder = null
+    let salesOrder: any = null
     if (estimate) {
       const { data: so } = await admin
         .from('sales_orders')
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
           so_date: new Date().toISOString().split('T')[0],
         })
         .select()
-        .single()
+        .single() as { data: any }
 
       salesOrder = so
 

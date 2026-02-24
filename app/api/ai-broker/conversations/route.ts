@@ -32,11 +32,11 @@ export async function GET(req: Request) {
       .limit(200)
 
     // Load customer
-    let customer = null
+    let customer: any = null
     if (convo.customer_id) {
       const { data: c } = await admin.from('customers')
         .select('id, name, email, phone, company_name, status')
-        .eq('id', convo.customer_id).single()
+        .eq('id', convo.customer_id).single() as { data: any }
       customer = c
     }
 
@@ -69,11 +69,11 @@ export async function GET(req: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('conversation_id', convo.id)
 
-    let customer = null
+    let customer: any = null
     if (convo.customer_id) {
       const { data: c } = await admin.from('customers')
         .select('id, name, email, phone, company_name, status')
-        .eq('id', convo.customer_id).single()
+        .eq('id', convo.customer_id).single() as { data: any }
       customer = c
     }
 

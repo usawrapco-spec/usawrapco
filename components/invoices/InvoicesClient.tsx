@@ -101,7 +101,7 @@ export default function InvoicesClient({ profile, initialInvoices }: Props) {
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(inv =>
-        inv.title.toLowerCase().includes(q) ||
+        String(inv.title || '').toLowerCase().includes(q) ||
         inv.customer?.name?.toLowerCase().includes(q) ||
         inv.customer?.email?.toLowerCase().includes(q) ||
         String(inv.invoice_number).includes(q)
@@ -321,9 +321,9 @@ export default function InvoicesClient({ profile, initialInvoices }: Props) {
                     <td style={{ textAlign: 'right' }}>
                       <span className="mono" style={{
                         fontSize: 13, fontWeight: 600,
-                        color: inv.balance_due > 0 ? 'var(--amber)' : 'var(--green)',
+                        color: Number(inv.balance_due ?? 0) > 0 ? 'var(--amber)' : 'var(--green)',
                       }}>
-                        {fmtCurrency(inv.balance_due)}
+                        {fmtCurrency(Number(inv.balance_due ?? 0))}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: 'var(--text3)' }}>

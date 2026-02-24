@@ -110,7 +110,7 @@ export default function SalesOrdersClient({ profile, initialOrders }: Props) {
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(o =>
-        o.title.toLowerCase().includes(q) ||
+        String(o.title || '').toLowerCase().includes(q) ||
         o.customer?.name?.toLowerCase().includes(q) ||
         o.customer?.email?.toLowerCase().includes(q) ||
         String(o.so_number).includes(q)
