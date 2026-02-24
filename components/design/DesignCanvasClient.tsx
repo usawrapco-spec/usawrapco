@@ -1057,6 +1057,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     in_progress: { label: 'In Progress', color: '#4f7fff' },
     proof_sent: { label: 'Proof Sent', color: '#22d3ee' },
     customer_review: { label: 'Customer Review', color: '#8b5cf6' },
+    revision: { label: 'Revision', color: '#f97316' },
     approved: { label: 'Approved', color: '#22c07a' },
     print_ready: { label: 'Print Ready', color: '#ec4899' },
   }
@@ -1066,6 +1067,43 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     setDesignStatus(status)
     setShowStatusDrop(false)
     supabase.from('design_projects').update({ status, updated_at: new Date().toISOString() }).eq('id', design.id)
+  }
+
+  // ── Tabs ──
+  const [activeTab, setActiveTab] = useState<'brief' | 'canvas' | 'files' | 'proofing'>('canvas')
+  const [proofHistory, setProofHistory] = useState<any[]>([])
+  const [proofGenerating, setProofGenerating] = useState(false)
+  const [proofLink, setProofLink] = useState<string | null>(null)
+  const [proofLinkCopied, setProofLinkCopied] = useState(false)
+
+  useEffect(() => {
+    supabase.from('proofing_tokens').select('*')
+      .eq('design_project_id', design.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setProofHistory(data) })
+  }, [design.id])
+
+  const handleGenerateProof = async () => {
+    setProofGenerating(true)
+    const { data: existing } = await supabase.from('proofing_tokens').select('token')
+      .eq('design_project_id', design.id).eq('status', 'pending').maybeSingle()
+    if (existing) {
+      const link = `${window.location.origin}/proof/${existing.token}`
+      setProofLink(link)
+      setProofGenerating(false)
+      return
+    }
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    await supabase.from('proofing_tokens').insert({
+      token, design_project_id: design.id, org_id: design.org_id,
+      status: 'pending', expires_at: expiresAt,
+    })
+    const link = `${window.location.origin}/proof/${token}`
+    setProofLink(link)
+    setProofHistory(prev => [{ token, status: 'pending', created_at: new Date().toISOString() }, ...prev])
+    saveStatus('proof_sent')
+    setProofGenerating(false)
   }
 
   // ── Autosave indicator ──
@@ -1262,8 +1300,233 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         </div>
       </div>
 
+      {/* ─── TAB BAR ─── */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #1a1d27', background: '#13151c', flexShrink: 0 }}>
+        {(['brief', 'canvas', 'files', 'proofing'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '10px 20px', background: 'transparent', border: 'none',
+              borderBottom: activeTab === tab ? '2px solid #4f7fff' : '2px solid transparent',
+              color: activeTab === tab ? '#4f7fff' : '#9299b5',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.03em',
+              textTransform: 'capitalize',
+            }}>
+            {tab === 'files' ? 'Files & Versions' : tab}
+          </button>
+        ))}
+      </div>
+
+      {/* ─── BRIEF TAB ─── */}
+      {activeTab === 'brief' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 700, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {linkedJob && (
+              <div style={{ background: '#13151c', borderRadius: 12, border: '1px solid #1a1d27', padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 }}>Linked Job</div>
+                <button onClick={() => router.push(`/jobs/${linkedJob.id}`)}
+                  style={{ background: 'none', border: 'none', color: '#4f7fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, padding: 0 }}>
+                  {linkedJob.vehicle_desc || linkedJob.title}
+                </button>
+              </div>
+            )}
+            <div style={{ background: '#13151c', borderRadius: 12, border: '1px solid #1a1d27', padding: '16px 20px' }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 }}>Project Details</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  ['Vehicle Type', vehicleType],
+                  ['Design Type', design.design_type || '—'],
+                  ['Client', design.client_name || '—'],
+                  ['Status', statusMeta[designStatus]?.label || designStatus],
+                ].map(([label, val]) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, color: '#5a6080', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 13, color: '#e8eaed' }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+              {design.design_notes && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 10, color: '#5a6080', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Design Notes</div>
+                  <div style={{ fontSize: 13, color: '#9299b5', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{design.design_notes}</div>
+                </div>
+              )}
+            </div>
+            {(VEHICLE_PANELS[vehicleType] || []).length > 0 && (
+              <div style={{ background: '#13151c', borderRadius: 12, border: '1px solid #1a1d27', padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 }}>Coverage Checklist</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(VEHICLE_PANELS[vehicleType] || []).map(panel => (
+                    <label key={panel.label} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: selectedPanels.includes(panel.label) ? '#22c07a' : '#9299b5' }}>
+                      <input type="checkbox" checked={selectedPanels.includes(panel.label)}
+                        onChange={e => setSelectedPanels(prev => e.target.checked ? [...prev, panel.label] : prev.filter(p => p !== panel.label))}
+                        style={{ accentColor: '#22c07a' }} />
+                      {panel.label} <span style={{ color: '#5a6080', fontFamily: 'JetBrains Mono, monospace' }}>({panel.sqft} sqft)</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            {jobImages.length > 0 && (
+              <div style={{ background: '#13151c', borderRadius: 12, border: '1px solid #1a1d27', padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 }}>Brand Assets</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {jobImages.map(img => (
+                    <img key={img.id} src={img.url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #1a1d27' }} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── FILES TAB ─── */}
+      {activeTab === 'files' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 700, margin: '0 auto' }}>
+            <div
+              onDragOver={e => { e.preventDefault(); setFileDragOver(true) }}
+              onDragLeave={() => setFileDragOver(false)}
+              onDrop={async e => {
+                e.preventDefault()
+                setFileDragOver(false)
+                const files = Array.from(e.dataTransfer.files)
+                for (const f of files) {
+                  setUploading(true)
+                  const path = `designs/${design.id}/${Date.now()}_${f.name}`
+                  const { data: up } = await supabase.storage.from('job-images').upload(path, f)
+                  if (up) {
+                    const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(path)
+                    const maxVer = designFiles.reduce((m, df) => Math.max(m, df.version || 0), 0)
+                    await supabase.from('design_project_files').insert({
+                      design_project_id: design.id, file_name: f.name, file_url: publicUrl,
+                      file_type: f.type, file_size: f.size, version: maxVer + 1,
+                    })
+                    const { data: refreshed } = await supabase.from('design_project_files').select('*')
+                      .eq('design_project_id', design.id).order('created_at', { ascending: false })
+                    if (refreshed) setDesignFiles(refreshed)
+                  }
+                  setUploading(false)
+                }
+              }}
+              style={{
+                border: `2px dashed ${fileDragOver ? '#4f7fff' : '#1a1d27'}`,
+                borderRadius: 12, padding: '28px 20px', textAlign: 'center',
+                marginBottom: 20, background: fileDragOver ? 'rgba(79,127,255,0.05)' : '#13151c',
+                transition: 'all 0.15s',
+              }}>
+              <Upload size={24} style={{ color: '#5a6080', margin: '0 auto 8px' }} />
+              <div style={{ fontSize: 14, color: '#9299b5', fontWeight: 700 }}>Drop files here</div>
+              <div style={{ fontSize: 12, color: '#5a6080', marginTop: 4 }}>PNG, JPG, PDF, AI, SVG</div>
+              {uploading && <div style={{ fontSize: 12, color: '#4f7fff', marginTop: 8 }}>Uploading...</div>}
+            </div>
+            {Object.entries(
+              designFiles.reduce((groups: Record<number, any[]>, f) => {
+                const v = f.version || 1
+                if (!groups[v]) groups[v] = []
+                groups[v].push(f)
+                return groups
+              }, {})
+            ).sort(([a], [b]) => Number(b) - Number(a)).map(([ver, files]) => (
+              <div key={ver} style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
+                  Version {ver}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8, marginBottom: 8 }}>
+                  {files.filter(f => f.file_type?.startsWith('image') || f.file_url?.match(/\.(png|jpg|jpeg|gif|webp)$/i)).map(f => (
+                    <img key={f.id} src={f.file_url} alt={f.file_name} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, border: '1px solid #1a1d27' }} />
+                  ))}
+                </div>
+                {files.map(f => (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#13151c', borderRadius: 8, border: '1px solid #1a1d27', marginBottom: 4 }}>
+                    <div style={{ flex: 1, fontSize: 12, color: '#e8eaed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.file_name}</div>
+                    <div style={{ fontSize: 10, color: '#5a6080', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {f.file_size ? `${(f.file_size / 1024).toFixed(0)} KB` : ''}
+                    </div>
+                    <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer"
+                      style={{ color: '#4f7fff', padding: 4 }}>
+                      <Download size={14} />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {designFiles.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, color: '#5a6080', fontSize: 13 }}>No files uploaded yet.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── PROOFING TAB ─── */}
+      {activeTab === 'proofing' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 600, margin: '0 auto' }}>
+            <div style={{ background: '#13151c', borderRadius: 12, border: '1px solid #1a1d27', padding: '20px 24px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#e8eaed' }}>Current Status</div>
+                <span style={{
+                  padding: '3px 12px', borderRadius: 20, fontSize: 11, fontWeight: 800,
+                  background: `${statusMeta[designStatus]?.color || '#5a6080'}20`,
+                  color: statusMeta[designStatus]?.color || '#5a6080',
+                }}>
+                  {statusMeta[designStatus]?.label || designStatus}
+                </span>
+              </div>
+              <button
+                onClick={handleGenerateProof}
+                disabled={proofGenerating}
+                style={{
+                  width: '100%', padding: '12px 20px', borderRadius: 10, border: 'none',
+                  background: '#4f7fff', color: '#fff', fontWeight: 800, fontSize: 14,
+                  cursor: proofGenerating ? 'wait' : 'pointer',
+                  fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.03em',
+                }}>
+                {proofGenerating ? 'Generating...' : 'Generate Proof Link'}
+              </button>
+              {proofLink && (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: '#0d0f14', borderRadius: 8, border: '1px solid #1a1d27', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flex: 1, fontSize: 12, color: '#9299b5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {proofLink}
+                  </span>
+                  <button onClick={() => { navigator.clipboard.writeText(proofLink); setProofLinkCopied(true); setTimeout(() => setProofLinkCopied(false), 2000) }}
+                    style={{ background: 'none', border: 'none', color: proofLinkCopied ? '#22c07a' : '#4f7fff', cursor: 'pointer', flexShrink: 0 }}>
+                    {proofLinkCopied ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+              )}
+            </div>
+            {proofHistory.length > 0 && (
+              <div style={{ background: '#13151c', borderRadius: 12, border: '1px solid #1a1d27', padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 }}>Proof History</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {proofHistory.map((p, i) => (
+                    <div key={p.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#0d0f14', borderRadius: 8 }}>
+                      <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#5a6080', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {p.token?.slice(0, 16)}...
+                      </span>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 800,
+                        background: p.status === 'approved' ? '#22c07a20' : p.status === 'revision_requested' ? '#f9731620' : '#f59e0b20',
+                        color: p.status === 'approved' ? '#22c07a' : p.status === 'revision_requested' ? '#f97316' : '#f59e0b',
+                      }}>
+                        {p.status}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#5a6080' }}>
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ─── MAIN 3-COLUMN LAYOUT ─── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      {activeTab === 'canvas' && <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ── LEFT TOOL PANEL ── */}
         <div style={{
@@ -1672,7 +1935,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Hidden file input for image placement */}
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageFile} />
