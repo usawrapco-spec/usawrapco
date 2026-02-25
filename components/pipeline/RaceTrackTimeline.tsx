@@ -602,16 +602,22 @@ function TrackStrip({
           )
         })}
         {/* Expand button */}
-        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 6, flexShrink: 0 }}>
           <button
             onClick={e => { e.stopPropagation(); onToggle() }}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text3)', padding: 0, display: 'flex',
+              background: expanded ? 'rgba(79,127,255,0.15)' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${expanded ? 'rgba(79,127,255,0.35)' : 'rgba(255,255,255,0.12)'}`,
+              borderRadius: 6, cursor: 'pointer',
+              color: expanded ? 'var(--accent)' : 'var(--text2)',
+              padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 3,
+              fontSize: 9, fontWeight: 700, letterSpacing: '.04em',
+              minWidth: 52, justifyContent: 'center',
             }}
             title={expanded ? 'Collapse checklist' : 'Expand checklist'}
           >
-            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            {expanded ? 'Less' : 'Tasks'}
           </button>
         </div>
       </div>
