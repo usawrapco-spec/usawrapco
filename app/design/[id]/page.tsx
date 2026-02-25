@@ -13,9 +13,10 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
 
   const admin = getSupabaseAdmin()
 
-  const [profileRes, designRes] = await Promise.all([
+  const [profileRes, designRes, materialsRes] = await Promise.all([
     admin.from('profiles').select('*').eq('id', user.id).single(),
     admin.from('design_projects').select('*').eq('id', params.id).single(),
+    admin.from('wrap_materials').select('*').order('brand').order('name'),
   ])
 
   if (!profileRes.data) redirect('/login')
@@ -63,6 +64,7 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
           design={designWithLinked}
           jobImages={jobImages}
           comments={comments || []}
+          wrapMaterials={materialsRes.data || []}
         />
       </main>
       <div className="md:hidden">
