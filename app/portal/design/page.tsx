@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import DesignMockupWizard from '@/components/portal/DesignMockupWizard'
 
 export const metadata = {
