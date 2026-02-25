@@ -401,7 +401,7 @@ export default function CommsClient({ profile }: { profile: Profile }) {
                 value={replyText}
                 onChange={e => setReplyText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleQuickReply() } }}
-                placeholder="Reply via SMS (Enter to send, Shift+Enter for new line)..."
+                placeholder={`Reply via ${selectedConv.customer_phone ? 'SMS' : 'Email'} (Enter to send, Shift+Enter for new line)...`}
                 rows={2}
                 style={{
                   flex: 1, padding: '8px 12px',
@@ -422,7 +422,7 @@ export default function CommsClient({ profile }: { profile: Profile }) {
                     display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
                   }}
                 >
-                  <MessageSquare size={13} /> {replying ? '...' : 'Send'}
+                  {selectedConv.customer_phone ? <MessageSquare size={13} /> : <Mail size={13} />} {replying ? '...' : 'Send'}
                 </button>
                 <button onClick={() => setShowCompose(true)} className="btn-ghost btn-xs" style={{ fontSize: 11, textAlign: 'center' }}>
                   + Email

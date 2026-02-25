@@ -158,7 +158,22 @@ export default function MockupToolClient({ profile }: Props) {
       const res = await fetch(imageUrl)
       const blob = await res.blob()
       const path = `mockups/${Date.now()}_${vehicleType.replace(/\s/g, '-')}.png`
-      await supabase.storage.from('project-files').upload(path, blob)
+      const { error: upErr } = await supabase.storage.from('project-files').upload(path, blob)
+      if (upErr) throw upErr
+      const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(path)
+      // Persist to media_files so it shows up in Media Library
+      await supabase.from('media_files').insert({
+        storage_path: path,
+        public_url: publicUrl,
+        filename: `mockup_${vehicleType.replace(/\s/g, '-')}_${Date.now()}.png`,
+        mime_type: 'image/png',
+        file_size: blob.size,
+        uploaded_by: profile.id,
+        source: 'mockup',
+        folder: 'designs',
+        tags: ['mockup', vehicleType],
+        ai_tags: [],
+      })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch { /* Silent fail */ }

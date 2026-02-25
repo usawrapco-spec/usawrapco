@@ -125,7 +125,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
     const fileName = `${projectId}/${Date.now()}.${fileExt}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('job-images')
+      .from('project-files')
       .upload(fileName, file);
 
     if (uploadError) {
@@ -135,7 +135,7 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
     }
 
     const { data: urlData } = supabase.storage
-      .from('job-images')
+      .from('project-files')
       .getPublicUrl(fileName);
 
     // Send as chat message with image

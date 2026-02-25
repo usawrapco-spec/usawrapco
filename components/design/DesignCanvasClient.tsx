@@ -1395,9 +1395,9 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
                 for (const f of files) {
                   setUploading(true)
                   const path = `designs/${design.id}/${Date.now()}_${f.name}`
-                  const { data: up } = await supabase.storage.from('job-images').upload(path, f)
+                  const { data: up } = await supabase.storage.from('project-files').upload(path, f)
                   if (up) {
-                    const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(path)
+                    const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(path)
                     const maxVer = designFiles.reduce((m, df) => Math.max(m, df.version || 0), 0)
                     await supabase.from('design_project_files').insert({
                       design_project_id: design.id, file_name: f.name, file_url: publicUrl,

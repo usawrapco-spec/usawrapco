@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const projectId = formData.get('project_id') as string | null
     const orgId = formData.get('org_id') as string | null
     const uploadedBy = formData.get('uploaded_by') as string | null
-    const tag = (formData.get('tag') as string) || 'general'
+    const category = (formData.get('tag') as string) || 'general'
 
     if (!file) {
       return Response.json({ error: 'No file provided' }, { status: 400 })
@@ -21,10 +21,10 @@ export async function POST(req: Request) {
     const folder = projectId ? `projects/${projectId}` : `misc/${orgId || 'unknown'}`
     const storagePath = `${folder}/${filename}`
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage — project-files bucket (public)
     const bytes = await file.arrayBuffer()
     const { error: uploadError } = await admin.storage
-      .from('job-images')
+      .from('project-files')
       .upload(storagePath, bytes, {
         contentType: file.type,
         upsert: false,
@@ -35,24 +35,24 @@ export async function POST(req: Request) {
       return Response.json({ error: uploadError.message }, { status: 500 })
     }
 
-    // Get public URL
+    // Get permanent public URL
     const { data: { publicUrl } } = admin.storage
-      .from('job-images')
+      .from('project-files')
       .getPublicUrl(storagePath)
 
-    // Create job_images record
+    // Create job_images record using correct column names
     const { data: record, error: dbError } = await admin
       .from('job_images')
       .insert({
         project_id: projectId,
         org_id: orgId,
         uploaded_by: uploadedBy,
-        url: publicUrl,
+        image_url: publicUrl,
         storage_path: storagePath,
-        filename: file.name,
+        file_name: file.name,
         mime_type: file.type,
-        size_bytes: file.size,
-        tag,
+        file_size: file.size,
+        category,
       })
       .select()
       .single()

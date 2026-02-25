@@ -301,11 +301,11 @@ export default function InstallerPortalClient({
         project_id: selectedJobId,
         org_id: profile.org_id,
         uploaded_by: profile.id,
-        url: urlData.publicUrl,
-        bucket_path: fileName,
-        phase: photoPhase,
+        image_url: urlData.publicUrl,
+        storage_path: fileName,
+        category: photoPhase,
         file_name: file.name,
-        file_type: file.type,
+        mime_type: file.type,
       })
 
       // Reload photos

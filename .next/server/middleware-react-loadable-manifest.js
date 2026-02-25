@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST='{"components\\\\design\\\\DesignCanvasClient.tsx -> fabric":{"id":78960,"files":["static/chunks/0b465130.2648fc51055b9341.js"]}}';
+self.__REACT_LOADABLE_MANIFEST='{"app\\\\get-started\\\\confirmed\\\\page.tsx -> canvas-confetti":{"id":79235,"files":["static/chunks/9235.be987ed43ebdb143.js"]},"components\\\\design\\\\DesignCanvasClient.tsx -> fabric":{"id":78960,"files":["static/chunks/0b465130.2648fc51055b9341.js"]}}';

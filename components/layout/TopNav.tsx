@@ -36,13 +36,16 @@ const QUICK_CREATE: DropdownItem[] = [
 
 const NAV_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/pipeline',   label: 'Pipeline',   icon: Layers },
-  { href: '/jobs',        label: 'Jobs',       icon: Briefcase },
   { href: '/tasks',       label: 'Tasks',      icon: CheckSquare },
   { href: '/customers',   label: 'Customers',  icon: Users },
-  { href: '/engine',      label: 'Engine',     icon: TrendingUp },
   { href: '/design',      label: 'Design',     icon: Palette },
   { href: '/inbox',       label: 'Inbox',      icon: Inbox },
+]
+
+const JOBS_ITEMS: DropdownItem[] = [
+  { href: '/jobs',      label: 'Jobs',     icon: Briefcase,   description: 'All active jobs' },
+  { href: '/pipeline',  label: 'Pipeline', icon: Layers,      description: 'Kanban pipeline board' },
+  { href: '/engine',    label: 'Engine',   icon: TrendingUp,  description: 'Automation & rules' },
 ]
 
 const MORE_NAV: DropdownItem[] = [
@@ -103,6 +106,7 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching]         = useState(false)
   const [createOpen, setCreateOpen]       = useState(false)
+  const [jobsOpen, setJobsOpen]           = useState(false)
   const [moreOpen, setMoreOpen]           = useState(false)
   const [settingsOpen, setSettingsOpen]   = useState(false)
   const [profileOpen, setProfileOpen]     = useState(false)
@@ -112,6 +116,7 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [notifsLoaded, setNotifsLoaded]   = useState(false)
 
   const createRef   = useRef<HTMLDivElement>(null)
+  const jobsRef     = useRef<HTMLDivElement>(null)
   const moreRef     = useRef<HTMLDivElement>(null)
   const settingsRef = useRef<HTMLDivElement>(null)
   const profileRef  = useRef<HTMLDivElement>(null)
@@ -126,8 +131,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   // ── Outside click ───────────────────────────────────────────────────────────
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      const refs = [createRef, moreRef, settingsRef, profileRef, notifRef]
-      const setters = [setCreateOpen, setMoreOpen, setSettingsOpen, setProfileOpen, setNotifOpen]
+      const refs = [createRef, jobsRef, moreRef, settingsRef, profileRef, notifRef]
+      const setters = [setCreateOpen, setJobsOpen, setMoreOpen, setSettingsOpen, setProfileOpen, setNotifOpen]
       refs.forEach((ref, i) => {
         if (ref.current && !ref.current.contains(e.target as Node)) {
           setters[i](false)
@@ -227,7 +232,7 @@ export function TopNav({ profile }: { profile: Profile }) {
   }
 
   function closeAll() {
-    setCreateOpen(false); setMoreOpen(false); setSettingsOpen(false)
+    setCreateOpen(false); setJobsOpen(false); setMoreOpen(false); setSettingsOpen(false)
     setProfileOpen(false); setNotifOpen(false)
   }
 
@@ -426,6 +431,67 @@ export function TopNav({ profile }: { profile: Profile }) {
             </Link>
           )
         })}
+
+        {/* Jobs dropdown */}
+        <div ref={jobsRef} style={{ position: 'relative' }}>
+          <button
+            data-tour="nav-jobs"
+            onClick={() => { closeAll(); setJobsOpen(v => !v) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px', borderRadius: 8, border: 'none',
+              background: jobsOpen || ['/jobs', '/pipeline', '/engine'].some(p => pathname.startsWith(p))
+                ? 'rgba(79,127,255,0.1)' : 'transparent',
+              color: jobsOpen || ['/jobs', '/pipeline', '/engine'].some(p => pathname.startsWith(p))
+                ? 'var(--accent)' : 'var(--text2)',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!jobsOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
+            onMouseLeave={e => { if (!jobsOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
+          >
+            <Briefcase size={14} style={{ opacity: 0.8 }} />
+            <span className="hidden lg:inline">Jobs</span>
+            <ChevronDown size={11} style={{ opacity: 0.6, transform: jobsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+          {jobsOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
+              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+              borderRadius: 12, padding: 6, minWidth: 200,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              animation: 'fadeUp .15s ease',
+            }}>
+              {JOBS_ITEMS.map(item => {
+                const Icon = item.icon
+                const active = pathname.startsWith(item.href)
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => { setJobsOpen(false); router.push(item.href) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '8px 10px', borderRadius: 7,
+                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      color: active ? 'var(--accent)' : 'var(--text2)',
+                      fontSize: 13, fontWeight: active ? 600 : 500,
+                      textAlign: 'left', transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
+                  >
+                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                    <div>
+                      <div>{item.label}</div>
+                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {/* More dropdown */}
         <div ref={moreRef} style={{ position: 'relative' }}>
@@ -934,6 +1000,32 @@ export function TopNav({ profile }: { profile: Profile }) {
                 >
                   <Icon size={17} style={{ flexShrink: 0 }} />
                   {link.label}
+                </Link>
+              )
+            })}
+
+            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Jobs
+            </div>
+            {JOBS_ITEMS.map(item => {
+              const active = isActive(item.href)
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 8,
+                    textDecoration: 'none', marginBottom: 2,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {item.label}
                 </Link>
               )
             })}

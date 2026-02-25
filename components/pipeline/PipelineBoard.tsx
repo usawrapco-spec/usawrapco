@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Project, PipeStage } from '@/types'
 import { clsx } from 'clsx'
@@ -34,6 +34,21 @@ const STAGES: { key: PipeStage; label: string; icon: LucideIcon; color: string }
 
 type ViewMode = 'kanban' | 'list'
 type SortKey = 'customer' | 'vehicle' | 'value' | 'stage' | 'days'
+type DeptView = 'all' | 'sales' | 'production' | 'install'
+
+const DEPT_TABS: { key: DeptView; label: string; icon: LucideIcon; color: string }[] = [
+  { key: 'all',        label: 'All Jobs',            icon: LayoutGrid, color: '#8b5cf6' },
+  { key: 'sales',      label: 'Sales',               icon: Briefcase,  color: '#4f7fff' },
+  { key: 'production', label: 'Production / Design', icon: Printer,    color: '#22c07a' },
+  { key: 'install',    label: 'Install',             icon: Wrench,     color: '#22d3ee' },
+]
+
+const DEPT_STAGES: Record<DeptView, string[]> = {
+  all:        ['sales_in', 'production', 'install', 'prod_review', 'sales_close'],
+  sales:      ['sales_in', 'sales_close'],
+  production: ['production', 'prod_review'],
+  install:    ['install'],
+}
 
 export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects)
@@ -44,6 +59,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
   const [sortKey, setSortKey] = useState<SortKey>('stage')
   const [sortAsc, setSortAsc] = useState(true)
   const [drawerProject, setDrawerProject] = useState<Project | null>(null)
+  const [deptView, setDeptView] = useState<DeptView>(getDefaultDept(profile.role))
   const supabase = createClient()
   const router = useRouter()
 
@@ -71,6 +87,7 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
 
   const filtered = useMemo(() => {
     let list = projects.filter(p => p.pipe_stage !== 'done' && p.status !== 'cancelled')
+    if (deptView !== 'all') list = list.filter(p => DEPT_STAGES[deptView].includes(p.pipe_stage || 'sales_in'))
     if (agentFilter !== 'all') list = list.filter(p => p.agent_id === agentFilter)
     if (installerFilter !== 'all') list = list.filter(p => p.installer_id === installerFilter)
     if (searchQuery) {
@@ -84,7 +101,17 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
       )
     }
     return list
-  }, [projects, agentFilter, installerFilter, searchQuery])
+  }, [projects, deptView, agentFilter, installerFilter, searchQuery])
+
+  const deptCounts = useMemo(() => {
+    const base = projects.filter(p => p.pipe_stage !== 'done' && p.status !== 'cancelled')
+    return {
+      all:        base.length,
+      sales:      base.filter(p => DEPT_STAGES.sales.includes(p.pipe_stage || 'sales_in')).length,
+      production: base.filter(p => DEPT_STAGES.production.includes(p.pipe_stage || 'sales_in')).length,
+      install:    base.filter(p => DEPT_STAGES.install.includes(p.pipe_stage || 'sales_in')).length,
+    }
+  }, [projects])
 
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
@@ -134,6 +161,62 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* ── DEPARTMENT FILTER TABS ─────────────────────────────── */}
+      <div style={{ overflowX: 'auto', marginBottom: 20, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+        <div style={{
+          display: 'flex', gap: 6, padding: 6,
+          background: 'var(--surface)', borderRadius: 16,
+          border: '1px solid var(--card-border)', minWidth: 'max-content',
+        }}>
+          {DEPT_TABS.filter(dept => shouldShowDeptTab(dept.key, profile.role)).map(dept => {
+            const isActive = deptView === dept.key
+            const count = deptCounts[dept.key]
+            return (
+              <button
+                key={dept.key}
+                onClick={() => setDeptView(dept.key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 9,
+                  padding: '11px 22px', borderRadius: 11,
+                  border: 'none', cursor: 'pointer',
+                  fontSize: 15, fontWeight: isActive ? 800 : 600,
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  letterSpacing: '0.03em', textTransform: 'uppercase',
+                  background: isActive ? dept.color : 'transparent',
+                  color: isActive ? '#fff' : 'var(--text3)',
+                  transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+                  boxShadow: isActive ? `0 4px 20px ${dept.color}50` : 'none',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = `${dept.color}18`
+                    e.currentTarget.style.color = dept.color
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text3)'
+                  }
+                }}
+              >
+                <dept.icon size={17} />
+                {dept.label}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: 24, height: 22, padding: '0 7px', borderRadius: 11,
+                  fontSize: 12, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
+                  background: isActive ? 'rgba(255,255,255,0.22)' : `${dept.color}25`,
+                  color: isActive ? '#fff' : dept.color,
+                }}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <OnboardingLinkPanel profile={profile} projects={projects} />
 
       {/* Header */}
@@ -609,4 +692,23 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
       )}
     </div>
   )
+}
+
+function getDefaultDept(role: string): DeptView {
+  switch (role) {
+    case 'installer': return 'install'
+    case 'production':
+    case 'designer': return 'production'
+    case 'sales_agent': return 'sales'
+    default: return 'all'
+  }
+}
+
+function shouldShowDeptTab(tab: DeptView, role: string): boolean {
+  if (['admin', 'owner'].includes(role)) return true
+  if (tab === 'all') return true
+  if (tab === 'sales' && role === 'sales_agent') return true
+  if (tab === 'production' && ['production', 'designer'].includes(role)) return true
+  if (tab === 'install' && ['installer', 'production'].includes(role)) return true
+  return false
 }

@@ -855,6 +855,11 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     setShowConvertModal(true)
   }
 
+  function handleSendEstimate() {
+    setEmailModalType('estimate')
+    setEmailModalOpen(true)
+  }
+
   async function executeConvertToJob(mode: 'combined' | 'per_item', selectedIds: Set<string>) {
     if (!canWrite) return
     setShowConvertModal(false)
