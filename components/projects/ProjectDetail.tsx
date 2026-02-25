@@ -520,6 +520,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     { key: 'install',    label: 'Install',    Icon: Wrench, stageKey: 'install' },
     { key: 'qc',         label: 'QC',         Icon: Search, stageKey: 'prod_review' },
     { key: 'close',      label: 'Close',      Icon: DollarSign, stageKey: 'sales_close' },
+    { key: 'renders',    label: 'Renders',    Icon: ImagePlay },
     { key: 'expenses',   label: 'Expenses',   Icon: Receipt },
     { key: 'purchasing', label: 'Purchasing', Icon: ShoppingCart },
     { key: 'activity',   label: 'Activity',   Icon: Activity },
@@ -935,8 +936,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             />
           )}
 
+          {/* ═══ RENDERS TAB ═══ */}
+          {tab === 'renders' && (
+            <RenderEngine
+              jobId={project.id}
+              orgId={project.org_id}
+              wrapDescription={(project.form_data as any)?.wrapDetail ? `${(project.form_data as any)?.vehicle || ''} ${(project.form_data as any)?.wrapDetail || ''}`.trim() : (project.form_data as any)?.vehicle || ''}
+              vehicleType={(project.form_data as any)?.selectedVehicle?.name || (project.form_data as any)?.vehicle || ''}
+            />
+          )}
+
           {/* ── Stage Action Bar ──────────────────────────── */}
-          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && tab !== 'time_tracking' && (
+          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && tab !== 'time_tracking' && tab !== 'renders' && (
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:24, paddingTop:18, borderTop:'1px solid var(--card-border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (

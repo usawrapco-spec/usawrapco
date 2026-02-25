@@ -34,10 +34,27 @@ export default async function PipelinePage() {
 
   const { data: projects } = await query
 
+  // Attach render counts
+  const { data: renderCounts } = await admin
+    .from('job_renders')
+    .select('project_id')
+    .eq('org_id', orgId)
+    .eq('status', 'succeeded')
+
+  const countByJob: Record<string, number> = {}
+  for (const r of renderCounts || []) {
+    countByJob[r.project_id] = (countByJob[r.project_id] || 0) + 1
+  }
+
+  const projectsWithRenderCount = (projects || []).map((p: any) => ({
+    ...p,
+    render_count: countByJob[p.id] || 0,
+  }))
+
   return (
     <UnifiedJobBoard
       profile={profile as Profile}
-      initialProjects={(projects as Project[]) || []}
+      initialProjects={projectsWithRenderCount as Project[]}
       orgId={orgId}
     />
   )
