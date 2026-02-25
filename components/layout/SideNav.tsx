@@ -11,7 +11,7 @@ import {
   LayoutDashboard, ClipboardList, CalendarDays, Palette,
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
-  Truck,
+  Truck, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -54,7 +54,20 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/pipeline',         label: 'Pipeline',         icon: LayoutDashboard },
       { href: '/jobs',             label: 'All Jobs',         icon: ClipboardList },
       { href: '/install/schedule', label: 'Install Schedule', icon: CalendarDays, roles: ['owner', 'admin', 'installer'] },
-      { href: '/design',           label: 'Design Projects',  icon: Palette, roles: ['owner', 'admin', 'designer', 'production'] },
+    ],
+  },
+  {
+    id: 'design',
+    label: 'DESIGN',
+    icon: Palette,
+    roles: ['owner', 'admin', 'designer', 'production', 'sales_agent'],
+    items: [
+      { href: '/design',           label: 'Projects',         icon: LayoutGrid },
+      { href: '/design/briefs',    label: 'Briefs',           icon: FileInput },
+      { href: '/design/materials', label: 'Materials',        icon: Layers },
+      { href: '/design/proofs',    label: 'Proofs',           icon: CheckSquare },
+      { href: '/configurator',     label: '3D Configurator',  icon: Box,          roles: ['owner', 'admin', 'designer'] },
+      { href: '/mockup',           label: 'Mockup Tool',      icon: ImageIcon,    roles: ['owner', 'admin', 'designer', 'sales_agent'] },
     ],
   },
   {

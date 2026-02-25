@@ -2,11 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { DesignStudioLayout } from '@/components/design/DesignStudioLayout'
-import DesignStudioPageClient from '@/components/design/DesignStudioPage'
+import { DesignMaterials } from '@/components/design/DesignMaterials'
 import { Lock } from 'lucide-react'
 import type { Profile } from '@/types'
 
-export default async function DesignPage() {
+export default async function DesignMaterialsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -22,15 +22,25 @@ export default async function DesignPage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12 }}>
           <Lock size={36} color="var(--text3)" />
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)' }}>Access Restricted</div>
-          <div style={{ fontSize: 14, color: 'var(--text3)' }}>You don&apos;t have permission to access Design Studio.</div>
         </div>
       </DesignStudioLayout>
     )
   }
 
+  // Load all materials server-side
+  const { data: materials } = await admin
+    .from('wrap_materials')
+    .select('*')
+    .eq('enabled', true)
+    .order('brand')
+    .order('sort_order')
+
   return (
     <DesignStudioLayout profile={profile as Profile}>
-      <DesignStudioPageClient profile={profile as Profile} />
+      <DesignMaterials
+        profile={profile as Profile}
+        initialMaterials={materials ?? []}
+      />
     </DesignStudioLayout>
   )
 }
