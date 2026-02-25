@@ -22,15 +22,21 @@ import {
   Hammer,
   ImageIcon,
   Wand2,
-  Columns2,
   BookOpen,
   FileText,
-  Inbox,
+  MessageCircle,
   DollarSign,
   UserPlus,
   Contact,
   Plus,
-  Target,
+  Printer,
+  Clock,
+  Globe,
+  Map,
+  MessageSquare,
+  Receipt,
+  Share2,
+  ShoppingCart,
   PlusCircle,
   MoreHorizontal,
   Kanban,
@@ -45,28 +51,44 @@ const CREATE_ITEMS = [
   { href: '/prospects?new=true', label: 'New Prospect',  icon: UserPlus },
 ]
 
-/* ─── More panel items ────────────────────────────────────────────── */
+/* ─── More panel items — grouped by section ──────────────────────── */
 const MORE_ITEMS = [
-  { href: '/inbox',        label: 'Inbox',          icon: Inbox },
-  { href: '/tasks',        label: 'Tasks',          icon: CheckSquare },
-  { href: '/calendar',     label: 'Calendar',       icon: Calendar },
+  // Chat
+  { href: '/inbox',        label: 'Chat',           icon: MessageCircle },
+  // Jobs
+  { href: '/pipeline',     label: 'Job Board',      icon: Briefcase },
+  { href: '/engine',       label: 'Engine',         icon: TrendingUp },
+  // Design
   { href: '/design',       label: 'Design Studio',  icon: Palette },
   { href: '/mockup',       label: 'Mockup Tool',    icon: Wand2 },
   { href: '/media',        label: 'Media Library',  icon: ImageIcon },
-  { href: '/timeline',     label: 'Timeline',       icon: Columns2 },
-  { href: '/production',   label: 'Production',     icon: Factory },
+  // Production
+  { href: '/production',   label: 'Production Hub', icon: Factory },
+  { href: '/production/print-schedule', label: 'Print Schedule', icon: Printer },
+  { href: '/production/printers', label: 'Printers', icon: Printer },
+  { href: '/timeline',     label: 'Timeline',       icon: Clock },
+  // Install
+  { href: '/installer-portal', label: 'Installer Portal', icon: Hammer },
   { href: '/inventory',    label: 'Inventory',      icon: Package },
   { href: '/catalog',      label: 'Catalog',        icon: BookOpen },
+  // Sales
+  { href: '/estimates',    label: 'Estimates',      icon: FileText },
+  { href: '/sales-orders', label: 'Sales Orders',   icon: ShoppingCart },
   { href: '/prospects',    label: 'Prospects',      icon: UserPlus },
-  { href: '/sales/prospector', label: 'Prospector', icon: Target },
+  { href: '/campaigns',    label: 'Campaigns',      icon: Globe },
+  { href: '/network',      label: 'Network',        icon: Map },
   { href: '/contacts',     label: 'Contacts',       icon: Contact },
+  { href: '/comms',        label: 'Comms',          icon: MessageSquare },
+  { href: '/bids',         label: 'Bids',           icon: Hammer },
+  // More
+  { href: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
+  { href: '/tasks',        label: 'Tasks',          icon: CheckSquare },
   { href: '/customers',    label: 'Customers',      icon: Users },
-  { href: '/network',      label: 'Network Map',    icon: Network },
-  { href: '/bids',         label: 'Installer Bids', icon: Hammer },
+  { href: '/calendar',     label: 'Calendar',       icon: Calendar },
   { href: '/analytics',    label: 'Analytics',      icon: BarChart3 },
-  { href: '/reports',      label: 'Reports',        icon: FileText },
-  { href: '/payroll',      label: 'Payroll',        icon: DollarSign },
   { href: '/leaderboard',  label: 'Leaderboard',    icon: Trophy },
+  { href: '/payroll',      label: 'Payroll',        icon: DollarSign },
+  { href: '/invoices',     label: 'Invoices',       icon: Receipt },
   { href: '/settings',     label: 'Settings',       icon: Settings },
 ]
 

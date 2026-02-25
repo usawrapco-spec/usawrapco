@@ -10,8 +10,9 @@ import {
   Truck, Plus, Search, Bell, Settings, ChevronDown, X, Menu,
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
-  Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
+  MessageCircle, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
   Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
+  Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -24,6 +25,11 @@ interface DropdownItem {
   description?: string
 }
 
+interface DropdownSection {
+  title: string
+  items: DropdownItem[]
+}
+
 // ── Nav definitions ───────────────────────────────────────────────────────────
 const QUICK_CREATE: DropdownItem[] = [
   { href: '/estimates/new', label: 'Estimate',  icon: FileText, description: 'Create a quote' },
@@ -33,37 +39,75 @@ const QUICK_CREATE: DropdownItem[] = [
   { href: '/tasks?new=true',    label: 'Task',      icon: CheckSquare, description: 'Assign a task' },
 ]
 
-const NAV_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/tasks',       label: 'Tasks',      icon: CheckSquare },
-  { href: '/customers',   label: 'Customers',  icon: Users },
-  { href: '/design',      label: 'Design',     icon: Palette },
-  { href: '/inbox',       label: 'Inbox',      icon: Inbox },
-]
-
 const JOBS_ITEMS: DropdownItem[] = [
   { href: '/pipeline',  label: 'Job Board', icon: Briefcase,   description: 'Unified job board' },
   { href: '/engine',    label: 'Engine',    icon: TrendingUp,  description: 'Automation & rules' },
 ]
 
-const MORE_NAV: DropdownItem[] = [
+const PRODUCTION_SECTIONS: DropdownSection[] = [
+  {
+    title: 'Design',
+    items: [
+      { href: '/design',  label: 'Design Studio', icon: Palette },
+      { href: '/mockup',  label: 'Mockup Tool',   icon: Wand2 },
+      { href: '/media',   label: 'Media Library',  icon: ImageIcon },
+    ],
+  },
+  {
+    title: 'Production',
+    items: [
+      { href: '/production',                label: 'Production Hub',  icon: Factory },
+      { href: '/production/print-schedule', label: 'Print Schedule',  icon: Printer },
+      { href: '/production/printers',       label: 'Printers',        icon: Printer },
+      { href: '/timeline',                  label: 'Timeline',        icon: Clock },
+    ],
+  },
+  {
+    title: 'Install',
+    items: [
+      { href: '/installer-portal', label: 'Installer Portal', icon: Hammer },
+      { href: '/inventory',        label: 'Inventory',         icon: Package },
+      { href: '/catalog',          label: 'Catalog',           icon: BookOpen },
+    ],
+  },
+]
+
+const PRODUCTION_PATHS = ['/design', '/mockup', '/media', '/production', '/timeline', '/installer-portal', '/inventory', '/catalog']
+
+const SALES_ITEMS: DropdownItem[] = [
   { href: '/estimates',    label: 'Estimates',    icon: FileText },
   { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
-  { href: '/invoices',     label: 'Invoices',     icon: Receipt },
-  { href: '/comms',        label: 'Comms',        icon: MessageSquare },
-  { href: '/contacts',     label: 'Contacts',     icon: Users },
   { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
   { href: '/campaigns',    label: 'Campaigns',    icon: Globe },
-  { href: '/analytics',    label: 'Analytics',    icon: BarChart3 },
-  { href: '/leaderboard',  label: 'Leaderboard',  icon: Trophy },
-  { href: '/payroll',      label: 'Payroll',      icon: DollarSign },
-  { href: '/production',   label: 'Production',   icon: Package },
-  { href: '/inventory',    label: 'Inventory',    icon: Package },
-  { href: '/sourcing',     label: 'Sourcing',     icon: Globe },
   { href: '/network',      label: 'Network',      icon: Map },
-  { href: '/calendar',     label: 'Calendar',     icon: Calendar },
-  { href: '/workflow',     label: 'Workflow',     icon: Briefcase },
-  { href: '/wrapup',       label: 'WrapUp',       icon: Truck },
+  { href: '/contacts',     label: 'Contacts',     icon: Users },
+  { href: '/comms',        label: 'Comms',        icon: MessageSquare },
+  { href: '/bids',         label: 'Bids',         icon: Hammer },
+]
+
+const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/comms', '/bids']
+
+const QUICK_LINK_ITEMS: DropdownItem[] = [
+  { href: '/customers',  label: 'Customer Intake', icon: Users,     description: 'Generate intake link' },
+  { href: '/customers',  label: 'Onboarding',      icon: UserPlus,  description: 'Generate onboard link' },
+  { href: '/portal',     label: 'Customer Portal',  icon: Globe,    description: 'Customer-facing portal' },
+  { href: '/media',      label: 'Share Media',       icon: Share2,   description: 'Share portfolio' },
+  { href: '/estimates',  label: 'Estimate Link',     icon: FileText, description: 'Shareable estimate' },
+  { href: '/invoices',   label: 'Invoice Link',      icon: Receipt,  description: 'Shareable invoice' },
+]
+
+const MORE_NAV: DropdownItem[] = [
+  { href: '/dashboard',   label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/tasks',        label: 'Tasks',         icon: CheckSquare },
+  { href: '/customers',    label: 'Customers',     icon: Users },
+  { href: '/calendar',     label: 'Calendar',      icon: Calendar },
+  { href: '/analytics',    label: 'Analytics',     icon: BarChart3 },
+  { href: '/leaderboard',  label: 'Leaderboard',   icon: Trophy },
+  { href: '/payroll',      label: 'Payroll',        icon: DollarSign },
+  { href: '/invoices',     label: 'Invoices',       icon: Receipt },
+  { href: '/sourcing',     label: 'Sourcing',       icon: Globe },
+  { href: '/workflow',     label: 'Workflow',        icon: Briefcase },
+  { href: '/wrapup',       label: 'WrapUp',         icon: Truck },
 ]
 
 const SETTINGS_ITEMS: DropdownItem[] = [
@@ -105,6 +149,9 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [searching, setSearching]         = useState(false)
   const [createOpen, setCreateOpen]       = useState(false)
   const [jobsOpen, setJobsOpen]           = useState(false)
+  const [productionOpen, setProductionOpen] = useState(false)
+  const [salesOpen, setSalesOpen]         = useState(false)
+  const [quickLinksOpen, setQuickLinksOpen] = useState(false)
   const [moreOpen, setMoreOpen]           = useState(false)
   const [settingsOpen, setSettingsOpen]   = useState(false)
   const [profileOpen, setProfileOpen]     = useState(false)
@@ -115,6 +162,9 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   const createRef   = useRef<HTMLDivElement>(null)
   const jobsRef     = useRef<HTMLDivElement>(null)
+  const productionRef = useRef<HTMLDivElement>(null)
+  const salesRef      = useRef<HTMLDivElement>(null)
+  const quickLinksRef = useRef<HTMLDivElement>(null)
   const moreRef     = useRef<HTMLDivElement>(null)
   const settingsRef = useRef<HTMLDivElement>(null)
   const profileRef  = useRef<HTMLDivElement>(null)
@@ -129,8 +179,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   // ── Outside click ───────────────────────────────────────────────────────────
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      const refs = [createRef, jobsRef, moreRef, settingsRef, profileRef, notifRef]
-      const setters = [setCreateOpen, setJobsOpen, setMoreOpen, setSettingsOpen, setProfileOpen, setNotifOpen]
+      const refs = [createRef, jobsRef, productionRef, salesRef, quickLinksRef, moreRef, settingsRef, profileRef, notifRef]
+      const setters = [setCreateOpen, setJobsOpen, setProductionOpen, setSalesOpen, setQuickLinksOpen, setMoreOpen, setSettingsOpen, setProfileOpen, setNotifOpen]
       refs.forEach((ref, i) => {
         if (ref.current && !ref.current.contains(e.target as Node)) {
           setters[i](false)
@@ -230,7 +280,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   }
 
   function closeAll() {
-    setCreateOpen(false); setJobsOpen(false); setMoreOpen(false); setSettingsOpen(false)
+    setCreateOpen(false); setJobsOpen(false); setProductionOpen(false); setSalesOpen(false)
+    setQuickLinksOpen(false); setMoreOpen(false); setSettingsOpen(false)
     setProfileOpen(false); setNotifOpen(false)
   }
 
@@ -387,48 +438,35 @@ export function TopNav({ profile }: { profile: Profile }) {
         )}
       </div>
 
-      {/* ── Icon Nav Links (desktop only) ─────────────────────── */}
+      {/* ── Desktop Nav (md+) ────────────────────────────────── */}
       <nav
         className="hidden md:flex"
         style={{ alignItems: 'center', gap: 1, marginLeft: 4 }}
       >
-        {NAV_LINKS.map(link => {
-          const active = isActive(link.href)
-          const Icon = link.icon
-          const tourId = link.href === '/pipeline' ? 'nav-jobs' : link.href === '/inbox' ? 'nav-inbox' : link.href === '/tasks' ? 'nav-tasks' : undefined
+        {/* Chat (direct link) */}
+        {(() => {
+          const chatActive = isActive('/inbox')
           return (
             <Link
-              key={link.href}
-              href={link.href}
-              data-tour={tourId}
+              href="/inbox"
+              data-tour="nav-inbox"
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '6px 10px', borderRadius: 8,
-                fontSize: 12, fontWeight: active ? 700 : 500,
-                color: active ? 'var(--accent)' : 'var(--text2)',
-                background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                fontSize: 12, fontWeight: chatActive ? 700 : 500,
+                color: chatActive ? 'var(--accent)' : 'var(--text2)',
+                background: chatActive ? 'rgba(79,127,255,0.1)' : 'transparent',
                 textDecoration: 'none', whiteSpace: 'nowrap',
                 transition: 'all 0.15s',
-                position: 'relative',
               }}
-              onMouseEnter={e => {
-                if (!active) {
-                  e.currentTarget.style.background = 'var(--surface2)'
-                  e.currentTarget.style.color = 'var(--text1)'
-                }
-              }}
-              onMouseLeave={e => {
-                if (!active) {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--text2)'
-                }
-              }}
+              onMouseEnter={e => { if (!chatActive) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
+              onMouseLeave={e => { if (!chatActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
             >
-              <Icon size={14} style={{ opacity: active ? 1 : 0.7 }} />
-              <span className="hidden lg:inline">{link.label}</span>
+              <MessageCircle size={14} style={{ opacity: chatActive ? 1 : 0.7 }} />
+              <span className="hidden lg:inline">Chat</span>
             </Link>
           )
-        })}
+        })()}
 
         {/* Jobs dropdown */}
         <div ref={jobsRef} style={{ position: 'relative' }}>
@@ -480,6 +518,187 @@ export function TopNav({ profile }: { profile: Profile }) {
                     onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
                   >
                     <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                    <div>
+                      <div>{item.label}</div>
+                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Production sectioned dropdown */}
+        <div ref={productionRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => { closeAll(); setProductionOpen(v => !v) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px', borderRadius: 8, border: 'none',
+              background: productionOpen || PRODUCTION_PATHS.some(p => pathname.startsWith(p))
+                ? 'rgba(79,127,255,0.1)' : 'transparent',
+              color: productionOpen || PRODUCTION_PATHS.some(p => pathname.startsWith(p))
+                ? 'var(--accent)' : 'var(--text2)',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!productionOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
+            onMouseLeave={e => { if (!productionOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
+          >
+            <Factory size={14} style={{ opacity: 0.8 }} />
+            <span className="hidden lg:inline">Production</span>
+            <ChevronDown size={11} style={{ opacity: 0.6, transform: productionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+          {productionOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
+              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+              borderRadius: 12, padding: 6, minWidth: 220,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              animation: 'fadeUp .15s ease',
+            }}>
+              {PRODUCTION_SECTIONS.map((section, si) => (
+                <div key={section.title}>
+                  {si > 0 && <div style={{ height: 1, background: 'var(--card-border)', margin: '4px 6px' }} />}
+                  <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {section.title}
+                  </div>
+                  {section.items.map(item => {
+                    const Icon = item.icon
+                    const active = isActive(item.href)
+                    return (
+                      <button
+                        key={item.href}
+                        onClick={() => { setProductionOpen(false); router.push(item.href) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          width: '100%', padding: '7px 10px', borderRadius: 7,
+                          background: active ? 'rgba(79,127,255,0.08)' : 'none',
+                          border: 'none', cursor: 'pointer',
+                          color: active ? 'var(--accent)' : 'var(--text2)',
+                          fontSize: 13, fontWeight: active ? 600 : 500,
+                          textAlign: 'left', transition: 'all 0.12s',
+                        }}
+                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
+                      >
+                        <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                        {item.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sales dropdown */}
+        <div ref={salesRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => { closeAll(); setSalesOpen(v => !v) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px', borderRadius: 8, border: 'none',
+              background: salesOpen || SALES_PATHS.some(p => pathname.startsWith(p))
+                ? 'rgba(79,127,255,0.1)' : 'transparent',
+              color: salesOpen || SALES_PATHS.some(p => pathname.startsWith(p))
+                ? 'var(--accent)' : 'var(--text2)',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!salesOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
+            onMouseLeave={e => { if (!salesOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
+          >
+            <DollarSign size={14} style={{ opacity: 0.8 }} />
+            <span className="hidden lg:inline">Sales</span>
+            <ChevronDown size={11} style={{ opacity: 0.6, transform: salesOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+          {salesOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
+              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+              borderRadius: 12, padding: 6, minWidth: 200,
+              maxHeight: 400, overflowY: 'auto',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              animation: 'fadeUp .15s ease',
+            }}>
+              {SALES_ITEMS.map(item => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => { setSalesOpen(false); router.push(item.href) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '8px 10px', borderRadius: 7,
+                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      color: active ? 'var(--accent)' : 'var(--text2)',
+                      fontSize: 13, fontWeight: active ? 600 : 500,
+                      textAlign: 'left', transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = active ? 'rgba(79,127,255,0.08)' : 'none')}
+                  >
+                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Links dropdown */}
+        <div ref={quickLinksRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => { closeAll(); setQuickLinksOpen(v => !v) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px', borderRadius: 8, border: 'none',
+              background: quickLinksOpen ? 'var(--surface2)' : 'transparent',
+              color: quickLinksOpen ? 'var(--text1)' : 'var(--text2)',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!quickLinksOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
+            onMouseLeave={e => { if (!quickLinksOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
+          >
+            <Link2 size={14} style={{ opacity: 0.8 }} />
+            <span className="hidden lg:inline">Links</span>
+            <ChevronDown size={11} style={{ opacity: 0.6, transform: quickLinksOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+          {quickLinksOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
+              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+              borderRadius: 12, padding: 6, minWidth: 220,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              animation: 'fadeUp .15s ease',
+            }}>
+              <div style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Quick Links
+              </div>
+              {QUICK_LINK_ITEMS.map(item => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => { setQuickLinksOpen(false); router.push(item.href) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '8px 10px', borderRadius: 7,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text2)', fontSize: 13, fontWeight: 500,
+                      textAlign: 'left', transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <Icon size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />
                     <div>
                       <div>{item.label}</div>
                       {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
@@ -976,31 +1195,31 @@ export function TopNav({ profile }: { profile: Profile }) {
             </button>
           </div>
 
-          {/* Nav links */}
+          {/* Nav links — grouped by section */}
           <nav style={{ padding: 8, flex: 1 }}>
-            {NAV_LINKS.map(link => {
-              const active = isActive(link.href)
-              const Icon = link.icon
+            {/* Chat */}
+            {(() => {
+              const chatActive = isActive('/inbox')
               return (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  href="/inbox"
                   onClick={() => setDrawerOpen(false)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '10px 12px', borderRadius: 8,
                     textDecoration: 'none', marginBottom: 2,
-                    color: active ? 'var(--accent)' : 'var(--text2)',
-                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: active ? 700 : 500,
+                    color: chatActive ? 'var(--accent)' : 'var(--text2)',
+                    background: chatActive ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: chatActive ? 700 : 500,
                   }}
                 >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {link.label}
+                  <MessageCircle size={17} style={{ flexShrink: 0 }} />
+                  Chat
                 </Link>
               )
-            })}
+            })()}
 
+            {/* Jobs */}
             <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Jobs
             </div>
@@ -1027,9 +1246,68 @@ export function TopNav({ profile }: { profile: Profile }) {
               )
             })}
 
+            {/* Production sections */}
+            {PRODUCTION_SECTIONS.map(section => (
+              <div key={section.title}>
+                <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {section.title}
+                </div>
+                {section.items.map(item => {
+                  const active = isActive(item.href)
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setDrawerOpen(false)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 12px', borderRadius: 8,
+                        textDecoration: 'none', marginBottom: 2,
+                        color: active ? 'var(--accent)' : 'var(--text2)',
+                        background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                        fontSize: 14, fontWeight: active ? 700 : 500,
+                      }}
+                    >
+                      <Icon size={17} style={{ flexShrink: 0 }} />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
+
+            {/* Sales */}
+            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Sales
+            </div>
+            {SALES_ITEMS.map(item => {
+              const active = isActive(item.href)
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 8,
+                    textDecoration: 'none', marginBottom: 2,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {item.label}
+                </Link>
+              )
+            })}
+
             <div style={{ height: 1, background: 'var(--card-border)', margin: '8px 4px' }} />
 
-            {MORE_NAV.slice(0, 8).map(item => {
+            {/* More */}
+            {MORE_NAV.map(item => {
               const active = isActive(item.href)
               const Icon = item.icon
               return (
