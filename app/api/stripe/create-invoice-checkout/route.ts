@@ -14,19 +14,40 @@ export async function POST(req: NextRequest) {
     if (!invoice_id) return NextResponse.json({ error: 'invoice_id required' }, { status: 400 })
 
     const admin = getSupabaseAdmin()
+
+    // Fetch invoice without FK join (join syntax unreliable without explicit FK)
     const { data: invoice } = await admin
       .from('invoices')
-      .select('*, customer:customer_id(id, name, email)')
+      .select('*')
       .eq('id', invoice_id)
       .single()
 
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
-    const balanceDue = Math.max(0, invoice.balance_due ?? invoice.balance ?? (invoice.total - invoice.amount_paid))
+    // Separately fetch customer
+    let customer: { name?: string; email?: string } | null = null
+    if (invoice.customer_id) {
+      const { data: cust } = await admin
+        .from('customers')
+        .select('id, name, email')
+        .eq('id', invoice.customer_id)
+        .single()
+      customer = cust
+    }
+    // Fallback to profiles
+    if (!customer && invoice.customer_id) {
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', invoice.customer_id)
+        .single()
+      customer = prof
+    }
+
+    const balanceDue = Math.max(0, invoice.balance ?? (invoice.total - (invoice.amount_paid || 0)))
     if (balanceDue <= 0) return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2026-01-28.clover' as any })
-    const customer = invoice.customer as any
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
 
     const session = await stripe.checkout.sessions.create({
@@ -36,7 +57,7 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: 'usd',
           product_data: {
-            name: invoice.title || `Invoice INV-${invoice.invoice_number}`,
+            name: `Invoice INV-${invoice.invoice_number}`,
             description: `Invoice INV-${invoice.invoice_number} · USA WRAP CO`,
           },
           unit_amount: Math.round(balanceDue * 100),

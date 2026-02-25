@@ -82,11 +82,17 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
 
-  // Calculated totals
+  // Calculated totals — use stored total from DB when available to avoid NaN from missing columns
   const subtotal = useMemo(() => items.reduce((s, li) => s + li.total_price, 0), [items])
-  const discount = inv.discount
-  const taxAmount = useMemo(() => (subtotal - discount) * inv.tax_rate, [subtotal, discount, inv.tax_rate])
-  const total = useMemo(() => subtotal - discount + taxAmount, [subtotal, discount, taxAmount])
+  const discount = inv.discount ?? 0
+  // tax_percent is stored as e.g. 8.25 (percentage), tax_rate as 0.0825 (decimal) — handle both
+  const taxRate = inv.tax_rate ?? (inv.tax_percent ? inv.tax_percent / 100 : 0)
+  const taxAmount = useMemo(() => (subtotal - discount) * taxRate, [subtotal, discount, taxRate])
+  const total = useMemo(() => {
+    // Prefer stored total from DB if line items haven't been computed
+    if (subtotal === 0 && inv.total > 0) return inv.total
+    return subtotal - discount + taxAmount
+  }, [subtotal, discount, taxAmount, inv.total])
   const balanceDue = useMemo(() => total - amountPaid, [total, amountPaid])
 
   const fmtCurrency = (n: number) =>
@@ -313,7 +319,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               <div>
                 <label className="field-label">Title</label>
                 <input
-                  value={inv.title}
+                  value={inv.title || ''}
                   className="field"
                   disabled
                   style={{ opacity: 0.7 }}
@@ -464,7 +470,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               {discount > 0 && (
                 <PricingRow label="Discount" value={`-${fmtCurrency(discount)}`} color="var(--green)" />
               )}
-              <PricingRow label={`Tax (${(inv.tax_rate * 100).toFixed(2)}%)`} value={fmtCurrency(taxAmount)} />
+              <PricingRow label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(taxAmount)} />
               <div style={{ borderTop: '2px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
                 <PricingRow label="Total" value={fmtCurrency(total)} isTotal />
               </div>
@@ -549,6 +555,38 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                   <CreditCard size={13} /> Record Payment
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Payment History */}
+          {payments.length > 0 && (
+            <div className="card">
+              <div className="section-label">Payment History</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {payments.map(p => (
+                  <div key={p.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 0', borderBottom: '1px solid var(--border)',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 600, textTransform: 'capitalize' }}>
+                        {p.method}
+                        {p.reference_number && (
+                          <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400, marginLeft: 6 }}>
+                            #{p.reference_number.slice(0, 18)}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        {p.payment_date}
+                      </div>
+                    </div>
+                    <span className="mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>
+                      {fmtCurrency(p.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
