@@ -10,7 +10,6 @@ jobs:
   migrate:
     name: Run SQL Migrations
     runs-on: ubuntu-latest
-    # No "environment: production" — that gate blocks automatic runs
 
     steps:
       - name: Checkout
@@ -19,44 +18,24 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Link Supabase project
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase link \
-            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} \
-            --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
-
-      - name: Show migration status
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase migration list || true
-
       - name: Run /sql scripts
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           DB_HOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
         run: |
-          PASS=0
-          FAIL=0
+          PASS=0; FAIL=0
           for f in sql/*.sql; do
             [ -f "$f" ] || continue
-            echo "▶ $f"
+            echo "-> $f"
             if psql "postgresql://postgres:${PGPASSWORD}@${DB_HOST}:5432/postgres?sslmode=require" \
                  --set=ON_ERROR_STOP=1 -q -f "$f"; then
-              echo "  ✅ done"
+              echo "   done"
               PASS=$((PASS+1))
             else
-              echo "  ⚠️  errors (may already be applied)"
+              echo "   errors (may already be applied)"
               FAIL=$((FAIL+1))
             fi
           done
-          echo ""
           echo "sql/: $PASS passed, $FAIL failed"
 
       - name: Run supabase/migrations scripts
@@ -64,20 +43,17 @@ jobs:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           DB_HOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
         run: |
-          PASS=0
-          FAIL=0
-          # glob only top-level .sql files — archive/ subdir is automatically excluded
+          PASS=0; FAIL=0
           for f in supabase/migrations/*.sql; do
             [ -f "$f" ] || continue
-            echo "▶ $f"
+            echo "-> $f"
             if psql "postgresql://postgres:${PGPASSWORD}@${DB_HOST}:5432/postgres?sslmode=require" \
                  --set=ON_ERROR_STOP=1 -q -f "$f"; then
-              echo "  ✅ done"
+              echo "   done"
               PASS=$((PASS+1))
             else
-              echo "  ⚠️  errors (may already be applied)"
+              echo "   errors (may already be applied)"
               FAIL=$((FAIL+1))
             fi
           done
-          echo ""
           echo "supabase/migrations/: $PASS passed, $FAIL failed"
