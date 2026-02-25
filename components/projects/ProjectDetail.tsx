@@ -118,10 +118,10 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
   // Mobile install state
   const [isMobileInstall, setIsMobileInstall] = useState<boolean>(
-    Boolean((initial as any).is_mobile_install)
+    Boolean(initial.is_mobile_install)
   )
   const [installAddress, setInstallAddress] = useState<string>(
-    (initial as any).install_address || ''
+    initial.install_address || ''
   )
   const [installWeather, setInstallWeather] = useState<{
     severity: 'good' | 'medium' | 'high' | 'danger'

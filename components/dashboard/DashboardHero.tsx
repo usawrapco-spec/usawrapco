@@ -192,8 +192,7 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
   // ── Weather alerts for mobile installs ────────────────────────
   const [weatherAlerts, setWeatherAlerts] = useState<any[]>(() =>
     projects.flatMap(p => {
-      const alerts = (p as any).weather_alerts
-      return Array.isArray(alerts) && alerts.length > 0 ? alerts : []
+      return Array.isArray(p.weather_alerts) && p.weather_alerts.length > 0 ? p.weather_alerts : []
     })
   )
 
@@ -379,8 +378,8 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
                     <div style={{ fontSize: 10, color: 'var(--text3)', opacity: 0.4, padding: '2px 0' }}>No installs</div>
                   ) : (
                     dayJobs.map(p => {
-                      const isMobile = (p as any).is_mobile_install
-                      const jobAlerts: any[] = Array.isArray((p as any).weather_alerts) ? (p as any).weather_alerts : []
+                      const isMobile = p.is_mobile_install
+                      const jobAlerts: any[] = Array.isArray(p.weather_alerts) ? p.weather_alerts : []
                       const hasAlert = jobAlerts.length > 0
                       const stage = p.pipe_stage || 'sales_in'
                       const stageColor = PIPE_STAGE_COLORS[stage] || '#5a6080'

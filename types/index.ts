@@ -222,6 +222,13 @@ export interface Project {
   agent?: Pick<Profile, 'id' | 'name' | 'email'>
   installer?: Pick<Profile, 'id' | 'name' | 'email'>
   customer?: Pick<Profile, 'id' | 'name' | 'email'>
+  // Mobile install / weather fields
+  is_mobile_install?: boolean
+  install_address?: string | null
+  install_lat?: number | null
+  install_lng?: number | null
+  weather_alerts?: any[]
+  last_weather_check?: string | null
 }
 
 export interface InstallerBid {
