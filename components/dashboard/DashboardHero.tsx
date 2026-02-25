@@ -7,9 +7,8 @@ import Link from 'next/link'
 import {
   DollarSign, Briefcase, TrendingUp, Wrench, Calendar,
   FileText, Users, Package, ChevronRight, ArrowUpRight,
-  Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap,
+  Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap, Cloud, Sun,
 } from 'lucide-react'
-import WeatherWidget from '@/components/dashboard/WeatherWidget'
 import AIBriefing from '@/components/dashboard/AIBriefing'
 import GoalsTracker from '@/components/dashboard/GoalsTracker'
 
@@ -80,6 +79,30 @@ const PIPE_STAGE_LABELS: Record<string, string> = {
 const PIPE_STAGE_COLORS: Record<string, string> = {
   sales_in: '#4f7fff', production: '#8b5cf6', install: '#22d3ee',
   prod_review: '#f59e0b', sales_close: '#22c07a', done: '#5a6080',
+}
+
+const SEV_COLORS = {
+  good:    { border: '#22c07a', bg: 'rgba(34,192,122,0.07)',  label: '#22c07a' },
+  caution: { border: '#f59e0b', bg: 'rgba(245,158,11,0.07)', label: '#f59e0b' },
+  bad:     { border: '#f25a5a', bg: 'rgba(242,90,90,0.07)',  label: '#f25a5a' },
+  danger:  { border: '#8b5cf6', bg: 'rgba(139,92,246,0.09)', label: '#8b5cf6' },
+}
+
+function wxSeverity(code: number, minT: number, maxT: number, precip: number, precipProb: number, wind: number): keyof typeof SEV_COLORS {
+  if (code >= 95) return 'danger'
+  if (precipProb > 40 || precip > 0.1) return 'bad'
+  if (minT < 50 || maxT > 95) return 'bad'
+  if (wind > 20) return 'bad'
+  if (precipProb > 20 || minT < 55) return 'caution'
+  return 'good'
+}
+
+function WxIcon({ code, size = 14 }: { code: number; size?: number }) {
+  const color = code >= 95 ? '#8b5cf6' : code >= 51 ? '#4f7fff' : '#9299b5'
+  if (code >= 95) return <Zap size={size} style={{ color }} />
+  if (code >= 51) return <CloudRain size={size} style={{ color }} />
+  if (code >= 1)  return <Cloud size={size} style={{ color }} />
+  return <Sun size={size} style={{ color: '#f59e0b' }} />
 }
 
 export default function DashboardHero({ profile, projects, canSeeFinancials }: Props) {
@@ -190,6 +213,26 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
     return () => clearInterval(interval)
   }, [checkWeatherAlerts])
 
+  // ── 7-day forecast for inline display ────────────────────────
+  const [forecast, setForecast] = useState<any[]>([])
+  useEffect(() => {
+    fetch('/api/weather?lat=47.3318&lng=-122.5793')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.daily?.time) return
+        setForecast(data.daily.time.map((date: string, i: number) => ({
+          date,
+          code: data.daily.weathercode[i],
+          high: Math.round(data.daily.temperature_2m_max[i]),
+          low: Math.round(data.daily.temperature_2m_min[i]),
+          precip: data.daily.precipitation_sum[i],
+          wind: Math.round(data.daily.windspeed_10m_max[i]),
+          precipProb: data.daily.precipitation_probability_max[i],
+        })))
+      })
+      .catch(() => {})
+  }, [])
+
   // ── This week's jobs (Mon–Sun) ─────────────────────────────────
   const weekMonday = useMemo(() => {
     const d = new Date(now)
@@ -267,102 +310,123 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
         </div>
       )}
 
-      {/* This Week at a Glance: 7-day weather + week jobs calendar */}
+      {/* Unified 7-Day: Weather + Installs per column */}
       <div>
-        <div style={{
-          fontSize: 10, fontWeight: 900, color: 'var(--text3)',
-          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12,
-        }}>
-          This Week at a Glance
+        <div style={{ fontSize: 10, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
+          This Week — Weather &amp; Installs
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <WeatherWidget />
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+          {Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(weekMonday)
+            d.setDate(weekMonday.getDate() + i)
+            const dateStr = d.toISOString().split('T')[0]
+            const todayStr = now.toISOString().split('T')[0]
+            const isToday = dateStr === todayStr
+            const dayJobs = thisWeekJobs.filter(p => {
+              const ds = p.install_date || (p.form_data as any)?.installDate
+              return ds && ds.startsWith(dateStr)
+            })
+            const wx = forecast.find(f => f.date === dateStr)
+            const sev = wx ? wxSeverity(wx.code, wx.low, wx.high, wx.precip, wx.precipProb, wx.wind) : null
+            const sc = sev ? SEV_COLORS[sev] : null
 
-          {/* Week Jobs Calendar */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 12, padding: '14px 16px', overflowY: 'auto', maxHeight: 260,
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-              Installs This Week
-            </div>
-            {Array.from({ length: 7 }, (_, i) => {
-              const d = new Date(weekMonday)
-              d.setDate(weekMonday.getDate() + i)
-              const dateStr = d.toISOString().split('T')[0]
-              const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-              const isToday = dateStr === now.toISOString().split('T')[0]
-              const dayJobs = thisWeekJobs.filter(p => {
-                const ds = p.install_date || (p.form_data as any)?.installDate
-                return ds && ds.startsWith(dateStr)
-              })
-              return (
-                <div key={i} style={{ marginBottom: 8 }}>
-                  <div style={{
-                    fontSize: 10, fontWeight: 700,
-                    color: isToday ? 'var(--accent)' : 'var(--text3)',
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                    paddingBottom: 4,
-                    borderBottom: `1px solid ${isToday ? 'rgba(79,127,255,0.2)' : 'var(--border)'}`,
-                    marginBottom: 4,
-                  }}>
-                    {isToday ? `Today — ${dayLabel}` : dayLabel}
+            return (
+              <div key={i} style={{
+                flex: '1 0 110px', minWidth: 104,
+                display: 'flex', flexDirection: 'column', gap: 0,
+                background: isToday && sc ? sc.bg : 'var(--surface)',
+                border: `1px solid ${sc && (isToday || dayJobs.length > 0) ? sc.border + (isToday ? 'cc' : '66') : 'var(--border)'}`,
+                borderTop: `3px solid ${sc ? sc.border : isToday ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 10, overflow: 'hidden',
+              }}>
+                {/* Day header */}
+                <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: isToday ? 'var(--accent)' : 'var(--text3)' }}>
+                      {isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                    </div>
                   </div>
+                  {/* Weather row */}
+                  {wx ? (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <WxIcon code={wx.code} size={13} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{wx.high}°</span>
+                        <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace' }}>{wx.low}°</span>
+                        {wx.precipProb > 0 && (
+                          <span style={{ fontSize: 9, color: wx.precipProb > 40 ? '#f25a5a' : 'var(--text3)', fontWeight: 700, marginLeft: 'auto' }}>
+                            {wx.precipProb}%
+                          </span>
+                        )}
+                      </div>
+                      {sev && sev !== 'good' && sc && (
+                        <div style={{ fontSize: 9, fontWeight: 700, color: sc.label, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 3 }}>
+                          {sev === 'danger' ? 'Danger' : sev === 'bad' ? 'Bad for vinyl' : 'Caution'}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ height: 26, marginTop: 6 }} />
+                  )}
+                </div>
+
+                {/* Jobs for this day */}
+                <div style={{ padding: '6px 8px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {dayJobs.length === 0 ? (
-                    <Link href="/calendar" style={{
-                      fontSize: 11, color: 'var(--text3)', textDecoration: 'none',
-                      display: 'block', padding: '2px 0',
-                      opacity: 0.5,
-                    }}>
-                      + Schedule
-                    </Link>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', opacity: 0.4, padding: '2px 0' }}>No installs</div>
                   ) : (
                     dayJobs.map(p => {
                       const isMobile = (p as any).is_mobile_install
-                      const hasAlert = Array.isArray((p as any).weather_alerts) && (p as any).weather_alerts.length > 0
-                      const pipeLabel: Record<string, string> = {
-                        sales_in: 'Sales', production: 'Production', install: 'Install',
-                        prod_review: 'QC', sales_close: 'Close', done: 'Done',
-                      }
-                      const pipeColor: Record<string, string> = {
-                        sales_in: '#4f7fff', production: '#8b5cf6', install: '#22d3ee',
-                        prod_review: '#f59e0b', sales_close: '#22c07a', done: '#5a6080',
-                      }
+                      const jobAlerts: any[] = Array.isArray((p as any).weather_alerts) ? (p as any).weather_alerts : []
+                      const hasAlert = jobAlerts.length > 0
                       const stage = p.pipe_stage || 'sales_in'
+                      const stageColor = PIPE_STAGE_COLORS[stage] || '#5a6080'
                       return (
-                        <Link key={p.id} href={`/projects/${p.id}`} style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          padding: '4px 6px', borderRadius: 6, textDecoration: 'none',
-                          background: hasAlert ? 'rgba(242,90,90,0.05)' : 'transparent',
-                        }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = hasAlert ? 'rgba(242,90,90,0.05)' : 'transparent')}
-                        >
-                          {isMobile
-                            ? <MapPin size={11} style={{ color: '#4f7fff', flexShrink: 0 }} />
-                            : <Wrench size={11} style={{ color: 'var(--text3)', flexShrink: 0 }} />
-                          }
-                          <span style={{ fontSize: 12, color: 'var(--text1)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {p.title || p.vehicle_desc || 'Untitled'}
-                          </span>
-                          <span style={{
-                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
-                            background: `${pipeColor[stage]}22`, color: pipeColor[stage],
-                            flexShrink: 0,
+                        <Link key={p.id} href={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
+                          <div style={{
+                            padding: '5px 7px', borderRadius: 7,
+                            background: hasAlert ? 'rgba(242,90,90,0.07)' : 'var(--surface2)',
+                            border: `1px solid ${hasAlert ? '#f25a5a44' : 'var(--border)'}`,
+                            borderLeft: `3px solid ${stageColor}`,
                           }}>
-                            {pipeLabel[stage]}
-                          </span>
-                          {hasAlert && (
-                            <AlertTriangle size={11} style={{ color: '#f25a5a', flexShrink: 0 }} />
-                          )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: hasAlert ? 3 : 0 }}>
+                              {isMobile && <MapPin size={9} style={{ color: '#4f7fff', flexShrink: 0 }} />}
+                              {hasAlert && !isMobile && <AlertTriangle size={9} style={{ color: '#f25a5a', flexShrink: 0 }} />}
+                              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                {p.title || p.vehicle_desc || 'Untitled'}
+                              </span>
+                            </div>
+                            {hasAlert && jobAlerts[0]?.issues?.[0] && (
+                              <div style={{ fontSize: 9, color: '#f87171', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {jobAlerts[0].issues[0]}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 9, fontWeight: 600, color: stageColor, marginTop: hasAlert ? 0 : 2, opacity: 0.85 }}>
+                              {PIPE_STAGE_LABELS[stage]}
+                            </div>
+                          </div>
                         </Link>
                       )
                     })
                   )}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
+        </div>
+        {/* Severity legend */}
+        <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+          {(Object.entries(SEV_COLORS) as [string, typeof SEV_COLORS[keyof typeof SEV_COLORS]][]).map(([key, c]) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 6, height: 6, borderRadius: 2, background: c.border }} />
+              <span style={{ fontSize: 9, color: 'var(--text3)', fontWeight: 600, textTransform: 'capitalize' }}>
+                {key === 'good' ? 'Good for vinyl' : key === 'caution' ? 'Caution' : key === 'bad' ? 'Bad for vinyl' : 'Danger'}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
