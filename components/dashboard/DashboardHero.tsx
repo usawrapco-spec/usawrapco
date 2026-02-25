@@ -7,8 +7,10 @@ import Link from 'next/link'
 import {
   DollarSign, Briefcase, TrendingUp, Wrench, Calendar,
   FileText, Users, Package, ChevronRight, ArrowUpRight,
-  Activity,
+  Activity, Target, BarChart3,
 } from 'lucide-react'
+import WeatherWidget from '@/components/dashboard/WeatherWidget'
+import AIBriefing from '@/components/dashboard/AIBriefing'
 
 interface Props {
   profile: Profile
@@ -148,8 +150,37 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const todayIdx = now.getDay()
 
+  // Additional KPIs
+  const pipelineValue = activeJobs.reduce((s, p) => s + (p.revenue || 0), 0)
+  const gpMTD = closedThisMonth.reduce((s, p) => s + (p.profit || 0), 0)
+  const gpmPct = revenueMTD > 0 ? Math.round((gpMTD / revenueMTD) * 100) : 0
+
+  // Conversion funnel
+  const estimatesOpen = projects.filter(p => p.status === 'estimate')
+  const totalFunnelTop = estimatesOpen.length + closedThisMonth.length
+  const conversionRate = totalFunnelTop > 0 ? Math.round((closedThisMonth.length / totalFunnelTop) * 100) : 0
+
+  // Top 5 customers this month by revenue
+  const customerRevMap: Record<string, { name: string; revenue: number; jobs: number }> = {}
+  closedThisMonth.forEach(p => {
+    const cust = p.customer as any
+    if (!cust?.id) return
+    if (!customerRevMap[cust.id]) customerRevMap[cust.id] = { name: cust.name || 'Unknown', revenue: 0, jobs: 0 }
+    customerRevMap[cust.id].revenue += p.revenue || 0
+    customerRevMap[cust.id].jobs++
+  })
+  const topCustomers = Object.values(customerRevMap)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
+
   return (
     <div style={{ padding: '24px 28px 0', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Weather + AI Briefing */}
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
+        <WeatherWidget />
+        <AIBriefing orgId={profile.org_id} profileId={profile.id} />
+      </div>
+
       {/* Hero Revenue */}
       <div style={{
         background: 'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.04) 100%)',
@@ -272,6 +303,41 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
           </div>
           <AnimatedNumber value={installsThisWeek.length} color="var(--cyan)" />
         </div>
+
+        <div className="stat-card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div className="metric-label">Pipeline Value</div>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BarChart3 size={14} style={{ color: 'var(--amber)' }} />
+            </div>
+          </div>
+          {canSeeFinancials ? (
+            <AnimatedMoney value={pipelineValue} fontSize={28} color="var(--amber)" />
+          ) : (
+            <span style={{ fontSize: 28, fontWeight: 900, color: 'var(--text3)' }}>--</span>
+          )}
+        </div>
+
+        <div className="stat-card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div className="metric-label">Gross Profit MTD</div>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(34,192,122,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Target size={14} style={{ color: 'var(--green)' }} />
+            </div>
+          </div>
+          {canSeeFinancials ? (
+            <>
+              <AnimatedMoney value={gpMTD} fontSize={28} color="var(--green)" />
+              {revenueMTD > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                  {gpmPct}% GPM
+                </div>
+              )}
+            </>
+          ) : (
+            <span style={{ fontSize: 28, fontWeight: 900, color: 'var(--text3)' }}>--</span>
+          )}
+        </div>
       </div>
 
       {/* Pipeline Health Bar + Quick Actions */}
@@ -375,6 +441,95 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
           </div>
         </div>
       </div>
+
+      {/* Conversion Funnel + Top Customers */}
+      {canSeeFinancials && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Conversion Funnel */}
+          <div style={{
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+            borderRadius: 16, padding: '20px 24px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Target size={14} style={{ color: 'var(--purple)' }} />
+              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 14, fontWeight: 800, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Conversion Funnel
+              </span>
+            </div>
+            {[
+              { label: 'Open Estimates', count: estimatesOpen.length, color: '#9299b5', width: 100 },
+              { label: 'Active Jobs', count: activeJobs.length, color: '#4f7fff', width: estimatesOpen.length > 0 ? Math.max(20, Math.round((activeJobs.length / Math.max(estimatesOpen.length, 1)) * 100)) : 60 },
+              { label: 'Closed This Month', count: closedThisMonth.length, color: '#22c07a', width: estimatesOpen.length > 0 ? Math.max(10, Math.round((closedThisMonth.length / Math.max(estimatesOpen.length, 1)) * 100)) : 40 },
+            ].map(row => (
+              <div key={row.label} style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600 }}>{row.label}</span>
+                  <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: row.color, fontWeight: 700 }}>{row.count}</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 3, background: row.color,
+                    width: `${Math.min(row.width, 100)}%`,
+                    transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                  }} />
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>Close rate (MTD)</span>
+              <span style={{ fontSize: 14, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: conversionRate >= 50 ? 'var(--green)' : conversionRate >= 25 ? 'var(--amber)' : 'var(--red)' }}>
+                {conversionRate}%
+              </span>
+            </div>
+          </div>
+
+          {/* Top 5 Customers */}
+          <div style={{
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+            borderRadius: 16, padding: '20px 24px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Users size={14} style={{ color: 'var(--cyan)' }} />
+                <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 14, fontWeight: 800, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Top Customers
+                </span>
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--text3)' }}>this month</span>
+            </div>
+            {topCustomers.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '16px 0' }}>
+                No closed jobs this month yet
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {topCustomers.map((cust, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                      background: idx === 0 ? 'rgba(245,158,11,0.15)' : idx === 1 ? 'rgba(147,153,181,0.15)' : 'rgba(90,96,128,0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace',
+                      color: idx === 0 ? 'var(--amber)' : idx === 1 ? 'var(--text2)' : 'var(--text3)',
+                    }}>
+                      {idx + 1}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cust.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{cust.jobs} job{cust.jobs !== 1 ? 's' : ''}</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)', flexShrink: 0 }}>
+                      ${cust.revenue.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Installs Strip */}
       {upcomingInstalls.length > 0 && (
