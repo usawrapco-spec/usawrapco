@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session
       const intakeToken = session.metadata?.intake_token
       const projectId   = session.metadata?.project_id
+      const invoiceId   = session.metadata?.invoice_id
 
       if (intakeToken) {
         const admin = getSupabaseAdmin()
@@ -53,6 +54,52 @@ export async function POST(req: Request) {
             // XP for intake payment received
             await awardXP(admin, project.agent_id, 'invoice_paid', 'project', projectId)
           }
+        }
+      }
+
+      // ── Invoice online payment ──────────────────────────────────────────────
+      if (invoiceId) {
+        const admin = getSupabaseAdmin()
+        const paidAmount = (session.amount_total || 0) / 100
+
+        const { data: invoice } = await admin
+          .from('invoices')
+          .select('org_id, customer_id, total, amount_paid')
+          .eq('id', invoiceId)
+          .single()
+
+        if (invoice) {
+          const newPaid = (invoice.amount_paid || 0) + paidAmount
+          const newBalance = Math.max(0, invoice.total - newPaid)
+
+          // Record the Stripe payment
+          await admin.from('payments').insert({
+            org_id: session.metadata?.org_id || invoice.org_id,
+            invoice_id: invoiceId,
+            customer_id: invoice.customer_id,
+            amount: paidAmount,
+            method: 'stripe',
+            reference_number: typeof session.payment_intent === 'string' ? session.payment_intent : session.id,
+            stripe_session_id: session.id,
+            stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            notes: `Stripe online payment`,
+            payment_date: new Date().toISOString().split('T')[0],
+          })
+
+          // Update invoice
+          const updates: Record<string, unknown> = {
+            amount_paid: newPaid,
+            balance_due: newBalance,
+            balance: newBalance,
+            updated_at: new Date().toISOString(),
+          }
+          if (newBalance <= 0) {
+            updates.status = 'paid'
+            updates.paid_at = new Date().toISOString()
+          } else {
+            updates.status = 'partial'
+          }
+          await admin.from('invoices').update(updates).eq('id', invoiceId)
         }
       }
     }

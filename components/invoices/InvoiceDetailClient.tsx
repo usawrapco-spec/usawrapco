@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
-  ExternalLink, Ban,
+  ExternalLink, Ban, Link2, Copy, Check,
 } from 'lucide-react'
 import type { Profile, Invoice, InvoiceStatus, LineItem, Payment } from '@/types'
 import { isAdminRole } from '@/types'
@@ -551,6 +551,16 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
             </div>
           )}
 
+          {/* Online Payment Link */}
+          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && (
+            <div className="card">
+              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Link2 size={13} style={{ color: 'var(--accent)' }} /> Online Payment Link
+              </div>
+              <PaymentLinkPanel invoiceId={invoiceId} />
+            </div>
+          )}
+
           {/* Status actions */}
           {canWrite && (
             <div className="card">
@@ -593,6 +603,53 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
           {toast}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Payment Link Panel ───────────────────────────────────────────────────────
+function PaymentLinkPanel({ invoiceId }: { invoiceId: string }) {
+  const [copied, setCopied] = useState(false)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
+  const url = `${appUrl}/pay/${invoiceId}`
+
+  function copyLink() {
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        background: 'var(--surface2)', border: '1px solid var(--border)',
+        borderRadius: 8, padding: '7px 10px',
+      }}>
+        <span style={{
+          flex: 1, fontSize: 11, color: 'var(--text3)',
+          fontFamily: 'JetBrains Mono, monospace',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {url}
+        </span>
+        <button
+          onClick={copyLink}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '3px 10px', borderRadius: 6, border: 'none',
+            background: copied ? 'var(--green)' : 'var(--accent)',
+            color: '#fff', fontSize: 11, fontWeight: 700,
+            cursor: 'pointer', flexShrink: 0, transition: 'background 0.15s',
+          }}
+        >
+          {copied ? <Check size={11} /> : <Copy size={11} />}
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <p style={{ fontSize: 11, color: 'var(--text3)', margin: 0, lineHeight: 1.4 }}>
+        Share this link to collect secure card payment via Stripe.
+      </p>
     </div>
   )
 }

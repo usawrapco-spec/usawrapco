@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
-  Bot, Building2, Globe, TrendingUp, Layers, Map, Package, MessageSquare,
+  Bot, Building2, Globe, TrendingUp, Layers, Map, Package, MessageSquare, CreditCard,
   type LucideIcon,
 } from 'lucide-react'
 import GenieFAB from '@/components/genie/GenieFAB'
@@ -76,6 +76,7 @@ const SETTINGS_ITEMS: DropdownItem[] = [
   { href: '/timeclock',             label: 'Time Clock',         icon: Clock },
   { href: '/settings/playbook',     label: 'Sales Playbook',     icon: Zap },
   { href: '/settings/ai',           label: 'AI Settings',        icon: Bot },
+  { href: '/settings/payments',     label: 'Payments & Stripe',  icon: CreditCard },
   { href: '/integrations',          label: 'Integrations',       icon: Zap },
   { href: '/enterprise',            label: 'Enterprise Hub',     icon: Building2 },
 ]
