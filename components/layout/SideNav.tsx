@@ -84,7 +84,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'team',
     label: 'TEAM',
     icon: Clock,
-    roles: ['owner', 'admin', 'installer'],
+    roles: ['owner', 'admin', 'sales_agent', 'installer'],
     items: [
       { href: '/employees',   label: 'Staff',           icon: Users,        roles: ['owner', 'admin'] },
       { href: '/timeclock',   label: 'Time Clock',      icon: Clock },
