@@ -316,39 +316,39 @@ export default function JobImages({
 
   return (
     <div>
-      {/* Upload zone */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3 mb-3 flex-wrap">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Upload to:</span>
+      {/* Upload zone — compact */}
+      <div className="mb-3">
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Upload to:</span>
           {CATEGORIES.map((cat) => (
             <button
               key={cat.key}
               onClick={() => setUploadCategory(cat.key)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all flex items-center gap-1 ${
+              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all flex items-center gap-1 ${
                 uploadCategory === cat.key
                   ? 'bg-purple-600/20 border-purple-500 text-purple-400'
                   : 'bg-[#111827] border-[#1e2d4a] text-gray-500 hover:text-gray-300'
               }`}
             >
-              <cat.Icon size={11} /> {cat.key}
+              <cat.Icon size={9} /> {cat.key}
             </button>
           ))}
         </div>
 
         <div
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all
+          className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all
             ${uploading
               ? 'border-purple-500 bg-purple-500/5'
               : 'border-[#2a3f6a] hover:border-purple-500 hover:bg-purple-500/5'
             }`}
         >
-          <div className="mb-2 opacity-60 flex justify-center">{uploading ? <Loader2 size={36} className="animate-spin" /> : <Camera size={36} />}</div>
-          <div className="text-sm font-semibold text-gray-400">
-            {uploading ? 'Uploading...' : 'Drop images here or click to upload'}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            Supports JPG, PNG, HEIC — max 25MB per file
+          <div className="flex items-center justify-center gap-2">
+            {uploading ? <Loader2 size={18} className="animate-spin opacity-60" /> : <Upload size={18} className="opacity-40" />}
+            <span className="text-sm text-gray-400">
+              {uploading ? 'Uploading...' : 'Drop images or click to upload'}
+            </span>
+            <span className="text-[10px] text-gray-600">JPG, PNG, HEIC</span>
           </div>
           <input
             ref={fileInputRef}
@@ -361,33 +361,33 @@ export default function JobImages({
         </div>
       </div>
 
-      {/* Before / After gallery */}
+      {/* Before / After — paired side by side */}
       {hasBeforeAfter && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-red-500/5 to-green-500/5 border border-[#1e2d4a] rounded-xl">
-          <div className="text-xs font-bold text-green-400 uppercase tracking-[1px] mb-3 flex items-center gap-1.5">
-            <Images size={13} /> Before & After Gallery
+        <div className="mb-4 p-3 bg-gradient-to-r from-red-500/5 to-green-500/5 border border-[#1e2d4a] rounded-xl">
+          <div className="text-[10px] font-bold text-green-400 uppercase tracking-[1px] mb-2 flex items-center gap-1.5">
+            <Images size={11} /> Before & After
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-[10px] font-bold text-red-400 uppercase tracking-wide mb-2">Before</div>
-              <div className="grid grid-cols-2 gap-2">
-                {beforeImages.slice(0, 4).map((img) => (
-                  <div key={img.id} className="aspect-square rounded-lg overflow-hidden border border-[#1e2d4a]">
-                    <img src={img.image_url} alt={img.file_name} className="w-full h-full object-cover" />
-                  </div>
-                ))}
+          <div className="space-y-2">
+            {Array.from({ length: Math.max(beforeImages.length, afterImages.length) }).map((_, i) => (
+              <div key={i} className="grid grid-cols-2 gap-2">
+                <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-[#1e2d4a] bg-[#0d0f14]">
+                  {beforeImages[i] ? (
+                    <img src={beforeImages[i].image_url} alt={beforeImages[i].file_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">No before</div>
+                  )}
+                  <span className="absolute top-1 left-1 text-[9px] font-bold uppercase tracking-wide bg-red-500/80 text-white px-1.5 py-0.5 rounded">Before</span>
+                </div>
+                <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-[#1e2d4a] bg-[#0d0f14]">
+                  {afterImages[i] ? (
+                    <img src={afterImages[i].image_url} alt={afterImages[i].file_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs">No after</div>
+                  )}
+                  <span className="absolute top-1 left-1 text-[9px] font-bold uppercase tracking-wide bg-green-500/80 text-white px-1.5 py-0.5 rounded">After</span>
+                </div>
               </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-green-400 uppercase tracking-wide mb-2">After</div>
-              <div className="grid grid-cols-2 gap-2">
-                {afterImages.slice(0, 4).map((img) => (
-                  <div key={img.id} className="aspect-square rounded-lg overflow-hidden border border-[#1e2d4a]">
-                    <img src={img.image_url} alt={img.file_name} className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
