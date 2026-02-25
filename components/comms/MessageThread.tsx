@@ -220,34 +220,45 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
         {/* Body */}
         {message.channel === 'email' && message.body_html ? (
           <div>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--text1)',
-                lineHeight: 1.5,
-                maxHeight: expanded ? 'none' : 120,
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
-              {/* Show plain text version for thread view */}
-              {message.body || message.body_html.replace(/<[^>]*>/g, '').slice(0, 500)}
-              {!expanded && (message.body || '').length > 200 && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 40,
-                    background:
-                      'linear-gradient(transparent, ' +
-                      (isOutbound ? 'rgba(79,127,255,0.1)' : 'var(--surface2)') +
-                      ')',
-                  }}
-                />
-              )}
-            </div>
+            {/* Rich editor HTML (not full template) — render directly */}
+            {/* Legacy messages that stored full branded template → show plain text */}
+            {message.body_html.startsWith('<!DOCTYPE') || message.body_html.startsWith('<html') ? (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text1)',
+                  lineHeight: 1.5,
+                  maxHeight: expanded ? 'none' : 160,
+                  overflow: 'hidden',
+                }}
+              >
+                {message.body || message.body_html.replace(/<[^>]*>/g, '').slice(0, 500)}
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text1)',
+                  lineHeight: 1.5,
+                  maxHeight: expanded ? 'none' : 160,
+                  overflow: 'hidden',
+                }}
+                dangerouslySetInnerHTML={{ __html: message.body_html }}
+              />
+            )}
+            {!expanded && (message.body || '').length > 200 && (
+              <div
+                style={{
+                  height: 40,
+                  background:
+                    'linear-gradient(transparent, ' +
+                    (isOutbound ? 'rgba(79,127,255,0.1)' : 'var(--surface2)') +
+                    ')',
+                  marginTop: -40,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
             {(message.body || '').length > 200 && (
               <button
                 onClick={() => setExpanded(!expanded)}

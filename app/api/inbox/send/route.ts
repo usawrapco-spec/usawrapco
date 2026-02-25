@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 
-function buildEmailHtml(body: string, photos: any[] = []): string {
-  const nl2br = body.replace(/\n/g, '<br/>')
+function buildEmailHtml(body: string, photos: any[] = [], isHtml = false): string {
+  const content = isHtml ? body : body.replace(/\n/g, '<br/>')
   const photoGrid =
     photos.length > 0
       ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
@@ -33,7 +33,7 @@ function buildEmailHtml(body: string, photos: any[] = []): string {
           <img src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp" alt="USA Wrap Co" style="height:48px;width:auto;" />
         </td></tr>
         <tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:#e8eaed;">
-          ${nl2br}
+          ${content}
           ${photoGrid}
         </td></tr>
         <tr><td style="background:#0d0f14;padding:16px 28px;font-size:12px;color:#5a6080;text-align:center;border-top:1px solid #1a1d27;">
@@ -108,7 +108,9 @@ export async function POST(req: Request) {
 
   // ── Send via Resend edge function ───────────────────────────
   if (channel === 'email' && to_email) {
-    const emailHtml = body_html || buildEmailHtml(body || '', photos)
+    const emailHtml = body_html
+      ? buildEmailHtml(body_html, photos, true)
+      : buildEmailHtml(body || '', photos)
 
     try {
       const edgeRes = await fetch(
