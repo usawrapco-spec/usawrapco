@@ -1421,7 +1421,7 @@ export default function ImportJobsClient({ profile, teammates }: ImportJobsClien
                 </button>
                 <button
                   style={btnPrimary}
-                  onClick={() => window.location.href = '/jobs'}
+                  onClick={() => window.location.href = '/pipeline'}
                 >
                   View Jobs <ArrowRight size={16} />
                 </button>

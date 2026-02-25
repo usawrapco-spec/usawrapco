@@ -39,7 +39,7 @@ import {
 /* ─── Quick create items for the bottom sheet ─────────────────────── */
 const CREATE_ITEMS = [
   { href: '/estimates?new=true', label: 'New Estimate',  icon: FileText },
-  { href: '/jobs?new=true',      label: 'New Job',       icon: Briefcase },
+  { href: '/pipeline?new=true',  label: 'New Job',       icon: Briefcase },
   { href: '/customers?new=true', label: 'New Customer',  icon: Users },
   { href: '/tasks?new=true',     label: 'New Task',      icon: CheckSquare },
   { href: '/prospects?new=true', label: 'New Prospect',  icon: UserPlus },

@@ -270,7 +270,7 @@ export default function JobDetailTabs({ profile, project: rawProject, lineItems:
   return (
     <div style={wrapperStyle}>
       {/* Back Link */}
-      <Link href="/jobs" style={backLinkStyle}>
+      <Link href="/pipeline" style={backLinkStyle}>
         <ArrowLeft style={{ width: 15, height: 15 }} />
         Back to Jobs
       </Link>

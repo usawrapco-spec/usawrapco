@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { canAccess, isAdminRole } from '@/types'
 import type { Profile, Project } from '@/types'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
-import DashboardWrapper from '@/components/dashboard/DashboardWrapper'
+import XPAwarder from '@/components/dashboard/XPAwarder'
 import RoleDashboard from '@/components/dashboard/RoleDashboard'
 import DashboardHero from '@/components/dashboard/DashboardHero'
 
@@ -57,27 +57,21 @@ export default async function DashboardPage() {
     const canSeeFinancials = isAdminRole(profile.role) || canAccess(profile.role, 'view_financials')
 
     return (
-        <DashboardWrapper
-            orgId={orgId}
-            profileId={user.id}
-            role={profile.role}
-        >
-            <>
-                <DashboardHero
-                    profile={profile as Profile}
-                    projects={(projects as Project[]) || []}
-                    canSeeFinancials={canSeeFinancials}
-                />
-                <RoleDashboard
-                    profile={profile as Profile}
-                    projects={(projects as Project[]) || []}
-                />
-                <DashboardClient
-                    profile={profile as Profile}
-                    initialProjects={(projects as Project[]) || []}
-                    canSeeFinancials={canSeeFinancials}
-                />
-            </>
-        </DashboardWrapper>
+        <XPAwarder>
+            <DashboardHero
+                profile={profile as Profile}
+                projects={(projects as Project[]) || []}
+                canSeeFinancials={canSeeFinancials}
+            />
+            <RoleDashboard
+                profile={profile as Profile}
+                projects={(projects as Project[]) || []}
+            />
+            <DashboardClient
+                profile={profile as Profile}
+                initialProjects={(projects as Project[]) || []}
+                canSeeFinancials={canSeeFinancials}
+            />
+        </XPAwarder>
     )
 }

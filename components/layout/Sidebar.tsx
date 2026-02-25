@@ -146,12 +146,6 @@ const NAV: NavItem[] = [
     ],
   },
   {
-    href: '/jobs',
-    label: 'Jobs',
-    icon: Briefcase,
-    permission: 'jobs.read',
-  },
-  {
     href: '/contacts',
     label: 'Contacts',
     icon: Contact,

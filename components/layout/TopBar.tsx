@@ -12,7 +12,7 @@ import {
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':             'Dashboard',
   '/pipeline':              'Job Board',
-  '/jobs':                  'Jobs',
+  '/jobs':                  'Job Board',
   '/tasks':                 'Task Queue',
   '/calendar':              'Calendar',
   '/inbox':                 'Inbox',
@@ -49,7 +49,7 @@ const PAGE_TITLES: Record<string, string> = {
 const QUICK_CREATE = [
   { label: 'Estimate', icon: FileText, href: '/estimates', action: 'estimate' },
   { label: 'Sales Order', icon: ShoppingCart, href: '/sales-orders', action: 'sales_order' },
-  { label: 'Job', icon: Briefcase, href: '/jobs', action: 'job' },
+  { label: 'Job', icon: Briefcase, href: '/pipeline', action: 'job' },
   { label: 'Customer', icon: Users, href: '/customers', action: 'customer' },
   { label: 'Task', icon: CheckSquare, href: '/tasks', action: 'task' },
 ]

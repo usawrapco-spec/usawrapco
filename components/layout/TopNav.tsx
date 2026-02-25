@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
-  Bot, Building2, Globe, TrendingUp, Layers, Map, Package, MessageSquare, CreditCard,
+  Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -28,7 +28,7 @@ interface DropdownItem {
 const QUICK_CREATE: DropdownItem[] = [
   { href: '/estimates/new', label: 'Estimate',  icon: FileText, description: 'Create a quote' },
   { href: '/sales-orders?new=true', label: 'Sales Order', icon: ShoppingCart, description: 'Convert to order' },
-  { href: '/jobs?new=true',     label: 'Job',       icon: Briefcase, description: 'Start a new job' },
+  { href: '/pipeline?new=true', label: 'Job',       icon: Briefcase, description: 'Start a new job' },
   { href: '/customers?new=true',label: 'Customer',  icon: Users, description: 'Add a customer' },
   { href: '/tasks?new=true',    label: 'Task',      icon: CheckSquare, description: 'Assign a task' },
 ]
@@ -42,9 +42,8 @@ const NAV_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
 ]
 
 const JOBS_ITEMS: DropdownItem[] = [
-  { href: '/jobs',      label: 'Jobs',     icon: Briefcase,   description: 'All active jobs' },
-  { href: '/pipeline',  label: 'Pipeline', icon: Layers,      description: 'Kanban pipeline board' },
-  { href: '/engine',    label: 'Engine',   icon: TrendingUp,  description: 'Automation & rules' },
+  { href: '/pipeline',  label: 'Job Board', icon: Briefcase,   description: 'Unified job board' },
+  { href: '/engine',    label: 'Engine',    icon: TrendingUp,  description: 'Automation & rules' },
 ]
 
 const MORE_NAV: DropdownItem[] = [
@@ -396,7 +395,7 @@ export function TopNav({ profile }: { profile: Profile }) {
         {NAV_LINKS.map(link => {
           const active = isActive(link.href)
           const Icon = link.icon
-          const tourId = link.href === '/jobs' ? 'nav-jobs' : link.href === '/inbox' ? 'nav-inbox' : link.href === '/tasks' ? 'nav-tasks' : undefined
+          const tourId = link.href === '/pipeline' ? 'nav-jobs' : link.href === '/inbox' ? 'nav-inbox' : link.href === '/tasks' ? 'nav-tasks' : undefined
           return (
             <Link
               key={link.href}
@@ -439,9 +438,9 @@ export function TopNav({ profile }: { profile: Profile }) {
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '6px 10px', borderRadius: 8, border: 'none',
-              background: jobsOpen || ['/jobs', '/pipeline', '/engine'].some(p => pathname.startsWith(p))
+              background: jobsOpen || ['/pipeline', '/engine'].some(p => pathname.startsWith(p))
                 ? 'rgba(79,127,255,0.1)' : 'transparent',
-              color: jobsOpen || ['/jobs', '/pipeline', '/engine'].some(p => pathname.startsWith(p))
+              color: jobsOpen || ['/pipeline', '/engine'].some(p => pathname.startsWith(p))
                 ? 'var(--accent)' : 'var(--text2)',
               fontSize: 12, fontWeight: 600, cursor: 'pointer',
               transition: 'all 0.15s',
