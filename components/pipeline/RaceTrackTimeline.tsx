@@ -260,7 +260,6 @@ export function RaceTrackTimeline({ project, onChecklistUpdate }: Props) {
           paddingBottom: 8,
           marginBottom: 8,
         }}
-        onClick={e => e.stopPropagation()}
       >
         {/* ── Compact Track Strip ───────────────────────────────────────── */}
         <TrackStrip
@@ -274,13 +273,16 @@ export function RaceTrackTimeline({ project, onChecklistUpdate }: Props) {
 
         {/* ── Expanded Checklist Panel ──────────────────────────────────── */}
         {expanded && (
-          <div style={{
-            marginTop: 8,
-            background: 'rgba(0,0,0,0.25)',
-            borderRadius: 8,
-            overflow: 'hidden',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              marginTop: 8,
+              background: 'rgba(0,0,0,0.25)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
             {/* Panel header */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -602,7 +604,7 @@ function TrackStrip({
         {/* Expand button */}
         <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 4, flexShrink: 0 }}>
           <button
-            onClick={onToggle}
+            onClick={e => { e.stopPropagation(); onToggle() }}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text3)', padding: 0, display: 'flex',
@@ -616,14 +618,13 @@ function TrackStrip({
 
       {/* The race track */}
       <div
-        onClick={onToggle}
         style={{
           position: 'relative',
           height: 30,
           background: 'rgba(0,0,0,0.35)',
           borderRadius: 6,
           overflow: 'visible',
-          cursor: 'pointer',
+          cursor: 'default',
           display: 'flex',
           alignItems: 'center',
           paddingLeft: 3,
