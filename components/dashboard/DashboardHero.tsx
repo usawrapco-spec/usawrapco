@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project } from '@/types'
 import Link from 'next/link'
 import {
   DollarSign, Briefcase, TrendingUp, Wrench, Calendar,
   FileText, Users, Package, ChevronRight, ArrowUpRight,
-  Activity, Target, BarChart3,
+  Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap,
 } from 'lucide-react'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
 import AIBriefing from '@/components/dashboard/AIBriefing'
@@ -166,6 +166,52 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
   const totalFunnelTop = estimatesOpen.length + closedThisMonth.length
   const conversionRate = totalFunnelTop > 0 ? Math.round((closedThisMonth.length / totalFunnelTop) * 100) : 0
 
+  // ── Weather alerts for mobile installs ────────────────────────
+  const [weatherAlerts, setWeatherAlerts] = useState<any[]>(() =>
+    projects.flatMap(p => {
+      const alerts = (p as any).weather_alerts
+      return Array.isArray(alerts) && alerts.length > 0 ? alerts : []
+    })
+  )
+
+  const checkWeatherAlerts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/weather/check-installs', { method: 'POST' })
+      if (res.ok) {
+        const { alerts } = await res.json()
+        setWeatherAlerts(alerts || [])
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    checkWeatherAlerts()
+    const interval = setInterval(checkWeatherAlerts, 4 * 60 * 60 * 1000) // every 4 hrs
+    return () => clearInterval(interval)
+  }, [checkWeatherAlerts])
+
+  // ── This week's jobs (Mon–Sun) ─────────────────────────────────
+  const weekMonday = useMemo(() => {
+    const d = new Date(now)
+    d.setHours(0, 0, 0, 0)
+    const day = d.getDay() // 0=Sun
+    const offset = day === 0 ? -6 : 1 - day
+    d.setDate(d.getDate() + offset)
+    return d
+  }, [now])
+
+  const thisWeekJobs = useMemo(() => {
+    const weekEnd = new Date(weekMonday)
+    weekEnd.setDate(weekMonday.getDate() + 6)
+    weekEnd.setHours(23, 59, 59, 999)
+    return projects.filter(p => {
+      const dateStr = p.install_date || (p.form_data as any)?.installDate
+      if (!dateStr) return false
+      const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T12:00:00'))
+      return d >= weekMonday && d <= weekEnd && p.status !== 'cancelled' && p.status !== 'closed'
+    })
+  }, [projects, weekMonday])
+
   // Top 5 customers this month by revenue
   const customerRevMap: Record<string, { name: string; revenue: number; jobs: number }> = {}
   closedThisMonth.forEach(p => {
@@ -181,11 +227,147 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
 
   return (
     <div style={{ padding: '24px 28px 0', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Weather + AI Briefing */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
-        <WeatherWidget />
-        <AIBriefing orgId={profile.org_id} profileId={profile.id} />
+      {/* Weather Alerts */}
+      {weatherAlerts.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {weatherAlerts.map((alert: any, idx: number) => (
+            <div key={idx} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 18px',
+              borderRadius: 12,
+              background: alert.severity === 'danger' ? 'rgba(139,92,246,0.1)' : 'rgba(242,90,90,0.08)',
+              border: `1px solid ${alert.severity === 'danger' ? '#8b5cf6' : '#f25a5a'}`,
+            }}>
+              {alert.severity === 'danger'
+                ? <Zap size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 1 }} />
+                : <CloudRain size={20} style={{ color: '#f25a5a', flexShrink: 0, marginTop: 1 }} />
+              }
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text1)', marginBottom: 2 }}>
+                  WEATHER ALERT — {alert.job_title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>
+                  Install{' '}
+                  {alert.install_date
+                    ? new Date(alert.install_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+                    : ''}
+                  {alert.install_address ? ` at ${alert.install_address}` : ''}
+                </div>
+                <div style={{ fontSize: 11, color: alert.severity === 'danger' ? '#c4b5fd' : '#f87171' }}>
+                  {alert.issues?.join(' • ')}
+                </div>
+              </div>
+              <Link
+                href={`/projects/${alert.job_id}`}
+                style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', flexShrink: 0, marginTop: 2 }}
+              >
+                View Job
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* This Week at a Glance: 7-day weather + week jobs calendar */}
+      <div>
+        <div style={{
+          fontSize: 10, fontWeight: 900, color: 'var(--text3)',
+          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12,
+        }}>
+          This Week at a Glance
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <WeatherWidget />
+
+          {/* Week Jobs Calendar */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '14px 16px', overflowY: 'auto', maxHeight: 260,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              Installs This Week
+            </div>
+            {Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(weekMonday)
+              d.setDate(weekMonday.getDate() + i)
+              const dateStr = d.toISOString().split('T')[0]
+              const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+              const isToday = dateStr === now.toISOString().split('T')[0]
+              const dayJobs = thisWeekJobs.filter(p => {
+                const ds = p.install_date || (p.form_data as any)?.installDate
+                return ds && ds.startsWith(dateStr)
+              })
+              return (
+                <div key={i} style={{ marginBottom: 8 }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: isToday ? 'var(--accent)' : 'var(--text3)',
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                    paddingBottom: 4,
+                    borderBottom: `1px solid ${isToday ? 'rgba(79,127,255,0.2)' : 'var(--border)'}`,
+                    marginBottom: 4,
+                  }}>
+                    {isToday ? `Today — ${dayLabel}` : dayLabel}
+                  </div>
+                  {dayJobs.length === 0 ? (
+                    <Link href="/calendar" style={{
+                      fontSize: 11, color: 'var(--text3)', textDecoration: 'none',
+                      display: 'block', padding: '2px 0',
+                      opacity: 0.5,
+                    }}>
+                      + Schedule
+                    </Link>
+                  ) : (
+                    dayJobs.map(p => {
+                      const isMobile = (p as any).is_mobile_install
+                      const hasAlert = Array.isArray((p as any).weather_alerts) && (p as any).weather_alerts.length > 0
+                      const pipeLabel: Record<string, string> = {
+                        sales_in: 'Sales', production: 'Production', install: 'Install',
+                        prod_review: 'QC', sales_close: 'Close', done: 'Done',
+                      }
+                      const pipeColor: Record<string, string> = {
+                        sales_in: '#4f7fff', production: '#8b5cf6', install: '#22d3ee',
+                        prod_review: '#f59e0b', sales_close: '#22c07a', done: '#5a6080',
+                      }
+                      const stage = p.pipe_stage || 'sales_in'
+                      return (
+                        <Link key={p.id} href={`/projects/${p.id}`} style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '4px 6px', borderRadius: 6, textDecoration: 'none',
+                          background: hasAlert ? 'rgba(242,90,90,0.05)' : 'transparent',
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = hasAlert ? 'rgba(242,90,90,0.05)' : 'transparent')}
+                        >
+                          {isMobile
+                            ? <MapPin size={11} style={{ color: '#4f7fff', flexShrink: 0 }} />
+                            : <Wrench size={11} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+                          }
+                          <span style={{ fontSize: 12, color: 'var(--text1)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {p.title || p.vehicle_desc || 'Untitled'}
+                          </span>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+                            background: `${pipeColor[stage]}22`, color: pipeColor[stage],
+                            flexShrink: 0,
+                          }}>
+                            {pipeLabel[stage]}
+                          </span>
+                          {hasAlert && (
+                            <AlertTriangle size={11} style={{ color: '#f25a5a', flexShrink: 0 }} />
+                          )}
+                        </Link>
+                      )
+                    })
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
+
+      {/* AI Briefing */}
+      <AIBriefing orgId={profile.org_id} profileId={profile.id} projects={projects} />
 
       {/* Hero Revenue */}
       <div style={{

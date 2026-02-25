@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Sparkles, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Sparkles, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import type { Project } from '@/types'
 
 interface AIBriefingProps {
   orgId: string
   profileId: string
+  projects?: Project[]
 }
 
 interface BriefingData {
@@ -13,157 +15,97 @@ interface BriefingData {
   timestamp: string
 }
 
-export default function AIBriefing({ orgId, profileId }: AIBriefingProps) {
+function generateLocalBriefing(projects: Project[]): string[] {
+  const parts: string[] = []
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  const dayLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  parts.push(`Good ${today.getHours() < 12 ? 'morning' : today.getHours() < 17 ? 'afternoon' : 'evening'}. Today is ${dayLabel}.`)
+
+  // Today's installs
+  const todayInstalls = projects.filter(p => {
+    const d = p.install_date || (p.form_data as any)?.installDate
+    return d && d.startsWith(todayStr) && p.status !== 'cancelled' && p.status !== 'closed'
+  })
+  if (todayInstalls.length > 0) {
+    parts.push(`You have ${todayInstalls.length} install${todayInstalls.length > 1 ? 's' : ''} scheduled today${todayInstalls[0] ? ` — ${todayInstalls[0].title || todayInstalls[0].vehicle_desc || 'Untitled'}${todayInstalls.length > 1 ? ` + ${todayInstalls.length - 1} more` : ''}` : ''}.`)
+  }
+
+  // Weather alerts from mobile install jobs
+  const weatherAlertJobs = projects.filter(p => {
+    const alerts = (p as any).weather_alerts
+    return (p as any).is_mobile_install && Array.isArray(alerts) && alerts.length > 0
+  })
+  if (weatherAlertJobs.length > 0) {
+    parts.push(`Weather alert: ${weatherAlertJobs.length} upcoming mobile install${weatherAlertJobs.length > 1 ? 's have' : ' has'} bad weather forecasted. Review before confirming schedule.`)
+  }
+
+  // In-progress jobs
+  const inProgress = projects.filter(p =>
+    ['active', 'in_production', 'install_scheduled', 'installed', 'qc', 'closing'].includes(p.status)
+  )
+  if (inProgress.length > 0) {
+    parts.push(`${inProgress.length} active job${inProgress.length > 1 ? 's' : ''} currently in the pipeline.`)
+  }
+
+  // Jobs needing attention (in same stage for a while - check via install stage)
+  const installStage = projects.filter(p => p.pipe_stage === 'install')
+  if (installStage.length > 0) {
+    parts.push(`${installStage.length} job${installStage.length > 1 ? 's' : ''} in the Install stage — verify completion before advancing.`)
+  }
+
+  // Estimates open
+  const openEstimates = projects.filter(p => p.status === 'estimate')
+  if (openEstimates.length > 0) {
+    parts.push(`${openEstimates.length} open estimate${openEstimates.length > 1 ? 's' : ''} awaiting customer decision.`)
+  }
+
+  if (parts.length <= 1) {
+    parts.push('No urgent items today. All jobs are on track.')
+  }
+
+  return parts
+}
+
+export default function AIBriefing({ orgId, profileId, projects }: AIBriefingProps) {
   const [briefing, setBriefing] = useState<BriefingData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
   const [expanded, setExpanded] = useState(true)
 
   useEffect(() => {
-    // Check if we already have today's briefing in localStorage
     const today = new Date().toISOString().split('T')[0]
-    const key = `usawrap_briefing_${today}_${profileId}`
+    const key = `usawrap_briefing_v2_${today}_${profileId}`
     const cached = localStorage.getItem(key)
 
     if (cached) {
       try {
         setBriefing(JSON.parse(cached))
+        return
       } catch {
-        // If cached data is invalid, fetch new
-        fetchBriefing()
+        // fall through to regenerate
       }
-    } else {
-      fetchBriefing()
     }
-  }, [orgId, profileId])
 
-  async function fetchBriefing() {
-    setLoading(true)
-    setError(false)
+    generateBriefing()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId])
 
-    try {
-      const res = await fetch('/api/ai/daily-briefing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgId, profileId }),
-      })
-
-      if (!res.ok) throw new Error('Briefing fetch failed')
-
-      const data = await res.json()
-      const briefingData: BriefingData = {
-        summary: data.summary || [],
-        timestamp: new Date().toISOString(),
-      }
-
-      setBriefing(briefingData)
-
-      // Cache for today
-      const today = new Date().toISOString().split('T')[0]
-      const key = `usawrap_briefing_${today}_${profileId}`
-      localStorage.setItem(key, JSON.stringify(briefingData))
-
-      setLoading(false)
-    } catch (err) {
-      console.error('AI Briefing error:', err)
-      setError(true)
-      setLoading(false)
+  // Regenerate when projects change (e.g. weather alerts updated)
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      generateBriefing()
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects?.length])
 
-  if (loading && !briefing) {
-    return (
-      <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '20px 24px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <Sparkles size={18} style={{ color: 'var(--accent)' }} />
-          <div style={{
-            fontFamily: 'Barlow Condensed, sans-serif',
-            fontSize: 16,
-            fontWeight: 900,
-            color: 'var(--text1)',
-          }}>
-            AI Morning Briefing
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 16,
-            height: 16,
-            border: '2px solid var(--accent)',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.6s linear infinite',
-          }} />
-          <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-            Analyzing today's schedule...
-          </div>
-        </div>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    )
-  }
+  function generateBriefing() {
+    const summary = generateLocalBriefing(projects || [])
+    const data: BriefingData = { summary, timestamp: new Date().toISOString() }
+    setBriefing(data)
 
-  if (error && !briefing) {
-    return (
-      <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '20px 24px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Sparkles size={18} style={{ color: 'var(--accent)' }} />
-            <div style={{
-              fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: 16,
-              fontWeight: 900,
-              color: 'var(--text1)',
-            }}>
-              AI Morning Briefing
-            </div>
-          </div>
-          <button
-            onClick={fetchBriefing}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text2)',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <RotateCcw size={12} />
-            Retry
-          </button>
-        </div>
-        <div style={{
-          fontSize: 13,
-          color: 'var(--text3)',
-          padding: '12px 16px',
-          background: 'rgba(242,90,90,0.08)',
-          border: '1px solid rgba(242,90,90,0.2)',
-          borderRadius: 8,
-        }}>
-          Unable to generate briefing. Click retry or check back later.
-        </div>
-      </div>
-    )
+    const today = new Date().toISOString().split('T')[0]
+    const key = `usawrap_briefing_v2_${today}_${profileId}`
+    try { localStorage.setItem(key, JSON.stringify(data)) } catch {}
   }
 
   if (!briefing) return null
@@ -173,126 +115,73 @@ export default function AIBriefing({ orgId, profileId }: AIBriefingProps) {
       background: 'var(--surface)',
       border: '1px solid var(--border)',
       borderRadius: 12,
-      padding: '20px 24px',
+      padding: '18px 22px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Sparkles size={18} style={{ color: 'var(--accent)' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Sparkles size={16} style={{ color: 'var(--accent)' }} />
           <div style={{
             fontFamily: 'Barlow Condensed, sans-serif',
-            fontSize: 16,
-            fontWeight: 900,
-            color: 'var(--text1)',
+            fontSize: 15, fontWeight: 900, color: 'var(--text1)',
           }}>
             Today's Briefing
           </div>
           <div style={{
-            fontSize: 10,
-            color: 'var(--text3)',
+            fontSize: 9, color: 'var(--text3)',
             fontFamily: "'JetBrains Mono', monospace",
-            padding: '2px 8px',
+            padding: '2px 6px',
             background: 'rgba(79,127,255,0.1)',
             borderRadius: 4,
+            textTransform: 'uppercase', letterSpacing: '0.06em',
           }}>
-            AI-Generated
+            Live
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           <button
-            onClick={fetchBriefing}
-            disabled={loading}
+            onClick={() => generateBriefing()}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text2)',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1,
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', background: 'transparent',
+              border: '1px solid var(--border)', borderRadius: 6,
+              color: 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
             }}
+            title="Refresh briefing"
           >
-            <RotateCcw size={12} />
-            Refresh
+            <RefreshCw size={11} />
           </button>
           <button
             onClick={() => setExpanded(!expanded)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '6px',
-              background: 'transparent',
-              border: 'none',
-              borderRadius: 6,
-              color: 'var(--text2)',
-              cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+              padding: '4px 6px', background: 'transparent',
+              border: 'none', borderRadius: 6, color: 'var(--text2)', cursor: 'pointer',
             }}
           >
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {briefing.summary.length === 0 ? (
-            <div style={{
-              fontSize: 13,
-              color: 'var(--text3)',
-              padding: '12px 16px',
-              background: 'var(--surface2)',
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {briefing.summary.map((item, idx) => (
+            <div key={idx} style={{
+              display: 'flex', gap: 10, padding: '10px 14px',
+              background: 'var(--surface2)', border: '1px solid var(--border)',
               borderRadius: 8,
-              fontStyle: 'italic',
             }}>
-              All clear! No urgent items for today.
-            </div>
-          ) : (
-            briefing.summary.map((item, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  gap: 12,
-                  padding: '12px 16px',
-                  background: 'var(--surface2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                }}
-              >
-                <div style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: 'var(--accent)',
-                  marginTop: 6,
-                  flexShrink: 0,
-                }} />
-                <div style={{
-                  fontSize: 13,
-                  color: 'var(--text1)',
-                  lineHeight: 1.5,
-                  flex: 1,
-                }}>
-                  {item}
-                </div>
+              <div style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: 'var(--accent)', marginTop: 7, flexShrink: 0,
+              }} />
+              <div style={{ fontSize: 13, color: 'var(--text1)', lineHeight: 1.5, flex: 1 }}>
+                {item}
               </div>
-            ))
-          )}
-
-          <div style={{
-            marginTop: 4,
-            fontSize: 11,
-            color: 'var(--text3)',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}>
-            Generated {new Date(briefing.timestamp).toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
+            </div>
+          ))}
+          <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>
+            Updated {new Date(briefing.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
           </div>
         </div>
       )}

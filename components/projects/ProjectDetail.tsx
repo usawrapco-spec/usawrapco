@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -115,6 +115,19 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const [selectedPPF, setSelectedPPF] = useState<any>(
     (initial.form_data as any)?.selectedPPF || null
   )
+
+  // Mobile install state
+  const [isMobileInstall, setIsMobileInstall] = useState<boolean>(
+    Boolean((initial as any).is_mobile_install)
+  )
+  const [installAddress, setInstallAddress] = useState<string>(
+    (initial as any).install_address || ''
+  )
+  const [installWeather, setInstallWeather] = useState<{
+    severity: 'good' | 'medium' | 'high' | 'danger'
+    issues: string[]
+  } | null>(null)
+  const [checkingWeather, setCheckingWeather] = useState(false)
 
   // Form fields — ALL sales fields in one object
   const fd = (initial.form_data as any) || {}
@@ -238,6 +251,87 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       setProject(p => ({...p, ...updates}))
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     }
+  }
+
+  // ── Mobile install handlers ─────────────────────────────────────
+  async function toggleMobileInstall() {
+    const newVal = !isMobileInstall
+    setIsMobileInstall(newVal)
+    await supabase.from('projects').update({ is_mobile_install: newVal }).eq('id', project.id)
+  }
+
+  async function saveInstallAddress() {
+    if (!installAddress.trim()) return
+    setCheckingWeather(true)
+    setInstallWeather(null)
+    try {
+      // Geocode the address
+      const geoRes = await fetch(`/api/geocode?address=${encodeURIComponent(installAddress)}`)
+      const geo = await geoRes.json()
+      const lat: number = geo.lat || 47.3318
+      const lng: number = geo.lng || -122.5793
+
+      // Save address + coords to DB
+      await supabase.from('projects').update({
+        install_address: installAddress,
+        install_lat: lat,
+        install_lng: lng,
+      }).eq('id', project.id)
+
+      // Fetch 7-day weather for this location
+      const weatherRes = await fetch(`/api/weather?lat=${lat}&lng=${lng}`)
+      if (!weatherRes.ok) throw new Error('Weather fetch failed')
+      const weatherData = await weatherRes.json()
+
+      // Find the day matching the install date
+      const installDate = f.installDate
+      if (installDate && weatherData.daily?.time) {
+        const dayIndex: number = weatherData.daily.time.findIndex((d: string) => d === installDate)
+        if (dayIndex >= 0) {
+          const code: number = weatherData.daily.weathercode[dayIndex]
+          const maxTemp: number = weatherData.daily.temperature_2m_max[dayIndex]
+          const minTemp: number = weatherData.daily.temperature_2m_min[dayIndex]
+          const precip: number = weatherData.daily.precipitation_sum[dayIndex]
+          const wind: number = weatherData.daily.windspeed_10m_max[dayIndex]
+          const precipProb: number = weatherData.daily.precipitation_probability_max[dayIndex]
+
+          const issues: string[] = []
+          if (precipProb > 40 || precip > 0.1) issues.push(`Rain expected (${precipProb}% chance, ${precip.toFixed(2)}" precip)`)
+          if (minTemp < 50) issues.push(`Too cold for vinyl (low: ${minTemp}°F — vinyl needs 50°F+)`)
+          if (maxTemp > 95) issues.push(`Too hot for vinyl application (${maxTemp}°F)`)
+          if (wind > 20) issues.push(`High winds (${wind} mph — makes install very difficult)`)
+          if (code >= 95) issues.push('Thunderstorm forecast — DO NOT install')
+
+          const severity: 'good' | 'medium' | 'high' | 'danger' =
+            issues.length === 0 ? 'good' :
+            code >= 95 ? 'danger' :
+            (precip > 0.1 || minTemp < 50) ? 'high' : 'medium'
+
+          setInstallWeather({ severity, issues })
+
+          if (issues.length > 0) {
+            await supabase.from('projects').update({
+              weather_alerts: [{ severity, issues, install_date: installDate }],
+              last_weather_check: new Date().toISOString(),
+            }).eq('id', project.id)
+          } else {
+            await supabase.from('projects').update({
+              weather_alerts: [],
+              last_weather_check: new Date().toISOString(),
+            }).eq('id', project.id)
+          }
+        } else {
+          // Install date is beyond 7-day forecast window
+          setInstallWeather({ severity: 'good', issues: [] })
+        }
+      } else {
+        // No install date set yet — just saved the address
+        setInstallWeather(null)
+      }
+    } catch {
+      setToast('Weather check failed — address saved')
+    }
+    setCheckingWeather(false)
   }
 
   // ── Pipeline advance with gate check ───────────────────────────
@@ -973,6 +1067,98 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
           </Field>
           <Field label="Install Date"><input style={inp} type="date" value={f.installDate} onChange={e=>ff('installDate',e.target.value)} /></Field>
         </Grid>
+      </Section>
+
+      {/* Mobile / Outdoor Install */}
+      <Section label="Mobile / Outdoor Install">
+        {/* Toggle */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:'var(--surface2)', borderRadius:10, border:'1px solid var(--card-border)', marginBottom:12 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:'rgba(79,127,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <MapPin size={15} style={{ color:'var(--accent)' }} />
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--text1)' }}>Mobile / Outdoor Install</div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>Turn on if wrapping at customer location or outdoors</div>
+          </div>
+          <button
+            onClick={toggleMobileInstall}
+            style={{
+              position:'relative', width:44, height:24, borderRadius:12, border:'none', cursor:'pointer',
+              background: isMobileInstall ? 'var(--accent)' : 'var(--card-border)',
+              transition:'background 0.2s', flexShrink:0,
+            }}
+          >
+            <span style={{
+              position:'absolute', top:3, width:18, height:18, borderRadius:'50%', background:'#fff',
+              transition:'transform 0.2s',
+              transform: isMobileInstall ? 'translateX(23px)' : 'translateX(3px)',
+            }} />
+          </button>
+        </div>
+
+        {/* Install Address (only when mobile is ON) */}
+        {isMobileInstall && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            <Field label="Install Location Address">
+              <div style={{ display:'flex', gap:8 }}>
+                <input
+                  style={{ ...inp, flex:1 }}
+                  type="text"
+                  value={installAddress}
+                  onChange={e => setInstallAddress(e.target.value)}
+                  placeholder="123 Main St, Tacoma, WA 98401"
+                />
+                <button
+                  onClick={saveInstallAddress}
+                  disabled={checkingWeather || !installAddress.trim()}
+                  style={{
+                    padding:'10px 16px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer',
+                    background: checkingWeather ? 'var(--surface2)' : 'var(--accent)',
+                    border:'none', color:'#fff', opacity: (!installAddress.trim() || checkingWeather) ? 0.6 : 1,
+                    transition:'all 0.15s', whiteSpace:'nowrap', flexShrink:0,
+                  }}
+                >
+                  {checkingWeather ? 'Checking...' : 'Save & Check Weather'}
+                </button>
+              </div>
+            </Field>
+
+            {!f.installDate && (
+              <div style={{ fontSize:11, color:'var(--amber)', display:'flex', alignItems:'center', gap:6 }}>
+                <AlertTriangle size={12} />
+                Set an install date above to see the weather forecast for that day.
+              </div>
+            )}
+
+            {/* Weather result */}
+            {installWeather && (
+              <div style={{
+                padding:'12px 14px', borderRadius:10, border:'1px solid',
+                borderColor: installWeather.severity === 'danger' ? '#8b5cf6' : installWeather.severity === 'high' ? '#f25a5a' : installWeather.severity === 'medium' ? '#f59e0b' : '#22c07a',
+                background: installWeather.severity === 'danger' ? 'rgba(139,92,246,0.08)' : installWeather.severity === 'high' ? 'rgba(242,90,90,0.06)' : installWeather.severity === 'medium' ? 'rgba(245,158,11,0.06)' : 'rgba(34,192,122,0.06)',
+              }}>
+                {installWeather.severity === 'good' ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#22c07a', fontWeight:600 }}>
+                    <ThumbsUp size={14} />
+                    Weather looks good for this install date.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                      <CloudRain size={14} style={{ color: installWeather.severity === 'danger' ? '#8b5cf6' : installWeather.severity === 'high' ? '#f25a5a' : '#f59e0b' }} />
+                      <span style={{ fontSize:13, fontWeight:700, color:'var(--text1)' }}>Weather Issues on Install Date</span>
+                    </div>
+                    <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:4 }}>
+                      {installWeather.issues.map((issue, i) => (
+                        <li key={i} style={{ fontSize:12, color:'var(--text2)' }}>{issue}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </Section>
 
       {/* Job Type */}
