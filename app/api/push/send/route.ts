@@ -35,13 +35,15 @@ export interface PushPayload {
  * (phone alerts, new message hooks, etc.).
  */
 export async function POST(req: NextRequest) {
-  // Block unauthenticated external calls — only server-side calls succeed
+  // Allow internal server-to-server calls via secret header, or authenticated session users
   const internalSecret = req.headers.get('x-internal-secret')
+  let sessionUserId: string | null = null
+
   if (internalSecret !== process.env.INTERNAL_API_SECRET) {
-    // Also allow authenticated session users (for testing from the UI)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    sessionUserId = user.id
   }
 
   if (!vapidConfigured) {
@@ -52,7 +54,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { user_id, user_ids, title, body: msgBody, icon, badge, tag, url } = body
 
-    const targets: string[] = user_ids ?? (user_id ? [user_id] : [])
+    // If no user_id supplied and this is a session call, send to self
+    const targets: string[] = user_ids ?? (user_id ? [user_id] : sessionUserId ? [sessionUserId] : [])
     if (!targets.length) return NextResponse.json({ error: 'user_id or user_ids required' }, { status: 400 })
 
     const supabase = getSupabaseAdmin()

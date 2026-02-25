@@ -1017,19 +1017,37 @@ export function TopNav({ profile }: { profile: Profile }) {
                       Push blocked — allow in browser settings
                     </div>
                   ) : push.isSubscribed ? (
-                    <button
-                      onClick={() => push.unsubscribe()}
-                      disabled={push.busy}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        fontSize: 11, color: 'var(--green)', fontWeight: 600, padding: 0,
-                        opacity: push.busy ? 0.6 : 1,
-                      }}
-                    >
-                      <BellRing size={12} />
-                      {push.busy ? 'Saving…' : 'Push alerts on — tap to disable'}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <button
+                        onClick={() => push.unsubscribe()}
+                        disabled={push.busy}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 11, color: 'var(--green)', fontWeight: 600, padding: 0,
+                          opacity: push.busy ? 0.6 : 1,
+                        }}
+                      >
+                        <BellRing size={12} />
+                        {push.busy ? 'Saving…' : 'Push alerts on'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await fetch('/api/push/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ title: 'Test notification', body: 'Push notifications are working!', url: '/dashboard', tag: 'test' }),
+                          })
+                        }}
+                        style={{
+                          background: 'none', border: '1px solid var(--card-border)', borderRadius: 6,
+                          cursor: 'pointer', fontSize: 10, color: 'var(--text2)', fontWeight: 600,
+                          padding: '2px 8px',
+                        }}
+                      >
+                        Send test
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={() => push.subscribe()}
