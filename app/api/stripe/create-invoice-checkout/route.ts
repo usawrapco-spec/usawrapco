@@ -4,9 +4,16 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 // Public — called from /pay/[invoiceId] (no auth required)
 export async function POST(req: NextRequest) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY
+  // Try common env var naming conventions
+  const stripeKey =
+    process.env.STRIPE_SECRET_KEY ||
+    process.env.STRIPE_API_KEY ||
+    process.env.STRIPE_KEY ||
+    process.env.STRIPE_SECRET
   if (!stripeKey) {
-    return NextResponse.json({ error: 'Stripe not configured. Add STRIPE_SECRET_KEY to your environment.' }, { status: 503 })
+    return NextResponse.json({
+      error: 'Stripe not configured. Add STRIPE_SECRET_KEY to your Vercel environment variables.',
+    }, { status: 503 })
   }
 
   try {

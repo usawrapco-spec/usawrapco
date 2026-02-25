@@ -10,8 +10,14 @@ import Stripe from 'stripe'
 // /api/webhooks/stripe is an alias that forwards here.
 
 export async function POST(req: Request) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const stripeKey =
+    process.env.STRIPE_SECRET_KEY ||
+    process.env.STRIPE_API_KEY ||
+    process.env.STRIPE_KEY ||
+    process.env.STRIPE_SECRET
+  const webhookSecret =
+    process.env.STRIPE_WEBHOOK_SECRET ||
+    process.env.STRIPE_WEBHOOK_SIGNING_SECRET
 
   if (!stripeKey || !webhookSecret) {
     // Return 200 so Stripe doesn't retry — keys just aren't configured yet
