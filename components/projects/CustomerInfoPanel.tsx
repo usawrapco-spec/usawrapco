@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User, Building2, Phone, Mail, TrendingUp, History, X, ExternalLink, Copy } from 'lucide-react'
+import ClickToCallButton from '@/components/phone/ClickToCallButton'
 import type { Profile } from '@/types'
 
 interface CustomerInfoPanelProps {
@@ -125,9 +126,15 @@ export default function CustomerInfoPanel({ project, profile }: CustomerInfoPane
                   </span>
                 )}
                 {customer.phone && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-2">
                     <Phone size={12} />
                     {customer.phone}
+                    <ClickToCallButton
+                      toNumber={customer.phone}
+                      toName={customer.name}
+                      projectId={project.id}
+                      size="sm"
+                    />
                   </span>
                 )}
                 {customer.email && (

@@ -26,7 +26,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       *,
       agent:agent_id(id,name,email),
       installer:installer_id(id,name,email),
-      customer:customer_id(id,name,email)
+      customer:customer_id(id,name,email,phone,company_name,lifetime_spend)
     `)
     .eq('id', params.id)
 

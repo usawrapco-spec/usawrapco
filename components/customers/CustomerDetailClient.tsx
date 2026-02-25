@@ -11,6 +11,7 @@ import {
   Car, Users, AlertCircle, CreditCard, Receipt
 } from 'lucide-react'
 import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
+import ClickToCallButton from '@/components/phone/ClickToCallButton'
 import type { Profile } from '@/types'
 import { format, formatDistanceToNow } from 'date-fns'
 
@@ -805,6 +806,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text2)' }}>
                   <Phone size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
                   <a href={`tel:${saved.phone}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>{saved.phone}</a>
+                  <ClickToCallButton toNumber={saved.phone} toName={saved.contact_name} size="sm" />
                 </div>
               )}
               {(saved.city || saved.state) && (
