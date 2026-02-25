@@ -92,7 +92,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'reports',
     label: 'REPORTS',
     icon: BarChart3,
-    roles: ['owner', 'admin', 'sales_agent'],
+    roles: ['owner', 'admin', 'sales_agent', 'viewer'],
     items: [
       { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
       { href: '/analytics',  label: 'Analytics',  icon: TrendingUp },
