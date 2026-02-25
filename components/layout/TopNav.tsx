@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
   FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
   Inbox, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
-  Bot, Building2, Globe, TrendingUp, Layers, Map, Package,
+  Bot, Building2, Globe, TrendingUp, Layers, Map, Package, MessageSquare,
   type LucideIcon,
 } from 'lucide-react'
 import GenieFAB from '@/components/genie/GenieFAB'
@@ -49,6 +49,7 @@ const MORE_NAV: DropdownItem[] = [
   { href: '/estimates',    label: 'Estimates',    icon: FileText },
   { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
   { href: '/invoices',     label: 'Invoices',     icon: Receipt },
+  { href: '/comms',        label: 'Comms',        icon: MessageSquare },
   { href: '/contacts',     label: 'Contacts',     icon: Users },
   { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
   { href: '/campaigns',    label: 'Campaigns',    icon: Globe },

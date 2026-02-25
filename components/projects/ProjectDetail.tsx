@@ -21,6 +21,7 @@ import SendBidToInstaller from '@/components/installer/SendBidToInstaller'
 import SalesTabBuilder from '@/components/projects/SalesTabBuilder'
 import ProofingPanel from '@/components/projects/ProofingPanel'
 import TimeTrackingTab from '@/components/projects/TimeTrackingTab'
+import CustomerCommsPanel from '@/components/comms/CustomerCommsPanel'
 
 interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -655,9 +656,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
               <div style={{ marginBottom:16 }}>
                 <JobChat projectId={project.id} orgId={project.org_id} currentUserId={profile.id} currentUserName={profile.name} />
               </div>
-              <div style={{ borderTop:'1px solid var(--border)', paddingTop:16 }}>
+              <div style={{ borderTop:'1px solid var(--border)', paddingTop:16, marginBottom:16 }}>
                 <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><Camera size={12} /> Job Photos</div>
                 <JobImages projectId={project.id} orgId={project.org_id} currentUserId={profile.id} vehicleType={(project.form_data as any)?.selectedVehicle?.name || ''} wrapScope={(project.form_data as any)?.wrapDetail || ''} />
+              </div>
+              <div style={{ borderTop:'1px solid var(--border)', paddingTop:16 }}>
+                <CustomerCommsPanel
+                  customerId={(project.form_data as any)?.customerId || project.customer_id || null}
+                  projectId={project.id}
+                  customerPhone={(project.form_data as any)?.phone || null}
+                  customerEmail={(project.form_data as any)?.email || null}
+                  customerName={(project.form_data as any)?.client || project.title || 'Customer'}
+                />
               </div>
             </div>
           )}

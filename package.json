@@ -34,8 +34,10 @@
     "react-dom": "^18",
     "reactflow": "^11.11.4",
     "recharts": "^3.7.0",
+    "resend": "^6.9.2",
     "stripe": "^20.3.1",
     "tailwind-merge": "^2.5.4",
+    "twilio": "^5.12.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
