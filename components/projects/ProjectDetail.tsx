@@ -530,6 +530,44 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const curIdx = stageOrder.indexOf(curStageKey)
   const latestSendBack = sendBacks[0]
 
+  // ── Race track checklist data ─────────────────────────────────
+  const isDoneJob = project.pipe_stage === 'done'
+  const checklistByStage: Record<string, {label: string; done: boolean}[]> = {
+    sales_in: [
+      { label: 'Client name',       done: !!f.client },
+      { label: 'Vehicle info',      done: !!f.vehicle },
+      { label: 'Installer assigned',done: !!f.installer },
+      { label: 'Deposit collected', done: !!f.deposit },
+      { label: 'Contract signed',   done: !!f.contractSigned },
+    ],
+    production: [
+      { label: 'Linear ft printed', done: !!f.linftPrinted },
+      { label: 'Material SKU',      done: !!f.matSku },
+      { label: 'Roll count',        done: !!f.rollsUsed },
+      { label: 'Print notes',       done: !!f.printNotes },
+    ],
+    install: [
+      { label: 'Vinyl inspection',  done: !!(f.vinylOk && f.colorMatch && f.dimsCorrect) },
+      { label: 'Surface prepped',   done: !!f.surfacePrepped },
+      { label: 'Post-app checks',   done: !!(f.postHeat && f.postEdges && f.postNoBubbles && f.postSeams) },
+      { label: 'Actual hours',      done: !!f.actualHrs },
+      { label: 'Installer signed',  done: !!f.installerSig },
+    ],
+    prod_review: [
+      { label: 'QC decision',       done: !!f.qcPass },
+      { label: 'Reprint cost',      done: f.qcPass !== 'reprint' || v(f.reprintCost) > 0 },
+      { label: 'QC notes',          done: !!f.qcNotes },
+    ],
+    sales_close: [
+      { label: 'Final approved',    done: !!f.finalApproved },
+      { label: 'Close notes',       done: !!f.closeNotes },
+    ],
+  }
+  const allCheckItems = Object.values(checklistByStage).flat()
+  const totalCheckItems = allCheckItems.length
+  const totalCheckDone  = isDoneJob ? totalCheckItems : allCheckItems.filter(i => i.done).length
+  const totalCheckPct   = totalCheckItems > 0 ? Math.round((totalCheckDone / totalCheckItems) * 100) : 0
+
   // ── RENDER ─────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
@@ -685,20 +723,93 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
         </div>
       )}
 
-      {/* ── PIPELINE PROGRESS ─────────────────────────── */}
-      <div style={{ display:'flex', gap:4, marginBottom:12, padding:'14px 16px', background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:16 }}>
-        {PIPE_STAGES.map((s, i) => {
-          const done = stageOrder.indexOf(s.key) < curIdx
-          const active = s.key === curStageKey
-          return (
-            <div key={s.key} style={{ flex:1, textAlign:'center', padding:'10px 6px', borderRadius:12, background: done ? 'rgba(34,192,122,.10)' : active ? `${s.color}12` : 'transparent', border: `1px solid ${done ? 'rgba(34,192,122,.25)' : active ? `${s.color}35` : 'transparent'}`, transition:'all 0.2s', position:'relative' }}>
-              {active && <div style={{ position:'absolute', bottom:0, left:'20%', right:'20%', height:2, borderRadius:1, background:s.color }} />}
-              <div style={{ display:'flex', justifyContent:'center', marginBottom:3 }}>{done ? <CheckCircle size={18} color="#22c07a" /> : active ? <s.Icon size={18} color={s.color} /> : <Circle size={16} color="var(--text3)" style={{ opacity:0.3 }} />}</div>
-              <div style={{ fontSize:9, fontWeight:800, color: done ? '#22c07a' : active ? s.color : 'var(--text3)', textTransform:'uppercase', letterSpacing:'.05em' }}>{s.label}</div>
-              {i < PIPE_STAGES.length - 1 && <div style={{ position:'absolute', right:-3, top:'50%', transform:'translateY(-50%)', width:6, height:6, display:'none' }} />}
+      {/* ── RACE TRACK MASTER CHECKLIST ─────────────────── */}
+      <div style={{ background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:16, padding:'16px 20px 14px', marginBottom:12, position:'relative', overflow:'hidden' }}>
+        {/* Speed-stripe top accent */}
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg, #4f7fff 0%, #22c07a 30%, #22d3ee 55%, #f59e0b 78%, #8b5cf6 100%)', opacity:0.8 }} />
+
+        {/* Header row */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+            <span style={{ fontSize:15, lineHeight:1 }}>🏎</span>
+            <span style={{ fontFamily:'Barlow Condensed, sans-serif', fontSize:12, fontWeight:900, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.12em' }}>Job Race Track</span>
+            {isDoneJob && <span style={{ fontSize:10, fontWeight:800, color:'#22c07a', background:'rgba(34,192,122,.12)', border:'1px solid rgba(34,192,122,.3)', borderRadius:6, padding:'2px 8px', letterSpacing:'.05em' }}>FINISHED 🏆</span>}
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:10, color:'var(--text3)', fontFamily:'JetBrains Mono, monospace' }}>{totalCheckDone}/{totalCheckItems}</span>
+            <div style={{ width:110, height:5, borderRadius:3, background:'var(--surface2)', overflow:'hidden' }}>
+              <div style={{ height:'100%', borderRadius:3, background:`linear-gradient(90deg, #4f7fff, #22c07a)`, width:`${totalCheckPct}%`, transition:'width 0.5s ease' }} />
             </div>
-          )
-        })}
+            <span style={{ fontSize:10, fontWeight:800, fontFamily:'JetBrains Mono, monospace', color: totalCheckPct === 100 ? '#22c07a' : 'var(--accent)', minWidth:32 }}>{totalCheckPct}%</span>
+          </div>
+        </div>
+
+        {/* Track + nodes */}
+        <div style={{ position:'relative' }}>
+          {/* Asphalt road strip */}
+          <div style={{ position:'absolute', left:30, right:30, top:27, height:9, borderRadius:4, background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)', overflow:'hidden' }}>
+            {/* Dashed center lane marking */}
+            <div style={{ position:'absolute', top:'50%', left:0, right:0, height:0, borderTop:'2px dashed rgba(255,255,255,.10)', transform:'translateY(-50%)' }} />
+            {/* Completion fill */}
+            <div style={{ position:'absolute', top:0, left:0, bottom:0, borderRadius:4, background:'linear-gradient(90deg, rgba(34,192,122,.45), rgba(79,127,255,.45))', width: isDoneJob ? '100%' : curIdx > 0 ? `${(curIdx / (PIPE_STAGES.length - 1)) * 100}%` : '0%', transition:'width 0.7s ease' }} />
+          </div>
+
+          {/* Stage nodes */}
+          <div style={{ display:'flex', justifyContent:'space-between', position:'relative', zIndex:1 }}>
+            {PIPE_STAGES.map((s, i) => {
+              const stageIdx = stageOrder.indexOf(s.key)
+              const isDone    = isDoneJob || stageIdx < curIdx
+              const isActive  = !isDoneJob && s.key === curStageKey
+              const isFuture  = !isDone && !isActive
+              const items     = checklistByStage[s.key] || []
+              const doneCount = isDone ? items.length : items.filter(it => it.done).length
+              const remaining = items.length - doneCount
+              return (
+                <div key={s.key} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flex:1 }}>
+                  {/* Car / finish indicator */}
+                  <div style={{ height:20, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {isActive && <span style={{ fontSize:17, filter:`drop-shadow(0 0 8px ${s.color})` }}>🏎</span>}
+                    {isDoneJob && i === PIPE_STAGES.length - 1 && <span style={{ fontSize:17 }}>🏆</span>}
+                  </div>
+
+                  {/* Stage circle */}
+                  <div style={{ width:46, height:46, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background: isDone ? 'rgba(34,192,122,.12)' : isActive ? `${s.color}12` : 'rgba(255,255,255,.02)', border:`2.5px solid ${isDone ? '#22c07a' : isActive ? s.color : 'rgba(255,255,255,.07)'}`, boxShadow: isActive ? `0 0 0 4px ${s.color}18, 0 0 18px ${s.color}30` : isDone ? '0 0 10px rgba(34,192,122,.25)' : 'none', transition:'all 0.3s' }}>
+                    {isDone
+                      ? <CheckCircle size={20} color="#22c07a" />
+                      : <s.Icon size={18} color={isActive ? s.color : 'var(--text3)'} style={{ opacity: isFuture ? 0.28 : 1 }} />}
+                  </div>
+
+                  {/* Stage label */}
+                  <div style={{ fontSize:9, fontWeight:900, textTransform:'uppercase', letterSpacing:'.05em', color: isDone ? '#22c07a' : isActive ? s.color : 'var(--text3)', opacity: isFuture ? 0.4 : 1, textAlign:'center' }}>
+                    {s.label}
+                  </div>
+
+                  {/* Checklist card */}
+                  <div style={{ width:'100%', maxWidth:104 }}>
+                    {/* Count pill */}
+                    <div style={{ textAlign:'center', marginBottom:3 }}>
+                      <span style={{ fontSize:9, fontWeight:800, fontFamily:'JetBrains Mono, monospace', color: isDone ? '#22c07a' : remaining > 0 && isActive ? 'var(--amber)' : 'var(--text3)', opacity: isFuture ? 0.35 : 1 }}>
+                        {isDone ? '✓ done' : `${doneCount}/${items.length}`}
+                      </span>
+                    </div>
+                    {/* Item list — full for done/current, count-only for future */}
+                    {!isFuture && items.map((item, j) => (
+                      <div key={j} style={{ display:'flex', alignItems:'flex-start', gap:3, marginBottom:2 }}>
+                        <div style={{ width:4, height:4, borderRadius:'50%', marginTop:4, flexShrink:0, background: item.done ? '#22c07a' : isActive ? '#f25a5a' : 'var(--text3)', opacity: item.done ? 0.65 : 1 }} />
+                        <span style={{ fontSize:7.5, lineHeight:1.35, color: item.done ? 'var(--text3)' : 'var(--text1)', textDecoration: item.done ? 'line-through' : 'none', opacity: item.done ? 0.55 : 1 }}>
+                          {item.label}
+                        </span>
+                      </div>
+                    ))}
+                    {isFuture && items.length > 0 && (
+                      <div style={{ textAlign:'center', fontSize:8, color:'var(--text3)', opacity:0.3 }}>{items.length} ahead</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Send-back alert banner */}
