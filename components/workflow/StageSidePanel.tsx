@@ -17,6 +17,39 @@ interface StageSidePanelProps {
 export default function StageSidePanel({ stage, jobs, onClose }: StageSidePanelProps) {
   const router = useRouter()
 
+  function getQuickActionsForStage(stageKey: string) {
+    const nav = (path: string) => () => { onClose(); router.push(path) }
+    switch (stageKey) {
+      case 'sales_in':
+        return [
+          { label: 'Convert to Qualified', onClick: nav('/pipeline') },
+          { label: 'Send Follow-Up',        onClick: nav('/inbox') },
+        ]
+      case 'production':
+        return [
+          { label: 'Send to Print Queue', onClick: nav('/production/print-schedule') },
+          { label: 'Mark as Printed',     onClick: nav('/production') },
+        ]
+      case 'install':
+        return [
+          { label: 'Schedule Install',   onClick: nav('/calendar') },
+          { label: 'Send to Installers', onClick: nav('/bids') },
+        ]
+      case 'prod_review':
+        return [
+          { label: 'Pass QC',         onClick: nav('/pipeline') },
+          { label: 'Request Reprint', onClick: nav('/production') },
+        ]
+      case 'sales_close':
+        return [
+          { label: 'Generate Invoice', onClick: nav('/invoices') },
+          { label: 'Mark as Paid',     onClick: nav('/invoices') },
+        ]
+      default:
+        return []
+    }
+  }
+
   const calculateDaysInStage = (job: any) => {
     const now = new Date()
     const updated = new Date(job.updated_at)
@@ -187,41 +220,3 @@ export default function StageSidePanel({ stage, jobs, onClose }: StageSidePanelP
   )
 }
 
-function getQuickActionsForStage(stageKey: string) {
-  const actions: { label: string; onClick: () => void }[] = []
-
-  switch (stageKey) {
-    case 'sales_in':
-      actions.push(
-        { label: 'Convert to Qualified', onClick: () => console.log('Convert') },
-        { label: 'Send Follow-Up', onClick: () => console.log('Follow-up') }
-      )
-      break
-    case 'production':
-      actions.push(
-        { label: 'Send to Print Queue', onClick: () => console.log('Print') },
-        { label: 'Mark as Printed', onClick: () => console.log('Printed') }
-      )
-      break
-    case 'install':
-      actions.push(
-        { label: 'Schedule Install', onClick: () => console.log('Schedule') },
-        { label: 'Send to Installers', onClick: () => console.log('Send bids') }
-      )
-      break
-    case 'prod_review':
-      actions.push(
-        { label: 'Pass QC', onClick: () => console.log('Pass') },
-        { label: 'Request Reprint', onClick: () => console.log('Reprint') }
-      )
-      break
-    case 'sales_close':
-      actions.push(
-        { label: 'Generate Invoice', onClick: () => console.log('Invoice') },
-        { label: 'Mark as Paid', onClick: () => console.log('Paid') }
-      )
-      break
-  }
-
-  return actions
-}
