@@ -98,8 +98,6 @@ export default function ConversationThread({ messages, customerName }: Props) {
                 {msg.call_recording_url && (
                   <a
                     href={msg.call_recording_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent)', textDecoration: 'none' }}
                   >
                     <Mic size={11} /> Recording

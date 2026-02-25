@@ -235,7 +235,7 @@ export default function CustomerCommsPanel({ customerId, projectId, customerPhon
                       )}
                       <div style={{ fontSize: 12, color: 'var(--text1)', lineHeight: 1.4 }}>
                         {msg.channel === 'call'
-                          ? `${isOut ? 'Outbound' : 'Inbound'} call${msg.call_duration_seconds ? ` · ${Math.floor(msg.call_duration_seconds / 60)}m ${msg.call_duration_seconds % 60}s` : ''}`
+                          ? `${isOut ? 'Outbound' : 'Inbound'} call${msg.call_duration_seconds !== null ? ` · ${Math.floor(msg.call_duration_seconds / 60)}m ${msg.call_duration_seconds % 60}s` : ''}`
                           : (msg.body || '').slice(0, 100) + ((msg.body || '').length > 100 ? '...' : '')}
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{relTime(msg.created_at)}</div>
