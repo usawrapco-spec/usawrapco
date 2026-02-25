@@ -1,39 +1,77 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertTriangle, X, ExternalLink } from 'lucide-react'
+import { AlertTriangle, X } from 'lucide-react'
 
 interface Alert {
   id: string
-  severity: 'error' | 'warning' | 'info'
+  severity: 'error' | 'warning'
   title: string
   message: string
   fixPath?: string
 }
 
-// Check which env vars are missing (only NEXT_PUBLIC_ vars are accessible client-side)
-function getClientAlerts(): Alert[] {
+interface HealthResponse {
+  stripe: boolean
+  anthropic: boolean
+  twilio: boolean
+  resend: boolean
+  supabase: boolean
+}
+
+let cachedHealth: HealthResponse | null = null
+let cacheExpiry = 0
+
+async function fetchHealth(): Promise<HealthResponse | null> {
+  const now = Date.now()
+  if (cachedHealth && now < cacheExpiry) return cachedHealth
+  try {
+    const res = await fetch('/api/system/health')
+    if (!res.ok) return null
+    const data: HealthResponse = await res.json()
+    cachedHealth = data
+    cacheExpiry = now + 60_000 // 60s cache
+    return data
+  } catch {
+    return null
+  }
+}
+
+function healthToAlerts(h: HealthResponse): Alert[] {
   const alerts: Alert[] = []
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('PLACEHOLDER')) {
+  if (!h.supabase) {
     alerts.push({
-      id: 'missing-supabase-url',
+      id: 'supabase',
       severity: 'error',
-      title: 'Supabase Not Connected',
-      message: 'NEXT_PUBLIC_SUPABASE_URL is missing. Database features are offline.',
+      title: 'Database Offline',
+      message: 'SUPABASE_SERVICE_ROLE_KEY missing — all data features are unavailable.',
       fixPath: '/settings',
     })
   }
 
-  if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.includes('PLACEHOLDER')) {
+  if (!h.anthropic) {
     alerts.push({
-      id: 'missing-stripe',
+      id: 'anthropic',
+      severity: 'error',
+      title: 'AI Features Offline',
+      message: 'ANTHROPIC_API_KEY not configured — V.I.N.Y.L. and all AI features are disabled.',
+      fixPath: '/settings/ai',
+    })
+  }
+
+  if (!h.stripe) {
+    alerts.push({
+      id: 'stripe',
       severity: 'warning',
-      title: 'Stripe Not Configured',
-      message: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY missing — payment processing disabled.',
+      title: 'Payments Disabled',
+      message: 'STRIPE_SECRET_KEY not configured — invoice payment processing is offline.',
       fixPath: '/settings/payments',
     })
   }
+
+  // Twilio and Resend are optional — only warn if neither email nor SMS is available
+  // (avoids noise for shops that haven't set up those integrations yet)
 
   return alerts
 }
@@ -41,99 +79,82 @@ function getClientAlerts(): Alert[] {
 export default function SystemAlertBanner() {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
-  const [serverAlerts, setServerAlerts] = useState<Alert[]>([])
 
   useEffect(() => {
-    // Client-side env checks
-    setAlerts(getClientAlerts())
-
-    // Fetch server-side integration status
-    fetch('/api/system/alerts')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.alerts) setServerAlerts(data.alerts)
-      })
-      .catch(() => {})
+    fetchHealth().then(health => {
+      if (health) setAlerts(healthToAlerts(health))
+    })
   }, [])
 
-  const allAlerts = [...alerts, ...serverAlerts].filter(a => !dismissed.has(a.id))
-
-  if (allAlerts.length === 0) return null
-
-  const errors = allAlerts.filter(a => a.severity === 'error')
-  const warnings = allAlerts.filter(a => a.severity === 'warning')
+  const visible = alerts.filter(a => !dismissed.has(a.id))
+  if (visible.length === 0) return null
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
-      {errors.map(alert => (
-        <div
-          key={alert.id}
-          style={{
-            background: 'linear-gradient(135deg, #7f1d1d, #991b1b)',
-            borderBottom: '2px solid #f25a5a',
-            padding: '10px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            animation: 'pulse 2s infinite',
-          }}
-        >
-          <AlertTriangle size={16} color="#fca5a5" style={{ flexShrink: 0 }} />
-          <span style={{ color: '#fca5a5', fontWeight: 700, fontSize: 13 }}>{alert.title}:</span>
-          <span style={{ color: '#fecaca', fontSize: 13, flex: 1 }}>{alert.message}</span>
-          {alert.fixPath && (
-            <a
-              href={alert.fixPath}
-              style={{ color: '#fca5a5', fontSize: 12, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 4 }}
-            >
-              Fix <ExternalLink size={12} />
-            </a>
-          )}
-          <button
-            onClick={() => setDismissed(d => new Set([...d, alert.id]))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: '2px 4px' }}
+      {visible.map(alert => {
+        const isError = alert.severity === 'error'
+        return (
+          <div
+            key={alert.id}
+            style={{
+              background: isError
+                ? 'linear-gradient(135deg, #7f1d1d, #991b1b)'
+                : 'linear-gradient(135deg, #78350f, #92400e)',
+              borderBottom: `1px solid ${isError ? '#f25a5a' : '#f59e0b'}`,
+              padding: '9px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
           >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
-      {warnings.map(alert => (
-        <div
-          key={alert.id}
-          style={{
-            background: 'linear-gradient(135deg, #78350f, #92400e)',
-            borderBottom: '1px solid #f59e0b',
-            padding: '8px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <AlertTriangle size={14} color="#fcd34d" style={{ flexShrink: 0 }} />
-          <span style={{ color: '#fcd34d', fontWeight: 600, fontSize: 12 }}>{alert.title}:</span>
-          <span style={{ color: '#fde68a', fontSize: 12, flex: 1 }}>{alert.message}</span>
-          {alert.fixPath && (
-            <a
-              href={alert.fixPath}
-              style={{ color: '#fcd34d', fontSize: 11, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 3 }}
+            <AlertTriangle
+              size={isError ? 15 : 14}
+              color={isError ? '#fca5a5' : '#fcd34d'}
+              style={{ flexShrink: 0 }}
+            />
+            <span style={{
+              color: isError ? '#fca5a5' : '#fcd34d',
+              fontWeight: 700,
+              fontSize: 13,
+            }}>
+              {alert.title}:
+            </span>
+            <span style={{
+              color: isError ? '#fecaca' : '#fde68a',
+              fontSize: 13,
+              flex: 1,
+            }}>
+              {alert.message}
+            </span>
+            {alert.fixPath && (
+              <a
+                href={alert.fixPath}
+                style={{
+                  color: isError ? '#fca5a5' : '#fcd34d',
+                  fontSize: 12,
+                  textDecoration: 'underline',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Configure
+              </a>
+            )}
+            <button
+              onClick={() => setDismissed(d => new Set([...d, alert.id]))}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: isError ? '#fca5a5' : '#fcd34d',
+                padding: '2px 4px',
+                lineHeight: 1,
+              }}
             >
-              Configure <ExternalLink size={11} />
-            </a>
-          )}
-          <button
-            onClick={() => setDismissed(d => new Set([...d, alert.id]))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fcd34d', padding: '2px 4px' }}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      ))}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.85; }
-        }
-      `}</style>
+              <X size={14} />
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }
