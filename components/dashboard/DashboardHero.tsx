@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import WeatherWidget from '@/components/dashboard/WeatherWidget'
 import AIBriefing from '@/components/dashboard/AIBriefing'
+import GoalsTracker from '@/components/dashboard/GoalsTracker'
 
 interface Props {
   profile: Profile
@@ -157,6 +158,11 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
 
   // Conversion funnel
   const estimatesOpen = projects.filter(p => p.status === 'estimate')
+
+  // Unique customers from closed jobs this month (for goals tracker)
+  const newCustomers = new Set(
+    closedThisMonth.map(p => (p.customer as any)?.id).filter(Boolean)
+  ).size
   const totalFunnelTop = estimatesOpen.length + closedThisMonth.length
   const conversionRate = totalFunnelTop > 0 ? Math.round((closedThisMonth.length / totalFunnelTop) * 100) : 0
 
@@ -530,6 +536,18 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
           </div>
         </div>
       )}
+
+      {/* Goals Tracker */}
+      <GoalsTracker
+        profileId={profile.id}
+        actuals={{
+          revenue: revenueMTD,
+          jobs: closedThisMonth.length,
+          gp: gpMTD,
+          customers: newCustomers,
+        }}
+        canSeeFinancials={canSeeFinancials}
+      />
 
       {/* Upcoming Installs Strip */}
       {upcomingInstalls.length > 0 && (
