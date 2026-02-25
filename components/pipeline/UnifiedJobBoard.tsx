@@ -11,7 +11,7 @@ import {
   ArrowUpDown, Plus, Factory, Hammer, CheckCircle2,
   type LucideIcon,
 } from 'lucide-react'
-import OnboardingLinkPanel from './OnboardingLinkPanel'
+// OnboardingLinkPanel moved to Sales dropdown in TopNav
 import NewJobModal from '@/components/modals/NewJobModal'
 import SalesPipeline from './SalesPipeline'
 import ProductionPipeline from './ProductionPipeline'
@@ -358,8 +358,6 @@ function AllJobsView({
 
   return (
     <>
-      <OnboardingLinkPanel profile={profile} projects={projects} />
-
       {/* Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
         {[

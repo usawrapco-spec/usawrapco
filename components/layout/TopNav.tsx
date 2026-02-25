@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
+import DesignIntakeLinkModal from '@/components/design-intake/DesignIntakeLinkModal'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DropdownItem {
@@ -74,18 +75,27 @@ const PRODUCTION_SECTIONS: DropdownSection[] = [
 
 const PRODUCTION_PATHS = ['/design', '/mockup', '/media', '/production', '/timeline', '/installer-portal', '/inventory', '/catalog']
 
-const SALES_ITEMS: DropdownItem[] = [
-  { href: '/estimates',    label: 'Estimates',    icon: FileText },
-  { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
-  { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
-  { href: '/campaigns',    label: 'Campaigns',    icon: Globe },
-  { href: '/network',      label: 'Network',      icon: Map },
-  { href: '/contacts',     label: 'Contacts',     icon: Users },
-  { href: '/comms',        label: 'Comms',        icon: MessageSquare },
-  { href: '/bids',         label: 'Bids',         icon: Hammer },
+const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
+  { id: 'onboarding_link',     label: 'Send Onboarding Link',     icon: UserPlus,  description: 'Customer onboarding' },
+  { id: 'design_intake_link',  label: 'Send Design Intake Link',  icon: Palette,   description: 'White-glove design intake' },
+  { id: 'new_estimate',        label: 'New Estimate',             icon: FileText,  description: 'Create a new quote' },
+  { id: 'new_customer',        label: 'New Customer',             icon: Users,     description: 'Add customer record' },
 ]
 
-const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/comms', '/bids']
+const SALES_NAV_ITEMS: DropdownItem[] = [
+  { href: '/pipeline',       label: 'Pipeline',       icon: Briefcase },
+  { href: '/estimates',       label: 'Estimates',      icon: FileText },
+  { href: '/sales-orders',   label: 'Sales Orders',   icon: ShoppingCart },
+  { href: '/prospects',       label: 'Prospects',      icon: UserPlus },
+  { href: '/campaigns',       label: 'Campaigns',      icon: Globe },
+  { href: '/design-intakes',  label: 'Design Intakes', icon: Palette },
+  { href: '/network',         label: 'Network',        icon: Map },
+  { href: '/contacts',        label: 'Contacts',       icon: Users },
+  { href: '/comms',           label: 'Comms',          icon: MessageSquare },
+  { href: '/bids',            label: 'Bids',           icon: Hammer },
+]
+
+const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/comms', '/bids', '/pipeline', '/design-intakes']
 
 const QUICK_LINK_ITEMS: DropdownItem[] = [
   { href: '/customers',  label: 'Customer Intake', icon: Users,     description: 'Generate intake link' },
@@ -159,6 +169,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [drawerOpen, setDrawerOpen]       = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [notifsLoaded, setNotifsLoaded]   = useState(false)
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+  const [showDesignIntakeModal, setShowDesignIntakeModal] = useState(false)
 
   const createRef   = useRef<HTMLDivElement>(null)
   const jobsRef     = useRef<HTMLDivElement>(null)
@@ -619,12 +631,61 @@ export function TopNav({ profile }: { profile: Profile }) {
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
               background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 200,
-              maxHeight: 400, overflowY: 'auto',
+              borderRadius: 12, padding: 6, minWidth: 240,
+              maxHeight: 480, overflowY: 'auto',
               boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
               animation: 'fadeUp .15s ease',
             }}>
-              {SALES_ITEMS.map(item => {
+              {/* Actions section */}
+              <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Actions
+              </div>
+              {SALES_ACTIONS.map(action => {
+                const Icon = action.icon
+                return (
+                  <button
+                    key={action.id}
+                    onClick={() => {
+                      setSalesOpen(false)
+                      if (action.id === 'onboarding_link') setShowOnboardingModal(true)
+                      else if (action.id === 'design_intake_link') setShowDesignIntakeModal(true)
+                      else if (action.id === 'new_estimate') router.push('/estimates/new')
+                      else if (action.id === 'new_customer') router.push('/customers/new')
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '8px 10px', borderRadius: 7,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text2)', fontSize: 13, fontWeight: 500,
+                      textAlign: 'left', transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <div style={{
+                      width: 26, height: 26, borderRadius: 6,
+                      background: 'rgba(79,127,255,0.08)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <Icon size={13} style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <div>
+                      <div style={{ lineHeight: 1.2 }}>{action.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>{action.description}</div>
+                    </div>
+                  </button>
+                )
+              })}
+
+              {/* Divider */}
+              <div style={{ height: 1, background: 'var(--card-border)', margin: '4px 6px' }} />
+
+              {/* Navigate section */}
+              <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Navigate
+              </div>
+              {SALES_NAV_ITEMS.map(item => {
                 const Icon = item.icon
                 const active = isActive(item.href)
                 return (
@@ -633,7 +694,7 @@ export function TopNav({ profile }: { profile: Profile }) {
                     onClick={() => { setSalesOpen(false); router.push(item.href) }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
+                      width: '100%', padding: '7px 10px', borderRadius: 7,
                       background: active ? 'rgba(79,127,255,0.08)' : 'none',
                       border: 'none', cursor: 'pointer',
                       color: active ? 'var(--accent)' : 'var(--text2)',
@@ -1350,6 +1411,123 @@ export function TopNav({ profile }: { profile: Profile }) {
         </div>
       </>
     )}
+
+    {/* Onboarding link modal — reuse existing OnboardingLinkPanel logic in a modal */}
+    {showOnboardingModal && (
+      <OnboardingLinkModalWrapper profile={profile} onClose={() => setShowOnboardingModal(false)} />
+    )}
+
+    {/* Design intake link modal */}
+    {showDesignIntakeModal && (
+      <DesignIntakeLinkModal profile={profile} onClose={() => setShowDesignIntakeModal(false)} />
+    )}
     </>
+  )
+}
+
+// Simple onboarding link modal wrapper
+function OnboardingLinkModalWrapper({ profile, onClose }: { profile: Profile; onClose: () => void }) {
+  const [projects, setProjects] = useState<{ id: string; title: string }[]>([])
+  const [selectedProject, setSelectedProject] = useState('')
+  const [token, setToken] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const supabase = createClient()
+
+  useEffect(() => {
+    supabase.from('projects')
+      .select('id, title')
+      .eq('org_id', profile.org_id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => setProjects(data || []))
+  }, [profile.org_id])
+
+  const salesProjects = projects.filter(p => true) // Show all projects
+
+  async function generate() {
+    if (!selectedProject) return
+    setGenerating(true)
+    const { data: existing } = await supabase
+      .from('customer_intake')
+      .select('token')
+      .eq('project_id', selectedProject)
+      .eq('org_id', profile.org_id)
+      .single()
+
+    if (existing?.token) {
+      setToken(existing.token)
+      setGenerating(false)
+      return
+    }
+
+    const { data: newIntake } = await supabase
+      .from('customer_intake')
+      .insert({ org_id: profile.org_id, project_id: selectedProject })
+      .select('token')
+      .single()
+
+    if (newIntake?.token) setToken(newIntake.token)
+    setGenerating(false)
+  }
+
+  const portalUrl = token ? `${typeof window !== 'undefined' ? window.location.origin : ''}/intake/${token}` : ''
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+        borderRadius: 16, width: '100%', maxWidth: 440, padding: 24,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)' }}>Send Onboarding Link</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={18} /></button>
+        </div>
+        <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} style={{
+          width: '100%', padding: '10px 14px', borderRadius: 10,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          color: 'var(--text2)', fontSize: 13, marginBottom: 12, outline: 'none',
+        }}>
+          <option value="">Select a project...</option>
+          {salesProjects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+        </select>
+
+        {!portalUrl ? (
+          <button onClick={generate} disabled={generating || !selectedProject} style={{
+            width: '100%', padding: '10px', borderRadius: 10, border: 'none',
+            background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700,
+            cursor: !selectedProject ? 'not-allowed' : 'pointer', opacity: !selectedProject ? 0.4 : 1,
+          }}>
+            {generating ? 'Generating...' : 'Generate Link'}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{
+              padding: '10px 12px', background: 'var(--surface)', borderRadius: 8,
+              border: '1px solid var(--border)', fontSize: 12, color: 'var(--accent)',
+              fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all',
+            }}>
+              {portalUrl}
+            </div>
+            <button onClick={async () => {
+              await navigator.clipboard.writeText(portalUrl)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            }} style={{
+              padding: '10px', borderRadius: 8, border: 'none',
+              background: copied ? 'rgba(34,192,122,0.15)' : 'var(--surface2)',
+              color: copied ? '#22c07a' : 'var(--text1)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>
+              {copied ? 'Copied!' : 'Copy Link'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

@@ -12,7 +12,7 @@ import {
   Filter, ArrowUpDown,
   type LucideIcon,
 } from 'lucide-react'
-import OnboardingLinkPanel from './OnboardingLinkPanel'
+// OnboardingLinkPanel moved to Sales dropdown in TopNav
 
 interface PipelineBoardProps {
   profile: Profile
@@ -216,8 +216,6 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
           })}
         </div>
       </div>
-
-      <OnboardingLinkPanel profile={profile} projects={projects} />
 
       {/* Header */}
       <div style={{
