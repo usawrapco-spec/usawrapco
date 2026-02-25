@@ -18,12 +18,43 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
 
-      # Session-mode pooler is IPv4-accessible (direct DB host is IPv6-only).
-      # Pooler username format: postgres.PROJECT_ID
+      # Supabase direct DB host (db.PROJECT.supabase.co) is IPv6-only.
+      # The session-mode pooler is IPv4. Detect region by trying each one —
+      # wrong region returns instant "Tenant or user not found", right region connects.
+      - name: Detect pooler region
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 eu-west-1 eu-west-2 eu-central-1 ap-southeast-1 ap-southeast-2 ap-northeast-1 ap-south-1 ca-central-1 sa-east-1"
+          FOUND=""
+          for REGION in $REGIONS; do
+            HOST="aws-0-${REGION}.pooler.supabase.com"
+            printf "Trying %s... " "$REGION"
+            MSG=$(psql -h "$HOST" -p 5432 -U "postgres.${SUPABASE_PROJECT_ID}" \
+                  -d postgres --set=ON_ERROR_STOP=1 -c "SELECT 1" -q 2>&1)
+            if [ $? -eq 0 ]; then
+              echo "connected"
+              FOUND="$HOST"
+              break
+            elif echo "$MSG" | grep -q "Tenant or user not found"; then
+              echo "wrong region"
+            else
+              echo "connected (auth error — right region)"
+              FOUND="$HOST"
+              break
+            fi
+          done
+          if [ -z "$FOUND" ]; then
+            echo "ERROR: Could not find pooler region for this project"
+            exit 1
+          fi
+          echo "PGHOST=$FOUND" >> "$GITHUB_ENV"
+          echo "Pooler: $FOUND"
+
       - name: Run /sql scripts
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGHOST: aws-0-us-east-1.pooler.supabase.com
           PGPORT: 5432
           PGUSER: postgres.${{ secrets.SUPABASE_PROJECT_ID }}
           PGDATABASE: postgres
@@ -46,7 +77,6 @@ jobs:
       - name: Run supabase/migrations scripts
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGHOST: aws-0-us-east-1.pooler.supabase.com
           PGPORT: 5432
           PGUSER: postgres.${{ secrets.SUPABASE_PROJECT_ID }}
           PGDATABASE: postgres
