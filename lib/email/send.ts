@@ -40,7 +40,7 @@ export async function sendTransactionalEmail(
     const res = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${serviceKey}`,
+        'x-internal-secret': process.env.INTERNAL_SECRET || 'usawrapco-internal',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

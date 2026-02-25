@@ -112,7 +112,7 @@ export async function POST(req: Request) {
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'x-internal-secret': process.env.INTERNAL_SECRET || 'usawrapco-internal',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
