@@ -27,11 +27,6 @@ interface DropdownItem {
   description?: string
 }
 
-interface DropdownSection {
-  title: string
-  items: DropdownItem[]
-}
-
 // ── Nav definitions ───────────────────────────────────────────────────────────
 const QUICK_CREATE: DropdownItem[] = [
   { href: '/estimates/new', label: 'Estimate',  icon: FileText, description: 'Create a quote' },
@@ -93,22 +88,6 @@ const MORE_NAV: DropdownItem[] = [
   { href: '/settings',      label: 'Settings',       icon: Settings },
 ]
 
-const SETTINGS_ITEMS: DropdownItem[] = [
-  { href: '/settings',              label: 'General',            icon: Settings },
-  { href: '/settings/defaults',     label: 'Defaults & Pricing', icon: Settings },
-  { href: '/settings/commissions',  label: 'Commission Rates',   icon: Receipt },
-  { href: '/employees',             label: 'Team & Roles',       icon: Users },
-  { href: '/settings/vehicles',     label: 'Vehicle Database',   icon: Truck },
-  { href: '/overhead',              label: 'Shop Expenses',      icon: DollarSign },
-  { href: '/1099',                  label: '1099 / Payroll',     icon: Receipt },
-  { href: '/timeclock',             label: 'Time Clock',         icon: Clock },
-  { href: '/settings/playbook',     label: 'Sales Playbook',     icon: Zap },
-  { href: '/settings/ai',           label: 'AI Settings',        icon: Bot },
-  { href: '/settings/payments',     label: 'Payments & Stripe',  icon: CreditCard },
-  { href: '/integrations',          label: 'Integrations',       icon: Zap },
-  { href: '/enterprise',            label: 'Enterprise Hub',     icon: Building2 },
-]
-
 // ── Search result types ───────────────────────────────────────────────────────
 interface SearchResult {
   type: 'job' | 'customer' | 'estimate' | 'contact'
@@ -134,9 +113,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [jobsOpen, setJobsOpen]           = useState(false)
   const [productionOpen, setProductionOpen] = useState(false)
   const [salesOpen, setSalesOpen]         = useState(false)
-  const [quickLinksOpen, setQuickLinksOpen] = useState(false)
+  const [installOpen, setInstallOpen]     = useState(false)
   const [moreOpen, setMoreOpen]           = useState(false)
-  const [settingsOpen, setSettingsOpen]   = useState(false)
   const [profileOpen, setProfileOpen]     = useState(false)
   const [notifOpen, setNotifOpen]         = useState(false)
   const [drawerOpen, setDrawerOpen]       = useState(false)
@@ -149,9 +127,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   const jobsRef     = useRef<HTMLDivElement>(null)
   const productionRef = useRef<HTMLDivElement>(null)
   const salesRef      = useRef<HTMLDivElement>(null)
-  const quickLinksRef = useRef<HTMLDivElement>(null)
+  const installRef    = useRef<HTMLDivElement>(null)
   const moreRef     = useRef<HTMLDivElement>(null)
-  const settingsRef = useRef<HTMLDivElement>(null)
   const profileRef  = useRef<HTMLDivElement>(null)
   const notifRef    = useRef<HTMLDivElement>(null)
   const searchRef   = useRef<HTMLInputElement>(null)
@@ -164,8 +141,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   // ── Outside click ───────────────────────────────────────────────────────────
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      const refs = [createRef, jobsRef, productionRef, salesRef, quickLinksRef, moreRef, settingsRef, profileRef, notifRef]
-      const setters = [setCreateOpen, setJobsOpen, setProductionOpen, setSalesOpen, setQuickLinksOpen, setMoreOpen, setSettingsOpen, setProfileOpen, setNotifOpen]
+      const refs = [createRef, jobsRef, productionRef, salesRef, installRef, moreRef, profileRef, notifRef]
+      const setters = [setCreateOpen, setJobsOpen, setProductionOpen, setSalesOpen, setInstallOpen, setMoreOpen, setProfileOpen, setNotifOpen]
       refs.forEach((ref, i) => {
         if (ref.current && !ref.current.contains(e.target as Node)) {
           setters[i](false)
@@ -266,7 +243,7 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   function closeAll() {
     setCreateOpen(false); setJobsOpen(false); setProductionOpen(false); setSalesOpen(false)
-    setQuickLinksOpen(false); setMoreOpen(false); setSettingsOpen(false)
+    setInstallOpen(false); setMoreOpen(false)
     setProfileOpen(false); setNotifOpen(false)
   }
 
@@ -514,7 +491,7 @@ export function TopNav({ profile }: { profile: Profile }) {
           )}
         </div>
 
-        {/* Production sectioned dropdown */}
+        {/* Production dropdown */}
         <div ref={productionRef} style={{ position: 'relative' }}>
           <button
             onClick={() => { closeAll(); setProductionOpen(v => !v) }}
@@ -543,38 +520,33 @@ export function TopNav({ profile }: { profile: Profile }) {
               boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
               animation: 'fadeUp .15s ease',
             }}>
-              {PRODUCTION_SECTIONS.map((section, si) => (
-                <div key={section.title}>
-                  {si > 0 && <div style={{ height: 1, background: 'var(--card-border)', margin: '4px 6px' }} />}
-                  <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    {section.title}
-                  </div>
-                  {section.items.map(item => {
-                    const Icon = item.icon
-                    const active = isActive(item.href)
-                    return (
-                      <button
-                        key={item.href}
-                        onClick={() => { setProductionOpen(false); router.push(item.href) }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10,
-                          width: '100%', padding: '7px 10px', borderRadius: 7,
-                          background: active ? 'rgba(79,127,255,0.08)' : 'none',
-                          border: 'none', cursor: 'pointer',
-                          color: active ? 'var(--accent)' : 'var(--text2)',
-                          fontSize: 13, fontWeight: active ? 600 : 500,
-                          textAlign: 'left', transition: 'all 0.12s',
-                        }}
-                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
-                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
-                      >
-                        <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
-                        {item.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              ))}
+              {PRODUCTION_ITEMS.map(item => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => { setProductionOpen(false); router.push(item.href) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '8px 10px', borderRadius: 7,
+                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      color: active ? 'var(--accent)' : 'var(--text2)',
+                      fontSize: 13, fontWeight: active ? 600 : 500,
+                      textAlign: 'left', transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
+                  >
+                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                    <div>
+                      <div>{item.label}</div>
+                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
@@ -620,10 +592,9 @@ export function TopNav({ profile }: { profile: Profile }) {
                     key={action.id}
                     onClick={() => {
                       setSalesOpen(false)
-                      if (action.id === 'onboarding_link') setShowOnboardingModal(true)
+                      if (action.id === 'new_estimate') router.push('/estimates/new')
+                      else if (action.id === 'onboarding_link') setShowOnboardingModal(true)
                       else if (action.id === 'design_intake_link') setShowDesignIntakeModal(true)
-                      else if (action.id === 'new_estimate') router.push('/estimates/new')
-                      else if (action.id === 'new_customer') router.push('/customers/new')
                     }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
@@ -651,10 +622,8 @@ export function TopNav({ profile }: { profile: Profile }) {
                 )
               })}
 
-              {/* Divider */}
               <div style={{ height: 1, background: 'var(--card-border)', margin: '4px 6px' }} />
 
-              {/* Navigate section */}
               <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Navigate
               </div>
@@ -686,26 +655,28 @@ export function TopNav({ profile }: { profile: Profile }) {
           )}
         </div>
 
-        {/* Quick Links dropdown */}
-        <div ref={quickLinksRef} style={{ position: 'relative' }}>
+        {/* Install dropdown */}
+        <div ref={installRef} style={{ position: 'relative' }}>
           <button
-            onClick={() => { closeAll(); setQuickLinksOpen(v => !v) }}
+            onClick={() => { closeAll(); setInstallOpen(v => !v) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '6px 10px', borderRadius: 8, border: 'none',
-              background: quickLinksOpen ? 'var(--surface2)' : 'transparent',
-              color: quickLinksOpen ? 'var(--text1)' : 'var(--text2)',
+              background: installOpen || INSTALL_PATHS.some(p => pathname.startsWith(p))
+                ? 'rgba(79,127,255,0.1)' : 'transparent',
+              color: installOpen || INSTALL_PATHS.some(p => pathname.startsWith(p))
+                ? 'var(--accent)' : 'var(--text2)',
               fontSize: 12, fontWeight: 600, cursor: 'pointer',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { if (!quickLinksOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
-            onMouseLeave={e => { if (!quickLinksOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
+            onMouseEnter={e => { if (!installOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
+            onMouseLeave={e => { if (!installOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
           >
-            <Link2 size={14} style={{ opacity: 0.8 }} />
-            <span className="hidden lg:inline">Links</span>
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: quickLinksOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            <Wrench size={14} style={{ opacity: 0.8 }} />
+            <span className="hidden lg:inline">Install</span>
+            <ChevronDown size={11} style={{ opacity: 0.6, transform: installOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
-          {quickLinksOpen && (
+          {installOpen && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
               background: 'var(--card-bg)', border: '1px solid var(--card-border)',
@@ -713,26 +684,26 @@ export function TopNav({ profile }: { profile: Profile }) {
               boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
               animation: 'fadeUp .15s ease',
             }}>
-              <div style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Quick Links
-              </div>
-              {QUICK_LINK_ITEMS.map(item => {
+              {INSTALL_ITEMS.map(item => {
                 const Icon = item.icon
+                const active = isActive(item.href)
                 return (
                   <button
-                    key={item.label}
-                    onClick={() => { setQuickLinksOpen(false); router.push(item.href) }}
+                    key={item.href}
+                    onClick={() => { setInstallOpen(false); router.push(item.href) }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text2)', fontSize: 13, fontWeight: 500,
+                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      color: active ? 'var(--accent)' : 'var(--text2)',
+                      fontSize: 13, fontWeight: active ? 600 : 500,
                       textAlign: 'left', transition: 'all 0.12s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
                   >
-                    <Icon size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
                     <div>
                       <div>{item.label}</div>
                       {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
@@ -1032,60 +1003,6 @@ export function TopNav({ profile }: { profile: Profile }) {
           <HelpCircle size={16} />
         </button>
 
-        {/* Settings */}
-        <div ref={settingsRef} style={{ position: 'relative' }} className="hidden md:block">
-          <button
-            onClick={() => { closeAll(); setSettingsOpen(v => !v) }}
-            title="Settings"
-            style={{
-              width: 34, height: 34, borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: settingsOpen ? 'var(--surface2)' : 'transparent',
-              border: 'none', cursor: 'pointer',
-              color: settingsOpen ? 'var(--text1)' : 'var(--text3)',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' }}
-            onMouseLeave={e => { if (!settingsOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text3)' } }}
-          >
-            <Settings size={16} style={{ transition: 'transform 0.3s', transform: settingsOpen ? 'rotate(90deg)' : 'none' }} />
-          </button>
-          {settingsOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 220, maxHeight: 400, overflowY: 'auto',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              animation: 'fadeUp .15s ease',
-            }}>
-              <div style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Settings & Admin
-              </div>
-              {SETTINGS_ITEMS.map(item => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setSettingsOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text2)', fontSize: 13, fontWeight: 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Icon size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />
-                    {item.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
         {/* Profile avatar */}
         <div ref={profileRef} style={{ position: 'relative' }}>
           <button
@@ -1280,42 +1197,65 @@ export function TopNav({ profile }: { profile: Profile }) {
               )
             })}
 
-            {/* Production sections */}
-            {PRODUCTION_SECTIONS.map(section => (
-              <div key={section.title}>
-                <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {section.title}
-                </div>
-                {section.items.map(item => {
-                  const active = isActive(item.href)
-                  const Icon = item.icon
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setDrawerOpen(false)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '10px 12px', borderRadius: 8,
-                        textDecoration: 'none', marginBottom: 2,
-                        color: active ? 'var(--accent)' : 'var(--text2)',
-                        background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                        fontSize: 14, fontWeight: active ? 700 : 500,
-                      }}
-                    >
-                      <Icon size={17} style={{ flexShrink: 0 }} />
-                      {item.label}
-                    </Link>
-                  )
-                })}
-              </div>
-            ))}
+            {/* Production */}
+            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Production
+            </div>
+            {PRODUCTION_ITEMS.map(item => {
+              const active = isActive(item.href)
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 8,
+                    textDecoration: 'none', marginBottom: 2,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {item.label}
+                </Link>
+              )
+            })}
 
             {/* Sales */}
             <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Sales
             </div>
             {SALES_NAV_ITEMS.map(item => {
+              const active = isActive(item.href)
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 8,
+                    textDecoration: 'none', marginBottom: 2,
+                    color: active ? 'var(--accent)' : 'var(--text2)',
+                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            {/* Install */}
+            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Install
+            </div>
+            {INSTALL_ITEMS.map(item => {
               const active = isActive(item.href)
               const Icon = item.icon
               return (

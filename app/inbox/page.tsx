@@ -3,11 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
-import { Sidebar } from '@/components/layout/Sidebar'
 import type { Profile } from '@/types'
 import CommHubClient from '@/components/comms/CommHubClient'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export default async function InboxPage() {
   const supabase = createClient()
@@ -28,39 +25,24 @@ export default async function InboxPage() {
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
         background: 'var(--bg)',
         overflow: 'hidden',
       }}
     >
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex" style={{ flexShrink: 0, height: '100%' }}>
-        <Sidebar profile={profile as Profile} />
-      </div>
-
-      {/* Main content */}
-      <div
+      <TopNav profile={profile as Profile} />
+      <main
         style={{
           flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
           overflow: 'hidden',
-          minWidth: 0,
+          paddingBottom: 0,
         }}
       >
-        <TopNav profile={profile as Profile} />
-        <main
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            paddingBottom: 0,
-          }}
-        >
-          <CommHubClient profile={profile as Profile} />
-        </main>
-        <div className="md:hidden">
-          <MobileNav />
-        </div>
+        <CommHubClient profile={profile as Profile} />
+      </main>
+      <div className="md:hidden">
+        <MobileNav />
       </div>
     </div>
   )
