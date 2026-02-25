@@ -6,6 +6,7 @@ import {
   Car, Truck, Ship, Store, Shirt, Palette, Package, Smartphone,
   FileText, Sparkles, Flame, Gem, Rainbow, Mountain, PenTool,
 } from 'lucide-react'
+import VehicleSelector, { type VehicleEntry } from '@/components/vehicle/VehicleSelector'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface ChatMsg {
@@ -32,6 +33,10 @@ interface IntakeData {
     quantity?: string
     current_color?: string
     has_existing_wrap?: boolean
+    sqft?: number
+    base_price?: number
+    install_hours?: number
+    tier?: string
   }
   brand_data: {
     has_logo?: string
@@ -465,17 +470,37 @@ function VehicleScreen({ data, update, onNext }: { data: IntakeData; update: (k:
   const hasTrailer = data.services_selected.includes('trailer_wrap')
   const hasMarine = data.services_selected.includes('marine_boat')
 
+  const handleVehicleSelect = (vehicle: VehicleEntry) => {
+    update('vehicle_data', {
+      ...vd,
+      year: String(vehicle.year),
+      make: vehicle.make,
+      model: vehicle.model,
+      sqft: vehicle.sqft,
+      base_price: vehicle.basePrice,
+      install_hours: vehicle.installHours,
+      tier: vehicle.tier,
+    })
+  }
+
   return (
     <div style={styles.formScreen}>
       <h2 style={styles.screenTitle}>Tell us about the vehicle(s)</h2>
+
+      {/* Vehicle Selector from database */}
+      {hasCarTruck && (
+        <div style={{ width: '100%', marginBottom: 20 }}>
+          <VehicleSelector
+            onVehicleSelect={handleVehicleSelect}
+            defaultYear={vd.year ? parseInt(vd.year) : undefined}
+            defaultMake={vd.make}
+            defaultModel={vd.model}
+            showVinField
+          />
+        </div>
+      )}
+
       <div style={styles.formGrid}>
-        {hasCarTruck && (
-          <>
-            <Input label="Year" value={vd.year || ''} onChange={v => setVD('year', v)} placeholder="2024" />
-            <Input label="Make" value={vd.make || ''} onChange={v => setVD('make', v)} placeholder="Ford" />
-            <Input label="Model" value={vd.model || ''} onChange={v => setVD('model', v)} placeholder="Transit" />
-          </>
-        )}
         {(hasTrailer || data.services_selected.includes('commercial_fleet')) && (
           <>
             <Input label="Vehicle Type" value={vd.vehicle_type || ''} onChange={v => setVD('vehicle_type', v)} placeholder="Box truck, cargo van, etc." />
