@@ -1082,16 +1082,21 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     if (active) { fc.sendObjectToBack(active); fc.renderAll() }
   }
 
-  const selectAll = () => {
+  const selectAll = async () => {
+    const fabric = await import('fabric')
     const fc = fabricRef.current
     if (!fc) return
-    fc.discardActiveObject()
-    const SelectionClass = (window as any).__fabricSelectionClass
-    const sel = SelectionClass ? new SelectionClass(fc.getObjects(), { canvas: fc }) : null
-    if (!sel) {
-      fc.setActiveObject(new (fc as any).constructor.Selection(fc.getObjects()))
+    const objects = fc.getObjects()
+    if (objects.length === 0) return
+    try {
+      const sel = new (fabric as any).ActiveSelection(objects, { canvas: fc })
+      fc.setActiveObject(sel)
+      fc.renderAll()
+    } catch {
+      // fallback: select first object
+      if (objects[0]) fc.setActiveObject(objects[0])
+      fc.renderAll()
     }
-    fc.renderAll()
   }
 
   // ── Place image on canvas from URL (drag-to-canvas) ──
@@ -1103,15 +1108,23 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     const imgEl = document.createElement('img')
     imgEl.crossOrigin = 'anonymous'
     imgEl.onload = () => {
-      const canvasRect = canvasContainerRef.current?.getBoundingClientRect()
-      const offsetX = canvasRect ? clientX - canvasRect.left : clientX
-      const offsetY = canvasRect ? clientY - canvasRect.top : clientY
-      const pointer = fc.getPointer({ clientX: offsetX + (canvasRect?.left ?? 0), clientY: offsetY + (canvasRect?.top ?? 0) } as any)
       const maxW = 400
       const scale = imgEl.width > maxW ? maxW / imgEl.width : 1
+      let left = 100 + Math.random() * 200
+      let top = 100 + Math.random() * 200
+      if (clientX !== 0 || clientY !== 0) {
+        const canvasRect = canvasContainerRef.current?.getBoundingClientRect()
+        if (canvasRect) {
+          try {
+            const pointer = fc.getPointer({ clientX, clientY } as any)
+            left = pointer.x - (imgEl.width * scale) / 2
+            top = pointer.y - (imgEl.height * scale) / 2
+          } catch { /* use defaults */ }
+        }
+      }
       const img = new (fabric as any).Image(imgEl, {
-        left: pointer.x - (imgEl.width * scale) / 2,
-        top: pointer.y - (imgEl.height * scale) / 2,
+        left,
+        top,
         scaleX: scale,
         scaleY: scale,
         opacity: opacity / 100,

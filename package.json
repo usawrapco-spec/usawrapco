@@ -21,6 +21,7 @@
     "@types/canvas-confetti": "^1.9.0",
     "@types/nodemailer": "^7.0.11",
     "@types/three": "^0.183.1",
+    "@types/web-push": "^3.6.4",
     "canvas-confetti": "^1.9.4",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
@@ -44,6 +45,7 @@
     "tailwind-merge": "^2.5.4",
     "three": "^0.183.1",
     "twilio": "^5.12.2",
+    "web-push": "^3.6.7",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
