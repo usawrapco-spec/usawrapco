@@ -12,7 +12,7 @@ import {
   Mic, MicOff, Hash, Delete, Search,
   PauseCircle, PlayCircle, ArrowRightLeft,
   X, Check, User, ChevronUp, ChevronDown,
-  StickyNote, Clock,
+  StickyNote, Clock, MessageSquare, Send,
 } from 'lucide-react'
 import { usePhone } from '@/components/phone/PhoneProvider'
 import { createClient } from '@/lib/supabase/client'
@@ -87,6 +87,12 @@ export function InboxSoftphone() {
   const [callNote, setCallNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
 
+  // SMS during call
+  const [showSms, setShowSms] = useState(false)
+  const [smsText, setSmsText] = useState('')
+  const [smsSending, setSmsSending] = useState(false)
+  const [smsSent, setSmsSent] = useState(false)
+
   // Contact search + recent calls
   const [contactResults, setContactResults] = useState<ContactMatch[]>([])
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([])
@@ -117,6 +123,9 @@ export function InboxSoftphone() {
       setTransferError('')
       setTransferring(null)
       setShowKeypad(false)
+      setShowSms(false)
+      setSmsText('')
+      setSmsSent(false)
 
       // Auto-save call note if one was written
       if (callNote.trim() && prevNumberRef.current) {
@@ -230,6 +239,28 @@ export function InboxSoftphone() {
       setTransferError(result.error || 'Transfer failed')
     }
   }, [phone])
+
+  const sendSms = useCallback(async () => {
+    if (!smsText.trim() || !phone?.activeNumber) return
+    setSmsSending(true)
+    try {
+      await fetch('/api/inbox/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'sms',
+          to_phone: phone.activeNumber,
+          contact_name: phone.activeName || phone.activeNumber,
+          body: smsText.trim(),
+        }),
+      })
+      setSmsText('')
+      setSmsSent(true)
+      setTimeout(() => { setSmsSent(false); setShowSms(false) }, 2500)
+    } finally {
+      setSmsSending(false)
+    }
+  }, [smsText, phone?.activeNumber, phone?.activeName])
 
   if (!phone) return null
 
@@ -445,8 +476,8 @@ export function InboxSoftphone() {
                 </button>
               </div>
 
-              {/* Row 2: Hold + Transfer */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              {/* Row 2: Hold + Transfer + SMS */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: showSms ? 0 : 8 }}>
                 <button onClick={toggleHold} style={{
                   ...btn, flex: 1,
                   background: isOnHold ? 'rgba(245,158,11,0.12)' : 'var(--surface2)',
@@ -462,7 +493,100 @@ export function InboxSoftphone() {
                 }}>
                   <ArrowRightLeft size={13} /> Transfer
                 </button>
+                <button
+                  onClick={() => { setShowSms(p => !p); setSmsSent(false) }}
+                  style={{
+                    ...btn, flex: 1,
+                    background: showSms ? 'rgba(34,211,238,0.12)' : 'var(--surface2)',
+                    border: `1px solid ${showSms ? 'rgba(34,211,238,0.3)' : 'var(--border)'}`,
+                    color: showSms ? 'var(--cyan)' : 'var(--text2)',
+                  }}
+                >
+                  <MessageSquare size={13} /> SMS
+                </button>
               </div>
+
+              {/* ── SMS compose panel ──────────────────────── */}
+              {showSms && (
+                <div style={{
+                  margin: '8px 0',
+                  padding: '10px',
+                  borderRadius: 8,
+                  background: 'rgba(34,211,238,0.06)',
+                  border: '1px solid rgba(34,211,238,0.2)',
+                }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    fontSize: 10, fontWeight: 600, color: 'var(--cyan)',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+                  }}>
+                    <MessageSquare size={11} />
+                    Send SMS to {activeName && activeName !== activeNumber ? activeName : fmtPhone(activeNumber)}
+                  </div>
+
+                  {smsSent ? (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '8px 10px', borderRadius: 7,
+                      background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.25)',
+                      color: 'var(--green)', fontSize: 12, fontWeight: 600,
+                    }}>
+                      <Check size={14} /> Message sent!
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={smsText}
+                        onChange={e => setSmsText(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendSms()
+                        }}
+                        placeholder="Type a message..."
+                        rows={3}
+                        autoFocus
+                        style={{
+                          width: '100%', padding: '7px 9px',
+                          background: 'var(--bg)', border: '1px solid var(--border)',
+                          borderRadius: 7, color: 'var(--text1)', fontSize: 12,
+                          resize: 'none', outline: 'none', fontFamily: 'inherit',
+                          lineHeight: 1.5, boxSizing: 'border-box',
+                          marginBottom: 6,
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <button
+                          onClick={() => { setShowSms(false); setSmsText('') }}
+                          style={{
+                            padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)',
+                            background: 'none', color: 'var(--text3)', fontSize: 11,
+                            cursor: 'pointer', fontWeight: 600,
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={sendSms}
+                          disabled={!smsText.trim() || smsSending}
+                          style={{
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            gap: 5, padding: '6px 0', borderRadius: 6, border: 'none',
+                            background: smsText.trim() && !smsSending ? 'var(--cyan)' : 'var(--surface2)',
+                            color: smsText.trim() && !smsSending ? '#000' : 'var(--text3)',
+                            fontSize: 12, fontWeight: 700,
+                            cursor: smsText.trim() && !smsSending ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          <Send size={12} />
+                          {smsSending ? 'Sending...' : 'Send'}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 5, textAlign: 'right' }}>
+                        {smsText.length}/160 · ⌘↵ to send
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* ── Call notes ─────────────────────────────── */}
               <div style={{ marginBottom: 8 }}>
