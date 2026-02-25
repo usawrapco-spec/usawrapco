@@ -21,14 +21,17 @@ jobs:
       - name: Run /sql scripts
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          DB_HOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+          PGHOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGSSLMODE: require
         run: |
           PASS=0; FAIL=0
           for f in sql/*.sql; do
             [ -f "$f" ] || continue
             echo "-> $f"
-            if psql "postgresql://postgres:${PGPASSWORD}@${DB_HOST}:5432/postgres?sslmode=require" \
-                 --set=ON_ERROR_STOP=1 -q -f "$f"; then
+            if psql --set=ON_ERROR_STOP=1 -q -f "$f"; then
               echo "   done"
               PASS=$((PASS+1))
             else
@@ -41,14 +44,17 @@ jobs:
       - name: Run supabase/migrations scripts
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          DB_HOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+          PGHOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGSSLMODE: require
         run: |
           PASS=0; FAIL=0
           for f in supabase/migrations/*.sql; do
             [ -f "$f" ] || continue
             echo "-> $f"
-            if psql "postgresql://postgres:${PGPASSWORD}@${DB_HOST}:5432/postgres?sslmode=require" \
-                 --set=ON_ERROR_STOP=1 -q -f "$f"; then
+            if psql --set=ON_ERROR_STOP=1 -q -f "$f"; then
               echo "   done"
               PASS=$((PASS+1))
             else
