@@ -292,133 +292,6 @@ function payTypeLabel(pt: PayType): string {
   }
 }
 
-/* ─── Demo Data Generators ───────────────────────────────────────────── */
-
-function buildDemoPayPeriods(): PayPeriod[] {
-  const now = new Date()
-  const currentStart = getPayPeriodStart(now)
-  const periods: PayPeriod[] = []
-
-  for (let i = 0; i < 6; i++) {
-    const start = new Date(currentStart.getTime() - i * BIWEEKLY_MS)
-    const end = getPayPeriodEnd(start)
-    const payDate = getPayDate(end)
-    const isCurrent = i === 0
-    const isPrev = i === 1
-
-    periods.push({
-      id: `demo-period-${i}`,
-      org_id: ORG_ID,
-      start_date: start.toISOString(),
-      end_date: end.toISOString(),
-      pay_date: payDate.toISOString(),
-      status: isCurrent ? 'draft' : isPrev ? 'pending_approval' : 'paid',
-      total_hours: isCurrent ? 284 : 320 + Math.floor(Math.random() * 40),
-      total_gross: isCurrent ? 9240 : 10800 + Math.floor(Math.random() * 2000),
-      total_net: isCurrent ? 7150 : 8400 + Math.floor(Math.random() * 1500),
-      total_deductions: isCurrent ? 2090 : 2400 + Math.floor(Math.random() * 500),
-      notes: null,
-      created_by: null,
-      created_at: start.toISOString(),
-      updated_at: start.toISOString(),
-    })
-  }
-
-  return periods
-}
-
-function buildDemoRecords(periodId: string, employees: any[]): PayrollRecord[] {
-  const demoNames = ['Kevin Reid', 'Cage Williams', 'Marcus Lane', 'Sarah Chen', 'Jake Martinez']
-  const demoRoles = ['sales_agent', 'sales_agent', 'installer', 'designer', 'installer']
-  const demoRates = [20, 20, 22, 25, 20]
-
-  const empList = employees.length > 0 ? employees : demoNames.map((name, i) => ({
-    id: `demo-emp-${i}`,
-    name,
-    role: demoRoles[i],
-  }))
-
-  return empList.slice(0, 5).map((emp: any, idx: number) => {
-    const rate = demoRates[idx] || 20
-    const regHrs = 72 + Math.floor(Math.random() * 8)
-    const otHrs = Math.random() > 0.6 ? Math.floor(Math.random() * 8) : 0
-    const ptoHrs = Math.random() > 0.8 ? 8 : 0
-    const basePay = regHrs * rate + otHrs * rate * 1.5
-    const isSales = (emp.role || demoRoles[idx]) === 'sales_agent'
-    const commission = isSales ? 800 + Math.floor(Math.random() * 1200) : 0
-    const deductions = Math.round((basePay + commission) * 0.22)
-    const netPay = basePay + commission - deductions
-
-    const commBreakdown: CommissionItem[] = isSales ? [
-      { job_title: 'Fleet Wrap - Metro Transport', source_type: 'outbound', gross_profit: 4200, rate: 0.10, amount: 420 },
-      { job_title: 'Color Change - Tesla Model Y', source_type: 'inbound', gross_profit: 3100, rate: 0.075, amount: 232 },
-      { job_title: 'Partial Wrap - Local Bakery', source_type: 'referral', gross_profit: 1800, rate: 0.055, amount: 99 },
-    ] : []
-
-    const timeEntries: TimeEntry[] = Array.from({ length: 5 }, (_, day) => ({
-      id: `demo-time-${idx}-${day}`,
-      clock_in: new Date(2026, 1, 9 + day, 8, 0).toISOString(),
-      clock_out: new Date(2026, 1, 9 + day, 16 + (day % 2), 30).toISOString(),
-      duration_minutes: (8 + (day % 2)) * 60 + 30,
-      entry_type: 'regular',
-      job_title: day % 2 === 0 ? 'Fleet Wrap - Metro Transport' : 'Color Change - Tesla Model Y',
-      project_notes: null,
-    }))
-
-    return {
-      id: `demo-record-${idx}`,
-      pay_period_id: periodId,
-      employee_id: emp.id || `demo-emp-${idx}`,
-      employee_name: emp.name || demoNames[idx],
-      regular_hours: regHrs,
-      overtime_hours: otHrs,
-      pto_hours: ptoHrs,
-      hourly_rate: rate,
-      gross_pay: basePay + commission,
-      commission,
-      deductions,
-      net_pay: netPay,
-      status: 'pending' as PayrollRecordStatus,
-      approved_by: null,
-      approved_at: null,
-      notes: null,
-      time_entries: timeEntries,
-      commission_breakdown: commBreakdown,
-    }
-  })
-}
-
-function buildDemoPaySettings(employees: any[]): EmployeePaySetting[] {
-  const demoNames = ['Kevin Reid', 'Cage Williams', 'Marcus Lane', 'Sarah Chen', 'Jake Martinez']
-  const demoTypes: PayType[] = ['hourly_commission', 'hourly_commission', 'hourly', 'salary', 'hourly']
-  const demoRates = [20, 20, 22, 0, 20]
-  const demoSalaries = [0, 0, 0, 52000, 0]
-  const demoCommRates = [0.075, 0.10, 0, 0, 0]
-
-  const empList = employees.length > 0 ? employees : demoNames.map((name, i) => ({
-    id: `demo-emp-${i}`,
-    name,
-  }))
-
-  return empList.slice(0, 5).map((emp: any, idx: number) => ({
-    id: `demo-setting-${idx}`,
-    user_id: emp.id || `demo-emp-${idx}`,
-    employee_name: emp.name || demoNames[idx],
-    pay_type: demoTypes[idx] || 'hourly',
-    hourly_rate: demoRates[idx] || 20,
-    annual_salary: demoSalaries[idx] || 0,
-    commission_rate: demoCommRates[idx] || 0,
-    overtime_eligible: demoTypes[idx] !== 'salary',
-    pto_accrual_rate: 4.0,
-    payment_method: 'direct_deposit',
-    tax_filing_status: 'single',
-    federal_allowances: 1,
-    state_allowances: 1,
-    additional_withholding: 0,
-    pto_balance: 40 + Math.floor(Math.random() * 20),
-    sick_balance: 24 + Math.floor(Math.random() * 16),
-  }))
-}
 
 /* ─── Component ──────────────────────────────────────────────────────── */
 
@@ -459,18 +332,14 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
         .limit(12)
 
       if (err) throw err
-      if (data && data.length > 0) {
-        setPayPeriods(data)
-      } else {
-        setPayPeriods(buildDemoPayPeriods())
-      }
+      setPayPeriods(data || [])
     } catch {
-      setPayPeriods(buildDemoPayPeriods())
+      setPayPeriods([])
     }
   }, [profile.org_id])
 
   const loadPayrollRecords = useCallback(async (periodId: string) => {
-    if (periodRecords[periodId]) return
+    if (periodId in periodRecords) return
 
     try {
       const { data, error: err } = await supabase
@@ -480,15 +349,11 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
         .order('employee_name', { ascending: true })
 
       if (err) throw err
-      if (data && data.length > 0) {
-        setPeriodRecords(prev => ({ ...prev, [periodId]: data }))
-      } else {
-        setPeriodRecords(prev => ({ ...prev, [periodId]: buildDemoRecords(periodId, employees) }))
-      }
+      setPeriodRecords(prev => ({ ...prev, [periodId]: data || [] }))
     } catch {
-      setPeriodRecords(prev => ({ ...prev, [periodId]: buildDemoRecords(periodId, employees) }))
+      setPeriodRecords(prev => ({ ...prev, [periodId]: [] }))
     }
-  }, [employees, periodRecords])
+  }, [periodRecords])
 
   const loadPaySettings = useCallback(async () => {
     try {
@@ -499,15 +364,11 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
         .order('employee_name', { ascending: true })
 
       if (err) throw err
-      if (data && data.length > 0) {
-        setPaySettings(data)
-      } else {
-        setPaySettings(buildDemoPaySettings(employees))
-      }
+      setPaySettings(data || [])
     } catch {
-      setPaySettings(buildDemoPaySettings(employees))
+      setPaySettings([])
     }
-  }, [profile.org_id, employees])
+  }, [profile.org_id])
 
   const loadTimeClockData = useCallback(async (periodId: string, startDate: string, endDate: string) => {
     try {
@@ -993,7 +854,8 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
             {/* Period rows */}
             {payPeriods.map(period => {
               const isExpanded = expandedPeriod === period.id
-              const records = periodRecords[period.id] || []
+              const recordsLoaded = period.id in periodRecords
+              const records = periodRecords[period.id] ?? []
               const allApproved = records.length > 0 && records.every(r => r.status === 'approved' || r.status === 'processed')
               const anyPending = records.some(r => r.status === 'pending')
 
@@ -1412,10 +1274,15 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                           )
                         })}
 
-                        {records.length === 0 && (
+                        {!recordsLoaded && (
                           <div style={{ padding: 32, textAlign: 'center', color: '#505a6b', fontSize: 13 }}>
                             <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', marginBottom: 8 }} />
                             <div>Loading employee records...</div>
+                          </div>
+                        )}
+                        {recordsLoaded && records.length === 0 && (
+                          <div style={{ padding: 32, textAlign: 'center', color: '#505a6b', fontSize: 13 }}>
+                            No payroll records for this period
                           </div>
                         )}
                       </div>
