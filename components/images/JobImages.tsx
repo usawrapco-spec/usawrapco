@@ -394,9 +394,10 @@ export default function JobImages({
 
       {/* Categorized galleries */}
       {groupedImages.map((group) => (
-        <div key={group.key} className="mb-5">
-          <div className="text-xs font-bold text-purple-400 uppercase tracking-[1px] mb-2.5 flex items-center gap-1.5">
-            <group.Icon size={12} /> {group.label}
+        <div key={group.key} className="mb-3">
+          <div className="text-[10px] font-bold text-purple-400 uppercase tracking-[1px] mb-1.5 flex items-center gap-1.5">
+            <group.Icon size={11} /> {group.label}
+            {group.images.length > 0 && <span className="text-gray-600">({group.images.length})</span>}
           </div>
 
           {group.images.length === 0 ? (
@@ -405,11 +406,11 @@ export default function JobImages({
                 const ref = categoryInputRefs.current[group.key];
                 if (ref) ref.click();
               }}
-              className="text-gray-500 text-sm py-6 text-center border border-dashed border-[#1e2d4a] rounded-lg
-                cursor-pointer hover:border-purple-500/50 hover:bg-purple-500/5 transition-all"
+              className="text-gray-600 text-xs py-3 text-center border border-dashed border-[#1e2d4a] rounded-lg
+                cursor-pointer hover:border-purple-500/50 hover:bg-purple-500/5 transition-all flex items-center justify-center gap-2"
             >
-              <Upload size={18} className="mx-auto mb-1.5 opacity-50" />
-              <span>No {group.key} photos yet — click to upload</span>
+              <Upload size={12} className="opacity-40" />
+              <span>No {group.key} photos — click to upload</span>
               <input
                 ref={(el) => { categoryInputRefs.current[group.key] = el; }}
                 type="file"
@@ -420,7 +421,7 @@ export default function JobImages({
               />
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
               {group.images.map((img) => {
                 const isSelected = selectedIds.has(img.id);
                 return (
@@ -505,35 +506,33 @@ export default function JobImages({
 
       {/* Shared Packs list */}
       {sharePacks.length > 0 && (
-        <div className="mb-5">
-          <div className="text-xs font-bold text-cyan-400 uppercase tracking-[1px] mb-2.5 flex items-center gap-1.5">
-            <Send size={12} /> Shared Photo Packs
+        <div className="mb-3">
+          <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-[1px] mb-1.5 flex items-center gap-1.5">
+            <Send size={11} /> Shared Packs
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {sharePacks.map((pack) => (
               <div
                 key={pack.id}
-                className="flex items-center justify-between bg-[#111827] border border-[#1e2d4a] rounded-lg px-4 py-2.5"
+                className="flex items-center justify-between bg-[#111827] border border-[#1e2d4a] rounded-lg px-3 py-1.5"
               >
-                <div className="flex items-center gap-3">
-                  <Images size={16} className="text-cyan-400" />
-                  <div>
-                    <div className="text-sm font-semibold text-gray-200">
-                      {(pack.photo_urls as string[]).length} photos
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(pack.created_at).toLocaleDateString()} · {pack.view_count} view{pack.view_count !== 1 ? 's' : ''}
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Images size={13} className="text-cyan-400" />
+                  <span className="text-xs font-semibold text-gray-200">
+                    {(pack.photo_urls as string[]).length} photos
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    {new Date(pack.created_at).toLocaleDateString()} · {pack.view_count} views
+                  </span>
                 </div>
                 <button
                   onClick={() => copyPackLink(pack.token)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold transition-all text-cyan-400 hover:bg-cyan-500/10"
                 >
                   {packCopied === pack.token ? (
-                    <><Check size={12} /> Copied</>
+                    <><Check size={10} /> Copied</>
                   ) : (
-                    <><ExternalLink size={12} /> Copy Link</>
+                    <><ExternalLink size={10} /> Copy Link</>
                   )}
                 </button>
               </div>
