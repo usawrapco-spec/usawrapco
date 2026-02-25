@@ -171,7 +171,7 @@ export default function PortalClient({ userId, userEmail }: PortalClientProps) {
       if (projectIds.length > 0) {
         const { data: fileData } = await supabase
           .from('job_images')
-          .select('id, file_name, bucket_path, file_type, created_at')
+          .select('id, file_name, image_url, category, created_at')
           .in('project_id', projectIds)
           .order('created_at', { ascending: false })
           .limit(50)
@@ -857,7 +857,7 @@ export default function PortalClient({ userId, userEmail }: PortalClientProps) {
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: colors.text1 }}>{f.file_name}</div>
                             <div style={{ fontSize: 11, color: colors.text3 }}>
-                              {f.file_type} -- {formatDate(f.created_at)}
+                              {f.category || 'general'} -- {formatDate(f.created_at)}
                             </div>
                           </div>
                         </div>

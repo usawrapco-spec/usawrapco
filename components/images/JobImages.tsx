@@ -2,7 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Camera, Palette, FileCheck, Star, Folder, Tag, Trash2, Images, Loader2, type LucideIcon } from 'lucide-react';
+import { Camera, Palette, FileCheck, Star, Folder, Tag, Trash2, Images, Loader2, Upload, type LucideIcon } from 'lucide-react';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const STORAGE_BUCKET = 'project-files';
+
+/** Only trust image URLs that come from our own Supabase Storage */
+function isValidStorageUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  // Accept URLs from our Supabase project storage (any bucket)
+  return url.startsWith(`${SUPABASE_URL}/storage/v1/object/public/`);
+}
 
 interface JobImage {
   id: string;
@@ -21,8 +31,8 @@ interface JobImagesProps {
   projectId: string;
   orgId: string;
   currentUserId: string;
-  vehicleType?: string;   // auto-fill from project
-  wrapScope?: string;     // auto-fill from project
+  vehicleType?: string;
+  wrapScope?: string;
 }
 
 const CATEGORIES: { key: string; label: string; Icon: LucideIcon }[] = [
@@ -46,9 +56,10 @@ export default function JobImages({
   const [showTagModal, setShowTagModal] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const categoryInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const supabase = createClient();
 
-  // Fetch images
+  // Fetch images — only keep rows with valid Supabase Storage URLs
   useEffect(() => {
     const fetchImages = async () => {
       const { data, error } = await supabase
@@ -58,24 +69,26 @@ export default function JobImages({
         .order('created_at', { ascending: false });
 
       if (!error && data) {
-        setImages(data as JobImage[]);
+        const valid = (data as JobImage[]).filter((img) => isValidStorageUrl(img.image_url));
+        setImages(valid);
       }
     };
     fetchImages();
   }, [projectId]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, category?: string) => {
     const files = e.target.files;
     if (!files?.length) return;
     setUploading(true);
 
-    for (const file of Array.from(files)) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${orgId}/${projectId}/${uploadCategory}/${Date.now()}_${file.name}`;
+    const targetCategory = category || uploadCategory;
 
-      // Upload to storage
+    for (const file of Array.from(files)) {
+      const fileName = `${orgId}/${projectId}/${targetCategory}/${Date.now()}_${file.name}`;
+
+      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from('project-files')
+        .from(STORAGE_BUCKET)
         .upload(fileName, file);
 
       if (uploadError) {
@@ -83,19 +96,28 @@ export default function JobImages({
         continue;
       }
 
+      // Get the permanent public URL from Supabase Storage
       const { data: urlData } = supabase.storage
-        .from('project-files')
+        .from(STORAGE_BUCKET)
         .getPublicUrl(fileName);
 
-      // Insert record
+      const publicUrl = urlData.publicUrl;
+
+      // Verify the URL is a valid Supabase Storage URL before saving
+      if (!isValidStorageUrl(publicUrl)) {
+        console.error('Generated URL is not a valid Supabase Storage URL:', publicUrl);
+        continue;
+      }
+
+      // Insert record with the permanent Supabase Storage URL
       const { data: imgRecord, error: insertError } = await supabase
         .from('job_images')
         .insert({
           org_id: orgId,
           project_id: projectId,
           user_id: currentUserId,
-          category: uploadCategory,
-          image_url: urlData.publicUrl,
+          category: targetCategory,
+          image_url: publicUrl,
           file_name: file.name,
           file_size: file.size,
           vehicle_type: vehicleType,
@@ -112,10 +134,21 @@ export default function JobImages({
 
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    // Also clear category-specific input
+    Object.values(categoryInputRefs.current).forEach((ref) => {
+      if (ref) ref.value = '';
+    });
   };
 
   const deleteImage = async (imageId: string, imageUrl: string) => {
     if (!confirm('Delete this image?')) return;
+
+    // Try to delete from storage too
+    const storagePrefix = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
+    if (imageUrl.startsWith(storagePrefix)) {
+      const storagePath = decodeURIComponent(imageUrl.slice(storagePrefix.length));
+      await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]);
+    }
 
     await supabase.from('job_images').delete().eq('id', imageId);
     setImages((prev) => prev.filter((img) => img.id !== imageId));
@@ -153,7 +186,7 @@ export default function JobImages({
     <div>
       {/* Upload zone */}
       <div className="mb-5">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
           <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Upload to:</span>
           {CATEGORIES.map((cat) => (
             <button
@@ -173,8 +206,8 @@ export default function JobImages({
         <div
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all
-            ${uploading 
-              ? 'border-purple-500 bg-purple-500/5' 
+            ${uploading
+              ? 'border-purple-500 bg-purple-500/5'
               : 'border-[#2a3f6a] hover:border-purple-500 hover:bg-purple-500/5'
             }`}
         >
@@ -235,15 +268,31 @@ export default function JobImages({
           </div>
 
           {group.images.length === 0 ? (
-            <div className="text-gray-600 text-sm py-4 text-center border border-dashed border-[#1e2d4a] rounded-lg">
-              No {group.key} photos yet
+            <div
+              onClick={() => {
+                const ref = categoryInputRefs.current[group.key];
+                if (ref) ref.click();
+              }}
+              className="text-gray-500 text-sm py-6 text-center border border-dashed border-[#1e2d4a] rounded-lg
+                cursor-pointer hover:border-purple-500/50 hover:bg-purple-500/5 transition-all"
+            >
+              <Upload size={18} className="mx-auto mb-1.5 opacity-50" />
+              <span>No {group.key} photos yet — click to upload</span>
+              <input
+                ref={(el) => { categoryInputRefs.current[group.key] = el; }}
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleUpload(e, group.key)}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {group.images.map((img) => (
                 <div
                   key={img.id}
-                  className="aspect-square rounded-lg overflow-hidden border border-[#1e2d4a] 
+                  className="aspect-square rounded-lg overflow-hidden border border-[#1e2d4a]
                     relative group cursor-pointer hover:border-purple-500 transition-all hover:scale-[1.03]"
                 >
                   <img src={img.image_url} alt={img.file_name} className="w-full h-full object-cover" />
@@ -300,7 +349,7 @@ export default function JobImages({
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addTag(showTagModal)}
                 placeholder="e.g. van, full wrap, 3M..."
-                className="flex-1 bg-[#111827] border border-[#1e2d4a] rounded-lg px-3 py-2 text-sm text-gray-200 
+                className="flex-1 bg-[#111827] border border-[#1e2d4a] rounded-lg px-3 py-2 text-sm text-gray-200
                   placeholder-gray-500 outline-none focus:border-purple-500"
               />
               <button

@@ -1,13 +1,15 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
+const STORAGE_BUCKET = 'project-files'
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     const projectId = formData.get('project_id') as string | null
     const orgId = formData.get('org_id') as string | null
-    const uploadedBy = formData.get('uploaded_by') as string | null
-    const tag = (formData.get('tag') as string) || 'general'
+    const userId = formData.get('uploaded_by') as string | null
+    const category = (formData.get('tag') as string) || 'general'
 
     if (!file) {
       return Response.json({ error: 'No file provided' }, { status: 400 })
@@ -24,7 +26,7 @@ export async function POST(req: Request) {
     // Upload to Supabase Storage
     const bytes = await file.arrayBuffer()
     const { error: uploadError } = await admin.storage
-      .from('job-images')
+      .from(STORAGE_BUCKET)
       .upload(storagePath, bytes, {
         contentType: file.type,
         upsert: false,
@@ -35,24 +37,22 @@ export async function POST(req: Request) {
       return Response.json({ error: uploadError.message }, { status: 500 })
     }
 
-    // Get public URL
+    // Get permanent public URL from Supabase Storage
     const { data: { publicUrl } } = admin.storage
-      .from('job-images')
+      .from(STORAGE_BUCKET)
       .getPublicUrl(storagePath)
 
-    // Create job_images record
+    // Create job_images record using correct column names
     const { data: record, error: dbError } = await admin
       .from('job_images')
       .insert({
         project_id: projectId,
         org_id: orgId,
-        uploaded_by: uploadedBy,
-        url: publicUrl,
-        storage_path: storagePath,
-        filename: file.name,
-        mime_type: file.type,
-        size_bytes: file.size,
-        tag,
+        user_id: userId,
+        image_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        category,
       })
       .select()
       .single()

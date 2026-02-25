@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     // Load recent completed jobs with media
     const { data: images } = await admin
       .from('job_images')
-      .select('id, url, project_id, tag, project:project_id(title, vehicle_desc, type)')
+      .select('id, image_url, project_id, category, project:project_id(title, vehicle_desc, type)')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -29,11 +29,11 @@ Customer wants:
 - Description: ${description || 'no details'}
 - Colors: ${colors || 'any'}
 
-Available photos (as JSON array with id, url, project title, vehicle desc, type, tag):
+Available photos (as JSON array with id, image_url, project title, vehicle desc, type, category):
 ${JSON.stringify(images.slice(0, 30), null, 2)}
 
 Return a JSON array of the top 5 matching photo IDs with a similarity score (0-100) and brief match reason.
-Format: [{ "id": "...", "url": "...", "similarity_score": 85, "match_reason": "..." }]
+Format: [{ "id": "...", "image_url": "...", "similarity_score": 85, "match_reason": "..." }]
 Return ONLY the JSON array, no other text.`
 
     const response = await anthropic.messages.create({

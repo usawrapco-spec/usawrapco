@@ -300,12 +300,11 @@ export default function InstallerPortalClient({
       await supabase.from('job_images').insert({
         project_id: selectedJobId,
         org_id: profile.org_id,
-        uploaded_by: profile.id,
-        url: urlData.publicUrl,
-        bucket_path: fileName,
-        phase: photoPhase,
+        user_id: profile.id,
+        image_url: urlData.publicUrl,
+        category: photoPhase,
         file_name: file.name,
-        file_type: file.type,
+        file_size: file.size,
       })
 
       // Reload photos
@@ -422,12 +421,10 @@ export default function InstallerPortalClient({
     await supabase.from('job_images').insert({
       project_id: selectedJobId,
       org_id: profile.org_id,
-      uploaded_by: profile.id,
-      url: urlData.publicUrl,
-      bucket_path: fileName,
-      phase: 'signature',
+      user_id: profile.id,
+      image_url: urlData.publicUrl,
+      category: 'general',
       file_name: 'customer_signature.png',
-      file_type: 'image/png',
     })
 
     // Update project checkout
