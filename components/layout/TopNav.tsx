@@ -15,10 +15,12 @@ import {
   Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
   ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart, Phone, Layers,
   Download,
+  BellOff, BellRing,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
 import DesignIntakeLinkModal from '@/components/design-intake/DesignIntakeLinkModal'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DropdownItem {
@@ -128,6 +130,8 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled]     = useState(false)
   const [showIOSHint, setShowIOSHint]     = useState(false)
+
+  const push = usePushNotifications()
 
   const createRef   = useRef<HTMLDivElement>(null)
   const jobsRef     = useRef<HTMLDivElement>(null)
@@ -1004,6 +1008,45 @@ export function TopNav({ profile }: { profile: Profile }) {
                   ))
                 )}
               </div>
+              {/* Push notification toggle */}
+              {push.permState !== 'unsupported' && push.permState !== 'loading' && (
+                <div style={{ padding: '10px 16px', borderTop: '1px solid var(--card-border)' }}>
+                  {push.permState === 'denied' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text3)' }}>
+                      <BellOff size={12} />
+                      Push blocked — allow in browser settings
+                    </div>
+                  ) : push.isSubscribed ? (
+                    <button
+                      onClick={() => push.unsubscribe()}
+                      disabled={push.busy}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: 11, color: 'var(--green)', fontWeight: 600, padding: 0,
+                        opacity: push.busy ? 0.6 : 1,
+                      }}
+                    >
+                      <BellRing size={12} />
+                      {push.busy ? 'Saving…' : 'Push alerts on — tap to disable'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => push.subscribe()}
+                      disabled={push.busy || !push.vapidKey}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        background: 'none', border: 'none', cursor: push.vapidKey ? 'pointer' : 'default',
+                        fontSize: 11, color: push.vapidKey ? 'var(--accent)' : 'var(--text3)', fontWeight: 600, padding: 0,
+                        opacity: push.busy ? 0.6 : 1,
+                      }}
+                    >
+                      <Bell size={12} />
+                      {push.busy ? 'Enabling…' : push.vapidKey ? 'Enable push alerts' : 'Push not configured'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

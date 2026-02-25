@@ -1,8 +1,9 @@
-const CACHE_NAME = 'usawrapco-v6.2'
+const CACHE_NAME = 'usawrapco-v6.3'
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
+  '/offline.html',
 ]
 
 // Install: cache static assets immediately
@@ -49,7 +50,27 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Network-first for navigation/pages with cache fallback
+  // Network-first for navigation/pages with offline fallback
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
+          }
+          return res
+        })
+        .catch(() =>
+          caches.match(event.request).then(
+            (cached) => cached || caches.match('/offline.html')
+          )
+        )
+    )
+    return
+  }
+
+  // Network-first for all other requests
   event.respondWith(
     fetch(event.request)
       .then((res) => {

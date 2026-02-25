@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import webpush from 'web-push'
-import { createServiceClient } from '@/lib/supabase/service'
+import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 // Configure VAPID once on module load
 const vapidConfigured =
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   const internalSecret = req.headers.get('x-internal-secret')
   if (internalSecret !== process.env.INTERNAL_API_SECRET) {
     // Also allow authenticated session users (for testing from the UI)
-    const supabase = await import('@/lib/supabase/server').then(m => m.createClient())
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     const targets: string[] = user_ids ?? (user_id ? [user_id] : [])
     if (!targets.length) return NextResponse.json({ error: 'user_id or user_ids required' }, { status: 400 })
 
-    const supabase = createServiceClient()
+    const supabase = getSupabaseAdmin()
     const { data: subs, error } = await supabase
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')
