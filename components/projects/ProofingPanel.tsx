@@ -87,8 +87,14 @@ export default function ProofingPanel({ project, profile }: Props) {
 
     const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
     setUploadedImageUrl(urlData.publicUrl)
+
+    // Write mockup_url into form_data so pipeline card thumbnail updates
+    await supabase.from('projects').update({
+      form_data: { ...(project.form_data as Record<string, unknown> || {}), mockup_url: urlData.publicUrl },
+    }).eq('id', project.id)
+
     setUploading(false)
-  }, [project.id, nextVersion, supabase])
+  }, [project.id, project.form_data, nextVersion, supabase])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
