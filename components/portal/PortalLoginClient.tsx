@@ -30,10 +30,15 @@ export default function PortalLoginClient() {
     setLoading(true)
     setError('')
 
+    // Use the canonical app domain — Supabase redirect URL allow-list requires it
+    const redirectOrigin = window.location.hostname === 'localhost'
+      ? window.location.origin
+      : 'https://app.usawrapco.com'
+
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/portal/setup`,
+        emailRedirectTo: `${redirectOrigin}/auth/callback?next=/portal`,
       },
     })
 

@@ -62,7 +62,8 @@ export async function GET(request: Request) {
     const msg = authError
       ? encodeURIComponent(authError)
       : encodeURIComponent('Could not sign in. Please try again.')
-    return NextResponse.redirect(`${origin}/login?error=${msg}`)
+    const loginPath = next.startsWith('/portal') ? '/portal/login' : '/login'
+    return NextResponse.redirect(`${origin}${loginPath}?error=${msg}`)
   }
 
   // ── Ensure profile exists and has required fields ────────────────
