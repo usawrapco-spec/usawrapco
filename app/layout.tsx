@@ -2,6 +2,7 @@ import '@/app/globals.css'
 import type { Metadata } from 'next'
 import { Providers } from '@/components/shared/Providers'
 import VinylChat from '@/components/vinyl-chat'
+import SystemAlertBanner from '@/components/shared/SystemAlertBanner'
 
 export const metadata: Metadata = {
   title: 'USA Wrap Co | WrapShop Pro',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Providers>
+          <SystemAlertBanner />
           {children}
           <VinylChat />
         </Providers>
