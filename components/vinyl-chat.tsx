@@ -138,7 +138,7 @@ export default function VinylChat() {
 
   const panelStyle: React.CSSProperties = position
     ? { position: 'fixed', left: position.x, top: position.y, bottom: 'auto', right: 'auto' }
-    : { position: 'fixed', bottom: 84, right: 20 }
+    : { position: 'fixed', bottom: 88, right: 20 }
 
   return (
     <>
@@ -149,7 +149,7 @@ export default function VinylChat() {
           title="Chat with V.I.N.Y.L."
           style={{
             position: 'fixed',
-            bottom: 24,
+            bottom: 88,
             right: 24,
             width: 56,
             height: 56,
