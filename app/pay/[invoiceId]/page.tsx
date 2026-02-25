@@ -16,13 +16,34 @@ export default async function PayPage({ params, searchParams }: Props) {
 
   const admin = getSupabaseAdmin()
 
-  const { data: invoice } = await admin
+  const { data: invoice, error: invErr } = await admin
     .from('invoices')
-    .select('*, customer:customer_id(id, name, email)')
+    .select('*')
     .eq('id', invoiceId)
     .single()
 
-  if (!invoice) return notFound()
+  if (!invoice || invErr) return notFound()
+
+  // Separately fetch customer if customer_id exists
+  let customer: { id: string; name: string; email?: string } | null = null
+  if (invoice.customer_id) {
+    const { data: cust } = await admin
+      .from('customers')
+      .select('id, name, email')
+      .eq('id', invoice.customer_id)
+      .single()
+    customer = cust
+  }
+
+  // Fallback: check profiles table
+  if (!customer && invoice.customer_id) {
+    const { data: prof } = await admin
+      .from('profiles')
+      .select('id, name, email')
+      .eq('id', invoice.customer_id)
+      .single()
+    customer = prof
+  }
 
   const { data: lineItems } = await admin
     .from('line_items')
@@ -31,10 +52,8 @@ export default async function PayPage({ params, searchParams }: Props) {
     .eq('parent_type', 'invoice')
     .order('sort_order')
 
-  const balanceDue = Math.max(0, invoice.balance_due ?? invoice.balance ?? (invoice.total - invoice.amount_paid))
+  const balanceDue = Math.max(0, invoice.balance ?? (invoice.total - invoice.amount_paid))
   const isPaid = (invoice.status === 'paid' || balanceDue <= 0) && !isSuccess
-
-  const customer = invoice.customer as any
 
   return (
     <div style={{
