@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
-  const publicRoutes = ['/login', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/api/onboarding/lead', '/api/onboarding/create-checkout', '/api/vehicles/', '/pay/', '/api/stripe/', '/api/payments/webhook']
+  const publicRoutes = ['/login', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/design-intake/', '/api/design-intake/save', '/api/design-intake/chat', '/api/design-intake/complete', '/api/onboarding/lead', '/api/onboarding/create-checkout', '/api/vehicles/', '/pay/', '/api/stripe/', '/api/payments/webhook']
   const isPublic = publicRoutes.some(r => pathname.startsWith(r))
 
   // Portal routes: redirect unauthenticated users to portal login (not main login)
