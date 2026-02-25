@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Send, Copy, Eye, Save, Plus, Trash2, GripVertical,
   CheckCircle2, Clock, Mail, MessageSquare, Loader2,
@@ -74,6 +75,7 @@ export default function ProposalBuilder({
   estimateId, customerId, customerEmail, customerName, customerPhone,
 }: ProposalBuilderProps) {
   const supabase = createClient()
+  const router = useRouter()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -401,7 +403,7 @@ export default function ProposalBuilder({
           )}
           {publicToken && (
             <button
-              onClick={() => window.open(`/proposal/${publicToken}`, '_blank')}
+              onClick={() => router.push(`/proposal/${publicToken}`)}
               style={btnSecondary}
             >
               <Eye size={14} /> Preview

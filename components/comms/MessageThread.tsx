@@ -16,6 +16,7 @@ import {
   RotateCcw,
   UserCheck,
   Phone,
+  PhoneOff,
   Mic,
   Play,
   Image as ImageIcon,
@@ -24,6 +25,7 @@ import type { Profile } from '@/types'
 import type { Conversation, ConversationMessage, EmailTemplate, SmsTemplate, PhotoSelection } from './types'
 import { formatFullDate, relativeTime } from './types'
 import { ComposeArea } from './ComposeArea'
+import { usePhone } from '@/components/phone/PhoneProvider'
 
 interface Teammate {
   id: string
@@ -367,6 +369,30 @@ export function MessageThread({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showAssign, setShowAssign] = useState(false)
+  const [calling, setCalling] = useState(false)
+  const phone = usePhone()
+
+  const contactPhone = conversation.contact_phone
+  const normalizedContact = contactPhone?.replace(/\D/g, '')
+  const normalizedActive = phone?.activeNumber?.replace(/\D/g, '')
+  const isCallToThisContact = !!normalizedContact && !!normalizedActive &&
+    (normalizedActive.endsWith(normalizedContact) || normalizedContact.endsWith(normalizedActive))
+  const isInCallWithContact = phone?.callState === 'in-call' && isCallToThisContact
+  const callBusy = !!phone && phone.callState !== 'idle' && !isCallToThisContact
+
+  const handleCall = async () => {
+    if (!phone || !contactPhone) return
+    if (isInCallWithContact) {
+      phone.hangUp()
+      return
+    }
+    setCalling(true)
+    try {
+      await phone.makeCall(contactPhone, conversation.contact_name || contactPhone)
+    } finally {
+      setCalling(false)
+    }
+  }
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -575,6 +601,74 @@ export function MessageThread({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Click-to-call */}
+          {contactPhone && phone && (
+            <button
+              onClick={handleCall}
+              disabled={callBusy || calling}
+              title={
+                isInCallWithContact ? 'End call' :
+                callBusy ? 'Already in a call' :
+                `Call ${conversation.contact_name || contactPhone}`
+              }
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 10px',
+                borderRadius: 6,
+                border: isInCallWithContact
+                  ? '1px solid rgba(242,90,90,0.4)'
+                  : '1px solid rgba(34,192,122,0.4)',
+                background: isInCallWithContact
+                  ? 'rgba(242,90,90,0.1)'
+                  : calling
+                    ? 'rgba(34,192,122,0.05)'
+                    : 'rgba(34,192,122,0.08)',
+                cursor: callBusy || calling ? 'not-allowed' : 'pointer',
+                fontSize: 11,
+                fontWeight: 600,
+                color: isInCallWithContact ? 'var(--red)' : 'var(--green)',
+                opacity: callBusy ? 0.4 : 1,
+                transition: 'all 0.15s',
+              }}
+            >
+              {isInCallWithContact ? (
+                <>
+                  <PhoneOff size={13} />
+                  End call
+                </>
+              ) : calling ? (
+                <>
+                  <Phone size={13} style={{ animation: 'pulse 1s infinite' }} />
+                  Calling…
+                </>
+              ) : (
+                <>
+                  <Phone size={13} />
+                  Call
+                </>
+              )}
+            </button>
+          )}
+
+          {/* In-call live indicator */}
+          {isInCallWithContact && phone && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: 'var(--green)',
+                fontFamily: 'JetBrains Mono, monospace',
+                background: 'rgba(34,192,122,0.1)',
+                padding: '3px 7px',
+                borderRadius: 4,
+              }}
+            >
+              {Math.floor(phone.duration / 60)}:{String(phone.duration % 60).padStart(2, '0')}
+            </span>
           )}
 
           {/* Contact panel toggle */}

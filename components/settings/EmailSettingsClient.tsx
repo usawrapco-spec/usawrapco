@@ -12,6 +12,7 @@ import {
   Check,
   Pencil,
   X,
+  PenLine,
 } from 'lucide-react'
 
 interface EmailTemplate {
@@ -42,12 +43,36 @@ export default function EmailSettingsClient({ profile, templates: initialTemplat
   const [formBody, setFormBody] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Signature state
+  const [signature, setSignature] = useState(profile.email_signature || '')
+  const [savingSignature, setSavingSignature] = useState(false)
+  const [signatureSaved, setSignatureSaved] = useState(false)
+
+  const saveSignature = async () => {
+    setSavingSignature(true)
+    await supabase
+      .from('profiles')
+      .update({ email_signature: signature || null })
+      .eq('id', profile.id)
+    setSavingSignature(false)
+    setSignatureSaved(true)
+    setTimeout(() => setSignatureSaved(false), 2500)
+  }
+
   const webhookUrl = 'https://app.usawrapco.com/api/email/webhook'
+  const resendWebhookUrl = 'https://app.usawrapco.com/api/email/resend-webhook'
+  const [copiedResend, setCopiedResend] = useState(false)
 
   const copyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyResendWebhook = () => {
+    navigator.clipboard.writeText(resendWebhookUrl)
+    setCopiedResend(true)
+    setTimeout(() => setCopiedResend(false), 2000)
   }
 
   const startEdit = (tmpl: EmailTemplate) => {
@@ -223,6 +248,55 @@ export default function EmailSettingsClient({ profile, templates: initialTemplat
             {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
+
+        {/* Resend webhook */}
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', marginBottom: 4 }}>
+            Resend Webhook URL
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 8px' }}>
+            Add in your Resend dashboard → Webhooks to track email opens, clicks, and bounces.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <code
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--cyan)',
+                fontSize: 12,
+                fontFamily: 'JetBrains Mono, monospace',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {resendWebhookUrl}
+            </code>
+            <button
+              onClick={copyResendWebhook}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: copiedResend ? 'var(--green)' : 'var(--surface2)',
+                border: '1px solid var(--border)',
+                color: copiedResend ? '#fff' : 'var(--text2)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copiedResend ? <Check size={13} /> : <Copy size={13} />}
+              {copiedResend ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Sender details */}
@@ -277,6 +351,118 @@ export default function EmailSettingsClient({ profile, templates: initialTemplat
         >
           Sender settings are managed through SendGrid. Update them in your SendGrid dashboard.
         </p>
+      </div>
+
+      {/* My Email Signature */}
+      <div style={sectionStyle}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
+          <PenLine size={15} style={{ color: 'var(--accent)' }} />
+          <div
+            style={{
+              fontFamily: 'Barlow Condensed, sans-serif',
+              fontWeight: 700,
+              fontSize: 15,
+              color: 'var(--text1)',
+            }}
+          >
+            My Email Signature
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 12px' }}>
+          Automatically appended below every email you send. Supports plain text and line breaks.
+        </p>
+        <textarea
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+          placeholder={'John Smith\nUSA Wrap Co — Sales\n(253) 555-0123'}
+          rows={5}
+          style={{
+            ...inputStyle,
+            resize: 'vertical',
+            lineHeight: 1.5,
+            fontFamily: 'inherit',
+            minHeight: 80,
+          }}
+        />
+        {/* Preview */}
+        {signature && (
+          <div
+            style={{
+              marginTop: 10,
+              padding: '10px 12px',
+              background: 'var(--bg)',
+              border: '1px dashed var(--border)',
+              borderRadius: 7,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase' }}>
+              Preview
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>-- </div>
+            <pre
+              style={{
+                fontSize: 12,
+                color: 'var(--text2)',
+                margin: 0,
+                fontFamily: 'inherit',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.5,
+              }}
+            >
+              {signature}
+            </pre>
+          </div>
+        )}
+        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+          <button
+            onClick={saveSignature}
+            disabled={savingSignature}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 16px',
+              borderRadius: 7,
+              background: signatureSaved ? 'var(--green)' : 'var(--accent)',
+              border: 'none',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: savingSignature ? 'not-allowed' : 'pointer',
+              opacity: savingSignature ? 0.7 : 1,
+            }}
+          >
+            {signatureSaved ? <Check size={13} /> : <Save size={13} />}
+            {savingSignature ? 'Saving...' : signatureSaved ? 'Saved!' : 'Save Signature'}
+          </button>
+          {signature && (
+            <button
+              onClick={() => setSignature('')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '8px 12px',
+                borderRadius: 7,
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                color: 'var(--text3)',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <X size={13} />
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Email Templates */}

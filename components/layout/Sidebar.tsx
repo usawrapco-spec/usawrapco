@@ -265,8 +265,9 @@ const NAV: NavItem[] = [
       { href: '/overhead',   label: 'Shop Expenses' },
       { href: '/1099',       label: 'Commissions' },
       { href: '/payroll',    label: 'Payroll' },
-      { href: '/settings/coupons', label: 'Coupons' },
-      { href: '/settings/email',   label: 'Email' },
+      { href: '/settings/coupons',        label: 'Coupons' },
+      { href: '/settings/email',          label: 'Email' },
+      { href: '/settings/sms-templates',  label: 'SMS Templates' },
     ],
   },
 ]

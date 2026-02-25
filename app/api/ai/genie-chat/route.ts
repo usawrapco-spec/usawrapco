@@ -1,11 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      return Response.json({ error: 'AI not configured' }, { status: 503 })
+    }
+    const anthropic = new Anthropic({ apiKey })
+
     const { message, context, conversationHistory = [] } = await req.json()
 
     if (!message) {

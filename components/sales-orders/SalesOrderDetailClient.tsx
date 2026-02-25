@@ -426,32 +426,34 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                     <Link2 size={13} style={{ color: 'var(--cyan)' }} /> Send to Customer Portal
                   </button>
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                  <button
-                    onClick={() => { window.open(`/api/pdf/quote/${orderId}`, '_blank'); setShowActions(false) }}
+                  <a
+                    href={`/api/pdf/quote/${orderId}`}
+                    onClick={() => setShowActions(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                       padding: '8px 12px', border: 'none', background: 'none',
                       color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
+                      textDecoration: 'none',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <Download size={13} style={{ color: 'var(--accent)' }} /> Download Quote PDF
-                  </button>
-                  <button
-                    onClick={() => { window.open(`/api/pdf/down-payment/${orderId}`, '_blank'); setShowActions(false) }}
+                  </a>
+                  <a
+                    href={`/api/pdf/down-payment/${orderId}`}
+                    onClick={() => setShowActions(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                       padding: '8px 12px', border: 'none', background: 'none',
                       color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
+                      textDecoration: 'none',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <CreditCard size={13} style={{ color: 'var(--amber)' }} /> Down Payment Invoice
-                  </button>
+                  </a>
                   <button
                     onClick={() => { showToastMsg('Email sent to customer'); setShowActions(false) }}
                     style={{
