@@ -28,7 +28,7 @@ interface MediaFile {
 
 interface Props { profile: Profile }
 
-const BUCKET = 'job-images'
+const BUCKET = 'project-files'
 
 const FOLDERS = [
   { key: 'all', label: 'All Files', icon: Folder },

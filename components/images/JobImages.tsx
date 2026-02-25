@@ -75,7 +75,7 @@ export default function JobImages({
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
-        .from('job-images')
+        .from('project-files')
         .upload(fileName, file);
 
       if (uploadError) {
@@ -84,7 +84,7 @@ export default function JobImages({
       }
 
       const { data: urlData } = supabase.storage
-        .from('job-images')
+        .from('project-files')
         .getPublicUrl(fileName);
 
       // Insert record

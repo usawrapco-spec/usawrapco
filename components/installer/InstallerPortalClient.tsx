@@ -291,11 +291,11 @@ export default function InstallerPortalClient({
     const fileName = `${selectedJobId}/${photoPhase}_${Date.now()}.${ext}`
 
     const { error: uploadError } = await supabase.storage
-      .from('job-images')
+      .from('project-files')
       .upload(fileName, file, { contentType: file.type })
 
     if (!uploadError) {
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(fileName)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(fileName)
 
       await supabase.from('job_images').insert({
         project_id: selectedJobId,
@@ -415,9 +415,9 @@ export default function InstallerPortalClient({
     const blob = await res.blob()
     const fileName = `${selectedJobId}/signature_${Date.now()}.png`
 
-    await supabase.storage.from('job-images').upload(fileName, blob, { contentType: 'image/png' })
+    await supabase.storage.from('project-files').upload(fileName, blob, { contentType: 'image/png' })
 
-    const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(fileName)
+    const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(fileName)
 
     await supabase.from('job_images').insert({
       project_id: selectedJobId,

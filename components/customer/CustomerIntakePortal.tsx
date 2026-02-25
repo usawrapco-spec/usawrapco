@@ -182,9 +182,9 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
     if (!intake) return
     setUploadingBrand(type)
     const path = `intake/${intake.project_id}/brand_${type}_${Date.now()}.${file.name.split('.').pop()}`
-    const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+    const { data, error } = await supabase.storage.from('project-files').upload(path, file)
     if (!error && data) {
-      const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(data.path)
+      const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(data.path)
       const entry = { url: publicUrl, file_name: file.name, uploaded_at: new Date().toISOString() }
       if (type === 'business') setBusinessPhotos(prev => [...prev, entry])
       else if (type === 'inspiration') setInspirationPhotos(prev => [...prev, entry])
@@ -209,10 +209,10 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
     if (!intake) return
     setUploading(side)
     const path = `intake/${intake.project_id}/${side}_${Date.now()}.${file.name.split('.').pop()}`
-    const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+    const { data, error } = await supabase.storage.from('project-files').upload(path, file)
 
     if (!error && data) {
-      const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(data.path)
+      const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(data.path)
       const newPhotos = [...vehiclePhotos.filter(p => p.side !== side), { url: publicUrl, side, uploaded_at: new Date().toISOString() }]
       setVehiclePhotos(newPhotos)
 
@@ -228,10 +228,10 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
     if (!intake) return
     setUploading('damage')
     const path = `intake/${intake.project_id}/damage_${Date.now()}.${file.name.split('.').pop()}`
-    const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+    const { data, error } = await supabase.storage.from('project-files').upload(path, file)
 
     if (!error && data) {
-      const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(data.path)
+      const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(data.path)
       const newDamage = [...damagePhotos, { url: publicUrl, file_name: file.name, uploaded_at: new Date().toISOString() }]
       setDamagePhotos(newDamage)
 
@@ -247,10 +247,10 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
     if (!intake) return
     setUploading('logo')
     const path = `intake/${intake.project_id}/logo_${Date.now()}.${file.name.split('.').pop()}`
-    const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+    const { data, error } = await supabase.storage.from('project-files').upload(path, file)
 
     if (!error && data) {
-      const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(data.path)
+      const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(data.path)
       const newLogos = [...logoFiles, { url: publicUrl, file_name: file.name, uploaded_at: new Date().toISOString() }]
       setLogoFiles(newLogos)
 

@@ -158,7 +158,7 @@ export default function MockupToolClient({ profile }: Props) {
       const res = await fetch(imageUrl)
       const blob = await res.blob()
       const path = `mockups/${Date.now()}_${vehicleType.replace(/\s/g, '-')}.png`
-      await supabase.storage.from('job-images').upload(path, blob)
+      await supabase.storage.from('project-files').upload(path, blob)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch { /* Silent fail */ }

@@ -325,9 +325,9 @@ export default function ProposalBuilder({
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
       const path = `proposal-photos/${proposalId}/${Date.now()}-${file.name}`
-      const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+      const { data, error } = await supabase.storage.from('project-files').upload(path, file)
       if (!error && data) {
-        const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(data.path)
+        const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(data.path)
         if (urlData?.publicUrl) {
           setPackages(prev => prev.map((p, i) =>
             i === pkgIdx ? { ...p, photos: [...p.photos, urlData.publicUrl] } : p

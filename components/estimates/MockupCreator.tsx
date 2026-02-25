@@ -308,9 +308,9 @@ export default function MockupCreator({
     try {
       const ext = file.name.split('.').pop() || 'png'
       const path = `mockup-brands/${lineItemId}-${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('job-images').upload(path, file, { cacheControl: '3600', upsert: true })
+      const { error } = await supabase.storage.from('project-files').upload(path, file, { cacheControl: '3600', upsert: true })
       if (error) throw error
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       setBrandFileUrl(urlData.publicUrl)
       updateSpec('mockupBrandFileUrl', urlData.publicUrl)
       toast('Brand file uploaded', 'success')
@@ -367,9 +367,9 @@ export default function MockupCreator({
     try {
       const ext = file.name.split('.').pop() || 'jpg'
       const path = `vehicle-photos/${lineItemId}-${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('job-images').upload(path, file, { cacheControl: '3600', upsert: true })
+      const { error } = await supabase.storage.from('project-files').upload(path, file, { cacheControl: '3600', upsert: true })
       if (error) throw error
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       setVehiclePhotoUrl(urlData.publicUrl)
       toast('Vehicle photo uploaded', 'success')
     } catch {

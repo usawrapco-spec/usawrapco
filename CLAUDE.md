@@ -6,12 +6,19 @@ Vehicle wrap shop CRM. Next.js 14, TypeScript, Tailwind CSS, Supabase, Vercel.
 ## Key IDs
 - Org: d34a6c47-1ac0-4008-87d2-0f7741eebc4f
 - Supabase: https://uqfqkvslxoucxmxxrobt.supabase.co
-- Storage bucket: job-images
+- Storage bucket: project-files (formerly job-images — old bucket still exists for legacy URLs)
 
 ## Commands
 - `npm run dev` — local dev server
 - `npm run build` — ALWAYS run before committing
-- `git add . && git commit -m "msg" && git push` — deploys to Vercel automatically
+- `git add . && git commit -m "msg" && git push` — deploys to Vercel + triggers DB migrations
+
+## Database Migrations
+- New migrations go in `supabase/migrations/YYYYMMDDHHmmss_description.sql`
+- On push to main, GitHub Actions runs `supabase db push` automatically
+- Each migration runs ONCE — Supabase tracks applied versions in `supabase_migrations` table
+- `sql/` directory = historical reference scripts only (already applied, not auto-run)
+- Required GitHub Secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`
 
 ## Tech Stack
 - Next.js 14 App Router, TypeScript, Tailwind CSS

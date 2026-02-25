@@ -74,9 +74,9 @@ export default function InfoPage() {
         const supabase = createClient()
         const ext = logoFile.name.split('.').pop()
         const path = `logos/${Date.now()}.${ext}`
-        const { error } = await supabase.storage.from('job-images').upload(path, logoFile, { upsert: true })
+        const { error } = await supabase.storage.from('project-files').upload(path, logoFile, { upsert: true })
         if (!error) {
-          const { data } = supabase.storage.from('job-images').getPublicUrl(path)
+          const { data } = supabase.storage.from('project-files').getPublicUrl(path)
           logoUrl = data.publicUrl
         }
       } catch {
