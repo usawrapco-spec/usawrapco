@@ -9,6 +9,7 @@ import { ConversationList } from './ConversationList'
 import { MessageThread } from './MessageThread'
 import { ContactPanel } from './ContactPanel'
 import { ComposeArea } from './ComposeArea'
+import { InboxSoftphone } from './InboxSoftphone'
 
 interface Teammate {
   id: string
@@ -432,21 +433,24 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
           }}
           className={mobileView === 'list' ? '' : 'hidden md:flex'}
         >
-          <ConversationList
-            conversations={filtered}
-            selectedId={selectedId}
-            onSelect={handleSelectConversation}
-            onNewConversation={handleNewConversation}
-            search={search}
-            onSearchChange={setSearch}
-            filter={filter}
-            onFilterChange={setFilter}
-            loading={loading}
-            profile={profile}
-            onStar={handleStar}
-            onArchive={handleArchive}
-            counts={counts}
-          />
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ConversationList
+              conversations={filtered}
+              selectedId={selectedId}
+              onSelect={handleSelectConversation}
+              onNewConversation={handleNewConversation}
+              search={search}
+              onSearchChange={setSearch}
+              filter={filter}
+              onFilterChange={setFilter}
+              loading={loading}
+              profile={profile}
+              onStar={handleStar}
+              onArchive={handleArchive}
+              counts={counts}
+            />
+          </div>
+          <InboxSoftphone />
         </div>
 
         {/* ── Column 2: Thread / New Compose ──────────────────── */}
