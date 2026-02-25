@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import PhoneClient from '@/components/phone/PhoneClient'
+import PhonePageClient from '@/components/phone/PhonePageClient'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -36,7 +36,7 @@ export default async function PhonePage() {
   const twilioConfigured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER)
 
   return (
-    <PhoneClient
+    <PhonePageClient
       profile={profile}
       initialConfig={config || null}
       initialDepartments={departments || []}
