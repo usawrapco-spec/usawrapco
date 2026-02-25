@@ -1,13 +1,16 @@
 'use client'
 
 import { ToastProvider } from '@/components/shared/Toast'
-import IncomingCallPopup from '@/components/phone/IncomingCallPopup'
+import { PhoneProvider } from '@/components/phone/PhoneProvider'
+import Softphone from '@/components/phone/Softphone'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      {children}
-      <IncomingCallPopup />
+      <PhoneProvider>
+        {children}
+        <Softphone />
+      </PhoneProvider>
     </ToastProvider>
   )
 }

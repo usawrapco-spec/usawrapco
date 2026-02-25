@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Phone, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/shared/Toast'
+import { usePhone } from './PhoneProvider'
 
 interface Props {
   toNumber: string
@@ -16,8 +17,16 @@ export default function ClickToCallButton({ toNumber, toName, projectId, size = 
   const [calling, setCalling] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
+  const phone = usePhone() // null if not inside PhoneProvider
 
   async function handleCall() {
+    // Use browser softphone if Device is ready
+    if (phone?.isReady) {
+      phone.makeCall(toNumber, toName)
+      return
+    }
+
+    // Fall back to cell-phone outbound (rings agent cell → bridges to customer)
     setCalling(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -61,11 +70,12 @@ export default function ClickToCallButton({ toNumber, toName, projectId, size = 
   }
 
   const isSmall = size === 'sm'
+  const isBusy = calling || (phone?.callState !== 'idle' && phone?.callState !== undefined)
 
   return (
     <button
       onClick={handleCall}
-      disabled={calling}
+      disabled={isBusy}
       title={`Call ${toName || toNumber}`}
       style={{
         display: 'inline-flex',
@@ -73,17 +83,17 @@ export default function ClickToCallButton({ toNumber, toName, projectId, size = 
         gap: isSmall ? 4 : 6,
         padding: isSmall ? '4px 10px' : '6px 14px',
         borderRadius: 8,
-        background: calling ? 'var(--surface2)' : 'var(--green)22',
-        color: calling ? 'var(--text3)' : 'var(--green)',
-        border: `1px solid ${calling ? 'transparent' : 'var(--green)44'}`,
+        background: isBusy ? 'var(--surface2)' : 'var(--green)22',
+        color: isBusy ? 'var(--text3)' : 'var(--green)',
+        border: `1px solid ${isBusy ? 'transparent' : 'var(--green)44'}`,
         fontSize: isSmall ? 11 : 12,
         fontWeight: 600,
-        cursor: calling ? 'not-allowed' : 'pointer',
+        cursor: isBusy ? 'not-allowed' : 'pointer',
         transition: 'all 0.15s',
         whiteSpace: 'nowrap',
       }}
-      onMouseEnter={e => { if (!calling) { e.currentTarget.style.background = 'var(--green)33'; e.currentTarget.style.borderColor = 'var(--green)66' } }}
-      onMouseLeave={e => { if (!calling) { e.currentTarget.style.background = 'var(--green)22'; e.currentTarget.style.borderColor = 'var(--green)44' } }}
+      onMouseEnter={e => { if (!isBusy) { e.currentTarget.style.background = 'var(--green)33'; e.currentTarget.style.borderColor = 'var(--green)66' } }}
+      onMouseLeave={e => { if (!isBusy) { e.currentTarget.style.background = 'var(--green)22'; e.currentTarget.style.borderColor = 'var(--green)44' } }}
     >
       {calling
         ? <><Loader2 size={isSmall ? 11 : 13} style={{ animation: 'spin 1s linear infinite' }} />Calling...</>

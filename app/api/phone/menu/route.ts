@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export async function POST(req: NextRequest) {
-  const supabase = getSupabaseAdmin()
   const body = await req.formData()
+  if (!isTwilioWebhook(req, formDataToParams(body))) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 
+  const supabase = getSupabaseAdmin()
   const digit = body.get('Digits') as string
   const callSid = body.get('CallSid') as string
   const from = body.get('From') as string
@@ -80,9 +84,16 @@ async function routeToDepartment(supabase: any, dept: any, callSid: string, from
     ...sortedAgents.slice(0, startIndex % sortedAgents.length),
   ]
 
-  const numbers = rotated.map((agent: any) =>
-    `<Number url="/api/phone/agent-connect?agentId=${agent.id}&amp;callSid=${callSid}">${agent.cell_number}</Number>`
-  ).join('\n    ')
+  const numbers = rotated.flatMap((agent: any) => {
+    const lines: string[] = []
+    if (agent.cell_number) {
+      lines.push(`<Number url="/api/phone/agent-connect?agentId=${agent.id}&amp;callSid=${callSid}">${agent.cell_number}</Number>`)
+    }
+    if (agent.profile_id) {
+      lines.push(`<Client><Identity>${agent.profile_id}</Identity></Client>`)
+    }
+    return lines
+  }).join('\n    ')
 
   if (dept?.id) {
     await supabase.from('phone_departments')
