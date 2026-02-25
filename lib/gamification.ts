@@ -160,7 +160,7 @@ export async function checkAndAwardBadges(
     const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes, proofRes, briefRes] = await Promise.all([
       supabase.from('profiles').select('xp, level, monthly_xp, current_streak, longest_streak, badges').eq('id', userId).single(),
       supabase.from('projects').select('id, gpm').eq('agent_id', userId).eq('status', 'closed'),
-      supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('uploaded_by', userId),
+      supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', userId),
       // Speed Demon: project closed 2+ days before scheduled install date
       supabase.from('projects').select('id, install_date, updated_at').eq('agent_id', userId).eq('status', 'closed').not('install_date', 'is', null),

@@ -1,12 +1,14 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
+const STORAGE_BUCKET = 'project-files'
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     const projectId = formData.get('project_id') as string | null
     const orgId = formData.get('org_id') as string | null
-    const uploadedBy = formData.get('uploaded_by') as string | null
+    const userId = formData.get('uploaded_by') as string | null
     const category = (formData.get('tag') as string) || 'general'
 
     if (!file) {
@@ -24,7 +26,7 @@ export async function POST(req: Request) {
     // Upload to Supabase Storage — project-files bucket (public)
     const bytes = await file.arrayBuffer()
     const { error: uploadError } = await admin.storage
-      .from('project-files')
+      .from(STORAGE_BUCKET)
       .upload(storagePath, bytes, {
         contentType: file.type,
         upsert: false,
@@ -35,9 +37,9 @@ export async function POST(req: Request) {
       return Response.json({ error: uploadError.message }, { status: 500 })
     }
 
-    // Get permanent public URL
+    // Get permanent public URL from Supabase Storage
     const { data: { publicUrl } } = admin.storage
-      .from('project-files')
+      .from(STORAGE_BUCKET)
       .getPublicUrl(storagePath)
 
     // Create job_images record using correct column names
@@ -46,11 +48,9 @@ export async function POST(req: Request) {
       .insert({
         project_id: projectId,
         org_id: orgId,
-        uploaded_by: uploadedBy,
+        user_id: userId,
         image_url: publicUrl,
-        storage_path: storagePath,
         file_name: file.name,
-        mime_type: file.type,
         file_size: file.size,
         category,
       })

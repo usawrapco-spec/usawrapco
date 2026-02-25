@@ -303,10 +303,10 @@ export default function InstallerDashboardClient({
         await supabase.from('job_images').insert({
           org_id: profile.org_id,
           project_id: photoJobId,
-          uploaded_by: profile.id,
+          user_id: profile.id,
           image_url: urlData.publicUrl,
-          storage_path: path,
           file_name: file.name,
+          file_size: file.size,
           category: 'after',
         })
       }

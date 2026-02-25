@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, Briefcase, Factory, Hammer, CheckCircle2, DollarSign,
   AlertTriangle, ArrowUpDown, Filter, ChevronRight, Truck,
-  LayoutGrid, List, Plus, Calendar, User,
+  LayoutGrid, List, Plus, Calendar, User, Printer, Wrench,
   type LucideIcon,
 } from 'lucide-react'
 import type { Profile, Project, PipeStage, ProjectType } from '@/types'
@@ -344,11 +344,11 @@ export default function JobsClient({ profile, initialJobs }: Props) {
     else { setSortField(field); setSortAsc(false) }
   }
 
-  const TABS: { key: TabFilter; label: string; count: number }[] = [
-    { key: 'all',        label: 'All Jobs',   count: allJobs.length },
-    { key: 'design',     label: 'Sales',      count: allJobs.filter(j => j.pipe_stage === 'sales_in').length },
-    { key: 'production', label: 'Production', count: allJobs.filter(j => j.pipe_stage === 'production' || j.pipe_stage === 'prod_review').length },
-    { key: 'install',    label: 'Install',    count: allJobs.filter(j => j.pipe_stage === 'install').length },
+  const DEPT_TABS: { key: TabFilter; label: string; icon: LucideIcon; color: string; count: number }[] = [
+    { key: 'all',        label: 'All Jobs',            icon: LayoutGrid, color: '#8b5cf6', count: allJobs.length },
+    { key: 'design',     label: 'Sales',               icon: Briefcase,  color: '#4f7fff', count: allJobs.filter(j => j.pipe_stage === 'sales_in').length },
+    { key: 'production', label: 'Production / Design', icon: Printer,    color: '#22c07a', count: allJobs.filter(j => j.pipe_stage === 'production' || j.pipe_stage === 'prod_review').length },
+    { key: 'install',    label: 'Install',             icon: Wrench,     color: '#22d3ee', count: allJobs.filter(j => j.pipe_stage === 'install').length },
   ]
 
   return (
@@ -363,6 +363,61 @@ export default function JobsClient({ profile, initialJobs }: Props) {
           <span>Showing demo data. Real jobs will appear once projects are created.</span>
         </div>
       )}
+
+      {/* ── DEPARTMENT FILTER TABS ─────────────────────────────── */}
+      <div style={{ overflowX: 'auto', marginBottom: 20, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+        <div style={{
+          display: 'flex', gap: 6, padding: 6,
+          background: 'var(--surface)', borderRadius: 16,
+          border: '1px solid var(--card-border)', minWidth: 'max-content',
+        }}>
+          {DEPT_TABS.map(dept => {
+            const isActive = tab === dept.key
+            return (
+              <button
+                key={dept.key}
+                onClick={() => setTab(dept.key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 9,
+                  padding: '11px 22px', borderRadius: 11,
+                  border: 'none', cursor: 'pointer',
+                  fontSize: 15, fontWeight: isActive ? 800 : 600,
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  letterSpacing: '0.03em', textTransform: 'uppercase',
+                  background: isActive ? dept.color : 'transparent',
+                  color: isActive ? '#fff' : 'var(--text3)',
+                  transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+                  boxShadow: isActive ? `0 4px 20px ${dept.color}50` : 'none',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = `${dept.color}18`
+                    e.currentTarget.style.color = dept.color
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text3)'
+                  }
+                }}
+              >
+                <dept.icon size={17} />
+                {dept.label}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: 24, height: 22, padding: '0 7px', borderRadius: 11,
+                  fontSize: 12, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
+                  background: isActive ? 'rgba(255,255,255,0.22)' : `${dept.color}25`,
+                  color: isActive ? '#fff' : dept.color,
+                }}>
+                  {dept.count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -417,30 +472,8 @@ export default function JobsClient({ profile, initialJobs }: Props) {
       </div>
 
       {/* Controls bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
 
-        {/* Department tabs */}
-        <div style={{ display: 'flex', gap: 3 }}>
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                background: tab === t.key ? 'var(--accent)' : 'var(--surface2)',
-                color: tab === t.key ? '#fff' : 'var(--text2)',
-              }}
-            >
-              {t.label}
-              <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.7, fontFamily: 'JetBrains Mono, monospace' }}>
-                {t.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Right controls */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {/* Division filter */}
           <div style={{ display: 'flex', gap: 1, background: 'var(--surface)', borderRadius: 7, padding: 2 }}>

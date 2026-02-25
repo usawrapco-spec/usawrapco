@@ -73,7 +73,32 @@ export async function POST(req: Request) {
         console.log('[payments/webhook] intake deposit recorded:', session.id)
       }
 
-      // Case 2: Invoice online payment (/pay/[invoiceId] flow)
+      // Case 2: AI Design Mockup payment
+      if (session.metadata?.type === 'design_mockup' && session.metadata?.design_mockup_id) {
+        const mockupId = session.metadata.design_mockup_id
+        await admin
+          .from('design_mockups')
+          .update({
+            payment_status: 'paid',
+            amount_paid: (session.amount_total || 0) / 100,
+            stripe_session_id: session.id,
+            unlocked_at: new Date().toISOString(),
+          })
+          .eq('id', mockupId)
+
+        // Create a notification for the team
+        await admin.from('notifications').insert({
+          org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+          type: 'design_mockup_paid',
+          title: 'New Paid Design Submission',
+          message: `A customer paid $${((session.amount_total || 0) / 100).toFixed(0)} for AI wrap design mockups.`,
+          metadata: { mockup_id: mockupId },
+        }).then(() => {}).catch(() => {})
+
+        console.log('[payments/webhook] design mockup payment recorded:', mockupId)
+      }
+
+      // Case 3: Invoice online payment (/pay/[invoiceId] flow)
       if (invoice_id) {
         const paidAmount = (session.amount_total || 0) / 100
 

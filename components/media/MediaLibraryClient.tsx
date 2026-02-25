@@ -87,15 +87,15 @@ export default function MediaLibraryClient({ profile }: Props) {
       } else {
         const { data: oldData } = await supabase
           .from('job_images')
-          .select('id, storage_path, public_url, mime_type, file_name, created_at')
+          .select('id, image_url, file_name, category, created_at')
           .order('created_at', { ascending: false })
           .limit(200)
 
         setFiles((oldData || []).map((f: Record<string, unknown>) => ({
           id: f.id as string,
           filename: f.file_name as string || 'image',
-          public_url: f.public_url as string || '',
-          mime_type: f.mime_type as string || 'image/jpeg',
+          public_url: f.image_url as string || '',
+          mime_type: 'image/jpeg',
           file_size: 0,
           tags: [],
           ai_tags: [],

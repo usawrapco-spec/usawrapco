@@ -30,6 +30,13 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = ['/login', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/api/onboarding/lead', '/api/onboarding/create-checkout', '/api/vehicles/', '/pay/', '/api/stripe/', '/api/payments/webhook']
   const isPublic = publicRoutes.some(r => pathname.startsWith(r))
 
+  // Portal routes: redirect unauthenticated users to portal login (not main login)
+  if (!user && pathname === '/portal') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/portal/login'
+    return NextResponse.redirect(url)
+  }
+
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

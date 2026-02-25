@@ -40,7 +40,7 @@ export default async function DesignCanvasPage({ params }: { params: { id: strin
   if (designRes.data.project_id) {
     const { data } = await admin
       .from('job_images')
-      .select('id, public_url, file_name, mime_type')
+      .select('id, image_url, file_name')
       .eq('project_id', designRes.data.project_id)
       .limit(20)
     jobImages = data || []

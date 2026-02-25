@@ -851,7 +851,7 @@ function SimilarPhotosPanel({ vehicleType, wrapType, description }: { vehicleTyp
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {photos.map((p: any) => (
               <div key={p.id} style={{ position: 'relative', cursor: 'pointer' }} title={p.match_reason}>
-                <img src={p.url} alt="Similar work"
+                <img src={p.image_url || p.url} alt="Similar work"
                   style={{ width: 100, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--border)' }}
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                 />

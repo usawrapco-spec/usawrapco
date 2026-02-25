@@ -518,7 +518,7 @@ function DesignChat({ designProjectId, orgId, currentUserId, currentUserName }: 
     const fileName = `design/${designProjectId}/${Date.now()}.${fileExt}`
 
     const { error: uploadError } = await supabase.storage
-      .from('job-images')
+      .from('project-files')
       .upload(fileName, file)
 
     if (uploadError) {
@@ -528,7 +528,7 @@ function DesignChat({ designProjectId, orgId, currentUserId, currentUserName }: 
     }
 
     const { data: urlData } = supabase.storage
-      .from('job-images')
+      .from('project-files')
       .getPublicUrl(fileName)
 
     await supabase.from('job_comments').insert({
@@ -711,7 +711,7 @@ function DesignFiles({ designProjectId, orgId, currentUserId, linkedProjectId }:
       const storagePath = `design/${designProjectId}/${Date.now()}_${file.name}`
 
       const { error: uploadError } = await supabase.storage
-        .from('job-images')
+        .from('project-files')
         .upload(storagePath, file)
 
       if (uploadError) {
@@ -720,7 +720,7 @@ function DesignFiles({ designProjectId, orgId, currentUserId, linkedProjectId }:
       }
 
       const { data: urlData } = supabase.storage
-        .from('job-images')
+        .from('project-files')
         .getPublicUrl(storagePath)
 
       // Insert record linking to design project via tags
