@@ -74,7 +74,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'customers',
     label: 'CUSTOMERS',
     icon: Users,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
     items: [
       { href: '/customers', label: 'Contacts',       icon: Users },
       { href: '/inbox',     label: 'Conversations',  icon: MessageSquare },
@@ -95,7 +95,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'inventory',
     label: 'INVENTORY',
     icon: Package,
-    roles: ['owner', 'admin', 'production', 'installer'],
+    roles: ['owner', 'admin', 'designer', 'production', 'installer'],
     items: [
       { href: '/inventory',         label: 'Vinyl Inventory',  icon: Layers },
       { href: '/install/supplies',  label: 'Supply Requests',  icon: ShoppingBag },
