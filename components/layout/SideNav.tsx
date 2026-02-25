@@ -74,7 +74,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'customers',
     label: 'CUSTOMERS',
     icon: Users,
-    roles: ['owner', 'admin', 'sales_agent', 'production'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production'],
     items: [
       { href: '/customers', label: 'Contacts',       icon: Users },
       { href: '/inbox',     label: 'Conversations',  icon: MessageSquare },
