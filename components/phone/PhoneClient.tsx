@@ -270,7 +270,7 @@ export default function PhoneClient({ profile, initialConfig, initialDepartments
     setSaving(true)
     const res = await fetch('/api/phone/agents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentForm, profile_id: agentForm.profile_id || null, round_robin_order: agents.length }) })
     if (res.ok) { const r = await fetch('/api/phone/agents'); if (r.ok) setAgents(await r.json()) }
-    setSaving(false); setShowAgentModal(false); setAgentForm({ profile_id: '', cell_number: '', department_id: '', display_name: '' })
+    setSaving(false); setShowAgentModal(false); setAgentForm({ profile_id: '', cell_number: '', department_id: '', display_name: '', extension: '' })
   }
 
   async function deleteAgent(id: string) {
