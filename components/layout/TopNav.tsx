@@ -13,6 +13,7 @@ import {
   MessageCircle, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
   Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
   Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
+  ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -41,83 +42,55 @@ const QUICK_CREATE: DropdownItem[] = [
 ]
 
 const JOBS_ITEMS: DropdownItem[] = [
-  { href: '/pipeline',  label: 'Job Board', icon: Briefcase,   description: 'Unified job board' },
-  { href: '/engine',    label: 'Engine',    icon: TrendingUp,  description: 'Automation & rules' },
+  { href: '/pipeline',     label: 'Pipeline',     icon: Briefcase,    description: 'Kanban job board' },
+  { href: '/jobs',         label: 'All Jobs',     icon: ClipboardList, description: 'Full job list' },
+  { href: '/timeline',     label: 'Timeline',     icon: Clock,        description: 'Visual timeline' },
+  { href: '/leaderboard',  label: 'Leaderboard',  icon: Trophy,       description: 'Team rankings' },
 ]
 
-const PRODUCTION_SECTIONS: DropdownSection[] = [
-  {
-    title: 'Design',
-    items: [
-      { href: '/design',  label: 'Design Studio', icon: Palette },
-      { href: '/mockup',  label: 'Mockup Tool',   icon: Wand2 },
-      { href: '/media',   label: 'Media Library',  icon: ImageIcon },
-    ],
-  },
-  {
-    title: 'Production',
-    items: [
-      { href: '/production',                label: 'Production Hub',  icon: Factory },
-      { href: '/production/print-schedule', label: 'Print Schedule',  icon: Printer },
-      { href: '/production/printers',       label: 'Printers',        icon: Printer },
-      { href: '/timeline',                  label: 'Timeline',        icon: Clock },
-    ],
-  },
-  {
-    title: 'Install',
-    items: [
-      { href: '/installer-portal', label: 'Installer Portal', icon: Hammer },
-      { href: '/inventory',        label: 'Inventory',         icon: Package },
-      { href: '/catalog',          label: 'Catalog',           icon: BookOpen },
-    ],
-  },
+const PRODUCTION_ITEMS: DropdownItem[] = [
+  { href: '/production',  label: 'Production Board', icon: Factory,   description: 'Production overview' },
+  { href: '/design',      label: 'Design Studio',    icon: Palette,   description: 'Design workspace' },
+  { href: '/mockup',      label: 'Mockup Tool',      icon: Wand2,     description: 'Vehicle mockups' },
+  { href: '/proofs',      label: 'Proofs',            icon: ImageIcon, description: 'Design proofs' },
 ]
 
-const PRODUCTION_PATHS = ['/design', '/mockup', '/media', '/production', '/timeline', '/installer-portal', '/inventory', '/catalog']
+const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/proofs']
 
 const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
+  { id: 'new_estimate',        label: 'New Estimate',             icon: FileText,  description: 'Create a new quote' },
   { id: 'onboarding_link',     label: 'Send Onboarding Link',     icon: UserPlus,  description: 'Customer onboarding' },
   { id: 'design_intake_link',  label: 'Send Design Intake Link',  icon: Palette,   description: 'White-glove design intake' },
-  { id: 'new_estimate',        label: 'New Estimate',             icon: FileText,  description: 'Create a new quote' },
-  { id: 'new_customer',        label: 'New Customer',             icon: Users,     description: 'Add customer record' },
 ]
 
 const SALES_NAV_ITEMS: DropdownItem[] = [
-  { href: '/pipeline',       label: 'Pipeline',       icon: Briefcase },
-  { href: '/estimates',       label: 'Estimates',      icon: FileText },
-  { href: '/sales-orders',   label: 'Sales Orders',   icon: ShoppingCart },
-  { href: '/prospects',       label: 'Prospects',      icon: UserPlus },
-  { href: '/campaigns',       label: 'Campaigns',      icon: Globe },
-  { href: '/design-intakes',  label: 'Design Intakes', icon: Palette },
-  { href: '/network',         label: 'Network',        icon: Map },
-  { href: '/contacts',        label: 'Contacts',       icon: Users },
-  { href: '/comms',           label: 'Comms',          icon: MessageSquare },
-  { href: '/bids',            label: 'Bids',           icon: Hammer },
+  { href: '/pipeline',    label: 'Pipeline',    icon: Briefcase },
+  { href: '/customers',   label: 'Customers',   icon: Users },
+  { href: '/analytics',   label: 'Analytics',   icon: BarChart3 },
+  { href: '/reports',     label: 'Reports',     icon: FileBarChart },
 ]
 
-const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/comms', '/bids', '/pipeline', '/design-intakes']
+const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/comms', '/bids', '/pipeline', '/design-intakes', '/customers', '/analytics', '/reports']
 
-const QUICK_LINK_ITEMS: DropdownItem[] = [
-  { href: '/customers',  label: 'Customer Intake', icon: Users,     description: 'Generate intake link' },
-  { href: '/customers',  label: 'Onboarding',      icon: UserPlus,  description: 'Generate onboard link' },
-  { href: '/portal',     label: 'Customer Portal',  icon: Globe,    description: 'Customer-facing portal' },
-  { href: '/media',      label: 'Share Media',       icon: Share2,   description: 'Share portfolio' },
-  { href: '/estimates',  label: 'Estimate Link',     icon: FileText, description: 'Shareable estimate' },
-  { href: '/invoices',   label: 'Invoice Link',      icon: Receipt,  description: 'Shareable invoice' },
+const INSTALL_ITEMS: DropdownItem[] = [
+  { href: '/install',           label: 'Install Board',    icon: Hammer,        description: 'Manage installs' },
+  { href: '/install/bids',      label: 'Installer Bids',   icon: ClipboardList, description: 'Bid management' },
+  { href: '/install/schedule',  label: 'Schedule',         icon: CalendarDays,  description: 'Install calendar' },
+  { href: '/install/supplies',  label: 'Supply Requests',  icon: ShoppingBag,   description: 'Material requests' },
+  { href: '/install/earnings',  label: 'Earnings',         icon: Banknote,      description: 'Installer pay' },
+  { href: '/install/reports',   label: 'Shop Reports',     icon: FileBarChart,  description: 'Daily reports' },
+  { href: '/install/chat',      label: 'Installer Chat',   icon: MessageSquare, description: 'Team messaging' },
 ]
+
+const INSTALL_PATHS = ['/install']
 
 const MORE_NAV: DropdownItem[] = [
-  { href: '/dashboard',   label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/tasks',        label: 'Tasks',         icon: CheckSquare },
-  { href: '/customers',    label: 'Customers',     icon: Users },
-  { href: '/calendar',     label: 'Calendar',      icon: Calendar },
-  { href: '/analytics',    label: 'Analytics',     icon: BarChart3 },
-  { href: '/leaderboard',  label: 'Leaderboard',   icon: Trophy },
-  { href: '/payroll',      label: 'Payroll',        icon: DollarSign },
-  { href: '/invoices',     label: 'Invoices',       icon: Receipt },
-  { href: '/sourcing',     label: 'Sourcing',       icon: Globe },
-  { href: '/workflow',     label: 'Workflow',        icon: Briefcase },
-  { href: '/wrapup',       label: 'WrapUp',         icon: Truck },
+  { href: '/payroll',       label: 'Payroll',       icon: DollarSign },
+  { href: '/inventory',     label: 'Inventory',     icon: Package },
+  { href: '/catalog',       label: 'Catalog',       icon: BookOpen },
+  { href: '/network',       label: 'Network Map',   icon: Map },
+  { href: '/media-library', label: 'Media Library',  icon: ImageIcon },
+  { href: '/settings',      label: 'Settings',       icon: Settings },
 ]
 
 const SETTINGS_ITEMS: DropdownItem[] = [
@@ -1342,7 +1315,7 @@ export function TopNav({ profile }: { profile: Profile }) {
             <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Sales
             </div>
-            {SALES_ITEMS.map(item => {
+            {SALES_NAV_ITEMS.map(item => {
               const active = isActive(item.href)
               const Icon = item.icon
               return (
