@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { findOrCreatePhoneConversation, updateConversationLastMessage } from '@/lib/phone/inbox'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 const APP_URL = 'https://app.usawrapco.com'
@@ -64,6 +65,22 @@ export async function POST(req: NextRequest) {
       project_id: projectId || null,
       started_at: new Date().toISOString(),
     })
+
+    // Bridge to inbox conversations
+    const { convoId } = await findOrCreatePhoneConversation(admin, toNumber, toName)
+    if (convoId) {
+      await admin.from('conversation_messages').insert({
+        org_id: ORG_ID,
+        conversation_id: convoId,
+        channel: 'call',
+        direction: 'outbound',
+        body: `Outbound call to ${toName || toNumber}`,
+        twilio_sid: data.sid,
+        status: 'initiated',
+        open_count: 0,
+      })
+      await updateConversationLastMessage(admin, convoId, 'call', `Outbound call to ${toName || toNumber}`, false)
+    }
 
     return NextResponse.json({ success: true, callSid: data.sid })
   } catch (e: any) {

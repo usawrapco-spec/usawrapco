@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
+import { findOrCreatePhoneConversation, updateConversationLastMessage } from '@/lib/phone/inbox'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -28,6 +29,11 @@ export async function POST(req: NextRequest) {
       })
       .eq('twilio_call_sid', callSid)
 
+    // Update inbox conversation message with duration
+    await supabase.from('conversation_messages')
+      .update({ status: 'delivered', call_duration_seconds: duration })
+      .eq('twilio_sid', callSid)
+
     return new NextResponse(
       `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`,
       { headers: { 'Content-Type': 'text/xml' } }
@@ -37,6 +43,35 @@ export async function POST(req: NextRequest) {
   await supabase.from('call_logs')
     .update({ status: 'missed' })
     .eq('twilio_call_sid', callSid)
+
+  // Bridge missed call to inbox
+  if (from) {
+    const { convoId } = await findOrCreatePhoneConversation(supabase, from)
+    if (convoId) {
+      // Update the ringing message to missed, or insert new if none
+      const { data: existing } = await supabase.from('conversation_messages')
+        .select('id')
+        .eq('twilio_sid', callSid)
+        .maybeSingle()
+      if (existing) {
+        await supabase.from('conversation_messages')
+          .update({ status: 'missed', body: `Missed call from ${from}` })
+          .eq('id', existing.id)
+      } else {
+        await supabase.from('conversation_messages').insert({
+          org_id: ORG_ID,
+          conversation_id: convoId,
+          channel: 'call',
+          direction: 'inbound',
+          body: `Missed call from ${from}`,
+          twilio_sid: callSid,
+          status: 'missed',
+          open_count: 0,
+        })
+      }
+      await updateConversationLastMessage(supabase, convoId, 'call', `Missed call from ${from}`, true)
+    }
+  }
 
   // Auto-SMS on missed call
   const { data: config } = await supabase

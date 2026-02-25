@@ -59,5 +59,13 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // Update inbox conversation message with transcription
+  if (callSid && transcript) {
+    await supabase.from('conversation_messages')
+      .update({ voicemail_transcription: transcript, body: transcript })
+      .eq('twilio_sid', callSid)
+      .eq('channel', 'voicemail')
+  }
+
   return new NextResponse('OK', { status: 200 })
 }

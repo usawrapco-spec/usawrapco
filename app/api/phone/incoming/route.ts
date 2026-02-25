@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
+import { findOrCreatePhoneConversation, updateConversationLastMessage } from '@/lib/phone/inbox'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -40,6 +41,22 @@ export async function POST(req: NextRequest) {
       status: 'initiated',
       started_at: new Date().toISOString(),
     })
+
+    // Bridge to inbox conversations
+    const { convoId } = await findOrCreatePhoneConversation(supabase, from, callerName)
+    if (convoId) {
+      await supabase.from('conversation_messages').insert({
+        org_id: ORG_ID,
+        conversation_id: convoId,
+        channel: 'call',
+        direction: 'inbound',
+        body: `Incoming call from ${callerName || from}`,
+        twilio_sid: callSid,
+        status: 'ringing',
+        open_count: 0,
+      })
+      await updateConversationLastMessage(supabase, convoId, 'call', `Incoming call from ${callerName || from}`, true)
+    }
 
     const { data: departments } = await supabase
       .from('phone_departments')
