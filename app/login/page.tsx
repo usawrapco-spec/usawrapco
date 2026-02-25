@@ -19,9 +19,6 @@ export default function LoginPage({
               margin: '0 auto 12px',
               display: 'block',
             }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://usawrapco.com/wp-content/uploads/2025/10/cropped-main_logo-removebg-preview.png'
-            }}
           />
           <div style={{
             fontSize: 15,
