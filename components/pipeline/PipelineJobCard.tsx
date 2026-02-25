@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Wrench, MessageSquare } from 'lucide-react'
+import { RaceTrackTimeline } from './RaceTrackTimeline'
 
 interface PipelineJobCardProps {
   project: any
@@ -90,6 +91,11 @@ export default function PipelineJobCard({ project, department, isGhost, onClick 
       onMouseEnter={e => { if (!isGhost) (e.currentTarget as HTMLElement).style.borderColor = stageColor }}
       onMouseLeave={e => { if (!isGhost) (e.currentTarget as HTMLElement).style.borderColor = hasSendBack ? '#ef444440' : 'var(--border)' }}
     >
+      {/* Race track job timeline */}
+      {!isGhost && (
+        <RaceTrackTimeline project={project} />
+      )}
+
       {/* Send-back alert */}
       {hasSendBack && !isGhost && (
         <div style={{

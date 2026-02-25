@@ -215,6 +215,7 @@ export interface Project {
   fin_data: ProjectFinancials | null
   actuals: Record<string, unknown>
   checkout: Record<string, boolean>
+  stage_checklist: Record<string, { done: boolean; by?: string | null; at?: string | null; auto?: boolean; note?: string | null }> | null
   installer_bid: InstallerBid | null
   send_backs: SendBack[]
   referral: string | null
