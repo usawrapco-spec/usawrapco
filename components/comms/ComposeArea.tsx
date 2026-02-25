@@ -385,8 +385,8 @@ export function ComposeArea({
         photos: (isEmail || tab === 'sms') && photos.length > 0 ? photos : undefined,
         cc: isEmail && ccEmails.length > 0 ? ccEmails : undefined,
         bcc: isEmail && bccEmails.length > 0 ? bccEmails : undefined,
-        to_email: composingNew ? newTo : conversation?.contact_email || undefined,
-        to_phone: composingNew ? newTo : conversation?.contact_phone || undefined,
+        to_email: composingNew ? (tab !== 'sms' ? newTo : undefined) : conversation?.contact_email || undefined,
+        to_phone: composingNew ? (tab === 'sms' ? newTo : undefined) : conversation?.contact_phone || undefined,
         contact_name: composingNew ? newName : undefined,
       })
       setBody('')
