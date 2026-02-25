@@ -17,21 +17,15 @@ export default async function CustomerJobPortalPage({ params }: { params: { toke
     // 1. Load sales order by portal token
     const { data: so } = await supabase
       .from('sales_orders')
-      .select('*, customer:customers!customer_id(id, contact_name, email, phone)')
+      .select('*, customer:customers!customer_id(id, name, email, phone)')
       .eq('portal_token', params.token)
       .single()
 
     if (so) {
       salesOrder = so
 
-      // 2. Line items for the sales order
-      const { data: items } = await supabase
-        .from('line_items')
-        .select('*')
-        .eq('parent_type', 'sales_order')
-        .eq('parent_id', so.id)
-        .order('sort_order')
-      lineItems = items || []
+      // 2. Line items from the JSONB column on sales_orders
+      lineItems = Array.isArray(so.line_items) ? so.line_items : []
 
       // 3. Find the linked project
       const { data: projectData } = await supabase
