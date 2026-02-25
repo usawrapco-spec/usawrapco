@@ -116,7 +116,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'settings',
     label: 'SETTINGS',
     icon: Settings,
-    roles: ['owner', 'admin'],
+    roles: ['owner', 'admin', 'viewer'],
     items: [
       { href: '/settings',     label: 'Org Settings', icon: Settings },
       { href: '/integrations', label: 'Integrations', icon: Globe },
