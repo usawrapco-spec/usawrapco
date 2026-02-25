@@ -18,18 +18,22 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
 
-      # SUPABASE_DB_URL = session-mode pooler connection string from
-      # Supabase Dashboard → Settings → Database → Connection string → Session mode
-      # e.g. postgresql://postgres.PROJECTID:PASSWORD@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+      # Session-mode pooler is IPv4-accessible (direct DB host is IPv6-only).
+      # Pooler username format: postgres.PROJECT_ID
       - name: Run /sql scripts
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-0-us-east-1.pooler.supabase.com
+          PGPORT: 5432
+          PGUSER: postgres.${{ secrets.SUPABASE_PROJECT_ID }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
         run: |
           PASS=0; FAIL=0
           for f in sql/*.sql; do
             [ -f "$f" ] || continue
             echo "-> $f"
-            if psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 -q -f "$f"; then
+            if psql --set=ON_ERROR_STOP=1 -q -f "$f"; then
               echo "   done"
               PASS=$((PASS+1))
             else
@@ -41,13 +45,18 @@ jobs:
 
       - name: Run supabase/migrations scripts
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-0-us-east-1.pooler.supabase.com
+          PGPORT: 5432
+          PGUSER: postgres.${{ secrets.SUPABASE_PROJECT_ID }}
+          PGDATABASE: postgres
+          PGSSLMODE: require
         run: |
           PASS=0; FAIL=0
           for f in supabase/migrations/*.sql; do
             [ -f "$f" ] || continue
             echo "-> $f"
-            if psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 -q -f "$f"; then
+            if psql --set=ON_ERROR_STOP=1 -q -f "$f"; then
               echo "   done"
               PASS=$((PASS+1))
             else
