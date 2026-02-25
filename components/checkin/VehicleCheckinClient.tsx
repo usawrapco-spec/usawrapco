@@ -299,13 +299,13 @@ export default function VehicleCheckinClient({ profile, job, jobId }: VehicleChe
         const ext = slot.file.name.split('.').pop() || 'jpg'
         const path = `${profile.org_id}/${jobId}/checkin/${slot.key}_${Date.now()}.${ext}`
         const { error: upErr } = await supabase.storage
-          .from('job-images')
+          .from('project-files')
           .upload(path, slot.file)
         if (upErr) {
           console.error('Photo upload error:', upErr)
           continue
         }
-        const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+        const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
         photoUrls[slot.key] = urlData.publicUrl
       }
 
@@ -318,10 +318,10 @@ export default function VehicleCheckinClient({ profile, job, jobId }: VehicleChe
         if (blob) {
           const sigPath = `${profile.org_id}/${jobId}/checkin/signature_${Date.now()}.png`
           const { error: sigErr } = await supabase.storage
-            .from('job-images')
+            .from('project-files')
             .upload(sigPath, blob)
           if (!sigErr) {
-            const { data: sigUrl } = supabase.storage.from('job-images').getPublicUrl(sigPath)
+            const { data: sigUrl } = supabase.storage.from('project-files').getPublicUrl(sigPath)
             signatureUrl = sigUrl.publicUrl
           }
         }

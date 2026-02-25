@@ -161,7 +161,7 @@ export default function PhotoInspection({
           const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
           const path = `inspections/${lineItemId}/${fileName}`
           const { error } = await supabase.storage
-            .from('job-images')
+            .from('project-files')
             .upload(path, file, { upsert: true })
           if (error) {
             console.error('Upload error:', error)
@@ -169,7 +169,7 @@ export default function PhotoInspection({
           }
           const {
             data: { publicUrl },
-          } = supabase.storage.from('job-images').getPublicUrl(path)
+          } = supabase.storage.from('project-files').getPublicUrl(path)
           newPhotos.push({
             url: publicUrl,
             labels: [],
@@ -493,7 +493,7 @@ export default function PhotoInspection({
       const path = `inspections/${lineItemId}/${fileName}`
 
       const { error } = await supabase.storage
-        .from('job-images')
+        .from('project-files')
         .upload(path, blob, { upsert: true, contentType: 'image/png' })
 
       if (error) {
@@ -503,7 +503,7 @@ export default function PhotoInspection({
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from('job-images').getPublicUrl(path)
+      } = supabase.storage.from('project-files').getPublicUrl(path)
 
       // Collect labels from actions
       const actionLabels = actions

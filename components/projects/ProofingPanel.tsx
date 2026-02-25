@@ -76,7 +76,7 @@ export default function ProofingPanel({ project, profile }: Props) {
     const path = `proofs/${project.id}/v${nextVersion}_${Date.now()}.${ext}`
 
     const { error } = await supabase.storage
-      .from('job-images')
+      .from('project-files')
       .upload(path, file, { upsert: true })
 
     if (error) {
@@ -85,7 +85,7 @@ export default function ProofingPanel({ project, profile }: Props) {
       return
     }
 
-    const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+    const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
     setUploadedImageUrl(urlData.publicUrl)
     setUploading(false)
   }, [project.id, nextVersion, supabase])

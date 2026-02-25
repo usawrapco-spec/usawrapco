@@ -579,7 +579,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
       const path = `design/${selectedProject.id}/v${nextVersion}_${Date.now()}.${ext}`
 
       const { error: uploadError } = await supabase.storage
-        .from('job-images')
+        .from('project-files')
         .upload(path, file, { upsert: false })
 
       if (uploadError) {
@@ -587,7 +587,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
         continue
       }
 
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       const publicUrl = urlData?.publicUrl || ''
 
       const { data: inserted } = await supabase.from('design_project_files').insert({

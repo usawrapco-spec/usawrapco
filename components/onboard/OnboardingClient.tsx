@@ -227,9 +227,9 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
   const uploadFile = async (file: File, category: string): Promise<UploadedFile | null> => {
     const ext = file.name.split('.').pop() || 'bin'
     const path = `onboard/${token}/${category}_${Date.now()}.${ext}`
-    const { data, error } = await supabase.storage.from('job-images').upload(path, file)
+    const { data, error } = await supabase.storage.from('project-files').upload(path, file)
     if (error || !data) return null
-    const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(data.path)
+    const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(data.path)
     return { url: publicUrl, name: file.name, uploadedAt: new Date().toISOString() }
   }
 

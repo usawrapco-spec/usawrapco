@@ -637,9 +637,9 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     try {
       const ext = file.name.split('.').pop() || 'png'
       const path = `designs/${design.id}/files/${Date.now()}_${file.name}`
-      const { error: upErr } = await supabase.storage.from('job-images').upload(path, file, { upsert: false })
+      const { error: upErr } = await supabase.storage.from('project-files').upload(path, file, { upsert: false })
       if (!upErr) {
-        const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+        const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
         imageUrl = urlData?.publicUrl || ''
         // Update brand_files array
         const currentBrandFiles: string[] = design.brand_files || []
@@ -754,9 +754,9 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     for (const file of Array.from(files)) {
       const ext = file.name.split('.').pop() || 'file'
       const path = `design/${design.id}/${Date.now()}_${file.name}`
-      const { error } = await supabase.storage.from('job-images').upload(path, file, { upsert: false })
+      const { error } = await supabase.storage.from('project-files').upload(path, file, { upsert: false })
       if (error) { console.error('Upload error:', error); continue }
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       const { data: inserted } = await supabase.from('design_project_files').insert({
         design_project_id: design.id,
         file_name: file.name,
@@ -957,9 +957,9 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
       const res = await fetch(dataUrl)
       const blob = await res.blob()
       const path = `designs/${design.id}/canvas-print-export.png`
-      const { error: upErr } = await supabase.storage.from('job-images').upload(path, blob, { upsert: true, contentType: 'image/png' })
+      const { error: upErr } = await supabase.storage.from('project-files').upload(path, blob, { upsert: true, contentType: 'image/png' })
       if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       const url = urlData?.publicUrl || ''
       await supabase.from('design_projects').update({ print_export_url: url }).eq('id', design.id)
       setHighResExportUrl(url)
@@ -983,9 +983,9 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
       const res = await fetch(dataUrl)
       const blob = await res.blob()
       const path = `designs/${design.id}/canvas-temp-${Date.now()}.png`
-      const { error: upErr } = await supabase.storage.from('job-images').upload(path, blob, { upsert: true, contentType: 'image/png' })
+      const { error: upErr } = await supabase.storage.from('project-files').upload(path, blob, { upsert: true, contentType: 'image/png' })
       if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from('job-images').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       imageUrl = urlData?.publicUrl || ''
     }
 

@@ -295,12 +295,16 @@ export default function InstallerDashboardClient({
         const ext = file.name.split('.').pop()
         const path = `${profile.org_id}/${photoJobId}/completion_${Date.now()}_${i}.${ext}`
 
-        await supabase.storage.from('job-images').upload(path, file)
+        const { error: upErr } = await supabase.storage.from('project-files').upload(path, file)
+        if (upErr) continue
+
+        const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
 
         await supabase.from('job_images').insert({
           org_id: profile.org_id,
           project_id: photoJobId,
           uploaded_by: profile.id,
+          image_url: urlData.publicUrl,
           bucket_path: path,
           file_name: file.name,
           phase: 'after',

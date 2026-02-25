@@ -1,47 +1,51 @@
-name: Deploy Database Migration
+name: Deploy Database Migrations
 
 on:
-  workflow_dispatch: # Manual trigger
   push:
     branches:
       - main
     paths:
-      - 'sql/core_transaction_flow.sql'
+      - 'supabase/migrations/*.sql'
       - '.github/workflows/deploy-database.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (print pending migrations, do not apply)'
+        type: boolean
+        default: false
 
 jobs:
-  deploy:
+  migrate:
+    name: Apply Supabase Migrations
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Run Migration
+      - name: Link project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
-          echo "🚀 Running database migration..."
+          supabase link \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} \
+            --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
 
-          # Link to Supabase project
-          supabase link --project-ref $SUPABASE_PROJECT_ID --password $SUPABASE_DB_PASSWORD
-
-          # Run the migration SQL directly
-          supabase db execute -f sql/core_transaction_flow.sql
-
-          echo "✅ Migration complete!"
-
-      - name: Verify Tables
+      - name: Show pending migrations (dry run)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase migration list
+
+      - name: Apply migrations
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          echo "🔍 Verifying tables were created..."
-          supabase db execute --sql "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('estimates', 'sales_orders', 'invoices', 'payments');"
+          supabase db push --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+          echo "✅ Migrations applied"

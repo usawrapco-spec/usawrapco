@@ -42,10 +42,10 @@ async function storeInSupabase(imageUrl: string, orgId?: string): Promise<string
     const fileName = `mockup-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
     const path = orgId ? `${orgId}/${fileName}` : fileName
     const { error } = await admin.storage
-      .from('mockups')
+      .from('project-files')
       .upload(path, Buffer.from(buffer), { contentType: 'image/jpeg', upsert: false })
     if (error) return imageUrl // fallback to original URL
-    const { data: { publicUrl } } = admin.storage.from('mockups').getPublicUrl(path)
+    const { data: { publicUrl } } = admin.storage.from('project-files').getPublicUrl(path)
     return publicUrl
   } catch {
     return imageUrl
