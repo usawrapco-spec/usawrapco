@@ -13,7 +13,7 @@ import {
   MessageCircle, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
   Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
   Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
-  ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart, Phone,
+  ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart, Phone, Layers,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -44,13 +44,14 @@ const JOBS_ITEMS: DropdownItem[] = [
 ]
 
 const PRODUCTION_ITEMS: DropdownItem[] = [
-  { href: '/production',  label: 'Production Board', icon: Factory,   description: 'Production overview' },
-  { href: '/design',      label: 'Design Studio',    icon: Palette,   description: 'Design workspace' },
-  { href: '/mockup',      label: 'Mockup Tool',      icon: Wand2,     description: 'Vehicle mockups' },
-  { href: '/proofs',      label: 'Proofs',            icon: ImageIcon, description: 'Design proofs' },
+  { href: '/production',   label: 'Production Board', icon: Factory,   description: 'Production overview' },
+  { href: '/design',       label: 'Design Studio',    icon: Palette,   description: 'Design workspace' },
+  { href: '/configurator', label: '3D Configurator',  icon: Layers,    description: '3D vehicle wrap preview' },
+  { href: '/mockup',       label: 'Mockup Tool',      icon: Wand2,     description: 'Vehicle mockups' },
+  { href: '/proofs',       label: 'Proofs',            icon: ImageIcon, description: 'Design proofs' },
 ]
 
-const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/proofs']
+const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/proofs', '/configurator']
 
 const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
   { id: 'new_estimate',        label: 'New Estimate',             icon: FileText,  description: 'Create a new quote' },

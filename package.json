@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.45.4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/nodemailer": "^7.0.11",
+    "@types/three": "^0.183.1",
     "canvas-confetti": "^1.9.4",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
@@ -40,6 +41,7 @@
     "resend": "^6.9.2",
     "stripe": "^20.3.1",
     "tailwind-merge": "^2.5.4",
+    "three": "^0.183.1",
     "twilio": "^5.12.2",
     "xlsx": "^0.18.5"
   },
