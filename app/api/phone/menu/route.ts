@@ -5,42 +5,67 @@ import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export async function POST(req: NextRequest) {
-  const body = await req.formData()
+  let body: FormData
+  try {
+    body = await req.formData()
+  } catch {
+    return new NextResponse('Bad Request', { status: 400 })
+  }
+
   if (!isTwilioWebhook(req, formDataToParams(body))) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const supabase = getSupabaseAdmin()
-  const digit = body.get('Digits') as string
-  const callSid = body.get('CallSid') as string
-  const from = body.get('From') as string
+  try {
+    const supabase = getSupabaseAdmin()
+    const digit = body.get('Digits') as string
+    const callSid = body.get('CallSid') as string
+    const from = body.get('From') as string
 
-  if (digit === '0') {
-    return routeToDepartment(supabase, null, callSid, from)
-  }
+    if (digit === '0') {
+      return routeToDepartment(supabase, null, callSid, from)
+    }
 
-  const { data: dept } = await supabase
-    .from('phone_departments')
-    .select('*')
-    .eq('org_id', ORG_ID)
-    .eq('dtmf_key', digit)
-    .eq('enabled', true)
-    .single()
+    // * = extension dialing
+    if (digit === '*') {
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather numDigits="3" action="/api/phone/extension?callSid=${callSid}" method="POST" timeout="10">
+    <Say voice="Polly.Joanna">Please enter the 3-digit extension number now.</Say>
+  </Gather>
+  <Say voice="Polly.Joanna">No extension entered. Returning to main menu.</Say>
+  <Redirect>/api/phone/incoming</Redirect>
+</Response>`
+      return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } })
+    }
 
-  if (!dept) {
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+    const { data: dept } = await supabase
+      .from('phone_departments')
+      .select('*')
+      .eq('org_id', ORG_ID)
+      .eq('dtmf_key', digit)
+      .eq('enabled', true)
+      .single()
+
+    if (!dept) {
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Joanna">That option is not available. Please call back and try again.</Say>
   <Hangup/>
 </Response>`
-    return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } })
+      return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } })
+    }
+
+    await supabase.from('call_logs')
+      .update({ department_id: dept.id, status: 'ringing' })
+      .eq('twilio_call_sid', callSid)
+
+    return routeToDepartment(supabase, dept, callSid, from)
+  } catch (err: any) {
+    console.error('[phone/menu] error:', err)
+    const fallback = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>We're experiencing technical difficulties. Please try again.</Say><Hangup/></Response>`
+    return new NextResponse(fallback, { headers: { 'Content-Type': 'text/xml' } })
   }
-
-  await supabase.from('call_logs')
-    .update({ department_id: dept.id, status: 'ringing' })
-    .eq('twilio_call_sid', callSid)
-
-  return routeToDepartment(supabase, dept, callSid, from)
 }
 
 async function routeToDepartment(supabase: any, dept: any, callSid: string, from: string) {

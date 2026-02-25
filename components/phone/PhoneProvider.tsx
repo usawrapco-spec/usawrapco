@@ -5,19 +5,30 @@ import { createClient } from '@/lib/supabase/client'
 
 export type CallState = 'idle' | 'connecting' | 'ringing' | 'in-call' | 'incoming'
 
+export interface TransferOpts {
+  transferToNumber?: string
+  transferToAgentId?: string
+  transferType: 'warm' | 'blind'
+  callerName?: string
+}
+
 interface PhoneContextValue {
   callState: CallState
   activeNumber: string
   activeName: string
   isMuted: boolean
+  isOnHold: boolean
   isReady: boolean
   duration: number
+  callSid: string | null
   makeCall: (to: string, name?: string) => Promise<void>
   hangUp: () => void
   answer: () => void
   decline: () => void
   toggleMute: () => void
+  toggleHold: () => void
   sendDigit: (digit: string) => void
+  transferCall: (opts: TransferOpts) => Promise<{ success: boolean; error?: string }>
 }
 
 const PhoneContext = createContext<PhoneContextValue | null>(null)
@@ -31,8 +42,10 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
   const [activeNumber, setActiveNumber] = useState('')
   const [activeName, setActiveName] = useState('')
   const [isMuted, setIsMuted] = useState(false)
+  const [isOnHold, setIsOnHold] = useState(false)
   const [isReady, setIsReady] = useState(false)
   const [duration, setDuration] = useState(0)
+  const [callSid, setCallSid] = useState<string | null>(null)
 
   const deviceRef = useRef<any>(null)
   const callRef = useRef<any>(null)
@@ -58,6 +71,8 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
     setActiveNumber('')
     setActiveName('')
     setIsMuted(false)
+    setIsOnHold(false)
+    setCallSid(null)
     callRef.current = null
   }, [stopTimer])
 
@@ -67,12 +82,11 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
       if (!user) return
 
       const res = await fetch('/api/phone/token')
-      if (!res.ok) return // Twilio browser calling not configured
+      if (!res.ok) return
 
       const { token } = await res.json()
       if (!token) return
 
-      // Dynamic import — browser only, avoids SSR issues
       const { Device } = await import('@twilio/voice-sdk')
 
       const device = new Device(token, {
@@ -90,6 +104,7 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
         const from = call.parameters?.From || 'Unknown'
         setActiveNumber(from)
         setActiveName(call.parameters?.CallerName || from)
+        setCallSid(call.parameters?.CallSid || null)
         setCallState('incoming')
 
         call.on('disconnect', resetCall)
@@ -129,13 +144,18 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
     setActiveNumber(to)
     setActiveName(name || to)
     setIsMuted(false)
+    setIsOnHold(false)
 
     try {
       const call = await deviceRef.current.connect({ params: { To: to } })
       callRef.current = call
 
       call.on('ringing', () => setCallState('ringing'))
-      call.on('accept', () => { setCallState('in-call'); startTimer() })
+      call.on('accept', () => {
+        setCallState('in-call')
+        setCallSid(call.parameters?.CallSid || null)
+        startTimer()
+      })
       call.on('disconnect', resetCall)
       call.on('error', (err: any) => { console.error('[Softphone] Call error:', err); resetCall() })
     } catch (err) {
@@ -152,6 +172,7 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
     if (callRef.current && callState === 'incoming') {
       callRef.current.accept()
       setCallState('in-call')
+      setIsOnHold(false)
       startTimer()
     }
   }, [callState, startTimer])
@@ -171,14 +192,54 @@ export function PhoneProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isMuted])
 
+  // Hold: mutes the mic locally and sets hold state for UI
+  const toggleHold = useCallback(() => {
+    if (callRef.current) {
+      const next = !isOnHold
+      callRef.current.mute(next)
+      setIsOnHold(next)
+      if (!next) setIsMuted(false)
+    }
+  }, [isOnHold])
+
   const sendDigit = useCallback((digit: string) => {
     callRef.current?.sendDigits(digit)
   }, [])
 
+  const transferCall = useCallback(async (opts: TransferOpts): Promise<{ success: boolean; error?: string }> => {
+    if (!callSid) return { success: false, error: 'No active call SID' }
+
+    try {
+      const res = await fetch('/api/phone/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callSid,
+          ...opts,
+          callerName: opts.callerName || activeName || activeNumber,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        return { success: false, error: err.error || 'Transfer failed' }
+      }
+
+      // After warm transfer, the customer is in conference — disconnect browser leg
+      if (opts.transferType === 'warm') {
+        setTimeout(() => callRef.current?.disconnect(), 500)
+      }
+
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  }, [callSid, activeName, activeNumber])
+
   return (
     <PhoneContext.Provider value={{
-      callState, activeNumber, activeName, isMuted, isReady, duration,
-      makeCall, hangUp, answer, decline, toggleMute, sendDigit,
+      callState, activeNumber, activeName, isMuted, isOnHold, isReady, duration, callSid,
+      makeCall, hangUp, answer, decline, toggleMute, toggleHold, sendDigit, transferCall,
     }}>
       {children}
     </PhoneContext.Provider>

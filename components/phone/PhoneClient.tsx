@@ -44,6 +44,7 @@ interface PhoneAgent {
   department_id: string
   profile_id: string | null
   cell_number: string
+  extension: string | null
   display_name: string | null
   round_robin_order: number
   is_available: boolean
@@ -213,7 +214,9 @@ export default function PhoneClient({ profile, initialConfig, initialDepartments
   const [editDept, setEditDept] = useState<Department | null>(null)
   const [showDeptModal, setShowDeptModal] = useState(false)
   const [showAgentModal, setShowAgentModal] = useState(false)
-  const [agentForm, setAgentForm] = useState({ profile_id: '', cell_number: '', department_id: '', display_name: '' })
+  const [agentForm, setAgentForm] = useState({ profile_id: '', cell_number: '', department_id: '', display_name: '', extension: '' })
+  const [editAgent, setEditAgent] = useState<PhoneAgent | null>(null)
+  const [showEditAgentModal, setShowEditAgentModal] = useState(false)
   const [deptForm, setDeptForm] = useState<Partial<Department>>({})
   const [copied, setCopied] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -467,7 +470,14 @@ export default function PhoneClient({ profile, initialConfig, initialDepartments
                   {agent.profile?.avatar_url ? <img src={agent.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={16} style={{ color: 'var(--text3)' }} />}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text1)', fontSize: 14 }}>{agent.display_name || agent.profile?.name || 'Unnamed Agent'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text1)', fontSize: 14 }}>{agent.display_name || agent.profile?.name || 'Unnamed Agent'}</span>
+                    {agent.extension && (
+                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--cyan)', background: 'var(--cyan)15', padding: '1px 6px', borderRadius: 6, fontWeight: 700 }}>
+                        ext.{agent.extension}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', gap: 10 }}>
                     <span>{agent.department?.name || 'No dept'}</span>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{fmtPhone(agent.cell_number)}</span>
@@ -477,6 +487,7 @@ export default function PhoneClient({ profile, initialConfig, initialDepartments
                   <button onClick={() => toggleAgent(agent)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: agent.is_available ? 'var(--green)22' : 'var(--surface2)', color: agent.is_available ? 'var(--green)' : 'var(--text3)' }}>
                     {agent.is_available ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{agent.is_available ? 'Available' : 'Offline'}
                   </button>
+                  <button onClick={() => { setEditAgent(agent); setShowEditAgentModal(true) }} style={{ padding: '5px 8px', borderRadius: 6, background: 'var(--surface2)', border: 'none', color: 'var(--text2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}><Edit2 size={12} />Edit</button>
                   <button onClick={() => deleteAgent(agent.id)} style={{ padding: 5, borderRadius: 6, background: 'var(--red)11', border: 'none', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                 </div>
               </div>
@@ -599,6 +610,9 @@ export default function PhoneClient({ profile, initialConfig, initialDepartments
               </select>
             </FF>
             <FF label="Cell Number (E.164 format)"><input value={agentForm.cell_number} onChange={e => setAgentForm(p => ({ ...p, cell_number: e.target.value }))} placeholder="+12535550123" style={iStyle} /></FF>
+            <FF label="Extension (optional)">
+              <input value={agentForm.extension} onChange={e => setAgentForm(p => ({ ...p, extension: e.target.value }))} placeholder="e.g. 101" maxLength={6} style={iStyle} />
+            </FF>
             <FF label="Department">
               <select value={agentForm.department_id} onChange={e => setAgentForm(p => ({ ...p, department_id: e.target.value }))} style={iStyle}>
                 <option value="">Select department...</option>
@@ -608,6 +622,44 @@ export default function PhoneClient({ profile, initialConfig, initialDepartments
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <button onClick={() => setShowAgentModal(false)} style={btnS}>Cancel</button>
               <button onClick={saveAgent} disabled={saving || !agentForm.cell_number} style={btnP}>{saving ? 'Saving...' : 'Add Agent'}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showEditAgentModal && editAgent && (
+        <Modal title="Edit Agent" onClose={() => { setShowEditAgentModal(false); setEditAgent(null) }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <FF label="Display Name">
+              <input defaultValue={editAgent.display_name || editAgent.profile?.name || ''} onBlur={async e => {
+                const res = await fetch('/api/phone/agents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editAgent.id, display_name: e.target.value }) })
+                if (res.ok) { const d = await res.json(); setAgents(prev => prev.map(a => a.id === d.id ? { ...a, display_name: d.display_name } : a)) }
+              }} style={iStyle} />
+            </FF>
+            <FF label="Cell Number">
+              <input defaultValue={editAgent.cell_number} onBlur={async e => {
+                const res = await fetch('/api/phone/agents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editAgent.id, cell_number: e.target.value }) })
+                if (res.ok) { const d = await res.json(); setAgents(prev => prev.map(a => a.id === d.id ? { ...a, cell_number: d.cell_number } : a)) }
+              }} style={iStyle} />
+            </FF>
+            <FF label="Extension">
+              <input defaultValue={editAgent.extension || ''} placeholder="e.g. 101" maxLength={6} onBlur={async e => {
+                const ext = e.target.value.trim() || null
+                const res = await fetch('/api/phone/agents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editAgent.id, extension: ext }) })
+                if (res.ok) { const d = await res.json(); setAgents(prev => prev.map(a => a.id === d.id ? { ...a, extension: d.extension } : a)) }
+              }} style={iStyle} />
+            </FF>
+            <FF label="Department">
+              <select defaultValue={editAgent.department_id} onChange={async e => {
+                const res = await fetch('/api/phone/agents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editAgent.id, department_id: e.target.value || null }) })
+                if (res.ok) { const d = await res.json(); setAgents(prev => prev.map(a => a.id === d.id ? { ...a, department_id: d.department_id } : a)) }
+              }} style={iStyle}>
+                <option value="">No department</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </FF>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button onClick={() => { setShowEditAgentModal(false); setEditAgent(null) }} style={btnP}>Done</button>
             </div>
           </div>
         </Modal>
