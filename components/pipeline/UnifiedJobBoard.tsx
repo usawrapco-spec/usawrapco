@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Briefcase, Printer, Wrench, Search, CheckCircle,
-  LayoutGrid, List, X, ChevronRight, Clock, DollarSign, User,
+  LayoutGrid, List, ChevronRight, DollarSign,
   ArrowUpDown, Plus, Factory, Hammer, CheckCircle2,
   type LucideIcon,
 } from 'lucide-react'
@@ -36,6 +36,14 @@ const STAGES: { key: PipeStage; label: string; icon: LucideIcon; color: string }
   { key: 'install',     label: 'Install',       icon: Wrench,      color: '#22d3ee' },
   { key: 'prod_review', label: 'QC Review',     icon: Search,      color: '#f59e0b' },
   { key: 'sales_close', label: 'Sales Close',   icon: CheckCircle, color: '#8b5cf6' },
+]
+
+const DEPT_STATUS_BADGES = [
+  { key: 'sales_in',    short: 'SLS', color: '#4f7fff' },
+  { key: 'production',  short: 'PRD', color: '#22c07a' },
+  { key: 'install',     short: 'INS', color: '#22d3ee' },
+  { key: 'prod_review', short: 'QC',  color: '#f59e0b' },
+  { key: 'sales_close', short: 'CLO', color: '#8b5cf6' },
 ]
 
 type ViewMode = 'kanban' | 'list'
@@ -95,7 +103,6 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [sortKey, setSortKey] = useState<SortKey>('stage')
   const [sortAsc, setSortAsc] = useState(true)
-  const [drawerProject, setDrawerProject] = useState<Project | null>(null)
   const [deptView, setDeptView] = useState<DeptView>(getDefaultDept(profile.role))
   const [contentKey, setContentKey] = useState(0)
   const supabase = createClient()
@@ -290,8 +297,6 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
             handleSort={handleSort}
             sortedList={sortedList}
             totalPipelineValue={totalPipelineValue}
-            drawerProject={drawerProject}
-            setDrawerProject={setDrawerProject}
             showNewJob={showNewJob}
             setShowNewJob={setShowNewJob}
             orgId={orgId}
@@ -325,8 +330,7 @@ function AllJobsView({
   installerFilter, setInstallerFilter,
   searchQuery, setSearchQuery, viewMode, setViewMode,
   sortKey, sortAsc, handleSort, sortedList,
-  totalPipelineValue, drawerProject, setDrawerProject,
-  showNewJob, setShowNewJob, orgId, router,
+  totalPipelineValue, showNewJob, setShowNewJob, orgId, router,
 }: {
   profile: Profile
   projects: Project[]
@@ -348,8 +352,6 @@ function AllJobsView({
   handleSort: (k: SortKey) => void
   sortedList: Project[]
   totalPipelineValue: number
-  drawerProject: Project | null
-  setDrawerProject: (p: Project | null) => void
   showNewJob: boolean
   setShowNewJob: (v: boolean) => void
   orgId: string
@@ -545,88 +547,137 @@ function AllJobsView({
                 </div>
 
                 {/* Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {stageJobs.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 12, color: 'var(--text3)', opacity: 0.5 }}>No jobs</div>
                   ) : stageJobs.map((project, idx) => {
+                    const customerName = (project.customer as any)?.name || (project.form_data as any)?.clientName || project.title || 'Untitled'
+                    const vehicle = project.vehicle_desc || (project.form_data as any)?.vehicle || ''
                     const gpm = project.gpm || 0
                     const days = daysOpen(project)
+                    const mockupUrl = (project.form_data as any)?.mockup_url || null
+                    const initial = customerName.charAt(0).toUpperCase()
+                    const sendBack = (project.send_backs as any[])?.some?.((sb: any) => !sb.resolved)
+                    const installDate = project.install_date || (project.form_data as any)?.installDate
+                    let urgency = ''; let urgencyColor = 'var(--text3)'
+                    if (installDate) {
+                      const daysUntil = Math.ceil((new Date(installDate).getTime() - Date.now()) / 86400000)
+                      if (daysUntil < 0) { urgency = `${Math.abs(daysUntil)}d late`; urgencyColor = 'var(--red)' }
+                      else if (daysUntil === 0) { urgency = 'TODAY'; urgencyColor = 'var(--red)' }
+                      else if (daysUntil <= 3) { urgency = `${daysUntil}d`; urgencyColor = 'var(--amber)' }
+                    }
                     return (
-                      <div key={project.id}
-                        onClick={() => setDrawerProject(project)}
-                        style={{
-                          borderRadius: 12, padding: 12, cursor: 'pointer',
-                          background: 'var(--surface)', border: '1px solid var(--card-border)',
-                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                          animation: `staggerIn .3s ease ${idx * 0.04}s both`,
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.borderColor = `${stage.color}60`
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-                          e.currentTarget.style.boxShadow = `0 6px 20px ${stage.color}18`
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.borderColor = 'var(--card-border)'
-                          e.currentTarget.style.transform = 'translateY(0)'
-                          e.currentTarget.style.boxShadow = 'none'
-                        }}
+                      <Link
+                        key={project.id}
+                        href={`/projects/${project.id}`}
+                        style={{ textDecoration: 'none', display: 'block', animation: `staggerIn .3s ease ${idx * 0.04}s both` }}
                       >
-                        {/* Progress bar */}
-                        <div style={{ display: 'flex', gap: 2, marginBottom: 8 }}>
-                          {STAGES.map(s => (
-                            <div key={s.key} style={{
-                              flex: 1, height: 2, borderRadius: 1,
-                              background: project.checkout?.[s.key] ? 'var(--green)' :
-                                s.key === stage.key ? stage.color : 'var(--surface2)',
-                              transition: 'background 0.2s',
-                            }} />
-                          ))}
-                        </div>
+                        <div
+                          style={{
+                            borderRadius: 10, padding: '9px 11px', cursor: 'pointer',
+                            background: 'var(--surface)',
+                            border: `1px solid ${sendBack ? '#f25a5a30' : 'var(--card-border)'}`,
+                            borderLeft: `3px solid ${stage.color}`,
+                            display: 'flex', gap: 9, alignItems: 'flex-start',
+                            position: 'relative',
+                            transition: 'all 0.18s ease',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = `${stage.color}60`
+                            e.currentTarget.style.transform = 'translateY(-1px)'
+                            e.currentTarget.style.boxShadow = `0 4px 14px ${stage.color}18`
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = sendBack ? '#f25a5a30' : 'var(--card-border)'
+                            e.currentTarget.style.transform = 'none'
+                            e.currentTarget.style.boxShadow = 'none'
+                          }}
+                        >
+                          {sendBack && (
+                            <div style={{
+                              position: 'absolute', top: -6, right: 8, fontSize: 8, fontWeight: 900,
+                              background: 'var(--red)', color: '#fff', padding: '1px 5px', borderRadius: 4, letterSpacing: '.04em',
+                            }}>SENT BACK</div>
+                          )}
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4, marginBottom: 4 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', lineHeight: 1.2 }}>
-                            {(project.customer as any)?.name || (project.form_data as any)?.clientName || project.title}
+                          {/* Thumbnail / Initials */}
+                          <div style={{
+                            width: 40, height: 40, borderRadius: 7, flexShrink: 0, overflow: 'hidden',
+                            background: `${stage.color}18`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {mockupUrl ? (
+                              <img src={mockupUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: 15, fontWeight: 900, color: stage.color }}>{initial}</span>
+                            )}
                           </div>
-                          {gpm > 0 && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
-                              color: gpm >= 70 ? 'var(--green)' : gpm >= 55 ? 'var(--amber)' : 'var(--red)',
-                              flexShrink: 0,
-                            }}>
-                              {gpm.toFixed(0)}%
-                            </span>
-                          )}
-                        </div>
 
-                        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {project.vehicle_desc || '\u2014'}
-                        </div>
+                          {/* Content */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {/* Name + Revenue */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 4 }}>
+                                {customerName}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                                {urgency && <span style={{ fontSize: 9, fontWeight: 800, color: urgencyColor }}>{urgency}</span>}
+                                {project.revenue ? (
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                    {fmtMoney(project.revenue)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          {(project.agent as any)?.name && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 600, color: 'var(--text3)',
-                              background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4,
-                            }}>
-                              {(project.agent as any).name}
-                            </span>
-                          )}
-                          {project.revenue ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>
-                              {fmtMoney(project.revenue)}
-                            </span>
-                          ) : null}
-                          {days > 0 && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace',
-                              color: days > 14 ? 'var(--red)' : days > 7 ? 'var(--amber)' : 'var(--text3)',
-                              marginLeft: 'auto',
-                            }}>
-                              {days}d
-                            </span>
-                          )}
+                            {/* Vehicle */}
+                            <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {vehicle || '\u2014'}
+                            </div>
+
+                            {/* Dept status badges */}
+                            <div style={{ display: 'flex', gap: 3 }}>
+                              {DEPT_STATUS_BADGES.map(d => {
+                                const done = project.checkout?.[d.key]
+                                const isCurrent = (project.pipe_stage || 'sales_in') === d.key
+                                return (
+                                  <span key={d.key} style={{
+                                    fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3,
+                                    letterSpacing: '0.04em',
+                                    background: done ? 'rgba(34,192,122,0.12)' : isCurrent ? `${d.color}18` : 'transparent',
+                                    color: done ? '#22c07a' : isCurrent ? d.color : 'var(--text3)',
+                                    border: `1px solid ${done ? 'rgba(34,192,122,0.3)' : isCurrent ? `${d.color}40` : 'rgba(90,96,128,0.3)'}`,
+                                  }}>
+                                    {done ? '✓' : isCurrent ? '●' : '·'} {d.short}
+                                  </span>
+                                )
+                              })}
+                            </div>
+
+                            {/* GPM + days */}
+                            {(gpm > 0 || days > 0) && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                                {gpm > 0 ? (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
+                                    color: gpm >= 70 ? 'var(--green)' : gpm >= 55 ? 'var(--amber)' : 'var(--red)',
+                                  }}>
+                                    {gpm.toFixed(0)}% GPM
+                                  </span>
+                                ) : <span />}
+                                {days > 0 && (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace',
+                                    color: days > 14 ? 'var(--red)' : days > 7 ? 'var(--amber)' : 'var(--text3)',
+                                  }}>
+                                    {days}d
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>
@@ -678,7 +729,7 @@ function AllJobsView({
                 return (
                   <tr
                     key={project.id}
-                    onClick={() => setDrawerProject(project)}
+                    onClick={() => router.push(`/projects/${project.id}`)}
                     style={{
                       cursor: 'pointer',
                       animation: `staggerIn .25s ease ${idx * 0.02}s both`,
@@ -722,155 +773,6 @@ function AllJobsView({
         </div>
       )}
 
-      {/* ── JOB DETAIL DRAWER ──────────────────────────────────────── */}
-      {drawerProject && (
-        <>
-          <div className="drawer-overlay" onClick={() => setDrawerProject(null)} />
-          <div className="drawer-panel">
-            {/* Drawer header */}
-            <div style={{
-              padding: '18px 24px', borderBottom: '1px solid var(--card-border)',
-              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-            }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text1)', marginBottom: 4 }}>
-                  {(drawerProject.customer as any)?.name || (drawerProject.form_data as any)?.clientName || drawerProject.title}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  {drawerProject.vehicle_desc || 'No vehicle description'}
-                </div>
-                {(() => {
-                  const stage = STAGES.find(s => s.key === (drawerProject.pipe_stage || 'sales_in'))
-                  return stage ? (
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                      padding: '3px 10px', borderRadius: 6, marginTop: 8,
-                      background: `${stage.color}15`, color: stage.color,
-                    }}>
-                      {stage.label}
-                    </span>
-                  ) : null
-                })()}
-              </div>
-              <button onClick={() => setDrawerProject(null)} style={{
-                background: 'var(--surface2)', border: '1px solid var(--card-border)',
-                borderRadius: 8, padding: 8, cursor: 'pointer', color: 'var(--text3)',
-                transition: 'all 0.15s',
-              }}
-                onMouseEnter={e => e.currentTarget.style.color = 'var(--text1)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Drawer content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
-              {/* Financial summary */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface2)' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>Revenue</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {fmtMoney(drawerProject.revenue || 0)}
-                  </div>
-                </div>
-                <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface2)' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>GPM</div>
-                  <div style={{
-                    fontSize: 22, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
-                    color: (drawerProject.gpm || 0) >= 70 ? 'var(--green)' : (drawerProject.gpm || 0) >= 55 ? 'var(--amber)' : 'var(--red)',
-                  }}>
-                    {(drawerProject.gpm || 0).toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Details */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[
-                  { label: 'Sales Agent', value: (drawerProject.agent as any)?.name, icon: User, color: 'var(--accent)' },
-                  { label: 'Installer', value: (drawerProject.installer as any)?.name, icon: Wrench, color: 'var(--cyan)' },
-                  { label: 'Install Date', value: (drawerProject.form_data as any)?.install_date || drawerProject.install_date, icon: Clock, color: 'var(--amber)' },
-                  { label: 'Days Open', value: `${daysOpen(drawerProject)} days`, icon: Clock, color: 'var(--text3)' },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: 7,
-                      background: `${item.color}12`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <item.icon size={13} style={{ color: item.color }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase' }}>{item.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{item.value || '\u2014'}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pipeline progress */}
-              <div style={{ marginTop: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                  Pipeline Progress
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {STAGES.map(s => {
-                    const isActive = (drawerProject.pipe_stage || 'sales_in') === s.key
-                    const isComplete = drawerProject.checkout?.[s.key]
-                    return (
-                      <div key={s.key} style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-                        borderRadius: 8,
-                        background: isActive ? `${s.color}10` : 'transparent',
-                        border: isActive ? `1px solid ${s.color}30` : '1px solid transparent',
-                      }}>
-                        <div style={{
-                          width: 20, height: 20, borderRadius: '50%',
-                          background: isComplete ? s.color : isActive ? `${s.color}30` : 'var(--surface2)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {isComplete && <CheckCircle size={12} style={{ color: '#fff' }} />}
-                        </div>
-                        <span style={{
-                          fontSize: 12, fontWeight: isActive ? 700 : 500,
-                          color: isActive ? s.color : isComplete ? 'var(--text2)' : 'var(--text3)',
-                        }}>
-                          {s.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Drawer footer */}
-            <div style={{
-              padding: '14px 24px', borderTop: '1px solid var(--card-border)',
-              display: 'flex', gap: 8,
-            }}>
-              <Link
-                href={`/projects/${drawerProject.id}`}
-                style={{
-                  flex: 1, padding: '10px 16px', borderRadius: 10,
-                  background: 'var(--accent)', color: '#fff', border: 'none',
-                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  textDecoration: 'none', textAlign: 'center',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  display: 'block',
-                }}
-                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(79,127,255,0.35)'}
-                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-              >
-                Open Full Detail
-              </Link>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* ── New Job Modal ──────────────────────────────────────────── */}
       {showNewJob && (
