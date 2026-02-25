@@ -12,6 +12,7 @@ import {
   TrendingUp, Calculator, Settings,
   Package, Image, Link2, UserPlus, Ruler,
   FoldVertical, UnfoldVertical,
+  GripVertical, Upload, Camera,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
@@ -56,14 +57,23 @@ interface VehicleEntry {
 
 const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
 const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
+const ALL_YEARS = [...new Set(VEHICLES_DB.map(v => v.year))].sort((a, b) => b - a)
 
 function getModelsForMake(make: string): string[] {
   return [...new Set(VEHICLES_DB.filter(v => v.make === make).map(v => v.model))].sort()
 }
 
+function getMakesForYear(year: number): string[] {
+  return [...new Set(VEHICLES_DB.filter(v => v.year === year).map(v => v.make))].sort()
+}
+
+function getModelsForMakeYear(make: string, year: number): string[] {
+  return [...new Set(VEHICLES_DB.filter(v => v.make === make && v.year === year).map(v => v.model))].sort()
+}
+
 function findVehicle(make: string, model: string, year?: string): VehicleEntry | null {
   const y = year ? parseInt(year) : null
-  let match = y
+  const match = y
     ? VEHICLES_DB.find(v => v.make === make && v.model === model && v.year === y)
     : VEHICLES_DB.find(v => v.make === make && v.model === model)
   return match || null
@@ -124,7 +134,32 @@ const PRODUCT_TYPE_OPTIONS = [
   { key: 'marine',             label: 'Marine',             vehicleType: 'marine',    calcType: 'marine',  productType: 'wrap'    as const, color: '#22d3ee' },
   { key: 'ppf',                label: 'PPF',                vehicleType: 'ppf',       calcType: '',        productType: 'ppf'     as const, color: '#22d3ee' },
   { key: 'boat_decking',       label: 'Boat Decking',       vehicleType: 'marine',    calcType: 'decking', productType: 'decking' as const, color: '#22c07a' },
+  { key: 'wall_wrap',          label: 'Wall Wrap',          vehicleType: 'custom',    calcType: 'wall',    productType: 'wrap'    as const, color: '#8b5cf6' },
+  { key: 'signage',            label: 'Signage',            vehicleType: 'custom',    calcType: 'signage', productType: 'wrap'    as const, color: '#f59e0b' },
+  { key: 'apparel',            label: 'Apparel',            vehicleType: 'custom',    calcType: '',        productType: 'wrap'    as const, color: '#22d3ee' },
+  { key: 'print_media',        label: 'Print',              vehicleType: 'custom',    calcType: '',        productType: 'wrap'    as const, color: '#9299b5' },
   { key: 'custom',             label: 'Custom',             vehicleType: 'custom',    calcType: '',        productType: 'wrap'    as const, color: '#8b5cf6' },
+]
+
+const SIGNAGE_TYPES = [
+  'Banners', 'Yard Signs', 'Coroplast', 'Aluminum Signs',
+  'Retractable Banners', 'A-Frame', 'Window Graphics', 'Floor Graphics',
+  'Canvas Prints', 'Foam Board',
+]
+
+const WALL_WRAP_MATERIALS = [
+  { key: 'standard', label: 'Standard Vinyl', costPerSqft: 1.50 },
+  { key: 'premium', label: 'Premium Vinyl', costPerSqft: 2.50 },
+  { key: 'fabric', label: 'Fabric Wall Covering', costPerSqft: 3.50 },
+]
+
+const SIGNAGE_MATERIALS = [
+  { key: 'vinyl_banner', label: 'Vinyl Banner (13oz)', costPerSqft: 1.20 },
+  { key: 'mesh_banner', label: 'Mesh Banner', costPerSqft: 1.80 },
+  { key: 'coroplast', label: 'Coroplast (4mm)', costPerSqft: 2.00 },
+  { key: 'aluminum', label: 'Aluminum (.040)', costPerSqft: 4.50 },
+  { key: 'acm', label: 'ACM Panel', costPerSqft: 6.00 },
+  { key: 'foam_board', label: 'Foam Board', costPerSqft: 1.50 },
 ]
 
 const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: string }> = {
@@ -138,7 +173,7 @@ const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: 
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
+type TabKey = 'items' | 'photos' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
@@ -239,6 +274,26 @@ const fieldSelectStyle: React.CSSProperties = {
 const monoStyle: React.CSSProperties = {
   fontFamily: monoFont,
   fontVariantNumeric: 'tabular-nums',
+}
+
+// Calculator "gadget" panel style
+const gadgetStyle: React.CSSProperties = {
+  marginTop: 12, padding: 14,
+  background: 'linear-gradient(145deg, var(--bg) 0%, rgba(13,15,20,0.95) 100%)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03)',
+}
+
+const gadgetHeaderStyle: React.CSSProperties = {
+  ...fieldLabelStyle,
+  marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11,
+}
+
+const gadgetOutputStyle: React.CSSProperties = {
+  display: 'flex', gap: 16, marginTop: 10, padding: '8px 12px',
+  borderRadius: 8, fontSize: 12, alignItems: 'center',
+  border: '1px solid rgba(255,255,255,0.04)',
 }
 
 // ─── Helper Functions ───────────────────────────────────────────────────────────
@@ -1478,6 +1533,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
+          { key: 'photos' as TabKey, label: 'Photos' },
           { key: 'calculators' as TabKey, label: 'Calculators' },
           { key: 'design' as TabKey, label: 'Design' },
           { key: 'production' as TabKey, label: 'Production' },
@@ -1976,6 +2032,85 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
       )}
 
+      {activeTab === 'photos' && (
+        <div style={{ ...cardStyle }}>
+          <div style={{ ...sectionPad }}>
+            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 16 }}>
+              <Camera size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
+              Photos
+            </div>
+
+            {/* Intake Photos */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                  <Upload size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+                  Intake Photos
+                </div>
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 32, border: '2px dashed var(--border)', borderRadius: 10,
+                background: 'var(--bg)', cursor: 'pointer', color: 'var(--text3)', fontSize: 13,
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Upload size={24} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
+                  <div>Drop photos here or click to upload</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Customer vehicle intake photos</div>
+                </div>
+              </div>
+              {/* Vehicle profiles from intake */}
+              {est.form_data?.vehicleProfiles && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
+                    Vehicle Profiles from Intake
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 12px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                    Vehicle profile data from intake forms will appear here.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Before Photos */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 10 }}>
+                <Image size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+                Before Photos
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 24, border: '2px dashed var(--border)', borderRadius: 10,
+                background: 'var(--bg)', cursor: 'pointer', color: 'var(--text3)', fontSize: 13,
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Upload size={20} style={{ margin: '0 auto 6px', display: 'block', opacity: 0.5 }} />
+                  <div>Upload before photos</div>
+                </div>
+              </div>
+            </div>
+
+            {/* After Photos */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 10 }}>
+                <Image size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+                After Photos
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 24, border: '2px dashed var(--border)', borderRadius: 10,
+                background: 'var(--bg)', cursor: 'pointer', color: 'var(--text3)', fontSize: 13,
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Upload size={20} style={{ margin: '0 auto 6px', display: 'block', opacity: 0.5 }} />
+                  <div>Upload after photos</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'calculators' && (
         <EstimateCalculators
           onAddLineItems={(newItems) => {
@@ -2441,6 +2576,22 @@ function CollapsibleHeader({
 // VEHICLE AUTOCOMPLETE
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Vehicle silhouette SVG based on tier
+function VehicleSilhouette({ tier }: { tier: string }) {
+  const t = tier.toLowerCase()
+  if (t.includes('truck') || t.includes('pickup')) {
+    return <svg width="60" height="32" viewBox="0 0 60 32" fill="none"><path d="M4 24h4a4 4 0 008 0h16a4 4 0 008 0h8V16l-6-8H30l-2-2H8L4 10v14z" stroke="var(--text3)" strokeWidth="1.5" fill="rgba(79,127,255,0.08)"/><circle cx="12" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/><circle cx="40" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/></svg>
+  }
+  if (t.includes('van') || t.includes('high_roof')) {
+    return <svg width="60" height="32" viewBox="0 0 60 32" fill="none"><path d="M4 24h6a4 4 0 008 0h20a4 4 0 008 0h4V8a4 4 0 00-4-4H14L4 12v12z" stroke="var(--text3)" strokeWidth="1.5" fill="rgba(79,127,255,0.08)"/><circle cx="14" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/><circle cx="42" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/></svg>
+  }
+  if (t.includes('suv') || t.includes('full_car')) {
+    return <svg width="60" height="32" viewBox="0 0 60 32" fill="none"><path d="M6 24h4a4 4 0 008 0h20a4 4 0 008 0h4V14l-8-8H18l-8 6L6 18v6z" stroke="var(--text3)" strokeWidth="1.5" fill="rgba(79,127,255,0.08)"/><circle cx="14" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/><circle cx="42" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/></svg>
+  }
+  // default: sedan / small car
+  return <svg width="60" height="32" viewBox="0 0 60 32" fill="none"><path d="M6 24h6a4 4 0 008 0h16a4 4 0 008 0h6v-6l-4-4-6-6H22l-8 6-4 4L6 22v2z" stroke="var(--text3)" strokeWidth="1.5" fill="rgba(79,127,255,0.08)"/><circle cx="16" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/><circle cx="40" cy="24" r="3" stroke="var(--text3)" strokeWidth="1.5"/></svg>
+}
+
 function VehicleAutocomplete({
   specs, updateSpec, handleBlur, canWrite, onVehicleSelect,
 }: {
@@ -2450,40 +2601,39 @@ function VehicleAutocomplete({
   canWrite: boolean
   onVehicleSelect: (v: VehicleEntry) => void
 }) {
-  const [makeOpen, setMakeOpen] = useState(false)
-  const [modelOpen, setModelOpen] = useState(false)
-  const [makeFilter, setMakeFilter] = useState('')
-  const [modelFilter, setModelFilter] = useState('')
-  const makeRef = useRef<HTMLDivElement>(null)
-  const modelRef = useRef<HTMLDivElement>(null)
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (makeRef.current && !makeRef.current.contains(e.target as Node)) setMakeOpen(false)
-      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
+  const currentYear = (specs.vehicleYear as string) || ''
   const currentMake = (specs.vehicleMake as string) || ''
   const currentModel = (specs.vehicleModel as string) || ''
 
-  const filteredMakes = makeFilter
-    ? ALL_MAKES.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
-    : ALL_MAKES
+  const yearNum = currentYear ? parseInt(currentYear) : 0
+  const availableMakes = yearNum > 0 ? getMakesForYear(yearNum) : ALL_MAKES
+  const availableModels = currentMake
+    ? (yearNum > 0 ? getModelsForMakeYear(currentMake, yearNum) : getModelsForMake(currentMake))
+    : []
 
-  const availableModels = currentMake ? getModelsForMake(currentMake) : []
-  const filteredModels = modelFilter
-    ? availableModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase()))
-    : availableModels
+  function selectYear(yr: string) {
+    updateSpec('vehicleYear', yr)
+    const y = parseInt(yr)
+    // If current make is not available for this year, clear it
+    if (currentMake && y > 0) {
+      const makes = getMakesForYear(y)
+      if (!makes.includes(currentMake)) {
+        updateSpec('vehicleMake', '')
+        updateSpec('vehicleModel', '')
+      } else if (currentModel) {
+        const models = getModelsForMakeYear(currentMake, y)
+        if (!models.includes(currentModel)) {
+          updateSpec('vehicleModel', '')
+        } else {
+          const v = findVehicle(currentMake, currentModel, yr)
+          if (v) onVehicleSelect(v)
+        }
+      }
+    }
+  }
 
   function selectMake(make: string) {
     updateSpec('vehicleMake', make)
-    setMakeOpen(false)
-    setMakeFilter('')
-    // Clear model when make changes
     if (make !== currentMake) {
       updateSpec('vehicleModel', '')
     }
@@ -2491,153 +2641,118 @@ function VehicleAutocomplete({
 
   function selectModel(model: string) {
     updateSpec('vehicleModel', model)
-    setModelOpen(false)
-    setModelFilter('')
-    // Auto-populate from vehicle DB
-    const v = findVehicle(currentMake, model, specs.vehicleYear as string)
+    const v = findVehicle(currentMake, model, currentYear)
     if (v) onVehicleSelect(v)
     handleBlur()
   }
 
-  const dropdownStyle: React.CSSProperties = {
-    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-    background: 'var(--surface)', border: '1px solid var(--border)',
-    borderRadius: 8, marginTop: 2, maxHeight: 200, overflowY: 'auto',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-  }
-  const optionStyle: React.CSSProperties = {
-    padding: '7px 12px', fontSize: 12, color: 'var(--text1)', cursor: 'pointer',
-    borderBottom: '1px solid var(--border)',
-  }
+  const matchedVehicle = currentMake && currentModel ? findVehicle(currentMake, currentModel, currentYear) : null
 
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ ...fieldLabelStyle, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
         <Car size={11} style={{ color: 'var(--accent)' }} /> Vehicle Info
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
-        {/* Year - free type */}
-        <div>
-          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
-          <input
-            value={specs.vehicleYear || ''}
-            onChange={e => updateSpec('vehicleYear', e.target.value)}
-            onBlur={() => {
-              // Re-lookup vehicle on year change
-              if (currentMake && currentModel) {
-                const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
-                if (v) onVehicleSelect(v)
-              }
-              handleBlur()
-            }}
-            style={{ ...fieldInputStyle, fontSize: 12 }}
-            disabled={!canWrite}
-            placeholder="2024"
-          />
-        </div>
-
-        {/* Make - autocomplete */}
-        <div ref={makeRef} style={{ position: 'relative' }}>
-          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
-          <input
-            value={makeOpen ? makeFilter : currentMake}
-            onChange={e => { setMakeFilter(e.target.value); if (!makeOpen) setMakeOpen(true) }}
-            onFocus={() => setMakeOpen(true)}
-            style={{ ...fieldInputStyle, fontSize: 12 }}
-            disabled={!canWrite}
-            placeholder="Search makes..."
-          />
-          {makeOpen && filteredMakes.length > 0 && (
-            <div style={dropdownStyle}>
-              {filteredMakes.map(m => (
-                <div key={m} style={optionStyle}
-                  onMouseDown={() => selectMake(m)}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                >
-                  {m}
-                </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        {/* Vehicle silhouette */}
+        {matchedVehicle && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 64 }}>
+            <VehicleSilhouette tier={matchedVehicle.tier} />
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr 100px', gap: 8, flex: 1, minWidth: 0 }}>
+          {/* Year - dropdown */}
+          <div>
+            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
+            <select
+              value={currentYear}
+              onChange={e => selectYear(e.target.value)}
+              style={{ ...fieldSelectStyle, fontSize: 12 }}
+              disabled={!canWrite}
+            >
+              <option value="">Year</option>
+              {ALL_YEARS.map(y => (
+                <option key={y} value={String(y)}>{y}</option>
               ))}
-            </div>
-          )}
-        </div>
+            </select>
+          </div>
 
-        {/* Model - autocomplete filtered by make */}
-        <div ref={modelRef} style={{ position: 'relative' }}>
-          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Model</label>
-          <input
-            value={modelOpen ? modelFilter : currentModel}
-            onChange={e => { setModelFilter(e.target.value); if (!modelOpen) setModelOpen(true) }}
-            onFocus={() => { if (currentMake) setModelOpen(true) }}
-            style={{ ...fieldInputStyle, fontSize: 12 }}
-            disabled={!canWrite || !currentMake}
-            placeholder={currentMake ? 'Search models...' : 'Select make first'}
-          />
-          {modelOpen && filteredModels.length > 0 && (
-            <div style={dropdownStyle}>
-              {filteredModels.map(m => {
-                const v = findVehicle(currentMake, m)
+          {/* Make - dropdown */}
+          <div>
+            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
+            <select
+              value={currentMake}
+              onChange={e => selectMake(e.target.value)}
+              style={{ ...fieldSelectStyle, fontSize: 12 }}
+              disabled={!canWrite}
+            >
+              <option value="">Select Make</option>
+              {availableMakes.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Model - dropdown */}
+          <div>
+            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Model</label>
+            <select
+              value={currentModel}
+              onChange={e => selectModel(e.target.value)}
+              style={{ ...fieldSelectStyle, fontSize: 12 }}
+              disabled={!canWrite || !currentMake}
+            >
+              <option value="">{currentMake ? 'Select Model' : 'Select make first'}</option>
+              {availableModels.map(m => {
+                const v = findVehicle(currentMake, m, currentYear)
                 return (
-                  <div key={m} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    onMouseDown={() => selectModel(m)}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <span>{m}</span>
-                    {v && v.sqft > 0 && (
-                      <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
-                        {v.sqft}sqft · ${v.basePrice}
-                      </span>
-                    )}
-                  </div>
+                  <option key={m} value={m}>
+                    {m}{v && v.sqft > 0 ? ` (${v.sqft}sqft)` : ''}
+                  </option>
                 )
               })}
-            </div>
-          )}
-        </div>
+            </select>
+          </div>
 
-        {/* Color - free type */}
-        <div>
-          <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Color</label>
-          <input
-            value={specs.vehicleColor || ''}
-            onChange={e => updateSpec('vehicleColor', e.target.value)}
-            onBlur={handleBlur}
-            style={{ ...fieldInputStyle, fontSize: 12 }}
-            disabled={!canWrite}
-            placeholder="White"
-          />
+          {/* Color */}
+          <div>
+            <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Color</label>
+            <input
+              value={specs.vehicleColor || ''}
+              onChange={e => updateSpec('vehicleColor', e.target.value)}
+              onBlur={handleBlur}
+              style={{ ...fieldInputStyle, fontSize: 12 }}
+              disabled={!canWrite}
+              placeholder="White"
+            />
+          </div>
         </div>
       </div>
 
       {/* Auto-populated info badge */}
-      {currentMake && currentModel && (() => {
-        const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
-        if (!v || v.sqft === 0) return null
-        return (
-          <div style={{
-            display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
-            background: 'rgba(34,192,122,0.06)', borderRadius: 6,
-            border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
-          }}>
-            <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-              PVO Data
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
-              {v.sqft} sqft
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
-              ${v.basePrice}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
-              {v.installHours}hrs
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--text3)' }}>
-              {v.tier.replace('_', ' ')}
-            </span>
-          </div>
-        )
-      })()}
+      {matchedVehicle && matchedVehicle.sqft > 0 && (
+        <div style={{
+          display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
+          background: 'rgba(34,192,122,0.06)', borderRadius: 6,
+          border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+            PVO Data
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+            {matchedVehicle.sqft} sqft
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+            ${matchedVehicle.basePrice}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+            {matchedVehicle.installHours}hrs
+          </span>
+          <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+            {matchedVehicle.tier.replace('_', ' ')}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -2665,7 +2780,7 @@ function VehicleInfoBlock({
       </div>
 
       {/* VIN Lookup Field */}
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 10, maxWidth: 400 }}>
         <VinLookupField
           value={(specs.vin as string) || ''}
           onChange={(vin) => {
@@ -2773,7 +2888,9 @@ function LineItemCard({
   const vType = (specs.vehicleType as string) || ''
   const productLineType = (specs.productLineType as string) || ''
   const isBoatProduct = calcType === 'marine' || calcType === 'decking' || vType === 'marine' || productLineType === 'boat_decking'
-  const isVehicleProduct = ['vehicle', 'box-truck', 'trailer', 'ppf', 'commercial_vehicle', 'box_truck'].includes(calcType) || ['commercial_vehicle', 'box_truck', 'trailer', 'ppf'].includes(productLineType) || (calcType === '' && !isBoatProduct && vType !== 'marine')
+  const NON_VEHICLE_TYPES = ['wall_wrap', 'signage', 'ppf', 'custom', 'boat_decking', 'apparel', 'print_media']
+  const VEHICLE_LINE_TYPES = ['commercial_vehicle', 'box_truck', 'trailer', 'marine']
+  const isVehicleProduct = VEHICLE_LINE_TYPES.includes(productLineType) || (!NON_VEHICLE_TYPES.includes(productLineType) && !isBoatProduct && ['vehicle', 'box-truck', 'trailer', 'commercial_vehicle', 'box_truck'].includes(calcType))
 
   const productTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
     wrap:    { label: 'WRAP',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
@@ -2781,7 +2898,19 @@ function LineItemCard({
     decking: { label: 'DECKING', color: 'var(--amber)',  bg: 'rgba(245,158,11,0.12)' },
     design:  { label: 'DESIGN',  color: 'var(--purple)', bg: 'rgba(139,92,246,0.12)' },
   }
-  const ptc = productTypeConfig[item.product_type] || { label: item.product_type.toUpperCase(), color: 'var(--text3)', bg: 'rgba(90,96,128,0.12)' }
+  // Override label based on productLineType for new types
+  const lineTypeLabels: Record<string, { label: string; color: string; bg: string }> = {
+    wall_wrap:    { label: 'WALL WRAP', color: 'var(--purple)', bg: 'rgba(139,92,246,0.12)' },
+    signage:      { label: 'SIGNAGE',   color: 'var(--amber)',  bg: 'rgba(245,158,11,0.12)' },
+    apparel:      { label: 'APPAREL',   color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.12)' },
+    print_media:  { label: 'PRINT',     color: 'var(--text2)',  bg: 'rgba(90,96,128,0.15)' },
+    box_truck:    { label: 'BOX TRUCK', color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
+    trailer:      { label: 'TRAILER',   color: 'var(--amber)',  bg: 'rgba(245,158,11,0.12)' },
+    marine:       { label: 'MARINE',    color: 'var(--cyan)',   bg: 'rgba(34,211,238,0.12)' },
+    boat_decking: { label: 'DECKING',   color: 'var(--green)',  bg: 'rgba(34,192,122,0.12)' },
+    commercial_vehicle: { label: 'VEHICLE', color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
+  }
+  const ptc = (productLineType && lineTypeLabels[productLineType]) || productTypeConfig[item.product_type] || { label: item.product_type.toUpperCase(), color: 'var(--text3)', bg: 'rgba(90,96,128,0.12)' }
 
   const isRolledUp = !!(item.is_rolled_up || (item.specs as Record<string, unknown>)?.rolledUp)
   const hasRolledUpChildren = (rolledUpChildrenTotal ?? 0) > 0
@@ -2797,145 +2926,147 @@ function LineItemCard({
       marginLeft: isRolledUp ? 24 : 0,
       opacity: isRolledUp ? 0.75 : 1,
     }}>
-      {/* ── Header Row ─────────────────────────────────────────────────── */}
+      {/* ── Header Row (Compact ShopVox-style) ──────────────────────── */}
       <div
         style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: isRolledUp ? '8px 12px' : '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: isRolledUp ? '6px 10px' : '8px 12px',
+          cursor: 'pointer',
         }}
+        onClick={() => setIsCardExpanded(!isCardExpanded)}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-          <button
-            onClick={() => setIsCardExpanded(!isCardExpanded)}
-            style={{
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--text3)', padding: 2, display: 'flex', alignItems: 'center',
-            }}
-          >
-            <ChevronRight size={14} style={{
-              transform: isCardExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s',
-            }} />
-          </button>
+        {/* Drag handle */}
+        {canWrite && !isRolledUp && (
+          <GripVertical size={14} style={{ color: 'var(--text3)', opacity: 0.4, flexShrink: 0, cursor: 'grab' }} onClick={e => e.stopPropagation()} />
+        )}
+        {/* Expand chevron */}
+        <ChevronRight size={13} style={{
+          transform: isCardExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s', color: 'var(--text3)', flexShrink: 0,
+        }} />
+        {/* Line item number */}
+        <span style={{
+          fontFamily: monoFont, fontVariantNumeric: 'tabular-nums',
+          fontSize: 11, color: 'var(--text3)', fontWeight: 700, minWidth: 18, textAlign: 'center' as const, flexShrink: 0,
+        }}>
+          {index + 1}
+        </span>
+        {/* Rolled-up badge */}
+        {isRolledUp && (
           <span style={{
-            ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' },
-            fontSize: 12, color: 'var(--text3)', fontWeight: 700, minWidth: 20,
-          }}>
-            {index + 1}
-          </span>
-          {isRolledUp && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', padding: '2px 6px',
-              borderRadius: 4, fontSize: 9, fontWeight: 800,
-              letterSpacing: '0.05em', fontFamily: headingFont,
-              color: 'var(--text3)', background: 'rgba(90,96,128,0.15)',
-            }}>
-              ROLLED UP
-            </span>
-          )}
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
-            borderRadius: 4, fontSize: 10, fontWeight: 800,
+            display: 'inline-flex', alignItems: 'center', padding: '1px 5px',
+            borderRadius: 3, fontSize: 8, fontWeight: 800,
             letterSpacing: '0.05em', fontFamily: headingFont,
-            color: ptc.color, background: ptc.bg,
+            color: 'var(--text3)', background: 'rgba(90,96,128,0.15)', flexShrink: 0,
           }}>
-            {ptc.label}
+            ROLLED UP
           </span>
+        )}
+        {/* Type badge */}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', padding: '2px 7px',
+          borderRadius: 4, fontSize: 9, fontWeight: 800,
+          letterSpacing: '0.05em', fontFamily: headingFont,
+          color: ptc.color, background: ptc.bg, flexShrink: 0,
+        }}>
+          {ptc.label}
+        </span>
+        {/* Product name */}
+        <span style={{
+          fontSize: isRolledUp ? 12 : 13, fontWeight: 700, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+          minWidth: 0, flexShrink: 1,
+        }}>
+          {item.name || 'Untitled Item'}
+        </span>
+        {/* Collapsed summary chips */}
+        {!isCardExpanded && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
+            {vehicleDesc && (
+              <span style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap' as const }}>
+                {vehicleDesc}
+              </span>
+            )}
+            {(specs.wrapType || specs.trailerCoverage) && (
+              <span style={{ fontSize: 10, color: 'var(--text2)', background: 'rgba(90,96,128,0.1)', padding: '1px 6px', borderRadius: 3, whiteSpace: 'nowrap' as const }}>
+                {(specs.wrapType as string) || ((specs.trailerCoverage as string) || '').replace('_', ' ')}
+              </span>
+            )}
+            {(specs.vinylArea as number) > 0 && (
+              <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: monoFont, whiteSpace: 'nowrap' as const }}>
+                {specs.vinylArea}sqft
+              </span>
+            )}
+            {(specs.estimatedHours as number) > 0 && (
+              <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: monoFont, whiteSpace: 'nowrap' as const }}>
+                {specs.estimatedHours}h
+              </span>
+            )}
+            {item.quantity > 1 && (
+              <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
+                x{item.quantity}
+              </span>
+            )}
+            {(specs.mockupImages as unknown) && (
+              <Paintbrush size={12} style={{ color: 'var(--purple)', flexShrink: 0 }} />
+            )}
+          </div>
+        )}
+        {/* Price */}
+        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: isCardExpanded ? 'auto' : 8 }}>
           <span style={{
-            fontSize: isRolledUp ? 13 : 14, fontWeight: 700, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+            fontFamily: monoFont, fontVariantNumeric: 'tabular-nums',
+            fontSize: isRolledUp ? 13 : 15, fontWeight: 800, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
           }}>
-            {item.name || 'Untitled Item'}
+            {fmtCurrency(isRolledUp ? item.total_price : displayTotal)}
           </span>
-          {vehicleDesc && (
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-              -- {vehicleDesc}
-            </span>
+          {hasRolledUpChildren && !isRolledUp && (
+            <div style={{ fontSize: 8, color: 'var(--text3)', fontFamily: monoFont }}>
+              incl. rolled-up
+            </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {/* Roll Up / Unroll buttons */}
+        {/* Action buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           {canWrite && isRolledUp && onUnroll && (
             <button
               onClick={onUnroll}
               title="Unroll this item"
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                background: 'rgba(90,96,128,0.15)', border: '1px solid var(--border, #2a2d3a)',
-                borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-                color: 'var(--text2)', fontSize: 10, fontWeight: 700,
-                fontFamily: headingFont, letterSpacing: '0.04em',
-                transition: 'all 0.15s',
+                display: 'inline-flex', alignItems: 'center', padding: '3px 6px',
+                background: 'rgba(90,96,128,0.15)', border: 'none',
+                borderRadius: 4, cursor: 'pointer', color: 'var(--text2)',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(90,96,128,0.3)'; e.currentTarget.style.color = 'var(--text1)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(90,96,128,0.15)'; e.currentTarget.style.color = 'var(--text2)' }}
             >
-              <UnfoldVertical size={12} />
-              UNROLL
+              <UnfoldVertical size={11} />
             </button>
           )}
           {canWrite && !isRolledUp && onRollUp && index > 0 && (
             <button
               onClick={onRollUp}
-              title="Roll up into the previous line item"
+              title="Roll up into previous item"
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.2)',
-                borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-                color: 'var(--accent)', fontSize: 10, fontWeight: 700,
-                fontFamily: headingFont, letterSpacing: '0.04em',
-                transition: 'all 0.15s',
+                display: 'inline-flex', alignItems: 'center', padding: '3px 6px',
+                background: 'rgba(79,127,255,0.1)', border: 'none',
+                borderRadius: 4, cursor: 'pointer', color: 'var(--accent)',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(79,127,255,0.2)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(79,127,255,0.1)' }}
             >
-              <FoldVertical size={12} />
-              ROLL UP
+              <FoldVertical size={11} />
             </button>
           )}
-          {/* Collapsed summary: qty, GPM badge */}
-          {!isCardExpanded && (
-            <>
-              {item.quantity > 1 && (
-                <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: monoFont }}>
-                  x{item.quantity}
-                </span>
-              )}
-              <span style={{
-                display: 'inline-flex', padding: '2px 7px', borderRadius: 4,
-                fontSize: 9, fontWeight: 800, letterSpacing: '0.05em',
-                fontFamily: headingFont, textTransform: 'uppercase' as const,
-                color: badge.color, background: badge.bg,
-              }}>
-                {fmtPercent(gpm.gpm)}
-              </span>
-            </>
-          )}
-          <div style={{ textAlign: 'right' }}>
-            <span style={{
-              ...{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums' },
-              fontSize: isRolledUp ? 14 : 16, fontWeight: 800, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
-            }}>
-              {fmtCurrency(isRolledUp ? item.total_price : displayTotal)}
-            </span>
-            {hasRolledUpChildren && !isRolledUp && (
-              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: monoFont, marginTop: 1 }}>
-                incl. rolled-up
-              </div>
-            )}
-          </div>
           {canWrite && (
             <button
               onClick={onRemove}
+              title="Delete"
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text3)', padding: 4, display: 'flex', alignItems: 'center',
+                color: 'var(--text3)', padding: 3, display: 'flex', alignItems: 'center',
                 transition: 'color 0.15s',
               }}
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text3)')}
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
             </button>
           )}
         </div>
@@ -3244,12 +3375,9 @@ function LineItemCard({
 
           {/* â”€â”€ Commercial Vehicle 3Ã—3 Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {isVehicleProduct && (
-            <div style={{
-              marginTop: 12, padding: 14, background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 10,
-            }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Car size={12} style={{ color: 'var(--accent)' }} /> 3Ã—3 Quick Select
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
+                <Car size={12} style={{ color: 'var(--accent)' }} /> Quick Select
               </div>
               {(['Compact', 'Mid', 'Full'] as const).map(size => (
                 <div key={size} style={{ marginBottom: 8 }}>
@@ -3319,13 +3447,10 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Custom Product Calculator ──────────────────────────────── */}
-          {specs.vehicleType === 'custom' && (
-            <div style={{
-              marginTop: 12, padding: 14, background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 10,
-            }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+          {/* ── Custom Product Calculator Gadget ──────────────────────── */}
+          {specs.vehicleType === 'custom' && !['wall_wrap', 'signage', 'apparel', 'print_media'].includes(productLineType) && (
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
                 <Wrench size={12} style={{ color: 'var(--purple)' }} /> Custom Product
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
@@ -3363,13 +3488,10 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Box Truck Calculator ──────────────────────────────────── */}
+          {/* ── Box Truck Calculator Gadget ──────────────────────────── */}
           {specs.vehicleType === 'box_truck' && (
-            <div style={{
-              marginTop: 12, padding: 14, background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 10,
-            }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
                 <Car size={12} style={{ color: 'var(--accent)' }} /> Box Truck Dimensions
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
@@ -3460,13 +3582,10 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Trailer Calculator ────────────────────────────────────── */}
+          {/* ── Trailer Calculator Gadget ────────────────────────────── */}
           {specs.vehicleType === 'trailer' && (
-            <div style={{
-              marginTop: 12, padding: 14, background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 10,
-            }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
                 <Car size={12} style={{ color: 'var(--amber)' }} /> Trailer Dimensions
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
@@ -3563,13 +3682,10 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Marine/Decking Calculator ─────────────────────────────── */}
+          {/* ── Marine/Decking Calculator Gadget ─────────────────────── */}
           {specs.vehicleType === 'marine' && (
-            <div style={{
-              marginTop: 12, padding: 14, background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 10,
-            }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
                 <Layers size={12} style={{ color: 'var(--cyan)' }} /> Marine / Decking
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10 }}>
@@ -3656,13 +3772,10 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── PPF Calculator ────────────────────────────────────────── */}
+          {/* ── PPF Calculator Gadget ────────────────────────────────── */}
           {specs.vehicleType === 'ppf' && (
-            <div style={{
-              marginTop: 12, padding: 14, background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 10,
-            }}>
-              <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
                 <CircleDot size={12} style={{ color: 'var(--cyan)' }} /> PPF Packages
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
@@ -3722,6 +3835,233 @@ function LineItemCard({
             </div>
           )}
 
+          {/* ── Wall Wrap Calculator Gadget (NEW) ──────────────────────── */}
+          {productLineType === 'wall_wrap' && (
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
+                <Layers size={12} style={{ color: 'var(--purple)' }} /> Wall Wrap Calculator
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (ft)</label>
+                  <input type="number" value={(specs.wallWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value)
+                    const h = (specs.wallHeight as number) || 0
+                    const numWalls = (specs.numWalls as number) || 1
+                    const deduction = (specs.windowDoorDeduction as boolean) ? 0.85 : 1
+                    const sqft = Math.round(w * h * numWalls * deduction)
+                    updateSpec('wallWidth', w)
+                    setTimeout(() => updateSpec('vinylArea', sqft), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (ft)</label>
+                  <input type="number" value={(specs.wallHeight as number) || ''} onChange={e => {
+                    const h = Number(e.target.value)
+                    const w = (specs.wallWidth as number) || 0
+                    const numWalls = (specs.numWalls as number) || 1
+                    const deduction = (specs.windowDoorDeduction as boolean) ? 0.85 : 1
+                    const sqft = Math.round(w * h * numWalls * deduction)
+                    updateSpec('wallHeight', h)
+                    setTimeout(() => updateSpec('vinylArea', sqft), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Num Walls</label>
+                  <input type="number" value={(specs.numWalls as number) || 1} onChange={e => {
+                    const n = Number(e.target.value)
+                    const w = (specs.wallWidth as number) || 0
+                    const h = (specs.wallHeight as number) || 0
+                    const deduction = (specs.windowDoorDeduction as boolean) ? 0.85 : 1
+                    const sqft = Math.round(w * h * n * deduction)
+                    updateSpec('numWalls', n)
+                    setTimeout(() => updateSpec('vinylArea', sqft), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={1} max={20} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Win/Door Deduct</label>
+                  <button
+                    onClick={() => {
+                      if (!canWrite) return
+                      const newVal = !(specs.windowDoorDeduction as boolean)
+                      const w = (specs.wallWidth as number) || 0
+                      const h = (specs.wallHeight as number) || 0
+                      const n = (specs.numWalls as number) || 1
+                      const deduction = newVal ? 0.85 : 1
+                      updateSpec('windowDoorDeduction', newVal)
+                      setTimeout(() => updateSpec('vinylArea', Math.round(w * h * n * deduction)), 0)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.windowDoorDeduction as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.windowDoorDeduction as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.windowDoorDeduction as boolean) ? '-15%' : 'No'}
+                  </button>
+                </div>
+              </div>
+              {/* Material selector */}
+              <div style={{ marginTop: 10 }}>
+                <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {WALL_WRAP_MATERIALS.map(mat => {
+                    const selected = (specs.wallMaterial as string) === mat.key
+                    return (
+                      <button key={mat.key} onClick={() => {
+                        if (!canWrite) return
+                        updateSpec('wallMaterial', mat.key)
+                        const sqft = (specs.vinylArea as number) || 0
+                        if (sqft > 0) updateSpec('materialCost', Math.round(sqft * mat.costPerSqft * 100) / 100)
+                      }} style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                        cursor: canWrite ? 'pointer' : 'default',
+                        border: selected ? '2px solid var(--purple)' : '1px solid var(--border)',
+                        background: selected ? 'rgba(139,92,246,0.08)' : 'transparent',
+                        color: selected ? 'var(--purple)' : 'var(--text3)',
+                      }}>
+                        {mat.label} <span style={{ fontFamily: monoFont }}>${mat.costPerSqft}</span>/sqft
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              {/* Outputs */}
+              {(specs.wallWidth as number) > 0 && (specs.wallHeight as number) > 0 && (
+                <div style={{ ...gadgetOutputStyle, background: 'rgba(139,92,246,0.06)' }}>
+                  <span style={{ color: 'var(--text2)' }}>Total Sqft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.vinylArea || 0}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Panels (4x8): <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{Math.ceil(((specs.vinylArea as number) || 0) / 32)}</span></span>
+                  {specs.materialCost && (
+                    <span style={{ color: 'var(--purple)', fontWeight: 700 }}>Material: <span style={{ fontFamily: monoFont }}>{fmtCurrency(specs.materialCost || 0)}</span></span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Signage Calculator Gadget (NEW) ─────────────────────────── */}
+          {productLineType === 'signage' && (
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
+                <Layers size={12} style={{ color: 'var(--amber)' }} /> Signage Calculator
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Sign Type</label>
+                  <select
+                    value={(specs.signType as string) || ''}
+                    onChange={e => updateSpec('signType', e.target.value)}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="">Select Type</option>
+                    {SIGNAGE_TYPES.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (in)</label>
+                  <input type="number" value={(specs.signWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value)
+                    const h = (specs.signHeight as number) || 0
+                    const qty = (specs.signQuantity as number) || 1
+                    const sqft = Math.round((w * h / 144) * 100) / 100
+                    updateSpec('signWidth', w)
+                    setTimeout(() => updateSpec('vinylArea', sqft * qty), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (in)</label>
+                  <input type="number" value={(specs.signHeight as number) || ''} onChange={e => {
+                    const h = Number(e.target.value)
+                    const w = (specs.signWidth as number) || 0
+                    const qty = (specs.signQuantity as number) || 1
+                    const sqft = Math.round((w * h / 144) * 100) / 100
+                    updateSpec('signHeight', h)
+                    setTimeout(() => updateSpec('vinylArea', sqft * qty), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Quantity</label>
+                  <input type="number" value={(specs.signQuantity as number) || 1} onChange={e => {
+                    const qty = Number(e.target.value)
+                    const w = (specs.signWidth as number) || 0
+                    const h = (specs.signHeight as number) || 0
+                    const sqft = Math.round((w * h / 144) * 100) / 100
+                    updateSpec('signQuantity', qty)
+                    setTimeout(() => updateSpec('vinylArea', sqft * qty), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={1} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3" style={{ gap: 10, marginTop: 8 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Double-Sided</label>
+                  <button
+                    onClick={() => { if (canWrite) updateSpec('doubleSided', !(specs.doubleSided as boolean)) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.doubleSided as boolean) ? 'var(--green)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.doubleSided as boolean) ? <ToggleRight size={18} style={{ color: 'var(--green)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.doubleSided as boolean) ? 'Yes' : 'No'}
+                  </button>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Rush Order</label>
+                  <button
+                    onClick={() => { if (canWrite) updateSpec('rushOrder', !(specs.rushOrder as boolean)) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'transparent', border: 'none', cursor: canWrite ? 'pointer' : 'default',
+                      padding: '4px 0', color: (specs.rushOrder as boolean) ? 'var(--red)' : 'var(--text3)', fontSize: 12,
+                    }}
+                  >
+                    {(specs.rushOrder as boolean) ? <ToggleRight size={18} style={{ color: 'var(--red)' }} /> : <ToggleLeft size={18} />}
+                    {(specs.rushOrder as boolean) ? 'Rush (+25%)' : 'No'}
+                  </button>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material</label>
+                  <select
+                    value={(specs.signMaterial as string) || ''}
+                    onChange={e => {
+                      const matKey = e.target.value
+                      updateSpec('signMaterial', matKey)
+                      const mat = SIGNAGE_MATERIALS.find(m => m.key === matKey)
+                      if (mat) {
+                        const sqft = (specs.vinylArea as number) || 0
+                        const doubleSided = (specs.doubleSided as boolean) ? 2 : 1
+                        updateSpec('materialCost', Math.round(sqft * mat.costPerSqft * doubleSided * 100) / 100)
+                      }
+                    }}
+                    style={fieldSelectStyle} disabled={!canWrite}
+                  >
+                    <option value="">Select Material</option>
+                    {SIGNAGE_MATERIALS.map(m => (
+                      <option key={m.key} value={m.key}>{m.label} (${m.costPerSqft}/sqft)</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {/* Outputs */}
+              {(specs.signWidth as number) > 0 && (specs.signHeight as number) > 0 && (
+                <div style={{ ...gadgetOutputStyle, background: 'rgba(245,158,11,0.06)' }}>
+                  <span style={{ color: 'var(--text2)' }}>Size: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.signWidth}&quot;x{specs.signHeight}&quot;</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Sqft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{((specs.vinylArea as number) || 0).toFixed(1)}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Qty: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.signQuantity as number) || 1}</span></span>
+                  {(specs.doubleSided as boolean) && <span style={{ fontSize: 10, color: 'var(--cyan)', fontWeight: 700 }}>2-SIDED</span>}
+                  {(specs.rushOrder as boolean) && <span style={{ fontSize: 10, color: 'var(--red)', fontWeight: 700 }}>RUSH</span>}
+                  {specs.materialCost && (
+                    <span style={{ color: 'var(--amber)', fontWeight: 700 }}>Material: <span style={{ fontFamily: monoFont }}>{fmtCurrency(specs.materialCost || 0)}</span></span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Add Description Link ───────────────────────────────────── */}
           {!showDescription && (
             <button
@@ -3748,77 +4088,6 @@ function LineItemCard({
               />
             </div>
           )}
-
-          {/* ═══════════════════════════════════════════════════════════════ */}
-          {/* GPM PRICING ENGINE (Collapsible)                              */}
-          {/* ═══════════════════════════════════════════════════════════════ */}
-          <div style={{ marginTop: 14 }}>
-            <CollapsibleHeader
-              icon={<Calculator size={13} style={{ color: 'var(--green)' }} />}
-              label="GPM Pricing Engine"
-              isOpen={expandedSections.gpm ?? false}
-              onToggle={() => onToggleSection('gpm')}
-              color="var(--text2)"
-            />
-            <div style={{
-              maxHeight: expandedSections.gpm ? 400 : 0,
-              overflow: 'hidden',
-              transition: 'max-height 0.2s ease',
-            }}>
-              <div style={{
-                background: 'var(--bg)', border: '1px solid var(--border)',
-                borderRadius: 10, padding: 16, marginTop: 4,
-              }}>
-                {/* Row 1: Sale, Material, Install */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginBottom: 12, fontSize: 13 }}>
-                  <GPMStat label="Sale" value={fmtCurrency(gpm.sale)} color="var(--text1)" />
-                  <GPMStat label="Material" value={fmtCurrency(gpm.materialCost)} color="var(--red)" />
-                  <GPMStat
-                    label="Install"
-                    value={`${fmtCurrency(gpm.laborCost)} (${gpm.estimatedHours}h x $${LABOR_RATE}/hr)`}
-                    color="var(--amber)"
-                  />
-                </div>
-                {/* Row 2: Design, Misc, COGS */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginBottom: 12, fontSize: 13 }}>
-                  <GPMStat label="Design" value={fmtCurrency(gpm.designFee)} color="var(--purple)" />
-                  <GPMStat label="Misc" value={fmtCurrency(gpm.miscCost)} color="var(--text3)" />
-                  <GPMStat label="COGS" value={fmtCurrency(gpm.cogs)} color="var(--red)" bold />
-                </div>
-                {/* Row 3: GP, GPM badge, Commission */}
-                <div style={{
-                  display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center',
-                  paddingTop: 12, borderTop: '1px solid var(--border)',
-                }}>
-                  <GPMStat label="GP" value={fmtCurrency(gpm.gp)} color="var(--green)" bold />
-                  <div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', fontFamily: headingFont }}>GPM</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                      <span style={{
-                        fontFamily: monoFont, fontVariantNumeric: 'tabular-nums',
-                        fontSize: 18, fontWeight: 800, color: badge.color,
-                      }}>
-                        {fmtPercent(gpm.gpm)}
-                      </span>
-                      <span style={{
-                        display: 'inline-flex', padding: '2px 8px', borderRadius: 4,
-                        fontSize: 10, fontWeight: 800, letterSpacing: '0.05em',
-                        fontFamily: headingFont, textTransform: 'uppercase' as const,
-                        color: badge.color, background: badge.bg,
-                      }}>
-                        {badge.label}
-                      </span>
-                    </div>
-                  </div>
-                  <GPMStat
-                    label="Commission"
-                    value={`${fmtCurrency(gpm.commission)} (${(gpm.commissionRate * 100).toFixed(1)}% rate)`}
-                    color="var(--cyan)"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* ═══════════════════════════════════════════════════════════════ */}
           {/* PRICING BREAKDOWN (Collapsible)                               */}
@@ -4084,32 +4353,6 @@ function LineItemCard({
             </div>
           </div>
 
-          {/* ── Photo Inspection (vehicle products) ────────────────────── */}
-          {isVehicleProduct && (
-            <div style={{ marginTop: 14 }}>
-              <CollapsibleHeader
-                icon={<Image size={13} style={{ color: 'var(--amber)' }} />}
-                label="Photo Inspection"
-                isOpen={expandedSections.photos ?? false}
-                onToggle={() => onToggleSection('photos')}
-                color="var(--text2)"
-              />
-              <div style={{
-                maxHeight: expandedSections.photos ? 800 : 0,
-                overflow: 'hidden',
-                transition: 'max-height 0.3s ease',
-              }}>
-                <PhotoInspection
-                  lineItemId={item.id}
-                  specs={specs}
-                  updateSpec={updateSpec}
-                  canWrite={canWrite}
-                  orgId=""
-                />
-              </div>
-            </div>
-          )}
-
           {/* ── Generate Mockup button ─────────────────────────────────── */}
           {isVehicleProduct && (
             <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
@@ -4134,6 +4377,27 @@ function LineItemCard({
             updateSpec={updateSpec}
             vehicleInfo={vehicleDesc || item.name}
           />
+
+          {/* ── Save This Line Item ────────────────────────────────────── */}
+          {canWrite && (
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={() => { handleBlur(); setIsCardExpanded(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--green)', border: 'none',
+                  borderRadius: 10, padding: '10px 28px', color: '#fff',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: headingFont, letterSpacing: '0.04em',
+                  textTransform: 'uppercase' as const,
+                  boxShadow: '0 2px 12px rgba(34,192,122,0.3)',
+                }}
+              >
+                <Save size={14} />
+                Save This Line Item
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
