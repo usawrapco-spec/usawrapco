@@ -117,14 +117,8 @@ const NAV: NavItem[] = [
   },
   {
     href: '/inbox',
-    label: 'AI Broker',
-    icon: Inbox,
-    permission: 'sales.read',
-  },
-  {
-    href: '/communications',
-    label: 'Messages',
-    icon: MessageSquare,
+    label: 'Inbox',
+    icon: Mail,
     permission: 'sales.read',
   },
   {
@@ -271,6 +265,8 @@ const NAV: NavItem[] = [
       { href: '/overhead',   label: 'Shop Expenses' },
       { href: '/1099',       label: 'Commissions' },
       { href: '/payroll',    label: 'Payroll' },
+      { href: '/settings/coupons', label: 'Coupons' },
+      { href: '/settings/email',   label: 'Email' },
     ],
   },
 ]

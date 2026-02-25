@@ -7,9 +7,11 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import type { Profile } from '@/types'
 import CommHubClient from '@/components/comms/CommHubClient'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
-export default async function InboxPage() {
+export default async function ConversationPage({
+  params,
+}: {
+  params: { conversationId: string }
+}) {
   const supabase = createClient()
   const {
     data: { user },
@@ -33,12 +35,10 @@ export default async function InboxPage() {
         overflow: 'hidden',
       }}
     >
-      {/* Desktop sidebar */}
       <div className="hidden md:flex" style={{ flexShrink: 0, height: '100%' }}>
         <Sidebar profile={profile as Profile} />
       </div>
 
-      {/* Main content */}
       <div
         style={{
           flex: 1,
@@ -49,14 +49,11 @@ export default async function InboxPage() {
         }}
       >
         <TopNav profile={profile as Profile} />
-        <main
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            paddingBottom: 0,
-          }}
-        >
-          <CommHubClient profile={profile as Profile} />
+        <main style={{ flex: 1, overflow: 'hidden', paddingBottom: 0 }}>
+          <CommHubClient
+            profile={profile as Profile}
+            initialConversationId={params.conversationId}
+          />
         </main>
         <div className="md:hidden">
           <MobileNav />

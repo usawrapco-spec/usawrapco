@@ -54,7 +54,7 @@ const CREATE_ITEMS = [
 /* ─── More panel items — grouped by section ──────────────────────── */
 const MORE_ITEMS = [
   // Chat
-  { href: '/inbox',        label: 'Chat',           icon: MessageCircle },
+  { href: '/inbox',        label: 'Inbox',          icon: MessageCircle },
   // Jobs
   { href: '/pipeline',     label: 'Job Board',      icon: Briefcase },
   { href: '/engine',       label: 'Engine',         icon: TrendingUp },

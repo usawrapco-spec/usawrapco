@@ -5,11 +5,9 @@ import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { Sidebar } from '@/components/layout/Sidebar'
 import type { Profile } from '@/types'
-import CommHubClient from '@/components/comms/CommHubClient'
+import EmailSettingsClient from '@/components/settings/EmailSettingsClient'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
-export default async function InboxPage() {
+export default async function EmailSettingsPage() {
   const supabase = createClient()
   const {
     data: { user },
@@ -24,6 +22,15 @@ export default async function InboxPage() {
     .single()
   if (!profile) redirect('/login')
 
+  const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
+  // Fetch templates
+  const { data: templates } = await admin
+    .from('email_templates')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('name')
+
   return (
     <div
       style={{
@@ -33,12 +40,10 @@ export default async function InboxPage() {
         overflow: 'hidden',
       }}
     >
-      {/* Desktop sidebar */}
       <div className="hidden md:flex" style={{ flexShrink: 0, height: '100%' }}>
         <Sidebar profile={profile as Profile} />
       </div>
 
-      {/* Main content */}
       <div
         style={{
           flex: 1,
@@ -52,11 +57,15 @@ export default async function InboxPage() {
         <main
           style={{
             flex: 1,
-            overflow: 'hidden',
-            paddingBottom: 0,
+            overflowY: 'auto',
+            padding: '24px 28px',
+            paddingBottom: 80,
           }}
         >
-          <CommHubClient profile={profile as Profile} />
+          <EmailSettingsClient
+            profile={profile as Profile}
+            templates={templates || []}
+          />
         </main>
         <div className="md:hidden">
           <MobileNav />

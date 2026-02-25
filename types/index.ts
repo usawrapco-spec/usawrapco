@@ -783,6 +783,40 @@ export interface PricingRule {
   updated_at: string
 }
 
+// ─── Coupon ──────────────────────────────────────────────────────────────────
+export interface Coupon {
+  id: string
+  org_id: string
+  code: string
+  title: string
+  description: string | null
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  min_order_amount: number
+  max_discount_amount: number | null
+  valid_from: string | null
+  valid_until: string | null
+  usage_limit: number | null
+  times_used: number
+  is_template: boolean
+  active: boolean
+  customer_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CouponRedemption {
+  id: string
+  org_id: string
+  coupon_id: string
+  customer_id: string | null
+  document_type: 'estimate' | 'sales_order' | 'invoice'
+  document_id: string
+  discount_applied: number
+  redeemed_at: string
+  coupon?: Coupon
+}
+
 // ─── Database type stub ────────────────────────────────────────────────────────
 export type Database = {
   public: {

@@ -1,17 +1,22 @@
-import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 import CustomerJobPortalClient from '@/components/portal/CustomerJobPortalClient'
 
 export default async function CustomerJobPortalPage({ params }: { params: { token: string } }) {
-  const supabase = createClient()
+  const supabase = getSupabaseAdmin()
 
   let salesOrder: any = null
   let lineItems: any[] = []
-  let project: any = null
-  let proofs: any[] = []
-  let photos: any[] = []
-  let comments: any[] = []
+  let projects: any[] = []
+  let estimates: any[] = []
+  let salesOrders: any[] = []
   let invoices: any[] = []
+  let coupons: any[] = []
+  let redemptions: any[] = []
+  let customer: any = null
   let isDemo = false
+
+  // Per-project nested data: { [projectId]: { proofs, photos, comments } }
+  let projectData: Record<string, { proofs: any[]; photos: any[]; comments: any[] }> = {}
 
   try {
     // 1. Load sales order by portal token
@@ -23,64 +28,94 @@ export default async function CustomerJobPortalPage({ params }: { params: { toke
 
     if (so) {
       salesOrder = so
-
-      // 2. Line items from the JSONB column on sales_orders
+      customer = so.customer
       lineItems = Array.isArray(so.line_items) ? so.line_items : []
 
-      // 3. Find the linked project
-      const { data: projectData } = await supabase
-        .from('projects')
-        .select('id, title, vehicle_desc, pipe_stage, status, type, created_at, install_date, revenue, form_data')
-        .or(`id.eq.${so.id},form_data->>sales_order_id.eq.${so.id}`)
-        .limit(1)
-
-      // Also try matching by customer + recent
-      if (!projectData?.length && so.customer_id) {
-        const { data: byCustomer } = await supabase
-          .from('projects')
-          .select('id, title, vehicle_desc, pipe_stage, status, type, created_at, install_date, revenue, form_data')
-          .eq('customer_id', so.customer_id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-        if (byCustomer?.length) project = byCustomer[0]
-      } else if (projectData?.length) {
-        project = projectData[0]
-      }
-
-      // 4. Load project-related data if we have a project
-      if (project) {
-        const [proofRes, photoRes, commentRes] = await Promise.all([
+      if (so.customer_id) {
+        // 2. Load ALL data for this customer in parallel
+        const [
+          projectsRes,
+          estimatesRes,
+          salesOrdersRes,
+          invoicesRes,
+          couponsRes,
+          redemptionsRes,
+        ] = await Promise.all([
           supabase
-            .from('design_proofs')
-            .select('id, file_url, version, status, created_at, feedback')
-            .eq('project_id', project.id)
+            .from('projects')
+            .select('id, title, vehicle_desc, pipe_stage, status, type, created_at, install_date, revenue, form_data, customer_id')
+            .eq('customer_id', so.customer_id)
             .order('created_at', { ascending: false }),
           supabase
-            .from('job_images')
-            .select('id, file_name, image_url, category, created_at')
-            .eq('project_id', project.id)
-            .order('created_at', { ascending: false })
-            .limit(20),
+            .from('estimates')
+            .select('id, estimate_number, title, subtotal, discount, discount_amount, tax_rate, tax_amount, total, status, quote_date, due_date, line_items, notes, customer_note')
+            .eq('customer_id', so.customer_id)
+            .order('created_at', { ascending: false }),
           supabase
-            .from('job_comments')
-            .select('id, body, author_name, created_at')
-            .eq('project_id', project.id)
-            .order('created_at', { ascending: false })
-            .limit(30),
+            .from('sales_orders')
+            .select('id, so_number, title, subtotal, discount, discount_amount, tax_rate, tax_amount, total, status, so_date, due_date, line_items, notes, portal_token')
+            .eq('customer_id', so.customer_id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('invoices')
+            .select('id, invoice_number, title, subtotal, discount, discount_amount, tax_rate, tax_amount, total, amount_paid, balance, balance_due, status, invoice_date, due_date, line_items, notes')
+            .eq('customer_id', so.customer_id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('coupons')
+            .select('*')
+            .eq('active', true)
+            .or(`customer_id.is.null,customer_id.eq.${so.customer_id}`),
+          supabase
+            .from('coupon_redemptions')
+            .select('*, coupon:coupons(*)')
+            .eq('customer_id', so.customer_id),
         ])
-        proofs = proofRes.data || []
-        photos = photoRes.data || []
-        comments = commentRes.data || []
-      }
 
-      // 5. Load invoices for the customer
-      if (so.customer_id) {
-        const { data: invData } = await supabase
-          .from('invoices')
-          .select('id, invoice_number, title, total, balance_due, status, due_date')
-          .eq('customer_id', so.customer_id)
-          .order('created_at', { ascending: false })
-        invoices = invData || []
+        projects = projectsRes.data || []
+        estimates = estimatesRes.data || []
+        salesOrders = salesOrdersRes.data || []
+        invoices = invoicesRes.data || []
+        coupons = (couponsRes.data || []).filter((c: any) => {
+          if (c.valid_until && new Date(c.valid_until) < new Date()) return false
+          if (c.usage_limit && c.times_used >= c.usage_limit) return false
+          return true
+        })
+        redemptions = redemptionsRes.data || []
+
+        // 3. Batch-load proofs/photos/comments for each project in parallel
+        if (projects.length > 0) {
+          const projectIds = projects.map((p: any) => p.id)
+          const [proofsRes, photosRes, commentsRes] = await Promise.all([
+            supabase
+              .from('design_proofs')
+              .select('id, file_url, version, status, created_at, feedback, project_id')
+              .in('project_id', projectIds)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('job_images')
+              .select('id, file_name, image_url, category, created_at, project_id')
+              .in('project_id', projectIds)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('job_comments')
+              .select('id, body, author_name, created_at, project_id')
+              .in('project_id', projectIds)
+              .order('created_at', { ascending: false }),
+          ])
+
+          const allProofs = proofsRes.data || []
+          const allPhotos = photosRes.data || []
+          const allComments = commentsRes.data || []
+
+          for (const p of projects) {
+            projectData[p.id] = {
+              proofs: allProofs.filter((x: any) => x.project_id === p.id),
+              photos: allPhotos.filter((x: any) => x.project_id === p.id),
+              comments: allComments.filter((x: any) => x.project_id === p.id),
+            }
+          }
+        }
       }
     }
   } catch {
@@ -91,13 +126,16 @@ export default async function CustomerJobPortalPage({ params }: { params: { toke
 
   return (
     <CustomerJobPortalClient
+      customer={customer}
       salesOrder={salesOrder}
       lineItems={lineItems}
-      project={project}
-      proofs={proofs}
-      photos={photos}
-      comments={comments}
+      projects={projects}
+      projectData={projectData}
+      estimates={estimates}
+      salesOrders={salesOrders}
       invoices={invoices}
+      coupons={coupons}
+      redemptions={redemptions}
       token={params.token}
       isDemo={isDemo}
     />

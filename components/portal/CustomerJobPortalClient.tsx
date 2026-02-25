@@ -12,7 +12,6 @@ import {
   Camera,
   MessageSquare,
   Send,
-  Eye,
   ThumbsUp,
   MessageCircle,
   Clock,
@@ -22,19 +21,27 @@ import {
   MapPin,
   CalendarCheck,
   Circle,
-  ChevronRight,
   X,
+  Tag,
+  Copy,
+  Check,
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface CustomerJobPortalProps {
+  customer: any
   salesOrder: any
   lineItems: any[]
-  project: any
-  proofs: any[]
-  photos: any[]
-  comments: any[]
+  projects: any[]
+  projectData: Record<string, { proofs: any[]; photos: any[]; comments: any[] }>
+  estimates: any[]
+  salesOrders: any[]
   invoices: any[]
+  coupons: any[]
+  redemptions: any[]
   token: string
   isDemo: boolean
 }
@@ -60,17 +67,50 @@ const DEMO_SO = {
   tax_amount: 264,
   total: 3464,
   discount: 0,
-  customer: { id: 'demo-c', contact_name: 'Mike Johnson', email: 'mike@example.com', phone: '253-555-0100' },
+  discount_amount: 0,
+  customer: { id: 'demo-c', name: 'Mike Johnson', email: 'mike@example.com', phone: '253-555-0100' },
 }
 const DEMO_ITEMS = [
   { id: 'li-1', name: 'Full Body Wrap', description: '3M 2080 Satin Black -- full coverage including bumpers', quantity: 1, unit_price: 2800, total_price: 2800, sort_order: 0 },
   { id: 'li-2', name: 'Chrome Delete', description: 'Gloss black vinyl overlay on all chrome trim', quantity: 1, unit_price: 400, total_price: 400, sort_order: 1 },
 ]
-const DEMO_PROJECT = {
-  id: 'demo-p', title: 'Ford F-150 Full Wrap', vehicle_desc: '2024 Ford F-150 XLT',
-  pipe_stage: 'production', status: 'active', type: 'Full Wrap',
-  created_at: new Date(Date.now() - 7 * 86400000).toISOString(), install_date: null,
-}
+const DEMO_PROJECTS = [
+  {
+    id: 'demo-p1', title: 'Ford F-150 Full Wrap', vehicle_desc: '2024 Ford F-150 XLT',
+    pipe_stage: 'production', status: 'active', type: 'Full Wrap',
+    created_at: new Date(Date.now() - 7 * 86400000).toISOString(), install_date: null,
+  },
+  {
+    id: 'demo-p2', title: 'Tesla Model 3 PPF', vehicle_desc: '2025 Tesla Model 3',
+    pipe_stage: 'sales_in', status: 'active', type: 'PPF',
+    created_at: new Date(Date.now() - 2 * 86400000).toISOString(), install_date: null,
+  },
+]
+const DEMO_ESTIMATES = [
+  {
+    id: 'demo-est-1', estimate_number: 'EST-1001', title: 'Tesla Model 3 PPF',
+    subtotal: 1800, discount: 0, discount_amount: 0, tax_rate: 0.0825, tax_amount: 148.5, total: 1948.5,
+    status: 'sent', quote_date: new Date().toISOString(), line_items: [
+      { id: 'eli-1', name: 'Full Front PPF', description: 'XPEL Ultimate Plus -- hood, fenders, bumper, mirrors', quantity: 1, unit_price: 1800, total_price: 1800, sort_order: 0 },
+    ],
+  },
+]
+const DEMO_COUPONS = [
+  {
+    id: 'demo-coupon-1', code: 'WELCOME10', title: '10% Off First Wrap',
+    description: 'New customer discount -- 10% off your first vehicle wrap',
+    discount_type: 'percent', discount_value: 10, min_order_amount: 500,
+    max_discount_amount: 500, valid_until: new Date(Date.now() + 30 * 86400000).toISOString(),
+    times_used: 0, usage_limit: 1, active: true, is_template: false,
+  },
+  {
+    id: 'demo-coupon-2', code: 'FLEET50', title: '$50 Off Fleet Order',
+    description: 'Discount for fleet customers with 3+ vehicles',
+    discount_type: 'fixed', discount_value: 50, min_order_amount: 1000,
+    max_discount_amount: null, valid_until: null,
+    times_used: 0, usage_limit: null, active: true, is_template: false,
+  },
+]
 
 // ─── Colors (light customer-facing theme) ───────────────────────────────────────
 const C = {
@@ -93,11 +133,13 @@ const C = {
   amberBg: '#fffbeb',
   amberBorder: '#fde68a',
   purple: '#8b5cf6',
+  purpleBg: '#f5f3ff',
+  purpleBorder: '#ddd6fe',
   cyan: '#06b6d4',
   sigStroke: '#1e40af',
 }
 
-type PortalTab = 'overview' | 'quote' | 'design' | 'photos' | 'messages'
+type PortalTab = 'overview' | 'document' | 'design' | 'photos' | 'messages' | 'coupons'
 
 // ─── Timeline stages ────────────────────────────────────────────────────────────
 const CUSTOMER_STAGES = [
@@ -118,6 +160,15 @@ function pipeToTimelineIdx(pipeStage: string): number {
   return map[pipeStage] ?? 0
 }
 
+const STAGE_BADGE: Record<string, { label: string; bg: string; color: string; border: string }> = {
+  sales_in:    { label: 'Quoting',    bg: C.blueBg,    color: C.accentDark, border: C.blueBorder },
+  production:  { label: 'Production', bg: C.amberBg,   color: '#d97706',    border: C.amberBorder },
+  install:     { label: 'Install',    bg: C.purpleBg,  color: C.purple,     border: C.purpleBorder },
+  prod_review: { label: 'QC',         bg: '#ecfdf5',   color: '#059669',    border: '#a7f3d0' },
+  sales_close: { label: 'Closing',    bg: C.greenBg,   color: C.greenDark,  border: C.greenBorder },
+  done:        { label: 'Complete',   bg: C.greenBg,   color: C.greenDark,  border: C.greenBorder },
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n)
 const fmtDate = (d: string | null) => {
@@ -126,20 +177,78 @@ const fmtDate = (d: string | null) => {
 }
 const todayStr = () => new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
+// ─── Stage-aware document helper ────────────────────────────────────────────────
+function getActiveDocument(
+  pipeStage: string | null,
+  estimates: any[],
+  salesOrders: any[],
+  invoices: any[],
+  projectId: string | null
+): { type: 'estimate' | 'sales_order' | 'invoice'; doc: any; label: string } | null {
+  // Try to find docs linked to this project via form_data or matching
+  const linkedInvoice = invoices.find((i: any) => i.project_id === projectId) || invoices[0]
+  const linkedSO = salesOrders[0]
+  const linkedEstimate = estimates[0]
+
+  switch (pipeStage) {
+    case 'sales_in':
+      if (linkedEstimate) return { type: 'estimate', doc: linkedEstimate, label: 'Estimate' }
+      if (linkedSO) return { type: 'sales_order', doc: linkedSO, label: 'Sales Order' }
+      return null
+    case 'production':
+      if (linkedSO) return { type: 'sales_order', doc: linkedSO, label: 'Sales Order' }
+      if (linkedEstimate) return { type: 'estimate', doc: linkedEstimate, label: 'Estimate' }
+      return null
+    case 'install':
+    case 'prod_review':
+    case 'sales_close':
+    case 'done':
+      if (linkedInvoice) return { type: 'invoice', doc: linkedInvoice, label: 'Invoice' }
+      if (linkedSO) return { type: 'sales_order', doc: linkedSO, label: 'Sales Order' }
+      return null
+    default:
+      if (linkedSO) return { type: 'sales_order', doc: linkedSO, label: 'Sales Order' }
+      return null
+  }
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────────
 export default function CustomerJobPortalClient({
-  salesOrder, lineItems, project: serverProject, proofs: serverProofs,
-  photos: serverPhotos, comments: serverComments, invoices: serverInvoices,
-  token, isDemo,
+  customer: serverCustomer, salesOrder, lineItems: serverLineItems,
+  projects: serverProjects, projectData: serverProjectData,
+  estimates: serverEstimates, salesOrders: serverSalesOrders,
+  invoices: serverInvoices, coupons: serverCoupons,
+  redemptions: serverRedemptions, token, isDemo,
 }: CustomerJobPortalProps) {
   const so = isDemo ? DEMO_SO : salesOrder
-  const items = isDemo ? DEMO_ITEMS : lineItems
-  const project = isDemo ? DEMO_PROJECT : serverProject
-  const customer = so?.customer
-  const proofs = isDemo ? [] : serverProofs
-  const photos = isDemo ? [] : serverPhotos
-  const comments = isDemo ? [] : serverComments
+  const customer = isDemo ? DEMO_SO.customer : serverCustomer
+  const projects = isDemo ? DEMO_PROJECTS : serverProjects
+  const estimates = isDemo ? DEMO_ESTIMATES : serverEstimates
+  const salesOrders = isDemo ? [so] : serverSalesOrders
   const invoices = isDemo ? [] : serverInvoices
+  const coupons = isDemo ? DEMO_COUPONS : serverCoupons
+  const redemptions = isDemo ? [] : serverRedemptions
+  const projectData = isDemo ? {
+    'demo-p1': { proofs: [], photos: [], comments: [] },
+    'demo-p2': { proofs: [], photos: [], comments: [] },
+  } : serverProjectData
+
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || '')
+  const selectedProject = projects.find((p: any) => p.id === selectedProjectId) || projects[0] || null
+  const currentProjectData = selectedProject ? (projectData[selectedProject.id] || { proofs: [], photos: [], comments: [] }) : { proofs: [], photos: [], comments: [] }
+
+  const proofs = currentProjectData.proofs
+  const photos = currentProjectData.photos
+  const comments = currentProjectData.comments
+
+  // Stage-aware document
+  const activeDoc = selectedProject
+    ? getActiveDocument(selectedProject.pipe_stage, estimates, salesOrders, invoices, selectedProject.id)
+    : getActiveDocument(null, estimates, salesOrders, invoices, null)
+  const docLabel = activeDoc?.label || 'Quote'
+  const docItems = activeDoc?.doc?.line_items
+    ? (Array.isArray(activeDoc.doc.line_items) ? activeDoc.doc.line_items : [])
+    : (isDemo ? DEMO_ITEMS : serverLineItems)
 
   const [tab, setTab] = useState<PortalTab>('overview')
   const [approved, setApproved] = useState(false)
@@ -150,6 +259,9 @@ export default function CustomerJobPortalClient({
   const [message, setMessage] = useState('')
   const [feedbackId, setFeedbackId] = useState<string | null>(null)
   const [feedbackText, setFeedbackText] = useState('')
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [applyingCoupon, setApplyingCoupon] = useState<string | null>(null)
+  const [couponMsg, setCouponMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Signature
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -157,6 +269,9 @@ export default function CustomerJobPortalClient({
   const [hasSigned, setHasSigned] = useState(false)
   const [isDrawing, setIsDrawing] = useState(false)
   const lastPos = useRef<{ x: number; y: number } | null>(null)
+
+  // Project selector scroll
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -201,16 +316,23 @@ export default function CustomerJobPortalClient({
     setHasSigned(false); setIsSigning(false)
   }, [])
 
-  // Financials
-  const subtotal = Number(so?.subtotal || 0)
-  const taxAmount = Number(so?.tax_amount || 0)
-  const total = Number(so?.total || 0)
+  // Document financials
+  const doc = activeDoc?.doc || so
+  const subtotal = Number(doc?.subtotal || 0)
+  const taxAmount = Number(doc?.tax_amount || 0)
+  const total = Number(doc?.total || 0)
   const deposit = 250
   const halfAmount = Math.max(0, (total * 0.5) - deposit)
   const balance = Math.max(0, total - deposit - halfAmount)
 
+  // Invoice payment status
+  const isInvoice = activeDoc?.type === 'invoice'
+  const amountPaid = isInvoice ? Number(doc?.amount_paid || 0) : 0
+  const balanceDue = isInvoice ? Number(doc?.balance_due || doc?.balance || total - amountPaid) : 0
+  const paymentPct = total > 0 ? Math.min(100, Math.round((amountPaid / total) * 100)) : 0
+
   // Timeline
-  const timelineIdx = project ? pipeToTimelineIdx(project.pipe_stage) : 0
+  const timelineIdx = selectedProject ? pipeToTimelineIdx(selectedProject.pipe_stage) : 0
   const pendingProofs = proofs.filter((p: any) => p.status === 'pending')
   const openInvoices = invoices.filter((i: any) => i.status !== 'paid' && i.status !== 'void')
 
@@ -241,13 +363,63 @@ export default function CustomerJobPortalClient({
     setSubmitting(false)
   }
 
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code)
+    setCopiedCode(code)
+    setTimeout(() => setCopiedCode(null), 2000)
+  }
+
+  const handleApplyCoupon = async (couponId: string) => {
+    if (!activeDoc?.doc?.id) return
+    setApplyingCoupon(couponId)
+    setCouponMsg(null)
+    try {
+      const res = await fetch('/api/portal/apply-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          portal_token: token,
+          coupon_id: couponId,
+          document_type: activeDoc.type,
+          document_id: activeDoc.doc.id,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setCouponMsg({ type: 'error', text: data.error })
+      } else {
+        setCouponMsg({ type: 'success', text: `Coupon applied! You saved ${fmt(data.discount_applied || 0)}.` })
+      }
+    } catch {
+      if (isDemo) {
+        setCouponMsg({ type: 'success', text: 'Coupon applied! (Demo mode)' })
+      } else {
+        setCouponMsg({ type: 'error', text: 'Failed to apply coupon. Please try again.' })
+      }
+    }
+    setApplyingCoupon(null)
+  }
+
+  const scrollProjects = (dir: 'left' | 'right') => {
+    if (!scrollRef.current) return
+    scrollRef.current.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
+  }
+
+  // Document number label
+  const docNumber = activeDoc?.type === 'estimate'
+    ? `#${doc?.estimate_number || '---'}`
+    : activeDoc?.type === 'invoice'
+      ? `#${doc?.invoice_number || '---'}`
+      : `#${doc?.so_number || '---'}`
+
   // Tab config
   const tabs: { key: PortalTab; label: string; icon: typeof Circle; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: Car },
-    { key: 'quote', label: 'Quote', icon: FileText },
+    { key: 'document', label: docLabel, icon: FileText },
     { key: 'design', label: 'Design', icon: Palette, badge: pendingProofs.length },
     { key: 'photos', label: 'Photos', icon: Camera, badge: photos.length },
     { key: 'messages', label: 'Messages', icon: MessageSquare, badge: comments.length },
+    { key: 'coupons', label: 'Coupons', icon: Tag, badge: coupons.length },
   ]
 
   return (
@@ -278,21 +450,72 @@ export default function CustomerJobPortalClient({
 
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 20px 60px' }}>
 
+        {/* ─── Project Selector (multi-project) ─────────────────────── */}
+        {projects.length > 1 && (
+          <div style={{ marginBottom: 20, position: 'relative' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Your Vehicles</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {projects.length > 3 && (
+                <button onClick={() => scrollProjects('left')} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 6, cursor: 'pointer', flexShrink: 0, color: C.text2 }}>
+                  <ChevronLeft size={16} />
+                </button>
+              )}
+              <div ref={scrollRef} style={{ display: 'flex', gap: 10, overflowX: 'auto', flex: 1, scrollbarWidth: 'none', paddingBottom: 2 }}>
+                {projects.map((p: any) => {
+                  const isActive = p.id === selectedProjectId
+                  const badge = STAGE_BADGE[p.pipe_stage] || STAGE_BADGE.sales_in
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProjectId(p.id)}
+                      style={{
+                        flexShrink: 0, minWidth: 180, padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
+                        background: isActive ? C.blueBg : C.card,
+                        border: `2px solid ${isActive ? C.accent : C.border}`,
+                        textAlign: 'left', color: C.text1,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                        <Car size={14} style={{ color: isActive ? C.accent : C.text3 }} />
+                        <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.vehicle_desc || p.title}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 800,
+                          background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`,
+                        }}>{badge.label}</span>
+                        {p.type && <span style={{ fontSize: 10, color: C.text3 }}>{p.type}</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              {projects.length > 3 && (
+                <button onClick={() => scrollProjects('right')} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 6, cursor: 'pointer', flexShrink: 0, color: C.text2 }}>
+                  <ChevronRight size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ─── Job Header Card ────────────────────────────────────────── */}
-        {project && (
+        {selectedProject && (
           <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: '20px 24px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>{project.title || so?.title}</div>
-                {project.vehicle_desc && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: C.text2, marginTop: 4 }}><Car size={15} /> {project.vehicle_desc}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>{selectedProject.title || so?.title}</div>
+                {selectedProject.vehicle_desc && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: C.text2, marginTop: 4 }}><Car size={15} /> {selectedProject.vehicle_desc}</div>
                 )}
               </div>
-              {project.type && <span style={{ padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: C.blueBg, color: C.accentDark, border: `1px solid ${C.blueBorder}` }}>{project.type}</span>}
+              {selectedProject.type && <span style={{ padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: C.blueBg, color: C.accentDark, border: `1px solid ${C.blueBorder}` }}>{selectedProject.type}</span>}
             </div>
             <div style={{ display: 'flex', gap: 24, fontSize: 13 }}>
-              <div><span style={{ color: C.text3 }}>Created </span><span style={{ color: C.text1, fontWeight: 600 }}>{fmtDate(project.created_at)}</span></div>
-              {project.install_date && <div><span style={{ color: C.text3 }}>Install </span><span style={{ color: C.amber, fontWeight: 600 }}>{fmtDate(project.install_date)}</span></div>}
+              <div><span style={{ color: C.text3 }}>Created </span><span style={{ color: C.text1, fontWeight: 600 }}>{fmtDate(selectedProject.created_at)}</span></div>
+              {selectedProject.install_date && <div><span style={{ color: C.text3 }}>Install </span><span style={{ color: C.amber, fontWeight: 600 }}>{fmtDate(selectedProject.install_date)}</span></div>}
             </div>
           </div>
         )}
@@ -326,7 +549,7 @@ export default function CustomerJobPortalClient({
         {tab === 'overview' && (
           <>
             {/* Timeline */}
-            {project && (
+            {selectedProject && (
               <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: '24px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif", marginBottom: 20 }}>Project Timeline</div>
                 <div style={{ position: 'relative' }}>
@@ -354,8 +577,8 @@ export default function CustomerJobPortalClient({
                             {stage.label}
                             {isCurrent && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: C.blueBg, color: C.accent, border: `1px solid ${C.blueBorder}` }}>CURRENT</span>}
                           </div>
-                          {isCompleted && i === 0 && project.created_at && (
-                            <div style={{ fontSize: 11, color: C.text3 }}>{fmtDate(project.created_at)}</div>
+                          {isCompleted && i === 0 && selectedProject.created_at && (
+                            <div style={{ fontSize: 11, color: C.text3 }}>{fmtDate(selectedProject.created_at)}</div>
                           )}
                         </div>
                       </div>
@@ -375,10 +598,17 @@ export default function CustomerJobPortalClient({
                 </button>
               )}
               {openInvoices.length > 0 && (
-                <button onClick={() => setTab('quote')} style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}`, borderRadius: 14, padding: 18, cursor: 'pointer', textAlign: 'left', color: C.text1 }}>
+                <button onClick={() => setTab('document')} style={{ background: C.greenBg, border: `1px solid ${C.greenBorder}`, borderRadius: 14, padding: 18, cursor: 'pointer', textAlign: 'left', color: C.text1 }}>
                   <CreditCard size={22} style={{ color: C.greenDark, marginBottom: 8 }} />
                   <div style={{ fontSize: 14, fontWeight: 700 }}>{openInvoices.length} open invoice{openInvoices.length > 1 ? 's' : ''}</div>
                   <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>View payment details</div>
+                </button>
+              )}
+              {coupons.length > 0 && (
+                <button onClick={() => setTab('coupons')} style={{ background: C.purpleBg, border: `1px solid ${C.purpleBorder}`, borderRadius: 14, padding: 18, cursor: 'pointer', textAlign: 'left', color: C.text1 }}>
+                  <Tag size={22} style={{ color: C.purple, marginBottom: 8 }} />
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{coupons.length} coupon{coupons.length > 1 ? 's' : ''} available</div>
+                  <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>Save on your order</div>
                 </button>
               )}
               {photos.length > 0 && (
@@ -397,24 +627,43 @@ export default function CustomerJobPortalClient({
           </>
         )}
 
-        {/* ─── QUOTE TAB ──────────────────────────────────────────────── */}
-        {tab === 'quote' && (
+        {/* ─── DOCUMENT TAB (Stage-Aware) ──────────────────────────────── */}
+        {tab === 'document' && (
           <>
-            {/* Quote card */}
+            {/* Document card */}
             <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
               <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.borderLight}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <FileText size={18} style={{ color: C.accent }} />
-                    <span style={{ fontSize: 20, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>Quote #{so?.so_number || '---'}</span>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>{docLabel} {docNumber}</span>
                   </div>
-                  <div style={{ fontSize: 13, color: C.text2 }}>{so?.title || 'Vehicle Wrap Services'}</div>
+                  <div style={{ fontSize: 13, color: C.text2 }}>{doc?.title || so?.title || 'Vehicle Wrap Services'}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 12, color: C.text3 }}>Date</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text1 }}>{fmtDate(so?.so_date) || todayStr()}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text1 }}>
+                    {fmtDate(doc?.so_date || doc?.quote_date || doc?.invoice_date) || todayStr()}
+                  </div>
                 </div>
               </div>
+
+              {/* Invoice payment status bar */}
+              {isInvoice && (
+                <div style={{ padding: '16px 24px', background: amountPaid >= total ? C.greenBg : C.blueBg, borderBottom: `1px solid ${C.borderLight}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: amountPaid >= total ? C.greenDark : C.accentDark }}>
+                      {amountPaid >= total ? 'Paid in Full' : balanceDue > 0 ? 'Balance Due' : 'Partial Payment'}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.text1, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {fmt(amountPaid)} / {fmt(total)}
+                    </span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 3, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 3, width: `${paymentPct}%`, background: amountPaid >= total ? C.green : C.accent, transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              )}
 
               <div style={{ padding: '0 24px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -426,7 +675,7 @@ export default function CustomerJobPortalClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item: any, i: number) => (
+                    {docItems.map((item: any, i: number) => (
                       <tr key={item.id || i} style={{ borderBottom: `1px solid ${C.borderLight}` }}>
                         <td style={{ padding: '14px 12px 14px 0' }}>
                           <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{item.name}</div>
@@ -445,14 +694,14 @@ export default function CustomerJobPortalClient({
                   <span style={{ fontSize: 13, color: C.text2 }}>Subtotal</span>
                   <span style={{ fontSize: 13, color: C.text1, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(subtotal)}</span>
                 </div>
-                {Number(so?.discount || 0) > 0 && (
+                {Number(doc?.discount || doc?.discount_amount || 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: 13, color: C.green }}>Discount</span>
-                    <span style={{ fontSize: 13, color: C.green, fontFamily: "'JetBrains Mono', monospace" }}>-{fmt(Number(so.discount))}</span>
+                    <span style={{ fontSize: 13, color: C.green, fontFamily: "'JetBrains Mono', monospace" }}>-{fmt(Number(doc.discount_amount || doc.discount))}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <span style={{ fontSize: 13, color: C.text2 }}>Tax ({(Number(so?.tax_rate || 0) * 100).toFixed(2)}%)</span>
+                  <span style={{ fontSize: 13, color: C.text2 }}>Tax ({(Number(doc?.tax_rate || 0) * 100).toFixed(2)}%)</span>
                   <span style={{ fontSize: 13, color: C.text1, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(taxAmount)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: `2px solid ${C.border}` }}>
@@ -462,26 +711,28 @@ export default function CustomerJobPortalClient({
               </div>
             </div>
 
-            {/* Payment Schedule */}
-            <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <CreditCard size={18} style={{ color: C.accent }} />
-                <span style={{ fontSize: 16, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>Payment Schedule</span>
-              </div>
-              {[
-                { label: 'Due Today', sub: 'Design Deposit', amount: deposit, bg: C.greenBg, border: C.greenBorder, color: C.greenDark },
-                { label: 'Due Before Start', sub: '50% of total less deposit', amount: halfAmount, bg: C.blueBg, border: C.blueBorder, color: C.accentDark },
-                { label: 'Balance at Pickup', sub: 'Remaining balance', amount: balance, bg: '#f8fafc', border: C.border, color: C.text1 },
-              ].map(p => (
-                <div key={p.label} style={{ background: p.bg, border: `1px solid ${p.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: p.color }}>{p.label}</div>
-                    <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>{p.sub}</div>
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: p.color, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(p.amount)}</div>
+            {/* Payment Schedule (only show for estimate/sales_order) */}
+            {!isInvoice && (
+              <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <CreditCard size={18} style={{ color: C.accent }} />
+                  <span style={{ fontSize: 16, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>Payment Schedule</span>
                 </div>
-              ))}
-            </div>
+                {[
+                  { label: 'Due Today', sub: 'Design Deposit', amount: deposit, bg: C.greenBg, border: C.greenBorder, color: C.greenDark },
+                  { label: 'Due Before Start', sub: '50% of total less deposit', amount: halfAmount, bg: C.blueBg, border: C.blueBorder, color: C.accentDark },
+                  { label: 'Balance at Pickup', sub: 'Remaining balance', amount: balance, bg: '#f8fafc', border: C.border, color: C.text1 },
+                ].map(p => (
+                  <div key={p.label} style={{ background: p.bg, border: `1px solid ${p.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: p.color }}>{p.label}</div>
+                      <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>{p.sub}</div>
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: p.color, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(p.amount)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Signature & Approve */}
             {!approved ? (
@@ -491,7 +742,7 @@ export default function CustomerJobPortalClient({
                   <span style={{ fontSize: 16, fontWeight: 800, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif" }}>Approve & Sign</span>
                 </div>
                 <div style={{ fontSize: 13, color: C.text2, marginBottom: 18, lineHeight: 1.5 }}>
-                  By signing below, you approve this quote and authorize USA Wrap Co to proceed.
+                  By signing below, you approve this {docLabel.toLowerCase()} and authorize USA Wrap Co to proceed.
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Sign Here</div>
@@ -535,7 +786,7 @@ export default function CustomerJobPortalClient({
                 <div style={{ width: 64, height: 64, borderRadius: '50%', background: C.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                   <CheckCircle2 size={32} style={{ color: C.green }} />
                 </div>
-                <div style={{ fontSize: 28, fontWeight: 900, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif", marginBottom: 8 }}>Quote Approved!</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: C.text1, fontFamily: "'Barlow Condensed', sans-serif", marginBottom: 8 }}>{docLabel} Approved!</div>
                 <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.6, maxWidth: 440, margin: '0 auto' }}>
                   Thank you, {customerName || 'valued customer'}. Your approval has been recorded and our team will begin preparing your project.
                 </div>
@@ -653,6 +904,134 @@ export default function CustomerJobPortalClient({
                     <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.5 }}>{c.body}</div>
                   </div>
                 ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ─── COUPONS TAB ────────────────────────────────────────────── */}
+        {tab === 'coupons' && (
+          <>
+            {couponMsg && (
+              <div style={{
+                background: couponMsg.type === 'success' ? C.greenBg : '#fef2f2',
+                border: `1px solid ${couponMsg.type === 'success' ? C.greenBorder : '#fecaca'}`,
+                borderRadius: 12, padding: '12px 16px', marginBottom: 14,
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                {couponMsg.type === 'success' ? <Check size={16} style={{ color: C.greenDark }} /> : <X size={16} style={{ color: '#dc2626' }} />}
+                <span style={{ fontSize: 13, color: couponMsg.type === 'success' ? '#166534' : '#dc2626', fontWeight: 500 }}>{couponMsg.text}</span>
+              </div>
+            )}
+
+            {/* Available coupons */}
+            {coupons.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Available Coupons</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {coupons.map((coupon: any) => {
+                    const alreadyUsed = redemptions.some((r: any) => r.coupon_id === coupon.id)
+                    return (
+                      <div key={coupon.id} style={{
+                        background: C.card, borderRadius: 14, border: `1px solid ${alreadyUsed ? C.greenBorder : C.border}`,
+                        padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                        opacity: alreadyUsed ? 0.7 : 1,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{coupon.title || coupon.code}</div>
+                            {coupon.description && <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.4 }}>{coupon.description}</div>}
+                          </div>
+                          <div style={{
+                            padding: '6px 14px', borderRadius: 10, fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 16, fontWeight: 900,
+                            background: coupon.discount_type === 'percent' ? C.purpleBg : C.greenBg,
+                            color: coupon.discount_type === 'percent' ? C.purple : C.greenDark,
+                            border: `1px solid ${coupon.discount_type === 'percent' ? C.purpleBorder : C.greenBorder}`,
+                          }}>
+                            {coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : fmt(coupon.discount_value)}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                          <button
+                            onClick={() => handleCopyCode(coupon.code)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6,
+                              padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+                              background: '#f8fafc', border: `1px dashed ${C.border}`,
+                              fontSize: 14, fontWeight: 700, color: C.text1, fontFamily: "'JetBrains Mono', monospace",
+                            }}
+                          >
+                            {coupon.code}
+                            {copiedCode === coupon.code ? <Check size={14} style={{ color: C.green }} /> : <Copy size={14} style={{ color: C.text3 }} />}
+                          </button>
+                          {coupon.valid_until && (
+                            <span style={{ fontSize: 11, color: C.text3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Clock size={12} /> Expires {fmtDate(coupon.valid_until)}
+                            </span>
+                          )}
+                        </div>
+
+                        {coupon.min_order_amount > 0 && (
+                          <div style={{ fontSize: 11, color: C.text3, marginBottom: 10 }}>
+                            Min. order: {fmt(coupon.min_order_amount)}
+                            {coupon.max_discount_amount && <> -- Max discount: {fmt(coupon.max_discount_amount)}</>}
+                          </div>
+                        )}
+
+                        {alreadyUsed ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.greenDark, fontWeight: 700 }}>
+                            <Check size={16} /> Applied
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleApplyCoupon(coupon.id)}
+                            disabled={applyingCoupon === coupon.id}
+                            style={{
+                              padding: '10px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                              background: C.accent, color: '#fff', fontSize: 13, fontWeight: 800,
+                              fontFamily: "'Barlow Condensed', sans-serif",
+                              opacity: applyingCoupon === coupon.id ? 0.6 : 1,
+                              display: 'flex', alignItems: 'center', gap: 6,
+                            }}
+                          >
+                            <DollarSign size={14} />
+                            {applyingCoupon === coupon.id ? 'Applying...' : 'Apply Coupon'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Redemption history */}
+            {redemptions.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Redemption History</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {redemptions.map((r: any) => (
+                    <div key={r.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.coupon?.title || r.coupon?.code || 'Coupon'}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{fmtDate(r.redeemed_at)} -- {r.document_type.replace('_', ' ')}</div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.greenDark, fontFamily: "'JetBrains Mono', monospace" }}>
+                        -{fmt(Number(r.discount_applied))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {coupons.length === 0 && redemptions.length === 0 && (
+              <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: '60px 20px', textAlign: 'center' }}>
+                <Tag size={40} style={{ color: C.text3, marginBottom: 12 }} />
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.text1, marginBottom: 6 }}>No Coupons Available</div>
+                <div style={{ fontSize: 13, color: C.text2 }}>Check back later for special offers and discounts.</div>
               </div>
             )}
           </>
