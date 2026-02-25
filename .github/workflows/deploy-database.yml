@@ -18,30 +18,18 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
 
-      - name: Resolve Supabase IPv4
-        # GitHub Actions runners sometimes lack IPv6 routes to Supabase.
-        # PGHOSTADDR overrides libpq's DNS lookup and forces an IPv4 connection.
-        env:
-          PGHOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
-        run: |
-          IPV4=$(python3 -c "import socket; print(socket.getaddrinfo('$PGHOST', None, socket.AF_INET)[0][4][0])")
-          echo "Supabase IPv4: $IPV4"
-          echo "PGHOSTADDR=$IPV4" >> $GITHUB_ENV
-
+      # SUPABASE_DB_URL = session-mode pooler connection string from
+      # Supabase Dashboard → Settings → Database → Connection string → Session mode
+      # e.g. postgresql://postgres.PROJECTID:PASSWORD@aws-0-us-east-1.pooler.supabase.com:5432/postgres
       - name: Run /sql scripts
         env:
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGHOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
-          PGPORT: 5432
-          PGUSER: postgres
-          PGDATABASE: postgres
-          PGSSLMODE: require
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           PASS=0; FAIL=0
           for f in sql/*.sql; do
             [ -f "$f" ] || continue
             echo "-> $f"
-            if psql --set=ON_ERROR_STOP=1 -q -f "$f"; then
+            if psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 -q -f "$f"; then
               echo "   done"
               PASS=$((PASS+1))
             else
@@ -53,18 +41,13 @@ jobs:
 
       - name: Run supabase/migrations scripts
         env:
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGHOST: db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
-          PGPORT: 5432
-          PGUSER: postgres
-          PGDATABASE: postgres
-          PGSSLMODE: require
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           PASS=0; FAIL=0
           for f in supabase/migrations/*.sql; do
             [ -f "$f" ] || continue
             echo "-> $f"
-            if psql --set=ON_ERROR_STOP=1 -q -f "$f"; then
+            if psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 -q -f "$f"; then
               echo "   done"
               PASS=$((PASS+1))
             else
