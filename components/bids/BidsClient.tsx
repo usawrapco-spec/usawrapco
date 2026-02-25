@@ -100,9 +100,9 @@ interface Props {
 export default function BidsClient({ profile, initialBids, installers: initialInstallers }: Props) {
   const router = useRouter()
   const supabase = createClient()
-  const usingDemo = initialBids.length === 0
-  const allBids: Bid[] = usingDemo ? DEMO_BIDS : initialBids
-  const allInstallers: Installer[] = (initialInstallers.length === 0 ? DEMO_INSTALLERS : initialInstallers)
+  const usingDemo = false
+  const allBids: Bid[] = initialBids
+  const allInstallers: Installer[] = initialInstallers
 
   const canManage = isAdminRole(profile.role) || hasPermission(profile.role, 'bids.manage')
 

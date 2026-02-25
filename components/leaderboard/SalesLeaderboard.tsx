@@ -31,7 +31,7 @@ interface Installer {
   avatar_url: string | null
   jobs_completed: number
   avg_time_per_job: number
-  quality_score: number
+  quality_score: number | null
   prev_rank: number
   current_rank: number
   earnings: number
@@ -116,7 +116,7 @@ export default function SalesLeaderboard({ profile, members, projects }: Props) 
           avatar_url: inst.avatar_url || null,
           jobs_completed: instProjects.length,
           avg_time_per_job: Math.round(avgTime * 10) / 10,
-          quality_score: Math.min(100, 80 + Math.floor(Math.random() * 20)),
+          quality_score: null,
           prev_rank: i + 1,
           current_rank: 0,
           earnings,
@@ -385,8 +385,8 @@ export default function SalesLeaderboard({ profile, members, projects }: Props) 
                     </div>
                     <div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase' }}>Quality</div>
-                      <div style={{ fontSize: 13, fontFamily: 'JetBrains Mono', fontWeight: 600, color: inst.quality_score >= 90 ? 'var(--green)' : 'var(--amber)' }}>
-                        {inst.quality_score}%
+                      <div style={{ fontSize: 13, fontFamily: 'JetBrains Mono', fontWeight: 600, color: inst.quality_score == null ? 'var(--text3)' : inst.quality_score >= 90 ? 'var(--green)' : 'var(--amber)' }}>
+                        {inst.quality_score == null ? '—' : `${inst.quality_score}%`}
                       </div>
                     </div>
                   </div>
@@ -445,13 +445,17 @@ export default function SalesLeaderboard({ profile, members, projects }: Props) 
                       {inst.avg_time_per_job}h
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700,
-                        background: inst.quality_score >= 90 ? 'rgba(34,192,122,0.15)' : inst.quality_score >= 75 ? 'rgba(245,158,11,0.15)' : 'rgba(242,90,90,0.15)',
-                        color: inst.quality_score >= 90 ? '#22c07a' : inst.quality_score >= 75 ? '#f59e0b' : '#f25a5a',
-                      }}>
-                        {inst.quality_score}%
-                      </span>
+                      {inst.quality_score == null ? (
+                        <span style={{ color: 'var(--text3)', fontSize: 13 }}>—</span>
+                      ) : (
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700,
+                          background: inst.quality_score >= 90 ? 'rgba(34,192,122,0.15)' : inst.quality_score >= 75 ? 'rgba(245,158,11,0.15)' : 'rgba(242,90,90,0.15)',
+                          color: inst.quality_score >= 90 ? '#22c07a' : inst.quality_score >= 75 ? '#f59e0b' : '#f25a5a',
+                        }}>
+                          {inst.quality_score}%
+                        </span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'right', fontFamily: 'JetBrains Mono', fontWeight: 600, color: 'var(--green)' }}>
                       ${inst.earnings.toLocaleString()}

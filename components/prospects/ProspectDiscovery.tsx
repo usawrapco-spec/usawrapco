@@ -88,35 +88,8 @@ export default function ProspectDiscovery({ onClose }: Props) {
     setSearching(true)
     setResults([])
 
-    // Simulate API search with realistic mock data
-    await new Promise(r => setTimeout(r, 2000))
-
-    const mockResults: DiscoveredBusiness[] = Array.from({ length: 12 }, (_, i) => {
-      const names = [
-        `${city} ${businessType} Co`, `Pro ${businessType} ${city}`, `${businessType} Express`,
-        `All-Star ${businessType}`, `Premier ${businessType} LLC`, `${city} ${businessType} Services`,
-        `Eagle ${businessType}`, `Pacific ${businessType}`, `Summit ${businessType} Group`,
-        `Atlas ${businessType}`, `Apex ${businessType} Inc`, `Liberty ${businessType}`,
-      ]
-      const fleet = Math.floor(Math.random() * 20) + 1
-      const biz: Partial<DiscoveredBusiness> = {
-        name: names[i],
-        address: `${Math.floor(Math.random() * 9000) + 1000} Main St, ${city}, ${state}`,
-        phone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-        website: Math.random() > 0.3 ? `www.${names[i].toLowerCase().replace(/[^a-z0-9]/g, '')}.com` : '',
-        rating: Math.round((3.5 + Math.random() * 1.5) * 10) / 10,
-        type: businessType,
-        estimated_fleet: fleet,
-      }
-      return {
-        ...biz,
-        id: crypto.randomUUID(),
-        ai_score: calculateAIScore(biz),
-        selected: false,
-      } as DiscoveredBusiness
-    }).sort((a, b) => b.ai_score - a.ai_score)
-
-    setResults(mockResults)
+    // Google Places API integration required — no results without API key
+    setResults([])
     setSearching(false)
   }
 

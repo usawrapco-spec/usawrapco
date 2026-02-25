@@ -15,6 +15,7 @@ import {
   Clock,
   CreditCard,
   AlertCircle,
+  AlertTriangle,
   CalendarDays,
   DollarSign,
   Receipt,
@@ -25,48 +26,41 @@ interface InvoiceViewClientProps {
   token: string
 }
 
-interface DemoLineItem {
+interface InvoiceLineItem {
   item: string
   description: string
   qty: number
   price: number
 }
 
-type Step = 'invoice' | 'signature' | 'payment'
-
-// ─── Demo Data ──────────────────────────────────────────────────────────────────
-const DEMO_INVOICE = {
-  number: 'INV-2001',
-  invoiceDate: '2026-02-18',
-  dueDate: '2026-03-04',
-  paymentTerms: 'Net 14',
-  status: 'sent' as 'sent' | 'paid' | 'overdue',
-  requiresSignature: true,
-  customerName: 'James Mitchell',
-  customerEmail: 'james@mitchelltrucking.com',
-  customerPhone: '(555) 234-5678',
-  customerCompany: 'Mitchell Trucking LLC',
-  lineItems: [
-    {
-      item: 'Full Commercial Wrap',
-      description: '3M IJ180Cv3 + 8519 laminate, custom design, print & install -- 2024 Ford F-250',
-      qty: 1,
-      price: 4200.0,
-    },
-    {
-      item: 'Paint Protection Film (PPF)',
-      description: 'XPEL Ultimate Plus on front bumper, hood, fenders -- 2024 Ford F-250',
-      qty: 1,
-      price: 1800.0,
-    },
-  ] as DemoLineItem[],
-  subtotal: 6000.0,
-  taxRate: 0.0825,
-  taxAmount: 495.0,
-  total: 6495.0,
-  amountPaid: 3247.5,
-  balanceDue: 3247.5,
+interface InvoiceData {
+  number: string
+  invoiceDate: string
+  dueDate: string
+  paymentTerms: string
+  status: 'sent' | 'paid' | 'overdue'
+  requiresSignature: boolean
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  customerCompany: string
+  lineItems: InvoiceLineItem[]
+  subtotal: number
+  taxRate: number
+  taxAmount: number
+  total: number
+  amountPaid: number
+  balanceDue: number
 }
+
+const EMPTY_INVOICE: InvoiceData = {
+  number: '', invoiceDate: new Date().toISOString(), dueDate: '', paymentTerms: 'Net 30',
+  status: 'sent', requiresSignature: true,
+  customerName: '', customerEmail: '', customerPhone: '', customerCompany: '',
+  lineItems: [], subtotal: 0, taxRate: 0.0825, taxAmount: 0, total: 0, amountPaid: 0, balanceDue: 0,
+}
+
+type Step = 'invoice' | 'signature' | 'payment'
 
 // ─── Colors / Styles ────────────────────────────────────────────────────────────
 const C = {
@@ -86,21 +80,41 @@ const C = {
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 export default function InvoiceViewClient({ token }: InvoiceViewClientProps) {
-  const inv = DEMO_INVOICE
+  const [inv, setInv] = useState<InvoiceData>(EMPTY_INVOICE)
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
-  const [step, setStep] = useState<Step>(inv.requiresSignature ? 'invoice' : 'invoice')
+  const [step, setStep] = useState<Step>('invoice')
   const [animDir, setAnimDir] = useState<'next' | 'back'>('next')
   const [animating, setAnimating] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
-  const [isPaid, setIsPaid] = useState(inv.status === 'paid')
+  const [isPaid, setIsPaid] = useState(false)
 
   // Signature state
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasSigned, setHasSigned] = useState(false)
-  const [signerName, setSignerName] = useState(inv.customerName)
+  const [signerName, setSignerName] = useState('')
   const [signedAlready, setSignedAlready] = useState(false)
   const lastPoint = useRef<{ x: number; y: number } | null>(null)
+
+  // ─── Fetch invoice by token ──────────────────────────────────────────────
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/invoices/view/${token}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          setFetchError(data.error)
+        } else {
+          setInv(data)
+          setSignerName(data.customerName)
+          setIsPaid(data.status === 'paid')
+        }
+      })
+      .catch(() => setFetchError('Failed to load invoice'))
+      .finally(() => setLoading(false))
+  }, [token])
 
   // ─── Step navigation ────────────────────────────────────────────────────────
   const goTo = useCallback((next: Step, dir: 'next' | 'back') => {
@@ -198,18 +212,22 @@ export default function InvoiceViewClient({ token }: InvoiceViewClientProps) {
     setHasSigned(false)
   }
 
-  const handleSignAndContinue = () => {
+  const handleSignAndContinue = async () => {
     if (!hasSigned || !signerName.trim()) return
     const canvas = canvasRef.current
     const sigData = canvas ? canvas.toDataURL('image/png') : null
 
-    console.log('[InvoiceView] Signature captured:', {
-      token,
-      signerName: signerName.trim(),
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      signatureLength: sigData?.length ?? 0,
-    })
+    try {
+      await fetch('/api/invoices/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          signerName: signerName.trim(),
+          signatureData: sigData,
+        }),
+      })
+    } catch {}
 
     setSignedAlready(true)
     goTo('payment', 'next')
@@ -1036,6 +1054,22 @@ export default function InvoiceViewClient({ token }: InvoiceViewClientProps) {
         <ArrowLeft size={16} />
         Back to Invoice
       </button>
+    </div>
+  )
+
+  // ─── Loading / Error states ───────────────────────────────────────────────
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Clock size={32} style={{ color: C.text3 }} />
+    </div>
+  )
+
+  if (fetchError) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+      <AlertTriangle size={40} style={{ color: C.red }} />
+      <p style={{ color: C.text2, textAlign: 'center', fontSize: 15, margin: 0 }}>
+        {fetchError === 'Invoice not found' ? 'This invoice link is invalid or has expired.' : 'Unable to load invoice. Please try again.'}
+      </p>
     </div>
   )
 

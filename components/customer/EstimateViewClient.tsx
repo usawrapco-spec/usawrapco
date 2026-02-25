@@ -25,7 +25,7 @@ interface EstimateViewClientProps {
   token: string
 }
 
-interface DemoLineItem {
+interface EstimateLineItem {
   item: string
   description: string
   vehicle: string
@@ -33,40 +33,30 @@ interface DemoLineItem {
   price: number
 }
 
-type Step = 'estimate' | 'terms' | 'signature' | 'done'
-
-// ─── Demo Data ──────────────────────────────────────────────────────────────────
-const DEMO_ESTIMATE = {
-  number: 'EST-1001',
-  date: '2026-02-21',
-  validUntil: '2026-03-23',
-  customerName: 'James Mitchell',
-  customerEmail: 'james@mitchelltrucking.com',
-  customerPhone: '(555) 234-5678',
-  customerCompany: 'Mitchell Trucking LLC',
-  scopeOfWork:
-    'Full commercial wrap on 2024 Ford F-250 with company branding, including custom graphic design, premium 3M IJ180Cv3 vinyl with 8519 laminate, and professional installation. Paint protection film (PPF) on front bumper, hood, and fenders for added durability.',
-  lineItems: [
-    {
-      item: 'Full Commercial Wrap',
-      description: '3M IJ180Cv3 + 8519 laminate, custom design, print & install',
-      vehicle: '2024 Ford F-250',
-      qty: 1,
-      price: 4200.0,
-    },
-    {
-      item: 'Paint Protection Film',
-      description: 'XPEL Ultimate Plus PPF on front bumper, hood, fenders',
-      vehicle: '2024 Ford F-250',
-      qty: 1,
-      price: 1800.0,
-    },
-  ] as DemoLineItem[],
-  subtotal: 6000.0,
-  taxRate: 0.0825,
-  taxAmount: 495.0,
-  total: 6495.0,
+interface EstimateData {
+  number: string
+  date: string
+  validUntil: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  customerCompany: string
+  scopeOfWork: string
+  lineItems: EstimateLineItem[]
+  subtotal: number
+  taxRate: number
+  taxAmount: number
+  total: number
+  status: string
 }
+
+const EMPTY_ESTIMATE: EstimateData = {
+  number: '', date: new Date().toISOString(), validUntil: new Date().toISOString(),
+  customerName: '', customerEmail: '', customerPhone: '', customerCompany: '',
+  scopeOfWork: '', lineItems: [], subtotal: 0, taxRate: 0.0825, taxAmount: 0, total: 0, status: 'draft',
+}
+
+type Step = 'estimate' | 'terms' | 'signature' | 'done'
 
 const TERMS_CONTENT = [
   {
@@ -131,6 +121,9 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
   const [step, setStep] = useState<Step>('estimate')
   const [animDir, setAnimDir] = useState<'next' | 'back'>('next')
   const [animating, setAnimating] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [est, setEst] = useState<EstimateData>(EMPTY_ESTIMATE)
 
   // Terms state
   const [termsScrolled, setTermsScrolled] = useState(false)
@@ -141,13 +134,28 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasSigned, setHasSigned] = useState(false)
-  const [signerName, setSignerName] = useState(DEMO_ESTIMATE.customerName)
+  const [signerName, setSignerName] = useState('')
   const lastPoint = useRef<{ x: number; y: number } | null>(null)
 
   // Redirect timer
   const [countdown, setCountdown] = useState(3)
 
-  const est = DEMO_ESTIMATE
+  // ─── Fetch estimate by token ─────────────────────────────────────────────
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/estimates/view/${token}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          setFetchError(data.error)
+        } else {
+          setEst(data)
+          setSignerName(data.customerName)
+        }
+      })
+      .catch(() => setFetchError('Failed to load estimate'))
+      .finally(() => setLoading(false))
+  }, [token])
 
   // ─── Step navigation ────────────────────────────────────────────────────────
   const steps: Step[] = ['estimate', 'terms', 'signature', 'done']
@@ -264,19 +272,21 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
     return canvas.toDataURL('image/png')
   }
 
-  const handleSignAndContinue = () => {
+  const handleSignAndContinue = async () => {
     const sigData = getSignatureData()
     if (!sigData || !signerName.trim()) return
 
-    // In a real app, POST to API with:
-    // { token, signatureImage: sigData, signerName, timestamp, userAgent }
-    console.log('[EstimateView] Signature captured:', {
-      token,
-      signerName: signerName.trim(),
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      signatureLength: sigData.length,
-    })
+    try {
+      await fetch('/api/estimates/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          signerName: signerName.trim(),
+          signatureData: sigData,
+        }),
+      })
+    } catch {}
 
     goTo('done', 'next')
   }
@@ -1134,6 +1144,22 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
+    </div>
+  )
+
+  // ─── Loading / Error states ───────────────────────────────────────────────
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Clock size={32} style={{ color: C.text3 }} />
+    </div>
+  )
+
+  if (fetchError) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+      <AlertTriangle size={40} style={{ color: C.red }} />
+      <p style={{ color: C.text2, textAlign: 'center', fontSize: 15, margin: 0 }}>
+        {fetchError === 'Estimate not found' ? 'This estimate link is invalid or has expired.' : 'Unable to load estimate. Please try again.'}
+      </p>
     </div>
   )
 

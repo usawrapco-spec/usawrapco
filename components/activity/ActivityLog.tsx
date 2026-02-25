@@ -318,8 +318,8 @@ export default function ActivityLog({ activities, onAddNote }: ActivityLogProps)
   const [filter, setFilter] = useState<FilterType>('all')
   const [noteText, setNoteText] = useState('')
 
-  const entries = activities.length > 0 ? activities : DEMO_ACTIVITIES
-  const isDemo = activities.length === 0
+  const entries = activities
+  const isDemo = false
 
   const filtered = useMemo(() => {
     const sorted = [...entries].sort(

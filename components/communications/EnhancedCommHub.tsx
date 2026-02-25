@@ -346,10 +346,24 @@ export default function EnhancedCommHub({ profile }: { profile: Profile }) {
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
       setCustomerTransactions(transactions)
-    } catch {}
 
-    // Compute health score (simplified)
-    setCustomerHealthScore(Math.floor(Math.random() * 40 + 60))
+      // Compute health score from real transaction data
+      const txCount = transactions.length
+      const hasPaid = transactions.some(t => t.status === 'paid')
+      const hasOverdue = transactions.some(t => t.status === 'overdue')
+      const recentActivity = transactions.some(t => {
+        const daysSince = (Date.now() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24)
+        return daysSince < 90
+      })
+      const score = Math.min(100, Math.max(0,
+        50 +
+        Math.min(30, txCount * 5) +
+        (hasPaid ? 15 : 0) +
+        (recentActivity ? 10 : 0) +
+        (hasOverdue ? -20 : 0)
+      ))
+      setCustomerHealthScore(Math.round(score))
+    } catch {}
   }
 
   // ── Select thread ──────────────────────────────────────────────────────────
