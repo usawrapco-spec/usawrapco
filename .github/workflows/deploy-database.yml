@@ -18,39 +18,42 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y postgresql-client
 
-      # Supabase direct DB host (db.PROJECT.supabase.co) is IPv6-only.
-      # The session-mode pooler is IPv4. Detect region by trying each one —
-      # wrong region returns instant "Tenant or user not found", right region connects.
+      # Supabase direct DB host is IPv6-only; GitHub runners need IPv4.
+      # Session-mode pooler is IPv4. Probe all regions to find the right one —
+      # wrong region returns instant "Tenant or user not found".
       - name: Detect pooler region
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
+          set +e
           REGIONS="us-east-1 us-east-2 us-west-1 us-west-2 eu-west-1 eu-west-2 eu-central-1 ap-southeast-1 ap-southeast-2 ap-northeast-1 ap-south-1 ca-central-1 sa-east-1"
           FOUND=""
           for REGION in $REGIONS; do
             HOST="aws-0-${REGION}.pooler.supabase.com"
-            printf "Trying %s... " "$REGION"
-            MSG=$(psql -h "$HOST" -p 5432 -U "postgres.${SUPABASE_PROJECT_ID}" \
-                  -d postgres --set=ON_ERROR_STOP=1 -c "SELECT 1" -q 2>&1)
-            if [ $? -eq 0 ]; then
+            printf "Trying %-14s  " "$REGION"
+            OUT=$(psql -h "$HOST" -p 5432 -U "postgres.${SUPABASE_PROJECT_ID}" \
+                  -d postgres -c "SELECT 1" -q 2>&1)
+            RC=$?
+            if [ "$RC" -eq 0 ]; then
               echo "connected"
               FOUND="$HOST"
               break
-            elif echo "$MSG" | grep -q "Tenant or user not found"; then
+            elif printf "%s" "$OUT" | grep -q "Tenant or user not found"; then
               echo "wrong region"
             else
-              echo "connected (auth error — right region)"
+              echo "right region (rc=$RC)"
               FOUND="$HOST"
               break
             fi
           done
           if [ -z "$FOUND" ]; then
-            echo "ERROR: Could not find pooler region for this project"
+            echo "::error::Could not find pooler for project ${SUPABASE_PROJECT_ID}"
             exit 1
           fi
-          echo "PGHOST=$FOUND" >> "$GITHUB_ENV"
           echo "Pooler: $FOUND"
+          echo "PGHOST=$FOUND" >> "$GITHUB_ENV"
 
       - name: Run /sql scripts
         env:
