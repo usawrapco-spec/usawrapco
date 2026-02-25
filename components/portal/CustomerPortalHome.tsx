@@ -215,7 +215,7 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
     try {
       // 1. Look up intake token
       const { data: intakeData, error: intakeErr } = await supabase
-        .from('customer_intake_tokens')
+        .from('customer_intake')
         .select('*')
         .eq('token', token)
         .single()
