@@ -14,6 +14,7 @@ import {
   Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
   Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
   ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart, Phone, Layers,
+  Download,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -124,6 +125,9 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [notifsLoaded, setNotifsLoaded]   = useState(false)
   const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const [showDesignIntakeModal, setShowDesignIntakeModal] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<any>(null)
+  const [isInstalled, setIsInstalled]     = useState(false)
+  const [showIOSHint, setShowIOSHint]     = useState(false)
 
   const createRef   = useRef<HTMLDivElement>(null)
   const jobsRef     = useRef<HTMLDivElement>(null)
@@ -181,6 +185,22 @@ export function TopNav({ profile }: { profile: Profile }) {
     function onOpenDrawer() { setDrawerOpen(true) }
     window.addEventListener('open-nav-drawer', onOpenDrawer)
     return () => window.removeEventListener('open-nav-drawer', onOpenDrawer)
+  }, [])
+
+  // ── PWA install prompt ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+      return
+    }
+    function onBeforeInstall(e: any) { e.preventDefault(); setInstallPrompt(e) }
+    function onInstalled() { setInstallPrompt(null); setIsInstalled(true) }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
   }, [])
 
   // ── Global search ──────────────────────────────────────────────────────────
@@ -1075,6 +1095,37 @@ export function TopNav({ profile }: { profile: Profile }) {
                   </button>
                 )
               })}
+              {/* Install App */}
+              {!isInstalled && (
+                <div style={{ borderTop: '1px solid var(--card-border)' }}>
+                  <button
+                    onClick={async () => {
+                      setProfileOpen(false)
+                      if (installPrompt) {
+                        installPrompt.prompt()
+                        const { outcome } = await installPrompt.userChoice
+                        if (outcome === 'accepted') setInstallPrompt(null)
+                      } else {
+                        // iOS Safari: show hint
+                        setShowIOSHint(v => !v)
+                      }
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '9px 16px',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--accent)', fontSize: 13, fontWeight: 600,
+                      textAlign: 'left', transition: 'background 0.12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(79,127,255,0.06)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <Download size={14} style={{ flexShrink: 0 }} />
+                    Install App
+                  </button>
+                </div>
+              )}
+
               <div style={{ borderTop: '1px solid var(--card-border)' }}>
                 <button
                   onClick={handleSignOut}
@@ -1099,6 +1150,28 @@ export function TopNav({ profile }: { profile: Profile }) {
     </header>
     <ProductTour userName={profile.name || profile.email || 'User'} open={tourOpen} onClose={closeTour} />
     {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
+
+    {/* iOS "Add to Home Screen" hint banner */}
+    {showIOSHint && (
+      <div style={{
+        position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 500, width: 'calc(100% - 32px)', maxWidth: 360,
+        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+        borderRadius: 14, padding: '14px 16px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        animation: 'fadeUp .2s ease',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Install on iOS</span>
+          <button onClick={() => setShowIOSHint(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0, lineHeight: 1.5 }}>
+          Tap the <strong style={{ color: 'var(--accent)' }}>Share</strong> button in Safari, then select <strong style={{ color: 'var(--accent)' }}>Add to Home Screen</strong> to install this app.
+        </p>
+      </div>
+    )}
 
     {/* ── Mobile left slide-out drawer ──────────────────────── */}
     {drawerOpen && (

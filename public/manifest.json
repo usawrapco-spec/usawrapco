@@ -1,43 +1,49 @@
 {
-  "name": "USA Wrap Co — Ops Platform",
-  "short_name": "USA Wrap Co",
+  "name": "USA Wrap Co",
+  "short_name": "USAWrap",
   "description": "Vehicle wrap shop operations and CRM platform",
-  "start_url": "/dashboard",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0d0f14",
+  "background_color": "#000000",
   "theme_color": "#4f7fff",
   "orientation": "any",
   "categories": ["business", "productivity"],
   "shortcuts": [
     {
-      "name": "Time Clock",
-      "short_name": "Clock",
-      "url": "/timeclock",
-      "description": "Clock in/out and track time"
-    },
-    {
       "name": "Pipeline",
       "short_name": "Pipeline",
       "url": "/pipeline",
-      "description": "View job pipeline"
+      "description": "View job pipeline",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Communications",
-      "short_name": "Inbox",
-      "url": "/communications",
-      "description": "Messages and calls"
+      "name": "Time Clock",
+      "short_name": "Clock",
+      "url": "/timeclock",
+      "description": "Clock in/out and track time",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "url": "/dashboard",
+      "description": "Main dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
