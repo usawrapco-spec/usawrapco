@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 
 export async function POST(req: NextRequest) {
   const supabase = getSupabaseAdmin()
   const body = await req.formData()
+  if (!isTwilioWebhook(req, formDataToParams(body))) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
 
   const callSid = body.get('CallSid') as string
   const callStatus = body.get('CallStatus') as string

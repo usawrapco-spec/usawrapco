@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { sendTransactionalEmail } from '@/lib/email/send'
+import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 
 export async function POST(req: NextRequest) {
   const supabase = getSupabaseAdmin()
   const body = await req.formData()
+  if (!isTwilioWebhook(req, formDataToParams(body))) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
 
   const callSid = body.get('CallSid') as string
   const transcript = body.get('TranscriptionText') as string
@@ -13,11 +18,11 @@ export async function POST(req: NextRequest) {
   const { data: callLog } = await supabase.from('call_logs')
     .update({ voicemail_transcript: transcript })
     .eq('twilio_call_sid', callSid)
-    .select('*, phone_departments(voicemail_email, name)')
+    .select('*, department:department_id(voicemail_email, name)')
     .single()
 
-  const deptEmail = callLog?.phone_departments?.voicemail_email || 'fleet@usawrapco.com'
-  const deptName = callLog?.phone_departments?.name || 'General'
+  const deptEmail = callLog?.department?.voicemail_email || 'fleet@usawrapco.com'
+  const deptName = callLog?.department?.name || 'General'
 
   if (deptEmail) {
     await sendTransactionalEmail({

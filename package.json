@@ -17,6 +17,7 @@
     "@stripe/stripe-js": "^8.8.0",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.4",
+    "@twilio/voice-sdk": "^2.18.0",
     "@types/canvas-confetti": "^1.9.0",
     "@types/nodemailer": "^7.0.11",
     "@types/three": "^0.183.1",
