@@ -8,7 +8,7 @@ export interface Conversation {
   contact_name: string
   contact_email: string | null
   contact_phone: string | null
-  status: string
+  status: string                   // 'open' | 'resolved'
   assigned_to: string | null
   unread_count: number
   last_message_at: string | null
@@ -27,7 +27,7 @@ export interface ConversationMessage {
   id: string
   org_id: string | null
   conversation_id: string
-  channel: 'email' | 'sms' | 'note'
+  channel: 'email' | 'sms' | 'note' | 'call' | 'voicemail'
   direction: 'inbound' | 'outbound' | 'internal'
   sent_by: string | null
   sent_by_name: string | null
@@ -45,6 +45,12 @@ export interface ConversationMessage {
   open_count: number
   clicked_at: string | null
   read_by: string[] | null
+  // MMS / voice fields
+  media_urls: string[] | null
+  call_duration_seconds: number | null
+  call_recording_url: string | null
+  voicemail_url: string | null
+  voicemail_transcription: string | null
   created_at: string
 }
 
@@ -57,6 +63,14 @@ export interface EmailTemplate {
   body_html: string
 }
 
+export interface SmsTemplate {
+  id: string
+  org_id: string
+  name: string
+  body: string
+  created_at: string
+}
+
 export interface PhotoSelection {
   job_image_id: string
   image_url: string
@@ -64,7 +78,18 @@ export interface PhotoSelection {
   file_name?: string
 }
 
-export type InboxLabel = 'inbox' | 'starred' | 'archived' | 'sent' | 'email' | 'sms' | 'unread' | 'mine'
+export type InboxLabel =
+  | 'inbox'
+  | 'starred'
+  | 'resolved'
+  | 'archived'
+  | 'sent'
+  | 'email'
+  | 'sms'
+  | 'calls'
+  | 'voicemail'
+  | 'unread'
+  | 'mine'
 
 export const CONTACT_ROLES = [
   'Decision Maker',

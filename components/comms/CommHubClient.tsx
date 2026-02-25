@@ -4,11 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { TriangleAlert, X } from 'lucide-react'
 import type { Profile } from '@/types'
-import type { Conversation, ConversationMessage, EmailTemplate, PhotoSelection, InboxLabel } from './types'
+import type { Conversation, ConversationMessage, EmailTemplate, SmsTemplate, PhotoSelection, InboxLabel } from './types'
 import { ConversationList } from './ConversationList'
 import { MessageThread } from './MessageThread'
 import { ContactPanel } from './ContactPanel'
 import { ComposeArea } from './ComposeArea'
+
+interface Teammate {
+  id: string
+  name: string
+  role: string
+}
 
 interface Props {
   profile: Profile
@@ -23,6 +29,8 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId || null)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
+  const [smsTemplates, setSmsTemplates] = useState<SmsTemplate[]>([])
+  const [teammates, setTeammates] = useState<Teammate[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<InboxLabel>('inbox')
   const [showContact, setShowContact] = useState(true)
@@ -65,11 +73,13 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
         .from('conversations')
         .update({ unread_count: 0 })
         .eq('id', convoId)
+      // Reflect in local state
+      setConversations(prev => prev.map(c => c.id === convoId ? { ...c, unread_count: 0 } : c))
     },
     [supabase]
   )
 
-  // ── Fetch templates ───────────────────────────────────────
+  // ── Fetch email templates ─────────────────────────────────
   const fetchTemplates = useCallback(async () => {
     const { data } = await supabase
       .from('email_templates')
@@ -77,6 +87,27 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       .eq('org_id', orgId)
     if (data) setTemplates(data as EmailTemplate[])
   }, [supabase, orgId])
+
+  // ── Fetch SMS templates ───────────────────────────────────
+  const fetchSmsTemplates = useCallback(async () => {
+    const { data } = await supabase
+      .from('sms_templates')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('name')
+    if (data) setSmsTemplates(data as SmsTemplate[])
+  }, [supabase, orgId])
+
+  // ── Fetch teammates ───────────────────────────────────────
+  const fetchTeammates = useCallback(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, role')
+      .eq('org_id', orgId)
+      .neq('id', profile.id)
+      .order('name')
+    if (data) setTeammates(data as Teammate[])
+  }, [supabase, orgId, profile.id])
 
   // ── Check email config ─────────────────────────────────────
   useEffect(() => {
@@ -93,7 +124,9 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
   useEffect(() => {
     fetchConversations()
     fetchTemplates()
-  }, [fetchConversations, fetchTemplates])
+    fetchSmsTemplates()
+    fetchTeammates()
+  }, [fetchConversations, fetchTemplates, fetchSmsTemplates, fetchTeammates])
 
   useEffect(() => {
     if (selectedId) {
@@ -195,6 +228,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
     channel: 'email' | 'sms' | 'note'
     subject?: string
     body: string
+    body_html?: string
     photos?: PhotoSelection[]
     cc?: string[]
     bcc?: string[]
@@ -211,6 +245,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
         to_phone: data.to_phone || (data.channel === 'sms' ? newTo : undefined),
         subject: data.subject,
         body: data.body,
+        body_html: data.body_html,
         photos: data.photos || [],
         cc: data.cc,
         bcc: data.bcc,
@@ -238,13 +273,43 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
     setConversations(prev =>
       prev.map(c => c.id === id ? { ...c, is_archived: true } : c)
     )
-    if (selectedId === id) {
-      setSelectedId(null)
-    }
+    if (selectedId === id) setSelectedId(null)
     await supabase
       .from('conversations')
       .update({ is_archived: true })
       .eq('id', id)
+  }
+
+  // ── Assign ────────────────────────────────────────────────
+  const handleAssign = async (convoId: string, userId: string | null) => {
+    setConversations(prev =>
+      prev.map(c => c.id === convoId ? { ...c, assigned_to: userId } : c)
+    )
+    await supabase
+      .from('conversations')
+      .update({ assigned_to: userId })
+      .eq('id', convoId)
+  }
+
+  // ── Resolve / Reopen ──────────────────────────────────────
+  const handleResolve = async (convoId: string) => {
+    setConversations(prev =>
+      prev.map(c => c.id === convoId ? { ...c, status: 'resolved' } : c)
+    )
+    await supabase
+      .from('conversations')
+      .update({ status: 'resolved' })
+      .eq('id', convoId)
+  }
+
+  const handleReopen = async (convoId: string) => {
+    setConversations(prev =>
+      prev.map(c => c.id === convoId ? { ...c, status: 'open' } : c)
+    )
+    await supabase
+      .from('conversations')
+      .update({ status: 'open' })
+      .eq('id', convoId)
   }
 
   const handleContactUpdate = (updates: Partial<Conversation>) => {
@@ -255,15 +320,16 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
 
   // ── Filter conversations ──────────────────────────────────
   const filtered = conversations.filter((c) => {
-    // Label filters (mutually exclusive with channel/status filters)
     if (filter === 'inbox') {
       if (c.is_archived) return false
+      if (c.status === 'resolved') return false
     } else if (filter === 'starred') {
       if (!c.is_starred) return false
+    } else if (filter === 'resolved') {
+      if (c.status !== 'resolved') return false
     } else if (filter === 'archived') {
       if (!c.is_archived) return false
     } else if (filter === 'sent') {
-      // Show all non-archived (sent = outbound context; all conversations have sent msgs)
       if (c.is_archived) return false
     } else if (filter === 'email') {
       if (c.is_archived) return false
@@ -271,6 +337,12 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
     } else if (filter === 'sms') {
       if (c.is_archived) return false
       if (c.last_message_channel !== 'sms') return false
+    } else if (filter === 'calls') {
+      if (c.is_archived) return false
+      if (c.last_message_channel !== 'call') return false
+    } else if (filter === 'voicemail') {
+      if (c.is_archived) return false
+      if (c.last_message_channel !== 'voicemail') return false
     } else if (filter === 'unread') {
       if (c.is_archived) return false
       if (c.unread_count <= 0) return false
@@ -284,6 +356,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       if (
         !c.contact_name?.toLowerCase().includes(q) &&
         !c.contact_email?.toLowerCase().includes(q) &&
+        !c.contact_phone?.includes(q) &&
         !c.last_message_preview?.toLowerCase().includes(q)
       )
         return false
@@ -294,9 +367,10 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
 
   // ── Counts for label nav ──────────────────────────────────
   const counts = {
-    inbox: conversations.filter(c => !c.is_archived).length,
-    starred: conversations.filter(c => c.is_starred).length,
-    unread: conversations.filter(c => !c.is_archived && c.unread_count > 0).length,
+    inbox:    conversations.filter(c => !c.is_archived && c.status !== 'resolved').length,
+    starred:  conversations.filter(c => c.is_starred).length,
+    resolved: conversations.filter(c => c.status === 'resolved').length,
+    unread:   conversations.filter(c => !c.is_archived && c.unread_count > 0).length,
   }
 
   const showEmailBanner = !emailConfigured && !bannerDismissed
@@ -324,46 +398,19 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
           <TriangleAlert size={15} style={{ color: 'var(--amber)', flexShrink: 0 }} />
           <div style={{ flex: 1, fontSize: 12, color: 'var(--amber)', lineHeight: 1.5 }}>
             <strong>Email not configured.</strong>
-            {' '}To enable sending: add{' '}
-            <code
-              style={{
-                background: 'rgba(0,0,0,0.3)',
-                padding: '1px 5px',
-                borderRadius: 3,
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11,
-              }}
-            >
+            {' '}Add{' '}
+            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
               RESEND_API_KEY
             </code>
-            {' '}to Supabase Edge Functions secrets, and{' '}
-            <code
-              style={{
-                background: 'rgba(0,0,0,0.3)',
-                padding: '1px 5px',
-                borderRadius: 3,
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11,
-              }}
-            >
-              RESEND_API_KEY=your_key
+            {' '}to Supabase Edge Function secrets and{' '}
+            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
+              .env.local
             </code>
-            {' '}to <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>.env.local</code>.
-            {' '}Sign up free at{' '}
-            <strong>resend.com</strong> (3,000 emails/month free).
+            . Sign up free at <strong>resend.com</strong>.
           </div>
           <button
             onClick={handleDismissBanner}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--amber)',
-              padding: 4,
-              display: 'flex',
-              alignItems: 'center',
-              flexShrink: 0,
-            }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--amber)', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}
           >
             <X size={14} />
           </button>
@@ -371,185 +418,171 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       )}
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      {/* ── Column 1: Conversation List ─────────────────────── */}
-      <div
-        style={{
-          width: 280,
-          minWidth: 280,
-          maxWidth: 280,
-          borderRight: '1px solid var(--border)',
-          display: mobileView === 'list' ? 'flex' : undefined,
-          flexDirection: 'column',
-          background: 'var(--surface)',
-          flexShrink: 0,
-        }}
-        className={mobileView === 'list' ? '' : 'hidden md:flex'}
-      >
-        <ConversationList
-          conversations={filtered}
-          selectedId={selectedId}
-          onSelect={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          search={search}
-          onSearchChange={setSearch}
-          filter={filter}
-          onFilterChange={setFilter}
-          loading={loading}
-          profile={profile}
-          onStar={handleStar}
-          onArchive={handleArchive}
-          counts={counts}
-        />
-      </div>
-
-      {/* ── Column 2: Thread / New Compose ──────────────────── */}
-      <div
-        style={{
-          flex: 1,
-          display: mobileView === 'thread' ? 'flex' : undefined,
-          flexDirection: 'column',
-          minWidth: 0,
-        }}
-        className={mobileView === 'thread' ? '' : 'hidden md:flex'}
-      >
-        {composingNew ? (
-          /* New conversation compose */
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Header */}
-            <div
-              style={{
-                padding: '12px 18px',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                flexShrink: 0,
-                background: 'var(--surface)',
-              }}
-            >
-              <button
-                onClick={handleBack}
-                className="md:hidden"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text2)',
-                  padding: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-              </button>
-              <span
-                style={{
-                  fontFamily: 'Barlow Condensed, sans-serif',
-                  fontWeight: 800,
-                  fontSize: 16,
-                  color: 'var(--text1)',
-                }}
-              >
-                New Message
-              </span>
-            </div>
-
-            {/* Empty space */}
-            <div
-              style={{
-                flex: 1,
-                background: 'var(--bg)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--text3)',
-                fontSize: 13,
-              }}
-            >
-              Fill in the recipient and compose your message below
-            </div>
-
-            {/* Compose */}
-            <ComposeArea
-              conversation={null}
-              profile={profile}
-              templates={templates}
-              onSend={handleNewSend}
-              composingNew
-              newTo={newTo}
-              onNewToChange={setNewTo}
-              newName={newName}
-              onNewNameChange={setNewName}
-            />
-          </div>
-        ) : selectedConvo ? (
-          <MessageThread
-            conversation={selectedConvo}
-            messages={messages}
-            profile={profile}
-            templates={templates}
-            loading={messagesLoading}
-            onBack={handleBack}
-            onMessageSent={handleMessageSent}
-            onToggleContact={() => setShowContact(!showContact)}
-            contactVisible={showContact}
-          />
-        ) : (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 12,
-              color: 'var(--text3)',
-              background: 'var(--bg)',
-            }}
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text3)', opacity: 0.4 }}>
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
-            </svg>
-            <span style={{ fontSize: 14 }}>
-              Select a conversation or start a new one
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* ── Column 3: Contact Panel ─────────────────────────── */}
-      {showContact && selectedConvo && (
+        {/* ── Column 1: Conversation List ─────────────────────── */}
         <div
-          className="hidden lg:flex"
           style={{
-            width: 320,
-            minWidth: 320,
-            maxWidth: 320,
-            borderLeft: '1px solid var(--border)',
+            width: 280,
+            minWidth: 280,
+            maxWidth: 280,
+            borderRight: '1px solid var(--border)',
+            display: mobileView === 'list' ? 'flex' : undefined,
             flexDirection: 'column',
             background: 'var(--surface)',
             flexShrink: 0,
           }}
+          className={mobileView === 'list' ? '' : 'hidden md:flex'}
         >
-          <ContactPanel
-            conversation={selectedConvo}
-            messages={messages}
-            onClose={() => setShowContact(false)}
-            onUpdate={handleContactUpdate}
+          <ConversationList
+            conversations={filtered}
+            selectedId={selectedId}
+            onSelect={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            search={search}
+            onSearchChange={setSearch}
+            filter={filter}
+            onFilterChange={setFilter}
+            loading={loading}
+            profile={profile}
+            onStar={handleStar}
+            onArchive={handleArchive}
+            counts={counts}
           />
         </div>
-      )}
 
-      {/* Keyframe animations */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+        {/* ── Column 2: Thread / New Compose ──────────────────── */}
+        <div
+          style={{
+            flex: 1,
+            display: mobileView === 'thread' ? 'flex' : undefined,
+            flexDirection: 'column',
+            minWidth: 0,
+          }}
+          className={mobileView === 'thread' ? '' : 'hidden md:flex'}
+        >
+          {composingNew ? (
+            /* New conversation compose */
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div
+                style={{
+                  padding: '12px 18px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  flexShrink: 0,
+                  background: 'var(--surface)',
+                }}
+              >
+                <button
+                  onClick={handleBack}
+                  className="md:hidden"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', padding: 4, display: 'flex', alignItems: 'center' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800, fontSize: 16, color: 'var(--text1)' }}>
+                  New Message
+                </span>
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  background: 'var(--bg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text3)',
+                  fontSize: 13,
+                }}
+              >
+                Fill in the recipient and compose your message below
+              </div>
+
+              <ComposeArea
+                conversation={null}
+                profile={profile}
+                templates={templates}
+                smsTemplates={smsTemplates}
+                onSend={handleNewSend}
+                composingNew
+                newTo={newTo}
+                onNewToChange={setNewTo}
+                newName={newName}
+                onNewNameChange={setNewName}
+              />
+            </div>
+          ) : selectedConvo ? (
+            <MessageThread
+              key={selectedConvo.id}
+              conversation={selectedConvo}
+              messages={messages}
+              profile={profile}
+              templates={templates}
+              smsTemplates={smsTemplates}
+              teammates={teammates}
+              loading={messagesLoading}
+              onBack={handleBack}
+              onMessageSent={handleMessageSent}
+              onToggleContact={() => setShowContact(!showContact)}
+              contactVisible={showContact}
+              onAssign={handleAssign}
+              onResolve={handleResolve}
+              onReopen={handleReopen}
+            />
+          ) : (
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                color: 'var(--text3)',
+                background: 'var(--bg)',
+              }}
+            >
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text3)', opacity: 0.4 }}>
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
+              </svg>
+              <span style={{ fontSize: 14 }}>Select a conversation or start a new one</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Column 3: Contact Panel ─────────────────────────── */}
+        {showContact && selectedConvo && (
+          <div
+            className="hidden lg:flex"
+            style={{
+              width: 320,
+              minWidth: 320,
+              maxWidth: 320,
+              borderLeft: '1px solid var(--border)',
+              flexDirection: 'column',
+              background: 'var(--surface)',
+              flexShrink: 0,
+            }}
+          >
+            <ContactPanel
+              conversation={selectedConvo}
+              messages={messages}
+              onClose={() => setShowContact(false)}
+              onUpdate={handleContactUpdate}
+            />
+          </div>
+        )}
+
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     </div>
   )

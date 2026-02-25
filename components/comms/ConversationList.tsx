@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Mail, MessageSquare, Plus, Star, Archive, Inbox, Send as SendIcon } from 'lucide-react'
+import { Search, Mail, MessageSquare, Plus, Star, Archive, Inbox, Send as SendIcon, CheckCircle, Phone, Mic } from 'lucide-react'
 import type { Profile } from '@/types'
 import type { Conversation, InboxLabel } from './types'
 import { relativeTime, getInitials } from './types'
@@ -8,6 +8,7 @@ import { relativeTime, getInitials } from './types'
 const LABELS: { key: InboxLabel; label: string; icon: typeof Inbox }[] = [
   { key: 'inbox', label: 'Inbox', icon: Inbox },
   { key: 'starred', label: 'Starred', icon: Star },
+  { key: 'resolved', label: 'Resolved', icon: CheckCircle },
   { key: 'archived', label: 'Archived', icon: Archive },
   { key: 'sent', label: 'Sent', icon: SendIcon },
 ]
@@ -15,6 +16,8 @@ const LABELS: { key: InboxLabel; label: string; icon: typeof Inbox }[] = [
 const FILTERS: { key: InboxLabel; label: string }[] = [
   { key: 'email', label: 'Email' },
   { key: 'sms', label: 'SMS' },
+  { key: 'calls', label: 'Calls' },
+  { key: 'voicemail', label: 'Voicemail' },
   { key: 'unread', label: 'Unread' },
   { key: 'mine', label: 'Mine' },
 ]
@@ -32,7 +35,7 @@ interface Props {
   profile: Profile
   onStar?: (id: string, starred: boolean) => void
   onArchive?: (id: string) => void
-  counts?: { inbox: number; starred: number; unread: number }
+  counts?: { inbox: number; starred: number; resolved: number; unread: number }
 }
 
 export function ConversationList({
@@ -101,7 +104,11 @@ export function ConversationList({
         {LABELS.map((l) => {
           const isActive = l.key === activeLabel && !activeFilter
           const Icon = l.icon
-          const count = l.key === 'inbox' ? counts?.inbox : l.key === 'starred' ? counts?.starred : undefined
+          const count =
+            l.key === 'inbox'    ? counts?.inbox    :
+            l.key === 'starred'  ? counts?.starred  :
+            l.key === 'resolved' ? counts?.resolved :
+            undefined
           return (
             <button
               key={l.key}
@@ -267,21 +274,21 @@ export function ConversationList({
               fontSize: 13,
             }}
           >
-            {activeLabel === 'starred' ? 'No starred conversations' :
-             activeLabel === 'archived' ? 'No archived conversations' :
-             activeLabel === 'sent' ? 'No sent messages' :
-             'No conversations yet'}
+            {activeLabel === 'starred'  ? 'No starred conversations' :
+           activeLabel === 'resolved' ? 'No resolved conversations' :
+           activeLabel === 'archived' ? 'No archived conversations' :
+           activeLabel === 'sent'     ? 'No sent messages' :
+           'No conversations yet'}
           </div>
         ) : (
           conversations.map((c) => {
             const isActive = c.id === selectedId
             const hasUnread = c.unread_count > 0
             const channelIcon =
-              c.last_message_channel === 'sms' ? (
-                <MessageSquare size={11} />
-              ) : (
-                <Mail size={11} />
-              )
+              c.last_message_channel === 'sms'      ? <MessageSquare size={11} /> :
+              c.last_message_channel === 'call'      ? <Phone size={11} /> :
+              c.last_message_channel === 'voicemail' ? <Mic size={11} /> :
+                                                       <Mail size={11} />
 
             return (
               <div
@@ -441,7 +448,7 @@ export function ConversationList({
                   </div>
 
                   {/* Unread badge */}
-                  {hasUnread && (
+                  {hasUnread ? (
                     <div
                       style={{
                         width: 8,
@@ -452,7 +459,12 @@ export function ConversationList({
                         marginTop: 6,
                       }}
                     />
-                  )}
+                  ) : c.status === 'resolved' ? (
+                    <CheckCircle
+                      size={13}
+                      style={{ color: 'var(--green)', flexShrink: 0, marginTop: 4 }}
+                    />
+                  ) : null}
                 </button>
 
                 {/* Archive button (on hover) */}

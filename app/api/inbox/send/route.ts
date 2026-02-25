@@ -163,7 +163,7 @@ export async function POST(req: Request) {
     emailLogId = emailLog?.id || null
   }
 
-  // ── Send via Twilio SMS ─────────────────────────────────────
+  // ── Send via Twilio SMS / MMS ───────────────────────────────
   if (channel === 'sms' && to_phone) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID
     const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -176,6 +176,15 @@ export async function POST(req: Request) {
       fromPhone
     ) {
       try {
+        // Build form params — append MediaUrl for each MMS photo
+        const twilioParams = new URLSearchParams()
+        twilioParams.append('To', to_phone)
+        twilioParams.append('From', fromPhone)
+        twilioParams.append('Body', body || '')
+        for (const p of photos) {
+          twilioParams.append('MediaUrl', p.image_url)
+        }
+
         const twilioRes = await fetch(
           `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
           {
@@ -186,11 +195,7 @@ export async function POST(req: Request) {
                 Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
               'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: new URLSearchParams({
-              To: to_phone,
-              From: fromPhone,
-              Body: body || '',
-            }).toString(),
+            body: twilioParams.toString(),
           }
         )
         const twilioData = await twilioRes.json()
@@ -229,6 +234,9 @@ export async function POST(req: Request) {
       open_count: 0,
       cc: cc.length > 0 ? cc : null,
       bcc: bcc.length > 0 ? bcc : null,
+      media_urls: channel === 'sms' && photos.length > 0
+        ? photos.map((p: any) => p.image_url)
+        : null,
     })
     .select()
     .single()

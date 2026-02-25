@@ -1,16 +1,22 @@
 'use client'
 
-import { useState, useRef, KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import {
   Send,
   ImageIcon,
   FileText,
   X,
   ChevronDown,
-  ChevronUp,
   Users,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Link2,
+  PenLine,
 } from 'lucide-react'
-import type { Conversation, EmailTemplate, PhotoSelection } from './types'
+import type { Conversation, EmailTemplate, SmsTemplate, PhotoSelection } from './types'
 import type { Profile } from '@/types'
 import { PhotoPickerModal } from './PhotoPickerModal'
 
@@ -20,6 +26,8 @@ interface Props {
   conversation: Conversation | null
   profile: Profile
   templates: EmailTemplate[]
+  smsTemplates?: SmsTemplate[]
+  replySubject?: string
   onSend: (data: {
     channel: ComposeTab
     subject?: string
@@ -135,10 +143,134 @@ function ChipInput({
   )
 }
 
+// ── Rich text toolbar button ──────────────────────────────────────
+function ToolbarBtn({
+  onMouseDown,
+  title,
+  children,
+}: {
+  onMouseDown: (e: React.MouseEvent) => void
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onMouseDown={onMouseDown}
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 26,
+        height: 24,
+        background: 'transparent',
+        border: '1px solid transparent',
+        borderRadius: 4,
+        cursor: 'pointer',
+        color: 'var(--text2)',
+        padding: 0,
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── Rich text email editor ────────────────────────────────────────
+function RichTextEditor({
+  editorRef,
+  onKeyDown,
+  placeholder,
+}: {
+  editorRef: React.RefObject<HTMLDivElement>
+  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void
+  placeholder: string
+}) {
+  const execFmt = (e: React.MouseEvent, cmd: string, val?: string) => {
+    e.preventDefault()
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, val)
+  }
+
+  const insertLink = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const url = window.prompt('Enter URL:', 'https://')
+    if (url) {
+      editorRef.current?.focus()
+      document.execCommand('createLink', false, url)
+    }
+  }
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+      {/* Formatting toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          padding: '4px 8px',
+          background: 'var(--surface2)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <ToolbarBtn onMouseDown={e => execFmt(e, 'bold')} title="Bold (Ctrl+B)">
+          <Bold size={12} />
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={e => execFmt(e, 'italic')} title="Italic (Ctrl+I)">
+          <Italic size={12} />
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={e => execFmt(e, 'underline')} title="Underline (Ctrl+U)">
+          <Underline size={12} />
+        </ToolbarBtn>
+        <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
+        <ToolbarBtn onMouseDown={e => execFmt(e, 'insertUnorderedList')} title="Bullet list">
+          <List size={12} />
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={e => execFmt(e, 'insertOrderedList')} title="Numbered list">
+          <ListOrdered size={12} />
+        </ToolbarBtn>
+        <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
+        <ToolbarBtn onMouseDown={insertLink} title="Insert link">
+          <Link2 size={12} />
+        </ToolbarBtn>
+        <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
+        <ToolbarBtn onMouseDown={e => execFmt(e, 'removeFormat')} title="Clear formatting">
+          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>Tx</span>
+        </ToolbarBtn>
+      </div>
+
+      {/* Editable area */}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onKeyDown={onKeyDown}
+        data-placeholder={placeholder}
+        style={{
+          minHeight: 120,
+          maxHeight: 280,
+          overflowY: 'auto',
+          padding: '8px 12px',
+          fontSize: 13,
+          color: 'var(--text1)',
+          outline: 'none',
+          lineHeight: 1.6,
+          background: 'var(--bg)',
+        }}
+      />
+    </div>
+  )
+}
+
 export function ComposeArea({
   conversation,
   profile,
   templates,
+  smsTemplates = [],
+  replySubject,
   onSend,
   composingNew,
   newTo,
@@ -158,20 +290,55 @@ export function ComposeArea({
   const [ccEmails, setCcEmails] = useState<string[]>([])
   const [bccEmails, setBccEmails] = useState<string[]>([])
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
 
   const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
+  // Signature HTML block appended below message body
+  const sigHtml = profile.email_signature
+    ? `<div><br></div><div data-sig="1" style="color:#9299b5;font-size:12px;border-top:1px solid #1a1d27;padding-top:6px;margin-top:4px;">-- <br>${profile.email_signature.replace(/\n/g, '<br>')}</div>`
+    : ''
+
+  // ── Initialize editor with signature on first render ──────────
+  useEffect(() => {
+    if (editorRef.current && sigHtml && !editorRef.current.innerText.trim()) {
+      editorRef.current.innerHTML = sigHtml
+      try {
+        const range = document.createRange()
+        const sel = window.getSelection()
+        range.setStart(editorRef.current, 0)
+        range.collapse(true)
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+      } catch {}
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Pre-fill subject for reply threading ─────────────────────
+  useEffect(() => {
+    if (replySubject && !subject) {
+      setSubject(
+        replySubject.toLowerCase().startsWith('re:')
+          ? replySubject
+          : `Re: ${replySubject}`
+      )
+    }
+  }, [replySubject]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleTemplate = (tmpl: EmailTemplate) => {
-    setSubject(tmpl.subject)
     const name = conversation?.contact_name || newName || 'there'
-    // Replace common template variables
-    const bodyText = tmpl.body_html
-      .replace(/<[^>]*>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&middot;/g, '\u00B7')
-      .replace(/{{contact_name}}/g, name)
-      .replace(/{{customer_name}}/g, name)
-    setBody(bodyText)
+    const html = tmpl.body_html
+      .replace(/\{\{contact_name\}\}/g, name)
+      .replace(/\{\{customer_name\}\}/g, name)
+    setSubject(tmpl.subject)
+    if (editorRef.current && tab === 'email') {
+      editorRef.current.innerHTML = html + (sigHtml || '')
+      editorRef.current.focus()
+    } else {
+      // Strip tags for SMS/note
+      const plain = html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&')
+      setBody(plain)
+    }
     setShowTemplates(false)
   }
 
@@ -183,18 +350,41 @@ export function ComposeArea({
     setPhotos((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  const resetEditor = () => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = sigHtml || ''
+      try {
+        const range = document.createRange()
+        const sel = window.getSelection()
+        range.setStart(editorRef.current, 0)
+        range.collapse(true)
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+      } catch {}
+    }
+  }
+
   const handleSend = async () => {
-    if (!body.trim() && tab !== 'email') return
-    if (tab === 'email' && !body.trim() && !subject.trim()) return
+    const isEmail = tab === 'email'
+    const emailHtml = isEmail && editorRef.current ? editorRef.current.innerHTML : undefined
+    const emailPlain = isEmail && editorRef.current ? (editorRef.current.innerText || '') : body
+
+    if (isEmail) {
+      if (!emailPlain.trim()) return
+    } else {
+      if (!body.trim()) return
+    }
+
     setSending(true)
     try {
       await onSend({
         channel: tab,
-        subject: tab === 'email' ? subject : undefined,
-        body,
-        photos: tab === 'email' ? photos : undefined,
-        cc: tab === 'email' && ccEmails.length > 0 ? ccEmails : undefined,
-        bcc: tab === 'email' && bccEmails.length > 0 ? bccEmails : undefined,
+        subject: isEmail ? subject : undefined,
+        body: isEmail ? emailPlain : body,
+        body_html: emailHtml || undefined,
+        photos: (isEmail || tab === 'sms') && photos.length > 0 ? photos : undefined,
+        cc: isEmail && ccEmails.length > 0 ? ccEmails : undefined,
+        bcc: isEmail && bccEmails.length > 0 ? bccEmails : undefined,
         to_email: composingNew ? newTo : conversation?.contact_email || undefined,
         to_phone: composingNew ? newTo : conversation?.contact_phone || undefined,
         contact_name: composingNew ? newName : undefined,
@@ -206,6 +396,7 @@ export function ComposeArea({
       setBccEmails([])
       setShowCc(false)
       setShowBcc(false)
+      resetEditor()
     } finally {
       setSending(false)
     }
@@ -229,6 +420,22 @@ export function ComposeArea({
 
   return (
     <>
+      {/* Styles for contenteditable placeholder + formatting */}
+      <style>{`
+        [contenteditable][data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: var(--text3);
+          pointer-events: none;
+        }
+        [contenteditable] a { color: var(--accent); }
+        [contenteditable] ul { padding-left: 20px; margin: 4px 0; }
+        [contenteditable] ol { padding-left: 20px; margin: 4px 0; }
+        [contenteditable] li { margin: 2px 0; }
+        [contenteditable] p { margin: 0 0 4px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      `}</style>
+
       <div
         style={{
           borderTop: '1px solid var(--border)',
@@ -346,6 +553,79 @@ export function ComposeArea({
             </div>
           )}
 
+          {/* SMS template selector */}
+          {tab === 'sms' && smsTemplates.length > 0 && (
+            <div style={{ position: 'relative', marginLeft: 6 }}>
+              <button
+                onClick={() => setShowTemplates(!showTemplates)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 8px',
+                  borderRadius: 5,
+                  fontSize: 11,
+                  color: 'var(--text2)',
+                  background: 'transparent',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                }}
+              >
+                <FileText size={12} />
+                Quick reply
+                <ChevronDown size={10} />
+              </button>
+              {showTemplates && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    right: 0,
+                    marginBottom: 4,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    width: 260,
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                    zIndex: 10,
+                  }}
+                >
+                  {smsTemplates.map((tmpl) => (
+                    <button
+                      key={tmpl.id}
+                      onClick={() => {
+                        const name = conversation?.contact_name || newName || 'there'
+                        setBody(tmpl.body.replace(/\{\{contact_name\}\}/g, name))
+                        setShowTemplates(false)
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 14px',
+                        fontSize: 12,
+                        color: 'var(--text1)',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: '1px solid var(--border)',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                    >
+                      <div style={{ fontWeight: 600 }}>{tmpl.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {tmpl.body.slice(0, 60)}...
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Template selector for email */}
           {tab === 'email' && templates.length > 0 && (
             <div style={{ position: 'relative', marginLeft: 6 }}>
@@ -378,8 +658,8 @@ export function ComposeArea({
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
                     borderRadius: 8,
-                    width: 260,
-                    maxHeight: 280,
+                    width: 280,
+                    maxHeight: 300,
                     overflowY: 'auto',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                     zIndex: 10,
@@ -465,8 +745,8 @@ export function ComposeArea({
           </div>
         )}
 
-        {/* Selected photos preview */}
-        {tab === 'email' && photos.length > 0 && (
+        {/* Selected photos preview (email + MMS) */}
+        {(tab === 'email' || tab === 'sms') && photos.length > 0 && (
           <div
             style={{
               display: 'flex',
@@ -491,11 +771,7 @@ export function ComposeArea({
                 <img
                   src={p.image_url}
                   alt={p.caption || 'Photo'}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
                 <button
                   onClick={() => removePhoto(i)}
@@ -521,36 +797,42 @@ export function ComposeArea({
           </div>
         )}
 
-        {/* Body textarea */}
+        {/* Body area */}
         <div style={{ padding: '6px 14px' }}>
-          <textarea
-            ref={bodyRef}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              tab === 'note'
-                ? 'Write an internal note...'
-                : tab === 'sms'
-                  ? 'Type your SMS message...'
-                  : 'Write your email message...'
-            }
-            rows={tab === 'email' ? 5 : 3}
-            style={{
-              width: '100%',
-              background: tab === 'note' ? 'rgba(245,158,11,0.06)' : 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '8px 10px',
-              fontSize: 13,
-              color: 'var(--text1)',
-              outline: 'none',
-              resize: 'vertical',
-              minHeight: 60,
-              lineHeight: 1.5,
-              fontFamily: 'inherit',
-            }}
-          />
+          {tab === 'email' ? (
+            <RichTextEditor
+              editorRef={editorRef}
+              onKeyDown={handleKeyDown}
+              placeholder="Write your email..."
+            />
+          ) : (
+            <textarea
+              ref={bodyRef}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                tab === 'note'
+                  ? 'Write an internal note...'
+                  : 'Type your SMS message...'
+              }
+              rows={3}
+              style={{
+                width: '100%',
+                background: tab === 'note' ? 'rgba(245,158,11,0.06)' : 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '8px 10px',
+                fontSize: 13,
+                color: 'var(--text1)',
+                outline: 'none',
+                resize: 'vertical',
+                minHeight: 60,
+                lineHeight: 1.5,
+                fontFamily: 'inherit',
+              }}
+            />
+          )}
         </div>
 
         {/* Footer actions */}
@@ -563,7 +845,7 @@ export function ComposeArea({
           }}
         >
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {tab === 'email' && (
+            {(tab === 'email' || tab === 'sms') && (
               <button
                 onClick={() => setShowPhotoPicker(true)}
                 style={{
@@ -574,14 +856,14 @@ export function ComposeArea({
                   borderRadius: 6,
                   fontSize: 11,
                   fontWeight: 600,
-                  color: 'var(--text2)',
+                  color: tab === 'sms' ? 'var(--green)' : 'var(--text2)',
                   background: 'transparent',
                   border: '1px solid var(--border)',
                   cursor: 'pointer',
                 }}
               >
                 <ImageIcon size={13} />
-                Photos
+                {tab === 'sms' ? 'MMS' : 'Photos'}
               </button>
             )}
             {/* CC/BCC chip summary */}
@@ -599,15 +881,32 @@ export function ComposeArea({
                 {ccEmails.length + bccEmails.length} recipient{ccEmails.length + bccEmails.length !== 1 ? 's' : ''} added
               </span>
             )}
+            {/* Signature indicator */}
+            {tab === 'email' && profile.email_signature && (
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 11,
+                  color: 'var(--text3)',
+                }}
+              >
+                <PenLine size={11} />
+                Sig
+              </span>
+            )}
             {tab === 'sms' && (
               <span
                 style={{
                   fontSize: 11,
-                  color: smsCharCount > 160 ? 'var(--amber)' : 'var(--text3)',
+                  color: smsCharCount > 160 && photos.length === 0 ? 'var(--amber)' : 'var(--text3)',
                   fontFamily: 'JetBrains Mono, monospace',
                 }}
               >
-                {smsCharCount}/160 &middot; {smsSegments} segment{smsSegments !== 1 ? 's' : ''}
+                {photos.length > 0
+                  ? `MMS · ${photos.length} photo${photos.length !== 1 ? 's' : ''}`
+                  : `${smsCharCount}/160 · ${smsSegments} segment${smsSegments !== 1 ? 's' : ''}`}
               </span>
             )}
             {tab === 'note' && (
@@ -618,17 +917,12 @@ export function ComposeArea({
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span
-              style={{
-                fontSize: 10,
-                color: 'var(--text3)',
-              }}
-            >
+            <span style={{ fontSize: 10, color: 'var(--text3)' }}>
               {'\u2318'}+Enter to send
             </span>
             <button
               onClick={handleSend}
-              disabled={sending || (!body.trim() && !subject.trim())}
+              disabled={sending}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -638,17 +932,13 @@ export function ComposeArea({
                 fontSize: 13,
                 fontWeight: 600,
                 color: '#fff',
-                background:
-                  sending || (!body.trim() && !subject.trim())
-                    ? 'var(--surface2)'
-                    : tab === 'note'
-                      ? 'var(--amber)'
-                      : 'var(--accent)',
+                background: sending
+                  ? 'var(--surface2)'
+                  : tab === 'note'
+                    ? 'var(--amber)'
+                    : 'var(--accent)',
                 border: 'none',
-                cursor:
-                  sending || (!body.trim() && !subject.trim())
-                    ? 'not-allowed'
-                    : 'pointer',
+                cursor: sending ? 'not-allowed' : 'pointer',
               }}
             >
               {sending ? (
