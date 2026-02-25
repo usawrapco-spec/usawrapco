@@ -13,7 +13,7 @@ import {
   MessageCircle, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
   Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
   Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
-  ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart,
+  ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart, Phone,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -80,10 +80,11 @@ const INSTALL_ITEMS: DropdownItem[] = [
 const INSTALL_PATHS = ['/install']
 
 const MORE_NAV: DropdownItem[] = [
-  { href: '/payroll',       label: 'Payroll',       icon: DollarSign },
-  { href: '/inventory',     label: 'Inventory',     icon: Package },
-  { href: '/catalog',       label: 'Catalog',       icon: BookOpen },
-  { href: '/network',       label: 'Network Map',   icon: Map },
+  { href: '/phone',         label: 'Phone',          icon: Phone },
+  { href: '/payroll',       label: 'Payroll',        icon: DollarSign },
+  { href: '/inventory',     label: 'Inventory',      icon: Package },
+  { href: '/catalog',       label: 'Catalog',        icon: BookOpen },
+  { href: '/network',       label: 'Network Map',    icon: Map },
   { href: '/media-library', label: 'Media Library',  icon: ImageIcon },
   { href: '/settings',      label: 'Settings',       icon: Settings },
 ]
