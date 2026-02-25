@@ -1,20 +1,47 @@
 'use client'
 
-import { X, Mail, Phone, ExternalLink, Eye, MousePointer } from 'lucide-react'
+import { useState } from 'react'
+import { X, Mail, Phone, ExternalLink, Eye, MousePointer, Crown, ChevronDown, User } from 'lucide-react'
 import type { Conversation, ConversationMessage } from './types'
-import { formatFullDate } from './types'
+import { CONTACT_ROLES, formatFullDate } from './types'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 interface Props {
   conversation: Conversation
   messages: ConversationMessage[]
   onClose: () => void
+  onUpdate?: (updates: Partial<Conversation>) => void
 }
 
-export function ContactPanel({ conversation: c, messages, onClose }: Props) {
+export function ContactPanel({ conversation: c, messages, onClose, onUpdate }: Props) {
+  const supabase = createClient()
   const emailMessages = messages.filter(
     (m) => m.channel === 'email' && m.direction === 'outbound'
   )
+
+  const [editingRole, setEditingRole] = useState(false)
+  const [savingRole, setSavingRole] = useState(false)
+
+  const handleRoleChange = async (role: string | null) => {
+    setSavingRole(true)
+    setEditingRole(false)
+    await supabase
+      .from('conversations')
+      .update({ contact_role: role })
+      .eq('id', c.id)
+    onUpdate?.({ contact_role: role })
+    setSavingRole(false)
+  }
+
+  const handleDecisionMakerToggle = async () => {
+    const next = !c.is_decision_maker
+    await supabase
+      .from('conversations')
+      .update({ is_decision_maker: next })
+      .eq('id', c.id)
+    onUpdate?.({ is_decision_maker: next })
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -130,6 +157,167 @@ export function ContactPanel({ conversation: c, messages, onClose }: Props) {
           </div>
         </div>
 
+        {/* ── Contact Role ─────────────────────────────────── */}
+        <div
+          style={{
+            background: 'var(--bg)',
+            borderRadius: 10,
+            padding: 14,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: 'var(--text3)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: 10,
+            }}
+          >
+            Contact Role
+          </div>
+
+          {/* Role selector */}
+          <div style={{ position: 'relative', marginBottom: 10 }}>
+            <button
+              onClick={() => setEditingRole(!editingRole)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                padding: '8px 10px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 7,
+                cursor: 'pointer',
+                color: c.contact_role ? 'var(--text1)' : 'var(--text3)',
+                fontSize: 13,
+              }}
+            >
+              <User size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: 'left' }}>
+                {savingRole ? 'Saving...' : c.contact_role || 'Set role...'}
+              </span>
+              <ChevronDown size={12} style={{ color: 'var(--text3)' }} />
+            </button>
+
+            {editingRole && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: 4,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  zIndex: 10,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                  overflow: 'hidden',
+                }}
+              >
+                <button
+                  onClick={() => handleRoleChange(null)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    color: 'var(--text3)',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  (No role)
+                </button>
+                {CONTACT_ROLES.map((role) => (
+                  <button
+                    key={role}
+                    onClick={() => handleRoleChange(role)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      color: role === c.contact_role ? 'var(--accent)' : 'var(--text1)',
+                      fontWeight: role === c.contact_role ? 700 : 400,
+                      background: role === c.contact_role ? 'rgba(79,127,255,0.08)' : 'none',
+                      border: 'none',
+                      borderBottom: '1px solid var(--border)',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (role !== c.contact_role) e.currentTarget.style.background = 'var(--surface2)'
+                    }}
+                    onMouseLeave={(e) => {
+                      if (role !== c.contact_role) e.currentTarget.style.background = 'none'
+                    }}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Decision Maker toggle */}
+          <button
+            onClick={handleDecisionMakerToggle}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              padding: '8px 10px',
+              background: c.is_decision_maker ? 'rgba(245,158,11,0.1)' : 'var(--surface)',
+              border: `1px solid ${c.is_decision_maker ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
+              borderRadius: 7,
+              cursor: 'pointer',
+              color: c.is_decision_maker ? 'var(--amber)' : 'var(--text2)',
+              fontSize: 13,
+              fontWeight: c.is_decision_maker ? 700 : 500,
+            }}
+          >
+            <Crown size={13} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, textAlign: 'left' }}>Decision Maker</span>
+            {/* Toggle indicator */}
+            <div
+              style={{
+                width: 32,
+                height: 16,
+                borderRadius: 8,
+                background: c.is_decision_maker ? 'var(--amber)' : 'var(--surface2)',
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: c.is_decision_maker ? 18 : 2,
+                  width: 12,
+                  height: 12,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  transition: 'left 0.2s',
+                }}
+              />
+            </div>
+          </button>
+        </div>
+
         {/* Linked project */}
         {c.project_id && (
           <div style={{ marginBottom: 16 }}>
@@ -162,6 +350,42 @@ export function ContactPanel({ conversation: c, messages, onClose }: Props) {
             >
               <ExternalLink size={13} />
               View Project
+            </Link>
+          </div>
+        )}
+
+        {/* Linked customer */}
+        {c.customer_id && (
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'var(--text3)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: 8,
+              }}
+            >
+              Customer Profile
+            </div>
+            <Link
+              href={`/customers/${c.customer_id}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                background: 'var(--bg)',
+                borderRadius: 8,
+                textDecoration: 'none',
+                color: 'var(--accent)',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              <ExternalLink size={13} />
+              View Customer
             </Link>
           </div>
         )}
@@ -239,6 +463,12 @@ export function ContactPanel({ conversation: c, messages, onClose }: Props) {
                   >
                     {m.subject || '(no subject)'}
                   </div>
+                  {/* CC info */}
+                  {m.cc && m.cc.length > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 2 }}>
+                      CC: {m.cc.join(', ')}
+                    </div>
+                  )}
                   <div
                     style={{
                       display: 'flex',

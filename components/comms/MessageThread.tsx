@@ -299,6 +299,8 @@ export function MessageThread({
     subject?: string
     body: string
     photos?: PhotoSelection[]
+    cc?: string[]
+    bcc?: string[]
     to_email?: string
     to_phone?: string
     contact_name?: string
@@ -314,6 +316,8 @@ export function MessageThread({
         subject: data.subject,
         body: data.body,
         photos: data.photos || [],
+        cc: data.cc,
+        bcc: data.bcc,
         contact_name: data.contact_name || conversation.contact_name,
       }),
     })

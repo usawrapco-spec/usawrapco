@@ -15,6 +15,11 @@ export interface Conversation {
   last_message_preview: string | null
   last_message_channel: string | null
   tags: string[] | null
+  is_starred: boolean
+  is_archived: boolean
+  labels: string[] | null
+  contact_role: string | null
+  is_decision_maker: boolean
   created_at: string
 }
 
@@ -30,6 +35,8 @@ export interface ConversationMessage {
   body: string
   body_html: string | null
   attachments: any[] | null
+  cc: string[] | null
+  bcc: string[] | null
   email_log_id: string | null
   sendgrid_message_id: string | null
   twilio_sid: string | null
@@ -56,6 +63,21 @@ export interface PhotoSelection {
   caption: string
   file_name?: string
 }
+
+export type InboxLabel = 'inbox' | 'starred' | 'archived' | 'sent' | 'email' | 'sms' | 'unread' | 'mine'
+
+export const CONTACT_ROLES = [
+  'Decision Maker',
+  'Billing Contact',
+  'Technical Contact',
+  'Project Manager',
+  'Marketing',
+  'Owner',
+  'Fleet Manager',
+  'Other',
+] as const
+
+export type ContactRole = typeof CONTACT_ROLES[number]
 
 export function relativeTime(dateStr: string | null): string {
   if (!dateStr) return ''

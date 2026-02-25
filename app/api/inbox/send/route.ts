@@ -73,6 +73,8 @@ export async function POST(req: Request) {
     contact_name,
     customer_id,
     project_id,
+    cc = [],
+    bcc = [],
   } = await req.json()
 
   // ── Get or create conversation ──────────────────────────────
@@ -91,6 +93,8 @@ export async function POST(req: Request) {
         assigned_to: user.id,
         unread_count: 0,
         last_message_channel: channel,
+        is_starred: false,
+        is_archived: false,
       })
       .select()
       .single()
@@ -119,6 +123,8 @@ export async function POST(req: Request) {
             to: to_email,
             subject: subject || 'Message from USA Wrap Co',
             html: emailHtml,
+            cc: cc.length > 0 ? cc : undefined,
+            bcc: bcc.length > 0 ? bcc : undefined,
           }),
         }
       )
@@ -221,6 +227,8 @@ export async function POST(req: Request) {
       twilio_sid: twilioSid,
       status: channel === 'note' ? 'internal' : 'sent',
       open_count: 0,
+      cc: cc.length > 0 ? cc : null,
+      bcc: bcc.length > 0 ? bcc : null,
     })
     .select()
     .single()

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { TriangleAlert, X } from 'lucide-react'
 import type { Profile } from '@/types'
-import type { Conversation, ConversationMessage, EmailTemplate, PhotoSelection } from './types'
+import type { Conversation, ConversationMessage, EmailTemplate, PhotoSelection, InboxLabel } from './types'
 import { ConversationList } from './ConversationList'
 import { MessageThread } from './MessageThread'
 import { ContactPanel } from './ContactPanel'
@@ -24,7 +24,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'email' | 'sms' | 'unread' | 'mine'>('all')
+  const [filter, setFilter] = useState<InboxLabel>('inbox')
   const [showContact, setShowContact] = useState(true)
   const [loading, setLoading] = useState(true)
   const [messagesLoading, setMessagesLoading] = useState(false)
@@ -45,7 +45,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       .eq('org_id', orgId)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200)
-    if (data) setConversations(data)
+    if (data) setConversations(data as Conversation[])
     setLoading(false)
   }, [supabase, orgId])
 
@@ -58,7 +58,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
         .select('*')
         .eq('conversation_id', convoId)
         .order('created_at', { ascending: true })
-      if (data) setMessages(data)
+      if (data) setMessages(data as ConversationMessage[])
       setMessagesLoading(false)
       // Mark as read
       await supabase
@@ -75,7 +75,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       .from('email_templates')
       .select('*')
       .eq('org_id', orgId)
-    if (data) setTemplates(data)
+    if (data) setTemplates(data as EmailTemplate[])
   }, [supabase, orgId])
 
   // ── Check email config ─────────────────────────────────────
@@ -84,7 +84,6 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       .then(r => r.json())
       .then(data => setEmailConfigured(!!data.resend))
       .catch(() => {})
-    // Check if banner was dismissed this session
     try {
       if (sessionStorage.getItem('email-banner-dismissed')) setBannerDismissed(true)
     } catch {}
@@ -197,6 +196,8 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
     subject?: string
     body: string
     photos?: PhotoSelection[]
+    cc?: string[]
+    bcc?: string[]
     to_email?: string
     to_phone?: string
     contact_name?: string
@@ -211,6 +212,8 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
         subject: data.subject,
         body: data.body,
         photos: data.photos || [],
+        cc: data.cc,
+        bcc: data.bcc,
         contact_name: data.contact_name || newName || newTo,
       }),
     })
@@ -220,8 +223,62 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
     }
   }
 
+  // ── Star / Archive ────────────────────────────────────────
+  const handleStar = async (id: string, starred: boolean) => {
+    setConversations(prev =>
+      prev.map(c => c.id === id ? { ...c, is_starred: starred } : c)
+    )
+    await supabase
+      .from('conversations')
+      .update({ is_starred: starred })
+      .eq('id', id)
+  }
+
+  const handleArchive = async (id: string) => {
+    setConversations(prev =>
+      prev.map(c => c.id === id ? { ...c, is_archived: true } : c)
+    )
+    if (selectedId === id) {
+      setSelectedId(null)
+    }
+    await supabase
+      .from('conversations')
+      .update({ is_archived: true })
+      .eq('id', id)
+  }
+
+  const handleContactUpdate = (updates: Partial<Conversation>) => {
+    setConversations(prev =>
+      prev.map(c => c.id === selectedId ? { ...c, ...updates } : c)
+    )
+  }
+
   // ── Filter conversations ──────────────────────────────────
   const filtered = conversations.filter((c) => {
+    // Label filters (mutually exclusive with channel/status filters)
+    if (filter === 'inbox') {
+      if (c.is_archived) return false
+    } else if (filter === 'starred') {
+      if (!c.is_starred) return false
+    } else if (filter === 'archived') {
+      if (!c.is_archived) return false
+    } else if (filter === 'sent') {
+      // Show all non-archived (sent = outbound context; all conversations have sent msgs)
+      if (c.is_archived) return false
+    } else if (filter === 'email') {
+      if (c.is_archived) return false
+      if (c.last_message_channel !== 'email') return false
+    } else if (filter === 'sms') {
+      if (c.is_archived) return false
+      if (c.last_message_channel !== 'sms') return false
+    } else if (filter === 'unread') {
+      if (c.is_archived) return false
+      if (c.unread_count <= 0) return false
+    } else if (filter === 'mine') {
+      if (c.is_archived) return false
+      if (c.assigned_to !== profile.id) return false
+    }
+
     if (search) {
       const q = search.toLowerCase()
       if (
@@ -231,12 +288,16 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       )
         return false
     }
-    if (filter === 'email' && c.last_message_channel !== 'email') return false
-    if (filter === 'sms' && c.last_message_channel !== 'sms') return false
-    if (filter === 'unread' && c.unread_count <= 0) return false
-    if (filter === 'mine' && c.assigned_to !== profile.id) return false
+
     return true
   })
+
+  // ── Counts for label nav ──────────────────────────────────
+  const counts = {
+    inbox: conversations.filter(c => !c.is_archived).length,
+    starred: conversations.filter(c => c.is_starred).length,
+    unread: conversations.filter(c => !c.is_archived && c.unread_count > 0).length,
+  }
 
   const showEmailBanner = !emailConfigured && !bannerDismissed
 
@@ -335,6 +396,9 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
           onFilterChange={setFilter}
           loading={loading}
           profile={profile}
+          onStar={handleStar}
+          onArchive={handleArchive}
+          counts={counts}
         />
       </div>
 
@@ -471,6 +535,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
             conversation={selectedConvo}
             messages={messages}
             onClose={() => setShowContact(false)}
+            onUpdate={handleContactUpdate}
           />
         </div>
       )}
