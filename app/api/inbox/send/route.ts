@@ -2,8 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || ''
-
 function buildEmailHtml(body: string, photos: any[] = []): string {
   const nl2br = body.replace(/\n/g, '<br/>')
   const photoGrid =
@@ -13,7 +11,7 @@ function buildEmailHtml(body: string, photos: any[] = []): string {
         .reduce((rows: string[], p: any, i: number) => {
           if (i % 2 === 0) rows.push('')
           rows[rows.length - 1] += `<td style="padding:8px;width:50%;vertical-align:top;">
-            <a href="${p.image_url}" target="_blank" style="display:block;">
+            <a href="${p.image_url}" style="display:block;">
               <img src="${p.image_url}" alt="${p.caption || 'Photo'}" style="width:100%;border-radius:8px;display:block;" />
             </a>
             ${p.caption ? `<p style="font-size:13px;color:#666;margin:4px 0 0;text-align:center;">${p.caption}</p>` : ''}
@@ -27,20 +25,19 @@ function buildEmailHtml(body: string, photos: any[] = []): string {
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:32px 16px;">
     <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#13151c;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
         <tr><td style="background:#0d0f14;padding:24px;text-align:center;">
           <img src="https://usawrapco.com/wp-content/uploads/2025/10/main-logo-1-e1759926343108.webp" alt="USA Wrap Co" style="height:48px;width:auto;" />
         </td></tr>
-        <tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:#333333;">
+        <tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:#e8eaed;">
           ${nl2br}
           ${photoGrid}
         </td></tr>
-        <tr><td style="background:#f9f9f9;padding:20px 28px;font-size:12px;color:#999999;text-align:center;border-top:1px solid #eee;">
+        <tr><td style="background:#0d0f14;padding:16px 28px;font-size:12px;color:#5a6080;text-align:center;border-top:1px solid #1a1d27;">
           <p style="margin:0;">USA Wrap Co &middot; Tacoma, WA</p>
-          <p style="margin:4px 0 0;"><a href="#" style="color:#999;">Unsubscribe</a></p>
         </td></tr>
       </table>
     </td></tr>
@@ -56,7 +53,11 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = getSupabaseAdmin()
-  const { data: profile } = await admin.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
   const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
@@ -98,40 +99,36 @@ export async function POST(req: Request) {
   }
 
   let emailLogId: string | null = null
-  let sgMessageId: string | null = null
+  let resendMessageId: string | null = null
+  let twilioSid: string | null = null
 
-  // ── Send via SendGrid ───────────────────────────────────────
+  // ── Send via Resend edge function ───────────────────────────
   if (channel === 'email' && to_email) {
     const emailHtml = body_html || buildEmailHtml(body || '', photos)
 
-    if (SENDGRID_API_KEY && !SENDGRID_API_KEY.startsWith('PLACEHOLDER')) {
-      try {
-        const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    try {
+      const edgeRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`,
+        {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${SENDGRID_API_KEY}`,
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            personalizations: [{ to: [{ email: to_email }] }],
-            from: { email: 'shop@usawrapco.com', name: 'USA Wrap Co' },
+            to: to_email,
             subject: subject || 'Message from USA Wrap Co',
-            content: [{ type: 'text/html', value: emailHtml }],
-            tracking_settings: {
-              click_tracking: { enable: true },
-              open_tracking: { enable: true },
-            },
+            html: emailHtml,
           }),
-        })
-        sgMessageId = sgRes.headers.get('x-message-id') || null
-      } catch (err) {
-        console.error('[COMMS] SendGrid send failed:', err)
+        }
+      )
+      const edgeData = await edgeRes.json()
+      if (edgeData.id) resendMessageId = edgeData.id
+      if (!edgeRes.ok) {
+        console.error('[COMMS] Resend send failed:', edgeData)
       }
-    } else {
-      console.log('[COMMS] SendGrid not configured, logging email:', {
-        to_email,
-        subject,
-      })
+    } catch (err) {
+      console.error('[COMMS] Edge function call failed:', err)
     }
 
     // Log to email_logs
@@ -139,11 +136,19 @@ export async function POST(req: Request) {
       .from('email_logs')
       .insert({
         org_id: orgId,
+        project_id: project_id || null,
+        customer_id: customer_id || null,
+        sent_by: user.id,
         to_email,
+        to_name: contact_name || null,
+        from_email: 'shop@usawrapco.com',
+        from_name: 'USA Wrap Co',
         subject: subject || '',
-        status: sgMessageId ? 'sent' : 'logged',
+        body_html: emailHtml,
+        email_type: 'manual',
+        status: resendMessageId ? 'sent' : 'logged',
         sent_at: new Date().toISOString(),
-        sendgrid_message_id: sgMessageId,
+        sendgrid_message_id: resendMessageId,
         reference_id: convoId,
         reference_type: 'conversation',
       })
@@ -152,19 +157,68 @@ export async function POST(req: Request) {
     emailLogId = emailLog?.id || null
   }
 
+  // ── Send via Twilio SMS ─────────────────────────────────────
+  if (channel === 'sms' && to_phone) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken = process.env.TWILIO_AUTH_TOKEN
+    const fromPhone = process.env.TWILIO_PHONE_NUMBER
+
+    if (
+      accountSid &&
+      !accountSid.startsWith('PLACEHOLDER') &&
+      authToken &&
+      fromPhone
+    ) {
+      try {
+        const twilioRes = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization:
+                'Basic ' +
+                Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              To: to_phone,
+              From: fromPhone,
+              Body: body || '',
+            }).toString(),
+          }
+        )
+        const twilioData = await twilioRes.json()
+        twilioSid = twilioData.sid || null
+        if (!twilioRes.ok) {
+          console.error('[COMMS] Twilio send failed:', twilioData)
+        }
+      } catch (err) {
+        console.error('[COMMS] Twilio call failed:', err)
+      }
+    } else {
+      console.log('[COMMS] Twilio not configured — SMS logged only')
+    }
+  }
+
   // ── Create conversation message ─────────────────────────────
   const preview = (body || subject || '').slice(0, 120)
   const { data: msg, error: msgError } = await admin
     .from('conversation_messages')
     .insert({
+      org_id: orgId,
       conversation_id: convoId,
       channel,
       direction: channel === 'note' ? 'internal' : 'outbound',
       sent_by: user.id,
+      sent_by_name: profile.name || null,
       subject: subject || null,
       body: body || '',
-      body_html: body_html || (channel === 'email' ? buildEmailHtml(body || '', photos) : null),
+      body_html:
+        body_html ||
+        (channel === 'email' ? buildEmailHtml(body || '', photos) : null),
       email_log_id: emailLogId,
+      sendgrid_message_id: resendMessageId,
+      twilio_sid: twilioSid,
       status: channel === 'note' ? 'internal' : 'sent',
       open_count: 0,
     })
@@ -199,5 +253,7 @@ export async function POST(req: Request) {
     success: true,
     conversation_id: convoId,
     message: msg,
+    email_sent: !!resendMessageId,
+    sms_sent: !!twilioSid,
   })
 }

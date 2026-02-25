@@ -174,9 +174,9 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
           >
             {relativeTime(message.created_at)}
           </span>
-          {message.sender_name && (
+          {message.sent_by_name && (
             <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 600 }}>
-              {message.sender_name}
+              {message.sent_by_name}
             </span>
           )}
         </div>

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { sendTransactionalEmail } from '@/lib/email/send'
+import { generateEstimateEmail } from '@/lib/email/templates'
 
 export async function POST(req: Request) {
   const supabase = createClient()
@@ -11,10 +13,12 @@ export async function POST(req: Request) {
   if (!estimate_id) return Response.json({ error: 'estimate_id required' }, { status: 400 })
 
   const admin = getSupabaseAdmin()
-  const { data: profile } = await admin.from('profiles').select('org_id, name, email').eq('id', user.id).single()
-  const orgId = profile?.org_id
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('org_id, name, email')
+    .eq('id', user.id)
+    .single()
 
-  // Load estimate
   const { data: est } = await admin
     .from('estimates')
     .select('*, customer:customer_id(id, name, email)')
@@ -34,57 +38,51 @@ export async function POST(req: Request) {
   const viewUrl = `${appUrl}/estimate/view/${est.id}`
 
   const recipientEmail = to || (est.customer as any)?.email
-  const recipientName  = (est.customer as any)?.name || 'Customer'
+  const recipientName = (est.customer as any)?.name || 'Customer'
 
-  const items = (lineItems || []).map((li: any) =>
-    `• ${li.name}: $${Number(li.total_price).toFixed(2)}`
-  ).join('\n')
-
-  const emailBody = message?.trim() ||
-    `Hi ${recipientName},\n\nThank you for your interest in USA WRAP CO. Please find your estimate below.\n\nEstimate #${est.estimate_number}\nTotal: $${Number(est.total).toFixed(2)}\nValid for 30 days\n\n${items}\n\nView your estimate online: ${viewUrl}\n\nReady to move forward? Reply to this email or call us directly.\n\n— ${profile?.name || 'USA WRAP CO'}\nUSA WRAP CO`
+  const items = (lineItems || [])
+    .map((li: any) => `• ${li.name}: $${Number(li.total_price).toFixed(2)}`)
+    .join('\n')
 
   let emailSent = false
+  let conversationId: string | null = null
 
-  // SendGrid email
   if (recipientEmail && (sendVia === 'email' || sendVia === 'both' || !sendVia)) {
-    try {
-      const { data: sgInt } = await admin
-        .from('integrations')
-        .select('config, enabled')
-        .eq('org_id', orgId)
-        .eq('integration_id', 'sendgrid')
-        .eq('enabled', true)
-        .single()
-
-      const sgCfg = sgInt?.config as any
-      if (sgCfg?.api_key) {
-        const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sgCfg.api_key}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email: recipientEmail, name: recipientName }] }],
-            from: { email: sgCfg.from_email || 'noreply@usawrapco.com', name: 'USA WRAP CO' },
-            subject: subject || `Your Estimate #${est.estimate_number} from USA WRAP CO`,
-            content: [{ type: 'text/plain', value: emailBody }],
-          }),
+    // Use custom message or auto-generate
+    const emailHtml = message?.trim()
+      ? `<div style="font-size:15px;line-height:1.7;color:#e8eaed;">${message.replace(/\n/g, '<br/>')}</div>`
+      : generateEstimateEmail({
+          title: est.title,
+          vehicle_desc: est.vehicle_desc,
+          estimate_number: est.estimate_number,
+          total: est.total,
+          id: est.id,
         })
-        if (sgRes.ok || sgRes.status === 202) emailSent = true
-      }
-    } catch {}
+
+    const result = await sendTransactionalEmail({
+      to: recipientEmail,
+      toName: recipientName,
+      subject: subject || `Your Estimate #${est.estimate_number} from USA Wrap Co`,
+      html: emailHtml,
+      projectId: est.project_id || undefined,
+      customerId: est.customer_id || undefined,
+      sentBy: user.id,
+      emailType: 'estimate',
+    })
+
+    emailSent = result.success
+    conversationId = result.conversationId
   }
 
   // Log communication
   try {
     await admin.from('communication_log').insert({
-      org_id: orgId,
+      org_id: profile?.org_id,
       customer_id: est.customer_id,
       type: 'email',
       direction: 'outbound',
       subject: subject || `Estimate #${est.estimate_number}`,
-      body: emailBody,
+      body: message || `Estimate sent to ${recipientEmail}`,
       sent_by: user.id,
       status: emailSent ? 'sent' : 'logged',
     })
@@ -97,8 +95,9 @@ export async function POST(req: Request) {
     success: true,
     emailSent,
     recipientEmail,
+    conversationId,
     message: emailSent
       ? `Estimate emailed to ${recipientEmail}`
-      : 'Estimate marked as sent. Configure SendGrid to enable email delivery.',
+      : 'Estimate marked as sent. Add RESEND_API_KEY to Supabase secrets to enable email delivery.',
   })
 }

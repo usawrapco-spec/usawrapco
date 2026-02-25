@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TriangleAlert, X } from 'lucide-react'
 import type { Profile } from '@/types'
 import type { Conversation, ConversationMessage, EmailTemplate, PhotoSelection } from './types'
 import { ConversationList } from './ConversationList'
@@ -31,6 +32,8 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
   const [composingNew, setComposingNew] = useState(false)
   const [newTo, setNewTo] = useState('')
   const [newName, setNewName] = useState('')
+  const [emailConfigured, setEmailConfigured] = useState(true)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
 
   const selectedConvo = conversations.find((c) => c.id === selectedId) || null
 
@@ -74,6 +77,18 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
       .eq('org_id', orgId)
     if (data) setTemplates(data)
   }, [supabase, orgId])
+
+  // ── Check email config ─────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/system/check-env')
+      .then(r => r.json())
+      .then(data => setEmailConfigured(!!data.resend))
+      .catch(() => {})
+    // Check if banner was dismissed this session
+    try {
+      if (sessionStorage.getItem('email-banner-dismissed')) setBannerDismissed(true)
+    } catch {}
+  }, [])
 
   // ── Init ──────────────────────────────────────────────────
   useEffect(() => {
@@ -223,8 +238,78 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
     return true
   })
 
+  const showEmailBanner = !emailConfigured && !bannerDismissed
+
+  const handleDismissBanner = () => {
+    setBannerDismissed(true)
+    try { sessionStorage.setItem('email-banner-dismissed', '1') } catch {}
+  }
+
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* ── Email not configured banner ──────────────────────── */}
+      {showEmailBanner && (
+        <div
+          style={{
+            background: 'rgba(245,158,11,0.12)',
+            borderBottom: '1px solid rgba(245,158,11,0.35)',
+            padding: '10px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexShrink: 0,
+          }}
+        >
+          <TriangleAlert size={15} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+          <div style={{ flex: 1, fontSize: 12, color: 'var(--amber)', lineHeight: 1.5 }}>
+            <strong>Email not configured.</strong>
+            {' '}To enable sending: add{' '}
+            <code
+              style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '1px 5px',
+                borderRadius: 3,
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11,
+              }}
+            >
+              RESEND_API_KEY
+            </code>
+            {' '}to Supabase Edge Functions secrets, and{' '}
+            <code
+              style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '1px 5px',
+                borderRadius: 3,
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11,
+              }}
+            >
+              RESEND_API_KEY=your_key
+            </code>
+            {' '}to <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: 3, fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>.env.local</code>.
+            {' '}Sign up free at{' '}
+            <strong>resend.com</strong> (3,000 emails/month free).
+          </div>
+          <button
+            onClick={handleDismissBanner}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--amber)',
+              padding: 4,
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       {/* ── Column 1: Conversation List ─────────────────────── */}
       <div
         style={{
@@ -400,6 +485,7 @@ export default function CommHubClient({ profile, initialConversationId }: Props)
           to { transform: rotate(360deg); }
         }
       `}</style>
+      </div>
     </div>
   )
 }

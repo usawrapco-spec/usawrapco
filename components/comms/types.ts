@@ -20,22 +20,25 @@ export interface Conversation {
 
 export interface ConversationMessage {
   id: string
+  org_id: string | null
   conversation_id: string
   channel: 'email' | 'sms' | 'note'
   direction: 'inbound' | 'outbound' | 'internal'
   sent_by: string | null
+  sent_by_name: string | null
   subject: string | null
   body: string
   body_html: string | null
   attachments: any[] | null
   email_log_id: string | null
+  sendgrid_message_id: string | null
+  twilio_sid: string | null
   status: string
   opened_at: string | null
   open_count: number
   clicked_at: string | null
   read_by: string[] | null
   created_at: string
-  sender_name?: string
 }
 
 export interface EmailTemplate {
