@@ -53,7 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/pipeline',         label: 'Pipeline',         icon: LayoutDashboard },
       { href: '/jobs',             label: 'All Jobs',         icon: ClipboardList },
-      { href: '/install/schedule', label: 'Install Schedule', icon: CalendarDays, roles: ['owner', 'admin', 'installer'] },
+      { href: '/install/schedule', label: 'Install Schedule', icon: CalendarDays, roles: ['owner', 'admin', 'production', 'installer'] },
     ],
   },
   {
@@ -84,7 +84,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'team',
     label: 'TEAM',
     icon: Clock,
-    roles: ['owner', 'admin', 'sales_agent', 'installer'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
     items: [
       { href: '/employees',   label: 'Staff',           icon: Users,        roles: ['owner', 'admin'] },
       { href: '/timeclock',   label: 'Time Clock',      icon: Clock },
@@ -105,7 +105,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'reports',
     label: 'REPORTS',
     icon: BarChart3,
-    roles: ['owner', 'admin', 'sales_agent', 'viewer'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
       { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
       { href: '/analytics',  label: 'Analytics',  icon: TrendingUp },
