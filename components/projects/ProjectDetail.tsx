@@ -257,7 +257,11 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   async function toggleMobileInstall() {
     const newVal = !isMobileInstall
     setIsMobileInstall(newVal)
-    await supabase.from('projects').update({ is_mobile_install: newVal }).eq('id', project.id)
+    const { error } = await supabase.from('projects').update({ is_mobile_install: newVal }).eq('id', project.id)
+    if (error) {
+      setIsMobileInstall(!newVal) // revert on failure
+      setToast('Failed to save mobile install setting')
+    }
   }
 
   async function saveInstallAddress() {
