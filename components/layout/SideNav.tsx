@@ -49,7 +49,7 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'jobs',
     label: 'JOBS',
     icon: Briefcase,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
       { href: '/pipeline',         label: 'Pipeline',         icon: LayoutDashboard },
       { href: '/jobs',             label: 'All Jobs',         icon: ClipboardList },
