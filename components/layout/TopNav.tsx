@@ -7,90 +7,28 @@ import { createClient } from '@/lib/supabase/client'
 import { isAdminRole } from '@/types'
 import type { Profile } from '@/types'
 import {
-  Truck, Plus, Search, Bell, Settings, ChevronDown, X, Menu,
-  LayoutDashboard, Briefcase, CheckSquare, Calendar, Users,
-  FileText, ShoppingCart, Receipt, DollarSign, BarChart3, Trophy,
-  MessageCircle, LogOut, UserPlus, Zap, Flame, Palette, Clock, User, HelpCircle,
-  Bot, Building2, Globe, TrendingUp, Map, Package, MessageSquare, CreditCard,
-  Factory, Wand2, ImageIcon, Printer, Hammer, BookOpen, Share2, Link2,
-  ClipboardList, Wrench, CalendarDays, ShoppingBag, Banknote, FileBarChart, Phone, Layers,
-  Download,
-  BellOff, BellRing,
+  Menu, Search, Bell, Plus, ChevronDown, X,
+  Briefcase, Users, FileText, ShoppingCart, CheckSquare, UserPlus,
+  Clock, LogOut, User, Settings, Download, BellOff, BellRing,
+  MessageCircle, Palette, UserCheck,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
 import DesignIntakeLinkModal from '@/components/design-intake/DesignIntakeLinkModal'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { SideNav } from '@/components/layout/SideNav'
+import { QuickPermissionsWidget } from '@/components/ui/QuickPermissionsWidget'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface DropdownItem {
-  href: string
-  label: string
-  icon: LucideIcon
-  description?: string
-}
+// ── Quick Create items ────────────────────────────────────────────────────────
+interface QuickItem { href: string; label: string; icon: LucideIcon; description?: string }
 
-// ── Nav definitions ───────────────────────────────────────────────────────────
-const QUICK_CREATE: DropdownItem[] = [
-  { href: '/estimates/new', label: 'Estimate',  icon: FileText, description: 'Create a quote' },
-  { href: '/sales-orders?new=true', label: 'Sales Order', icon: ShoppingCart, description: 'Convert to order' },
-  { href: '/pipeline?new=true', label: 'Job',       icon: Briefcase, description: 'Start a new job' },
-  { href: '/customers?new=true',label: 'Customer',  icon: Users, description: 'Add a customer' },
-  { href: '/tasks?new=true',    label: 'Task',      icon: CheckSquare, description: 'Assign a task' },
-]
-
-const JOBS_ITEMS: DropdownItem[] = [
-  { href: '/pipeline',     label: 'Pipeline',     icon: Briefcase,    description: 'Kanban job board' },
-  { href: '/jobs',         label: 'All Jobs',     icon: ClipboardList, description: 'Full job list' },
-  { href: '/timeline',     label: 'Timeline',     icon: Clock,        description: 'Visual timeline' },
-  { href: '/leaderboard',  label: 'Leaderboard',  icon: Trophy,       description: 'Team rankings' },
-]
-
-const PRODUCTION_ITEMS: DropdownItem[] = [
-  { href: '/production',   label: 'Production Board', icon: Factory,   description: 'Production overview' },
-  { href: '/design',       label: 'Design Studio',    icon: Palette,   description: 'Design workspace' },
-  { href: '/configurator', label: '3D Configurator',  icon: Layers,    description: '3D vehicle wrap preview' },
-  { href: '/mockup',       label: 'Mockup Tool',      icon: Wand2,     description: 'Vehicle mockups' },
-  { href: '/proofs',       label: 'Proofs',            icon: ImageIcon, description: 'Design proofs' },
-]
-
-const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/proofs', '/configurator']
-
-const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
-  { id: 'new_estimate',        label: 'New Estimate',             icon: FileText,  description: 'Create a new quote' },
-  { id: 'onboarding_link',     label: 'Send Onboarding Link',     icon: UserPlus,  description: 'Customer onboarding' },
-  { id: 'design_intake_link',  label: 'Send Design Intake Link',  icon: Palette,   description: 'White-glove design intake' },
-]
-
-const SALES_NAV_ITEMS: DropdownItem[] = [
-  { href: '/pipeline',    label: 'Pipeline',    icon: Briefcase },
-  { href: '/customers',   label: 'Customers',   icon: Users },
-  { href: '/analytics',   label: 'Analytics',   icon: BarChart3 },
-  { href: '/reports',     label: 'Reports',     icon: FileBarChart },
-]
-
-const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/comms', '/bids', '/pipeline', '/design-intakes', '/customers', '/analytics', '/reports']
-
-const INSTALL_ITEMS: DropdownItem[] = [
-  { href: '/install',           label: 'Install Board',    icon: Hammer,        description: 'Manage installs' },
-  { href: '/install/bids',      label: 'Installer Bids',   icon: ClipboardList, description: 'Bid management' },
-  { href: '/install/schedule',  label: 'Schedule',         icon: CalendarDays,  description: 'Install calendar' },
-  { href: '/install/supplies',  label: 'Supply Requests',  icon: ShoppingBag,   description: 'Material requests' },
-  { href: '/install/earnings',  label: 'Earnings',         icon: Banknote,      description: 'Installer pay' },
-  { href: '/install/reports',   label: 'Shop Reports',     icon: FileBarChart,  description: 'Daily reports' },
-  { href: '/install/chat',      label: 'Installer Chat',   icon: MessageSquare, description: 'Team messaging' },
-]
-
-const INSTALL_PATHS = ['/install']
-
-const MORE_NAV: DropdownItem[] = [
-  { href: '/phone',         label: 'Phone',          icon: Phone },
-  { href: '/payroll',       label: 'Payroll',        icon: DollarSign },
-  { href: '/inventory',     label: 'Inventory',      icon: Package },
-  { href: '/catalog',       label: 'Catalog',        icon: BookOpen },
-  { href: '/network',       label: 'Network Map',    icon: Map },
-  { href: '/media-library', label: 'Media Library',  icon: ImageIcon },
-  { href: '/settings',      label: 'Settings',       icon: Settings },
+const QUICK_CREATE: QuickItem[] = [
+  { href: '/estimates/new',      label: 'New Estimate',   icon: FileText,    description: 'Create a quote' },
+  { href: '/sales-orders?new=1', label: 'Sales Order',    icon: ShoppingCart,description: 'Convert to order' },
+  { href: '/pipeline?new=true',  label: 'New Job',        icon: Briefcase,   description: 'Start a new job' },
+  { href: '/customers?new=true', label: 'New Customer',   icon: Users,       description: 'Add a customer' },
+  { href: '/tasks?new=true',     label: 'New Task',       icon: CheckSquare, description: 'Assign a task' },
+  { href: '/timeclock',          label: 'Clock In',       icon: Clock,       description: 'Start your shift' },
 ]
 
 // ── Search result types ───────────────────────────────────────────────────────
@@ -102,7 +40,18 @@ interface SearchResult {
   href: string
 }
 
-// ── Main TopNav ──────────────────────────────────────────────────────────────
+const SEARCH_TYPE_ICON: Record<string, LucideIcon> = {
+  job: Briefcase, customer: Users, estimate: FileText, contact: User,
+}
+const SEARCH_TYPE_COLOR: Record<string, string> = {
+  job: 'var(--accent)', customer: 'var(--green)', estimate: 'var(--amber)', contact: 'var(--cyan)',
+}
+
+// ── Sidebar widths ────────────────────────────────────────────────────────────
+const SIDEBAR_EXPANDED  = 240
+const SIDEBAR_COLLAPSED = 64
+
+// ── TopNav Component ──────────────────────────────────────────────────────────
 export function TopNav({ profile }: { profile: Profile }) {
   const pathname = usePathname()
   const router   = useRouter()
@@ -110,72 +59,105 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   const { tourOpen, whatsNewOpen, newCommits, startTour, closeTour, closeWhatsNew } = useTour()
 
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [searchQuery, setSearchQuery]     = useState('')
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [searching, setSearching]         = useState(false)
-  const [createOpen, setCreateOpen]       = useState(false)
-  const [jobsOpen, setJobsOpen]           = useState(false)
-  const [productionOpen, setProductionOpen] = useState(false)
-  const [salesOpen, setSalesOpen]         = useState(false)
-  const [installOpen, setInstallOpen]     = useState(false)
-  const [moreOpen, setMoreOpen]           = useState(false)
-  const [profileOpen, setProfileOpen]     = useState(false)
-  const [notifOpen, setNotifOpen]         = useState(false)
-  const [drawerOpen, setDrawerOpen]       = useState(false)
+  // Sidebar state
+  const [sideCollapsed, setSideCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('sidenav-collapsed') === 'true'
+  })
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Dropdowns
+  const [createOpen,  setCreateOpen]  = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [notifOpen,   setNotifOpen]   = useState(false)
+
+  // Search
+  const [searchFocused,  setSearchFocused]  = useState(false)
+  const [searchQuery,    setSearchQuery]    = useState('')
+  const [searchResults,  setSearchResults]  = useState<SearchResult[]>([])
+  const [searching,      setSearching]      = useState(false)
+
+  // Notifications
   const [notifications, setNotifications] = useState<any[]>([])
-  const [notifsLoaded, setNotifsLoaded]   = useState(false)
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
+  const [notifsLoaded,  setNotifsLoaded]  = useState(false)
+
+  // Inbox unread count
+  const [inboxUnread, setInboxUnread] = useState(0)
+
+  // Misc
   const [showDesignIntakeModal, setShowDesignIntakeModal] = useState(false)
-  const [installPrompt, setInstallPrompt] = useState<any>(null)
-  const [isInstalled, setIsInstalled]     = useState(false)
-  const [showIOSHint, setShowIOSHint]     = useState(false)
+  const [installPrompt,         setInstallPrompt]         = useState<any>(null)
+  const [isInstalled,           setIsInstalled]           = useState(false)
+
+  const createRef  = useRef<HTMLDivElement>(null)
+  const profileRef = useRef<HTMLDivElement>(null)
+  const notifRef   = useRef<HTMLDivElement>(null)
+  const searchRef  = useRef<HTMLInputElement>(null)
 
   const push = usePushNotifications()
 
-  const createRef   = useRef<HTMLDivElement>(null)
-  const jobsRef     = useRef<HTMLDivElement>(null)
-  const productionRef = useRef<HTMLDivElement>(null)
-  const salesRef      = useRef<HTMLDivElement>(null)
-  const installRef    = useRef<HTMLDivElement>(null)
-  const moreRef     = useRef<HTMLDivElement>(null)
-  const profileRef  = useRef<HTMLDivElement>(null)
-  const notifRef    = useRef<HTMLDivElement>(null)
-  const searchRef   = useRef<HTMLInputElement>(null)
-
-  const xp      = profile.xp || 0
-  const level   = profile.level || (xp > 0 ? Math.floor(Math.sqrt(xp / 50)) + 1 : 1)
-  const streak  = profile.current_streak || 0
   const initial = (profile.name ?? profile.email ?? '?').charAt(0).toUpperCase()
 
-  // ── Outside click ───────────────────────────────────────────────────────────
+  // ── Sidebar body-padding injection ─────────────────────────────────────────
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const refs = [createRef, jobsRef, productionRef, salesRef, installRef, moreRef, profileRef, notifRef]
-      const setters = [setCreateOpen, setJobsOpen, setProductionOpen, setSalesOpen, setInstallOpen, setMoreOpen, setProfileOpen, setNotifOpen]
-      refs.forEach((ref, i) => {
-        if (ref.current && !ref.current.contains(e.target as Node)) {
-          setters[i](false)
-        }
-      })
+    function apply() {
+      const w = window.innerWidth
+      if (w >= 768) {
+        document.body.style.paddingLeft = `${sideCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED}px`
+      } else {
+        document.body.style.paddingLeft = '0'
+      }
+      document.body.style.background = 'var(--bg)'
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    apply()
+    window.addEventListener('resize', apply)
+    return () => {
+      window.removeEventListener('resize', apply)
+      document.body.style.paddingLeft = '0'
+    }
+  }, [sideCollapsed])
+
+  // Persist sidebar collapsed state
+  function toggleSideCollapse() {
+    setSideCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('sidenav-collapsed', String(next))
+      return next
+    })
+  }
+
+  // ── Close on route change ─────────────────────────────────────────────────
+  useEffect(() => {
+    setMobileNavOpen(false)
+    setCreateOpen(false)
+    setProfileOpen(false)
+    setNotifOpen(false)
+  }, [pathname])
+
+  // ── Outside click ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (createRef.current && !createRef.current.contains(e.target as Node))  setCreateOpen(false)
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false)
+      if (notifRef.current && !notifRef.current.contains(e.target as Node))     setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
   }, [])
 
-  // ── Keyboard shortcut (Ctrl+K for search) ──────────────────────────────────
+  // ── Ctrl+K search ────────────────────────────────────────────────────────
   useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
+    function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         searchRef.current?.focus()
       }
     }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  // ── Notifications ───────────────────────────────────────────────────────────
+  // ── Load notifications ────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/notifications')
       .then(r => r.json())
@@ -183,74 +165,79 @@ export function TopNav({ profile }: { profile: Profile }) {
       .catch(() => setNotifsLoaded(true))
   }, [])
 
-  // ── Mobile drawer: close on route change, open via event ───────────────────
-  useEffect(() => { setDrawerOpen(false) }, [pathname])
+  // ── Load inbox unread count ───────────────────────────────────────────────
   useEffect(() => {
-    function onOpenDrawer() { setDrawerOpen(true) }
-    window.addEventListener('open-nav-drawer', onOpenDrawer)
-    return () => window.removeEventListener('open-nav-drawer', onOpenDrawer)
-  }, [])
+    async function loadUnread() {
+      const { count } = await supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id', profile.org_id)
+        .eq('status', 'open')
+        .gt('unread_count', 0)
+      setInboxUnread(count || 0)
+    }
+    loadUnread()
+  }, [profile.org_id])
 
-  // ── PWA install prompt ─────────────────────────────────────────────────────
+  // ── PWA install prompt ────────────────────────────────────────────────────
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
       return
     }
-    function onBeforeInstall(e: any) { e.preventDefault(); setInstallPrompt(e) }
-    function onInstalled() { setInstallPrompt(null); setIsInstalled(true) }
-    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    function onBefore(e: any) { e.preventDefault(); setInstallPrompt(e) }
+    function onInstalled()    { setInstallPrompt(null); setIsInstalled(true) }
+    window.addEventListener('beforeinstallprompt', onBefore)
     window.addEventListener('appinstalled', onInstalled)
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+      window.removeEventListener('beforeinstallprompt', onBefore)
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [])
 
-  // ── Global search ──────────────────────────────────────────────────────────
+  // ── Global search ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 2) {
       setSearchResults([])
       return
     }
-    const timeout = setTimeout(async () => {
+    const t = setTimeout(async () => {
       setSearching(true)
       try {
         const q = searchQuery.toLowerCase()
-        const [jobsRes, customersRes, estimatesRes] = await Promise.all([
+        const [jobsR, custsR, estR] = await Promise.all([
           supabase.from('projects').select('id, title, customer:customer_id(name)').eq('org_id', profile.org_id).ilike('title', `%${q}%`).limit(5),
           supabase.from('customers').select('id, name, contact_name, company_name, email').eq('org_id', profile.org_id).or(`name.ilike.%${q}%,contact_name.ilike.%${q}%,company_name.ilike.%${q}%,email.ilike.%${q}%`).limit(5),
           supabase.from('estimates').select('id, title, customer:customer_id(name)').eq('org_id', profile.org_id).ilike('title', `%${q}%`).limit(5),
         ])
-        const results: SearchResult[] = [
-          ...(jobsRes.data || []).map((j: any) => ({
+        setSearchResults([
+          ...(jobsR.data || []).map((j: any) => ({
             type: 'job' as const, id: j.id,
             title: j.title || `Job #${j.id.slice(0, 8)}`,
             subtitle: (j.customer as any)?.name,
             href: `/projects/${j.id}`,
           })),
-          ...(customersRes.data || []).map((c: any) => ({
+          ...(custsR.data || []).map((c: any) => ({
             type: 'customer' as const, id: c.id,
             title: c.contact_name || c.name || c.company_name || c.email || 'Unknown',
             subtitle: c.email,
             href: `/customers/${c.id}`,
           })),
-          ...(estimatesRes.data || []).map((e: any) => ({
+          ...(estR.data || []).map((e: any) => ({
             type: 'estimate' as const, id: e.id,
             title: e.title || `Estimate #${e.id.slice(0, 8)}`,
             subtitle: (e.customer as any)?.name,
             href: `/estimates/${e.id}`,
           })),
-        ]
-        setSearchResults(results)
+        ])
       } catch {}
       setSearching(false)
     }, 300)
-    return () => clearTimeout(timeout)
+    return () => clearTimeout(t)
   }, [searchQuery, profile.org_id])
 
   async function markAllRead() {
-    const ids = notifications.map(n => n.id).filter(id => !String(id).startsWith('sb-') && !String(id).startsWith('od-'))
+    const ids = notifications.map(n => n.id).filter((id: any) => !String(id).startsWith('sb-') && !String(id).startsWith('od-'))
     if (ids.length) {
       await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) })
     }
@@ -258,23 +245,12 @@ export function TopNav({ profile }: { profile: Profile }) {
   }
 
   function relTime(ts: string) {
-    const diff = Date.now() - new Date(ts).getTime()
-    const m = Math.floor(diff / 60000)
+    const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000)
     if (m < 1) return 'just now'
     if (m < 60) return `${m}m ago`
     const h = Math.floor(m / 60)
     if (h < 24) return `${h}h ago`
     return `${Math.floor(h / 24)}d ago`
-  }
-
-  function closeAll() {
-    setCreateOpen(false); setJobsOpen(false); setProductionOpen(false); setSalesOpen(false)
-    setInstallOpen(false); setMoreOpen(false)
-    setProfileOpen(false); setNotifOpen(false)
-  }
-
-  function isActive(href: string) {
-    return pathname === href || pathname?.startsWith(href + '/')
   }
 
   const handleSignOut = async () => {
@@ -283,1300 +259,435 @@ export function TopNav({ profile }: { profile: Profile }) {
     router.refresh()
   }
 
-  const SEARCH_TYPE_ICON: Record<string, LucideIcon> = {
-    job: Briefcase, customer: Users, estimate: FileText, contact: User,
-  }
-  const SEARCH_TYPE_COLOR: Record<string, string> = {
-    job: 'var(--accent)', customer: 'var(--green)', estimate: 'var(--amber)', contact: 'var(--cyan)',
-  }
+  const unreadCount = notifications.filter(n => !n.read).length
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-    <header style={{
-      height: 56,
-      background: 'linear-gradient(180deg, var(--card-bg) 0%, var(--surface) 100%)',
-      borderBottom: '1px solid var(--card-border)',
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 16px',
-      gap: 8,
-      flexShrink: 0,
-      position: 'relative',
-      zIndex: 100,
-    }}>
+      {/* ── Fixed Sidebar ─────────────────────────────────────────────── */}
+      <SideNav
+        profile={profile}
+        collapsed={sideCollapsed}
+        onToggleCollapse={toggleSideCollapse}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
 
-      {/* ── Mobile hamburger (shown only on < md) ─────────────── */}
-      <button
-        className="md:hidden"
-        onClick={() => setDrawerOpen(true)}
+      {/* ── Top Bar (in normal flow) ───────────────────────────────────── */}
+      <header
         style={{
-          width: 44, height: 44, borderRadius: 8, flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--text2)',
+          height: 56,
+          background: 'var(--surface)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 16px',
+          gap: 8,
+          flexShrink: 0,
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
         }}
       >
-        <Menu size={20} />
-      </button>
-
-      {/* ── Logo ──────────────────────────────────────────────── */}
-      <Link
-        href="/dashboard"
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          textDecoration: 'none', flexShrink: 0, marginRight: 4,
-        }}
-      >
-        <img
-          src="/images/usawrapco-logo-white.png"
-          alt="USA WRAP CO"
-          style={{ height: 30, width: 'auto', display: 'block', objectFit: 'contain' }}
-          onError={(e) => {
-            const t = e.currentTarget as HTMLImageElement
-            t.style.display = 'none'
-            const fallback = t.nextElementSibling as HTMLElement | null
-            if (fallback) fallback.style.display = 'flex'
-          }}
-        />
-        <span style={{
-          display: 'none', alignItems: 'center', gap: 6,
-          fontFamily: 'Barlow Condensed, sans-serif',
-          fontSize: 16, fontWeight: 900,
-          letterSpacing: '0.02em',
-          color: 'var(--text1)',
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
-        }}>
-          <Truck size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          USA WRAP CO
-        </span>
-      </Link>
-
-      {/* ── + New Button (always visible, green, prominent) ──── */}
-      <div ref={createRef} style={{ position: 'relative', flexShrink: 0 }}>
+        {/* Mobile hamburger */}
         <button
-          data-tour="new-button"
-          onClick={() => { closeAll(); setCreateOpen(v => !v) }}
+          className="md:hidden"
+          onClick={() => setMobileNavOpen(true)}
           style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '7px 14px', borderRadius: 8,
-            background: 'var(--green)', color: '#fff',
-            fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 8px rgba(34, 192, 122, 0.3)',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.boxShadow = '0 4px 16px rgba(34, 192, 122, 0.45)'
-            e.currentTarget.style.transform = 'translateY(-1px)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.boxShadow = '0 2px 8px rgba(34, 192, 122, 0.3)'
-            e.currentTarget.style.transform = 'translateY(0)'
+            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--text2)',
           }}
         >
-          <Plus size={15} strokeWidth={2.5} />
-          <span className="hidden sm:inline">New</span>
-          <ChevronDown size={11} style={{ opacity: 0.7, transform: createOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          <Menu size={20} />
         </button>
-        {createOpen && (
-          <div style={{
-            position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
-            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-            borderRadius: 12, padding: 6, minWidth: 220,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-            animation: 'fadeUp .15s ease',
-          }}>
-            <div style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Quick Create
-            </div>
-            {QUICK_CREATE.map(item => {
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => { setCreateOpen(false); router.push(item.href) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    width: '100%', padding: '9px 10px', borderRadius: 8,
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text1)', fontSize: 13, fontWeight: 500,
-                    textAlign: 'left', transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  <div style={{
-                    width: 28, height: 28, borderRadius: 7,
-                    background: 'rgba(34, 192, 122, 0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Icon size={14} style={{ color: 'var(--green)' }} />
-                  </div>
-                  <div>
-                    <div style={{ lineHeight: 1.2 }}>{item.label}</div>
-                    {item.description && (
-                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* ── Desktop Nav (md+) ────────────────────────────────── */}
-      <nav
-        className="hidden md:flex"
-        style={{ alignItems: 'center', gap: 1, marginLeft: 4 }}
-      >
-        {/* Chat (direct link) */}
-        {(() => {
-          const chatActive = isActive('/inbox')
-          return (
-            <Link
-              href="/inbox"
-              data-tour="nav-inbox"
+        {/* ── Search ───────────────────────────────────────────────────── */}
+        <div
+          style={{
+            flex: 1,
+            maxWidth: 480,
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'var(--surface2)',
+              border: `1px solid ${searchFocused ? 'rgba(79,127,255,0.5)' : 'rgba(255,255,255,0.06)'}`,
+              borderRadius: 9,
+              padding: '0 12px',
+              height: 36,
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <Search size={14} color={searchFocused ? 'var(--accent)' : 'var(--text3)'} style={{ flexShrink: 0 }} />
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => { setSearchFocused(false); setSearchQuery(''); setSearchResults([]) }, 200)}
+              placeholder="Search jobs, customers, estimates… (⌘K)"
               style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '6px 10px', borderRadius: 8,
-                fontSize: 12, fontWeight: chatActive ? 700 : 500,
-                color: chatActive ? 'var(--accent)' : 'var(--text2)',
-                background: chatActive ? 'rgba(79,127,255,0.1)' : 'transparent',
-                textDecoration: 'none', whiteSpace: 'nowrap',
-                transition: 'all 0.15s',
+                flex: 1, background: 'none', border: 'none', outline: 'none',
+                fontSize: 13, color: 'var(--text1)',
+                minWidth: 0,
               }}
-              onMouseEnter={e => { if (!chatActive) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
-              onMouseLeave={e => { if (!chatActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
-            >
-              <MessageCircle size={14} style={{ opacity: chatActive ? 1 : 0.7 }} />
-              <span className="hidden lg:inline">Chat</span>
-            </Link>
-          )
-        })()}
-
-        {/* Jobs dropdown */}
-        <div ref={jobsRef} style={{ position: 'relative' }}>
-          <button
-            data-tour="nav-jobs"
-            onClick={() => { closeAll(); setJobsOpen(v => !v) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '6px 10px', borderRadius: 8, border: 'none',
-              background: jobsOpen || ['/pipeline', '/engine'].some(p => pathname.startsWith(p))
-                ? 'rgba(79,127,255,0.1)' : 'transparent',
-              color: jobsOpen || ['/pipeline', '/engine'].some(p => pathname.startsWith(p))
-                ? 'var(--accent)' : 'var(--text2)',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!jobsOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
-            onMouseLeave={e => { if (!jobsOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
-          >
-            <Briefcase size={14} style={{ opacity: 0.8 }} />
-            <span className="hidden lg:inline">Jobs</span>
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: jobsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          {jobsOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 200,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              animation: 'fadeUp .15s ease',
-            }}>
-              {JOBS_ITEMS.map(item => {
-                const Icon = item.icon
-                const active = pathname.startsWith(item.href)
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setJobsOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
-                      border: 'none', cursor: 'pointer',
-                      color: active ? 'var(--accent)' : 'var(--text2)',
-                      fontSize: 13, fontWeight: active ? 600 : 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
-                  >
-                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
-                    <div>
-                      <div>{item.label}</div>
-                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Production dropdown */}
-        <div ref={productionRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => { closeAll(); setProductionOpen(v => !v) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '6px 10px', borderRadius: 8, border: 'none',
-              background: productionOpen || PRODUCTION_PATHS.some(p => pathname.startsWith(p))
-                ? 'rgba(79,127,255,0.1)' : 'transparent',
-              color: productionOpen || PRODUCTION_PATHS.some(p => pathname.startsWith(p))
-                ? 'var(--accent)' : 'var(--text2)',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!productionOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
-            onMouseLeave={e => { if (!productionOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
-          >
-            <Factory size={14} style={{ opacity: 0.8 }} />
-            <span className="hidden lg:inline">Production</span>
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: productionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          {productionOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 220,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              animation: 'fadeUp .15s ease',
-            }}>
-              {PRODUCTION_ITEMS.map(item => {
-                const Icon = item.icon
-                const active = isActive(item.href)
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setProductionOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
-                      border: 'none', cursor: 'pointer',
-                      color: active ? 'var(--accent)' : 'var(--text2)',
-                      fontSize: 13, fontWeight: active ? 600 : 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
-                  >
-                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
-                    <div>
-                      <div>{item.label}</div>
-                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Sales dropdown */}
-        <div ref={salesRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => { closeAll(); setSalesOpen(v => !v) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '6px 10px', borderRadius: 8, border: 'none',
-              background: salesOpen || SALES_PATHS.some(p => pathname.startsWith(p))
-                ? 'rgba(79,127,255,0.1)' : 'transparent',
-              color: salesOpen || SALES_PATHS.some(p => pathname.startsWith(p))
-                ? 'var(--accent)' : 'var(--text2)',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!salesOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
-            onMouseLeave={e => { if (!salesOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
-          >
-            <DollarSign size={14} style={{ opacity: 0.8 }} />
-            <span className="hidden lg:inline">Sales</span>
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: salesOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          {salesOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 240,
-              maxHeight: 480, overflowY: 'auto',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              animation: 'fadeUp .15s ease',
-            }}>
-              {/* Actions section */}
-              <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Actions
-              </div>
-              {SALES_ACTIONS.map(action => {
-                const Icon = action.icon
-                return (
-                  <button
-                    key={action.id}
-                    onClick={() => {
-                      setSalesOpen(false)
-                      if (action.id === 'new_estimate') router.push('/estimates/new')
-                      else if (action.id === 'onboarding_link') setShowOnboardingModal(true)
-                      else if (action.id === 'design_intake_link') setShowDesignIntakeModal(true)
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text2)', fontSize: 13, fontWeight: 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <div style={{
-                      width: 26, height: 26, borderRadius: 6,
-                      background: 'rgba(79,127,255,0.08)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <Icon size={13} style={{ color: 'var(--accent)' }} />
-                    </div>
-                    <div>
-                      <div style={{ lineHeight: 1.2 }}>{action.label}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>{action.description}</div>
-                    </div>
-                  </button>
-                )
-              })}
-
-              <div style={{ height: 1, background: 'var(--card-border)', margin: '4px 6px' }} />
-
-              <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Navigate
-              </div>
-              {SALES_NAV_ITEMS.map(item => {
-                const Icon = item.icon
-                const active = isActive(item.href)
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setSalesOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '7px 10px', borderRadius: 7,
-                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
-                      border: 'none', cursor: 'pointer',
-                      color: active ? 'var(--accent)' : 'var(--text2)',
-                      fontSize: 13, fontWeight: active ? 600 : 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = active ? 'rgba(79,127,255,0.08)' : 'none')}
-                  >
-                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
-                    {item.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Install dropdown */}
-        <div ref={installRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => { closeAll(); setInstallOpen(v => !v) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '6px 10px', borderRadius: 8, border: 'none',
-              background: installOpen || INSTALL_PATHS.some(p => pathname.startsWith(p))
-                ? 'rgba(79,127,255,0.1)' : 'transparent',
-              color: installOpen || INSTALL_PATHS.some(p => pathname.startsWith(p))
-                ? 'var(--accent)' : 'var(--text2)',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!installOpen) { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' } }}
-            onMouseLeave={e => { if (!installOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text2)' } }}
-          >
-            <Wrench size={14} style={{ opacity: 0.8 }} />
-            <span className="hidden lg:inline">Install</span>
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: installOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          {installOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 220,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              animation: 'fadeUp .15s ease',
-            }}>
-              {INSTALL_ITEMS.map(item => {
-                const Icon = item.icon
-                const active = isActive(item.href)
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setInstallOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
-                      border: 'none', cursor: 'pointer',
-                      color: active ? 'var(--accent)' : 'var(--text2)',
-                      fontSize: 13, fontWeight: active ? 600 : 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
-                  >
-                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
-                    <div>
-                      <div>{item.label}</div>
-                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* More dropdown */}
-        <div ref={moreRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => { closeAll(); setMoreOpen(v => !v) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              padding: '6px 8px', borderRadius: 8, border: 'none',
-              background: moreOpen ? 'var(--surface2)' : 'transparent',
-              color: moreOpen ? 'var(--text1)' : 'var(--text3)',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { if (!moreOpen) e.currentTarget.style.background = 'var(--surface2)' }}
-            onMouseLeave={e => { if (!moreOpen) e.currentTarget.style.background = 'transparent' }}
-          >
-            More
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          {moreOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, padding: 6, minWidth: 200,
-              maxHeight: 400, overflowY: 'auto',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              animation: 'fadeUp .15s ease',
-            }}>
-              {MORE_NAV.map(item => {
-                const Icon = item.icon
-                const active = isActive(item.href)
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setMoreOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 7,
-                      background: active ? 'rgba(79,127,255,0.08)' : 'none',
-                      border: 'none', cursor: 'pointer',
-                      color: active ? 'var(--accent)' : 'var(--text2)',
-                      fontSize: 13, fontWeight: active ? 600 : 500,
-                      textAlign: 'left', transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = active ? 'rgba(79,127,255,0.08)' : 'none')}
-                  >
-                    <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
-                    {item.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </nav>
-
-      {/* ── Center: Global Search Bar ─────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 12px', maxWidth: 480, margin: '0 auto' }}>
-        <div style={{ position: 'relative', width: '100%' }}>
-          <Search size={14} style={{
-            position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-            color: searchFocused ? 'var(--accent)' : 'var(--text3)', transition: 'color 0.15s',
-            pointerEvents: 'none',
-          }} />
-          <input
-            ref={searchRef}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-            placeholder="Search jobs, customers, estimates..."
-            style={{
-              width: '100%',
-              padding: '8px 12px 8px 36px',
-              borderRadius: 10,
-              border: searchFocused ? '1px solid var(--accent)' : '1px solid var(--card-border)',
-              background: searchFocused ? 'var(--surface2)' : 'var(--surface)',
-              color: 'var(--text1)',
-              fontSize: 13, outline: 'none',
-              transition: 'all 0.2s',
-              boxShadow: searchFocused ? '0 0 0 3px rgba(79,127,255,0.1)' : 'none',
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Escape') { setSearchQuery(''); (e.target as HTMLInputElement).blur() }
-            }}
-          />
-          <kbd style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            padding: '2px 6px', borderRadius: 4,
-            background: 'var(--surface2)', border: '1px solid var(--card-border)',
-            fontSize: 10, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace',
-            opacity: searchFocused ? 0 : 0.7, transition: 'opacity 0.15s',
-            pointerEvents: 'none',
-          }}>
-            {navigator.platform?.includes('Mac') ? '\u2318K' : 'Ctrl+K'}
-          </kbd>
+            />
+            {searching && (
+              <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.6s linear infinite', flexShrink: 0 }} />
+            )}
+            {searchQuery && (
+              <button onClick={() => { setSearchQuery(''); setSearchResults([]) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0 }}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
 
           {/* Search results dropdown */}
-          {searchFocused && searchQuery.length >= 2 && (
+          {searchFocused && searchResults.length > 0 && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              overflow: 'hidden', animation: 'fadeUp .15s ease',
+              background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 12, padding: 6, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
             }}>
-              {searching && (
-                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>Searching...</div>
-              )}
-              {!searching && searchResults.length === 0 && (
-                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>No results found</div>
-              )}
-              {!searching && searchResults.map(r => {
-                const Icon = SEARCH_TYPE_ICON[r.type] || Briefcase
-                const color = SEARCH_TYPE_COLOR[r.type] || 'var(--accent)'
+              {searchResults.map(r => {
+                const Icon = SEARCH_TYPE_ICON[r.type]
+                const color = SEARCH_TYPE_COLOR[r.type]
                 return (
-                  <button
+                  <Link
                     key={r.id}
-                    onMouseDown={(e) => { e.preventDefault(); router.push(r.href); setSearchQuery('') }}
+                    href={r.href}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '10px 14px',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text1)', fontSize: 13, fontWeight: 500,
-                      textAlign: 'left', transition: 'background 0.12s',
-                      borderBottom: '1px solid var(--card-border)',
+                      padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div style={{
-                      width: 28, height: 28, borderRadius: 7,
-                      background: `${color}15`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <Icon size={14} style={{ color }} />
+                    <Icon size={14} color={color} style={{ flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 500 }}>{r.title}</div>
+                      {r.subtitle && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.subtitle}</div>}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
-                      {r.subtitle && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{r.subtitle}</div>}
-                    </div>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                      padding: '2px 6px', borderRadius: 4,
-                      background: `${color}12`, color,
-                    }}>
-                      {r.type}
-                    </span>
-                  </button>
+                    <div style={{ marginLeft: 'auto', fontSize: 10, color, textTransform: 'capitalize' }}>{r.type}</div>
+                  </Link>
                 )
               })}
             </div>
           )}
         </div>
-      </div>
 
-      {/* ── Right side ────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
 
-        {/* XP + Streak pills */}
-        {xp > 0 && (
-          <div
-            className="hidden lg:flex"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              padding: '4px 10px', borderRadius: 20,
-              background: 'rgba(79,127,255,0.08)', border: '1px solid rgba(79,127,255,0.15)',
-            }}
-          >
-            <Zap size={10} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
-              Lv.{level}
-            </span>
-          </div>
-        )}
-        {streak >= 2 && (
-          <div
-            className="hidden lg:flex"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              padding: '4px 10px', borderRadius: 20,
-              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)',
-            }}
-          >
-            <Flame size={10} style={{ color: 'var(--amber)' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--amber)', fontFamily: 'JetBrains Mono, monospace' }}>
-              {streak}d
-            </span>
-          </div>
-        )}
-
-        {/* Notifications Bell */}
-        <div ref={notifRef} style={{ position: 'relative' }}>
+        {/* ── Notifications ────────────────────────────────────────────── */}
+        <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
-            onClick={() => { closeAll(); setNotifOpen(v => !v) }}
-            title="Notifications"
-            className="w-[44px] h-[44px] md:w-[34px] md:h-[34px]"
+            onClick={() => { setNotifOpen(v => !v); setCreateOpen(false); setProfileOpen(false) }}
             style={{
-              borderRadius: 8, position: 'relative',
+              width: 36, height: 36, borderRadius: 8, position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: notifOpen ? 'var(--surface2)' : 'transparent',
-              border: 'none', cursor: 'pointer',
-              color: notifOpen ? 'var(--text1)' : 'var(--text3)',
-              flexShrink: 0, transition: 'all 0.15s',
+              background: notifOpen ? 'var(--surface2)' : 'none',
+              border: 'none', cursor: 'pointer', color: 'var(--text2)',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' }}
-            onMouseLeave={e => { if (!notifOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text3)' } }}
           >
-            <Bell size={16} />
-            {notifications.length > 0 && (
+            <Bell size={17} />
+            {unreadCount > 0 && (
               <span style={{
-                position: 'absolute', top: 2, right: 2,
-                minWidth: 16, height: 16, borderRadius: 8,
-                background: 'var(--red)', color: '#fff',
-                fontSize: 9, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '0 4px',
-                boxShadow: '0 0 0 2px var(--card-bg)',
-              }}>
-                {notifications.length > 9 ? '9+' : notifications.length}
-              </span>
+                position: 'absolute', top: 5, right: 5,
+                width: 7, height: 7, borderRadius: '50%',
+                background: 'var(--red)', border: '1.5px solid var(--surface)',
+              }} />
             )}
           </button>
+
           {notifOpen && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 14, width: 340, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              overflow: 'hidden', animation: 'fadeUp .15s ease',
+              width: 340, background: 'var(--surface)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.5)', overflow: 'hidden',
             }}>
               <div style={{
-                padding: '12px 16px', borderBottom: '1px solid var(--card-border)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)',
               }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>Notifications</span>
-                <button
-                  onClick={markAllRead}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}
-                >
-                  Mark all read
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Bell size={14} color="var(--accent)" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Notifications</span>
+                  {unreadCount > 0 && (
+                    <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                {notifications.length > 0 && (
+                  <button onClick={markAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 11 }}>
+                    Mark all read
+                  </button>
+                )}
               </div>
-              <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+
+              <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                 {!notifsLoaded ? (
-                  <div style={{ padding: '20px 16px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>Loading...</div>
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Loading…</div>
                 ) : notifications.length === 0 ? (
-                  <div style={{ padding: '20px 16px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>
-                    All caught up
+                  <div style={{ padding: 24, textAlign: 'center' }}>
+                    <BellOff size={28} color="var(--text3)" style={{ margin: '0 auto 8px' }} />
+                    <p style={{ fontSize: 13, color: 'var(--text3)' }}>All caught up!</p>
                   </div>
                 ) : (
                   notifications.map((n, i) => (
-                    <div key={n.id ?? i} style={{
-                      padding: '10px 16px', borderBottom: '1px solid var(--card-border)',
-                      cursor: 'pointer', transition: 'background 0.12s',
-                    }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <div style={{ fontSize: 12, color: 'var(--text1)', fontWeight: 500, marginBottom: 2 }}>{n.title || n.message}</div>
-                      {n.title && n.message && (
-                        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{n.message}</div>
-                      )}
-                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{n.created_at ? relTime(n.created_at) : ''}</div>
+                    <div key={i} style={{
+                      padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      background: n.read ? 'transparent' : 'rgba(79,127,255,0.04)',
+                    }}>
+                      <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: n.read ? 400 : 600 }}>{n.message || n.title || 'New notification'}</div>
+                      {n.created_at && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{relTime(n.created_at)}</div>}
                     </div>
                   ))
                 )}
               </div>
-              {/* Push notification toggle */}
-              {push.permState !== 'unsupported' && push.permState !== 'loading' && (
-                <div style={{ padding: '10px 16px', borderTop: '1px solid var(--card-border)' }}>
-                  {push.permState === 'denied' ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text3)' }}>
-                      <BellOff size={12} />
-                      Push blocked — allow in browser settings
-                    </div>
-                  ) : push.isSubscribed ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <button
-                        onClick={() => push.unsubscribe()}
-                        disabled={push.busy}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          fontSize: 11, color: 'var(--green)', fontWeight: 600, padding: 0,
-                          opacity: push.busy ? 0.6 : 1,
-                        }}
-                      >
-                        <BellRing size={12} />
-                        {push.busy ? 'Saving…' : 'Push alerts on'}
-                      </button>
-                      <button
-                        onClick={async () => {
-                          await fetch('/api/push/send', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ title: 'Test notification', body: 'Push notifications are working!', url: '/dashboard', tag: 'test' }),
-                          })
-                        }}
-                        style={{
-                          background: 'none', border: '1px solid var(--card-border)', borderRadius: 6,
-                          cursor: 'pointer', fontSize: 10, color: 'var(--text2)', fontWeight: 600,
-                          padding: '2px 8px',
-                        }}
-                      >
-                        Send test
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => push.subscribe()}
-                      disabled={push.busy || !push.vapidKey}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        background: 'none', border: 'none', cursor: push.vapidKey ? 'pointer' : 'default',
-                        fontSize: 11, color: push.vapidKey ? 'var(--accent)' : 'var(--text3)', fontWeight: 600, padding: 0,
-                        opacity: push.busy ? 0.6 : 1,
-                      }}
-                    >
-                      <Bell size={12} />
-                      {push.busy ? 'Enabling…' : push.vapidKey ? 'Enable push alerts' : 'Push not configured'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* Help/Tour */}
-        <button
-          onClick={startTour}
-          title="Product Tour"
-          className="hidden md:flex"
-          style={{
-            width: 34, height: 34, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text3)',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text1)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text3)' }}
-        >
-          <HelpCircle size={16} />
-        </button>
-
-        {/* Profile avatar */}
-        <div ref={profileRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => { closeAll(); setProfileOpen(v => !v) }}
-            className="w-[44px] h-[44px] md:w-[34px] md:h-[34px]"
-            style={{
-              borderRadius: '50%',
-              background: profileOpen ? 'rgba(79,127,255,0.2)' : 'rgba(79,127,255,0.12)',
-              border: `2px solid ${profileOpen ? 'var(--accent)' : 'rgba(79,127,255,0.3)'}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, fontWeight: 800, color: 'var(--accent)',
-              cursor: 'pointer', flexShrink: 0,
-              transition: 'all 0.2s',
-            }}
-            title={profile.name ?? profile.email}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'scale(1.05)' }}
-            onMouseLeave={e => { if (!profileOpen) e.currentTarget.style.borderColor = 'rgba(79,127,255,0.3)'; e.currentTarget.style.transform = 'scale(1)' }}
-          >
-            {initial}
-          </button>
-          {profileOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 14, width: 240, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              overflow: 'hidden', animation: 'fadeUp .15s ease',
-            }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: 'rgba(79,127,255,0.15)', border: '2px solid var(--accent)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 800, color: 'var(--accent)',
-                }}>
-                  {initial}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
-                    {profile.name ?? profile.email}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'capitalize' }}>
-                    {profile.role?.replace('_', ' ')}
-                  </div>
-                </div>
-              </div>
-              {[
-                { label: 'View Profile',    icon: User,       href: '/employees' },
-                { label: 'Clock In / Out',  icon: Clock,      href: '/timeclock' },
-                { label: 'My Payroll',      icon: DollarSign, href: '/payroll' },
-              ].map(item => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setProfileOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '9px 16px',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text2)', fontSize: 13, fontWeight: 500,
-                      textAlign: 'left', transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Icon size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />
-                    {item.label}
-                  </button>
-                )
-              })}
-              {/* Install App */}
-              {!isInstalled && (
-                <div style={{ borderTop: '1px solid var(--card-border)' }}>
-                  <button
-                    onClick={async () => {
-                      setProfileOpen(false)
-                      if (installPrompt) {
-                        installPrompt.prompt()
-                        const { outcome } = await installPrompt.userChoice
-                        if (outcome === 'accepted') setInstallPrompt(null)
-                      } else {
-                        // iOS Safari: show hint
-                        setShowIOSHint(v => !v)
-                      }
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '9px 16px',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--accent)', fontSize: 13, fontWeight: 600,
-                      textAlign: 'left', transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(79,127,255,0.06)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Download size={14} style={{ flexShrink: 0 }} />
-                    Install App
-                  </button>
-                </div>
-              )}
-
-              <div style={{ borderTop: '1px solid var(--card-border)' }}>
+              {/* Push notifications toggle */}
+              <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Push notifications</span>
                 <button
-                  onClick={handleSignOut}
+                  onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    width: '100%', padding: '9px 16px',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--red)', fontSize: 13, fontWeight: 600,
-                    textAlign: 'left', transition: 'background 0.12s',
+                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                    background: push.isSubscribed ? 'rgba(34,192,122,0.1)' : 'rgba(79,127,255,0.1)',
+                    color: push.isSubscribed ? 'var(--green)' : 'var(--accent)',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(242,90,90,0.06)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                 >
-                  <LogOut size={14} style={{ flexShrink: 0 }} />
-                  Sign Out
+                  {push.isSubscribed ? 'Enabled' : 'Enable'}
                 </button>
               </div>
             </div>
           )}
         </div>
-      </div>
-    </header>
-    <ProductTour userName={profile.name || profile.email || 'User'} open={tourOpen} onClose={closeTour} />
-    {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
 
-    {/* iOS "Add to Home Screen" hint banner */}
-    {showIOSHint && (
-      <div style={{
-        position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-        zIndex: 500, width: 'calc(100% - 32px)', maxWidth: 360,
-        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-        borderRadius: 14, padding: '14px 16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-        animation: 'fadeUp .2s ease',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Install on iOS</span>
-          <button onClick={() => setShowIOSHint(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0 }}>
-            <X size={16} />
-          </button>
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0, lineHeight: 1.5 }}>
-          Tap the <strong style={{ color: 'var(--accent)' }}>Share</strong> button in Safari, then select <strong style={{ color: 'var(--accent)' }}>Add to Home Screen</strong> to install this app.
-        </p>
-      </div>
-    )}
-
-    {/* ── Mobile left slide-out drawer ──────────────────────── */}
-    {drawerOpen && (
-      <>
-        <div
-          onClick={() => setDrawerOpen(false)}
+        {/* ── Inbox icon with unread badge ─────────────────────────────── */}
+        <Link
+          href="/inbox"
           style={{
-            position: 'fixed', inset: 0, zIndex: 400,
-            background: 'rgba(0,0,0,0.72)',
-            backdropFilter: 'blur(4px)',
-            animation: 'fadeIn 0.2s ease',
+            position: 'relative', flexShrink: 0,
+            width: 36, height: 36, borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: pathname.startsWith('/inbox') ? 'rgba(79,127,255,0.12)' : 'none',
+            color: pathname.startsWith('/inbox') ? 'var(--accent)' : 'var(--text2)',
+            textDecoration: 'none',
           }}
-        />
-        <div style={{
-          position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 401,
-          width: 280,
-          background: 'var(--surface)',
-          borderRight: '1px solid var(--card-border)',
-          animation: 'slideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-          overflowY: 'auto',
-          display: 'flex', flexDirection: 'column',
-        }}>
-          {/* Drawer header */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '16px 16px 12px',
-            borderBottom: '1px solid var(--card-border)',
-            flexShrink: 0,
-          }}>
+        >
+          <MessageCircle size={17} />
+          {inboxUnread > 0 && (
             <span style={{
-              fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: 18, fontWeight: 900, color: 'var(--text1)',
-              letterSpacing: '0.02em',
+              position: 'absolute', top: 4, right: 4,
+              minWidth: 16, height: 16, borderRadius: 8,
+              background: 'var(--accent)', border: '1.5px solid var(--surface)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 9, fontWeight: 700, color: '#fff', padding: '0 3px',
             }}>
-              USA WRAP CO
+              {inboxUnread > 99 ? '99+' : inboxUnread}
             </span>
-            <button
-              onClick={() => setDrawerOpen(false)}
-              style={{
-                width: 36, height: 36, borderRadius: 8, border: 'none',
-                background: 'var(--surface2)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text2)',
-              }}
-            >
-              <X size={16} />
-            </button>
-          </div>
+          )}
+        </Link>
 
-          {/* Nav links — grouped by section */}
-          <nav style={{ padding: 8, flex: 1 }}>
-            {/* Chat */}
-            {(() => {
-              const chatActive = isActive('/inbox')
-              return (
-                <Link
-                  href="/inbox"
-                  onClick={() => setDrawerOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 12px', borderRadius: 8,
-                    textDecoration: 'none', marginBottom: 2,
-                    color: chatActive ? 'var(--accent)' : 'var(--text2)',
-                    background: chatActive ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: chatActive ? 700 : 500,
-                  }}
-                >
-                  <MessageCircle size={17} style={{ flexShrink: 0 }} />
-                  Chat
-                </Link>
-              )
-            })()}
+        {/* ── New Job button (prominent) ────────────────────────────────── */}
+        <Link
+          href="/pipeline?new=true"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+            padding: '7px 14px', borderRadius: 8,
+            background: 'var(--green)', color: '#fff',
+            fontSize: 13, fontWeight: 700, textDecoration: 'none',
+            boxShadow: '0 2px 8px rgba(34,192,122,0.3)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Plus size={15} strokeWidth={2.5} />
+          <span className="hidden sm:inline">New Job</span>
+        </Link>
 
-            {/* Jobs */}
-            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Jobs
-            </div>
-            {JOBS_ITEMS.map(item => {
-              const active = isActive(item.href)
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setDrawerOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 12px', borderRadius: 8,
-                    textDecoration: 'none', marginBottom: 2,
-                    color: active ? 'var(--accent)' : 'var(--text2)',
-                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: active ? 700 : 500,
-                  }}
-                >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {item.label}
-                </Link>
-              )
-            })}
-
-            {/* Production */}
-            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Production
-            </div>
-            {PRODUCTION_ITEMS.map(item => {
-              const active = isActive(item.href)
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setDrawerOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 12px', borderRadius: 8,
-                    textDecoration: 'none', marginBottom: 2,
-                    color: active ? 'var(--accent)' : 'var(--text2)',
-                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: active ? 700 : 500,
-                  }}
-                >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {item.label}
-                </Link>
-              )
-            })}
-
-            {/* Sales */}
-            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Sales
-            </div>
-            {SALES_NAV_ITEMS.map(item => {
-              const active = isActive(item.href)
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setDrawerOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 12px', borderRadius: 8,
-                    textDecoration: 'none', marginBottom: 2,
-                    color: active ? 'var(--accent)' : 'var(--text2)',
-                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: active ? 700 : 500,
-                  }}
-                >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {item.label}
-                </Link>
-              )
-            })}
-
-            {/* Install */}
-            <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Install
-            </div>
-            {INSTALL_ITEMS.map(item => {
-              const active = isActive(item.href)
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setDrawerOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 12px', borderRadius: 8,
-                    textDecoration: 'none', marginBottom: 2,
-                    color: active ? 'var(--accent)' : 'var(--text2)',
-                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: active ? 700 : 500,
-                  }}
-                >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {item.label}
-                </Link>
-              )
-            })}
-
-            <div style={{ height: 1, background: 'var(--card-border)', margin: '8px 4px' }} />
-
-            {/* More */}
-            {MORE_NAV.map(item => {
-              const active = isActive(item.href)
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setDrawerOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 12px', borderRadius: 8,
-                    textDecoration: 'none', marginBottom: 2,
-                    color: active ? 'var(--accent)' : 'var(--text2)',
-                    background: active ? 'rgba(79,127,255,0.1)' : 'transparent',
-                    fontSize: 14, fontWeight: active ? 700 : 500,
-                  }}
-                >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
-
-          {/* Sign out */}
-          <div style={{ padding: 8, borderTop: '1px solid var(--card-border)', flexShrink: 0 }}>
-            <button
-              onClick={() => { setDrawerOpen(false); handleSignOut() }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                width: '100%', padding: '10px 12px', borderRadius: 8,
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--red)', fontSize: 14, fontWeight: 600,
-                textAlign: 'left',
-              }}
-            >
-              <LogOut size={17} />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </>
-    )}
-
-    {/* Onboarding link modal — reuse existing OnboardingLinkPanel logic in a modal */}
-    {showOnboardingModal && (
-      <OnboardingLinkModalWrapper profile={profile} onClose={() => setShowOnboardingModal(false)} />
-    )}
-
-    {/* Design intake link modal */}
-    {showDesignIntakeModal && (
-      <DesignIntakeLinkModal profile={profile} onClose={() => setShowDesignIntakeModal(false)} />
-    )}
-    </>
-  )
-}
-
-// Simple onboarding link modal wrapper
-function OnboardingLinkModalWrapper({ profile, onClose }: { profile: Profile; onClose: () => void }) {
-  const [projects, setProjects] = useState<{ id: string; title: string }[]>([])
-  const [selectedProject, setSelectedProject] = useState('')
-  const [token, setToken] = useState('')
-  const [generating, setGenerating] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const supabase = createClient()
-
-  useEffect(() => {
-    supabase.from('projects')
-      .select('id, title')
-      .eq('org_id', profile.org_id)
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => setProjects(data || []))
-  }, [profile.org_id])
-
-  const salesProjects = projects.filter(p => true) // Show all projects
-
-  async function generate() {
-    if (!selectedProject) return
-    setGenerating(true)
-    const { data: existing } = await supabase
-      .from('customer_intake')
-      .select('token')
-      .eq('project_id', selectedProject)
-      .eq('org_id', profile.org_id)
-      .single()
-
-    if (existing?.token) {
-      setToken(existing.token)
-      setGenerating(false)
-      return
-    }
-
-    const { data: newIntake } = await supabase
-      .from('customer_intake')
-      .insert({ org_id: profile.org_id, project_id: selectedProject })
-      .select('token')
-      .single()
-
-    if (newIntake?.token) setToken(newIntake.token)
-    setGenerating(false)
-  }
-
-  const portalUrl = token ? `${typeof window !== 'undefined' ? window.location.origin : ''}/intake/${token}` : ''
-
-  return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-        borderRadius: 16, width: '100%', maxWidth: 440, padding: 24,
-        boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)' }}>Send Onboarding Link</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={18} /></button>
-        </div>
-        <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} style={{
-          width: '100%', padding: '10px 14px', borderRadius: 10,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          color: 'var(--text2)', fontSize: 13, marginBottom: 12, outline: 'none',
-        }}>
-          <option value="">Select a project...</option>
-          {salesProjects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-        </select>
-
-        {!portalUrl ? (
-          <button onClick={generate} disabled={generating || !selectedProject} style={{
-            width: '100%', padding: '10px', borderRadius: 10, border: 'none',
-            background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700,
-            cursor: !selectedProject ? 'not-allowed' : 'pointer', opacity: !selectedProject ? 0.4 : 1,
-          }}>
-            {generating ? 'Generating...' : 'Generate Link'}
+        {/* ── Quick Actions dropdown ────────────────────────────────────── */}
+        <div ref={createRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => { setCreateOpen(v => !v); setNotifOpen(false); setProfileOpen(false) }}
+            title="Quick Actions"
+            style={{
+              height: 36, padding: '0 10px', borderRadius: 8,
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: createOpen ? 'var(--surface2)' : 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              cursor: 'pointer', color: 'var(--text1)', fontSize: 12, fontWeight: 600,
+            }}
+          >
+            <Plus size={14} />
+            <ChevronDown size={11} style={{ opacity: 0.6, transform: createOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {createOpen && (
             <div style={{
-              padding: '10px 12px', background: 'var(--surface)', borderRadius: 8,
-              border: '1px solid var(--border)', fontSize: 12, color: 'var(--accent)',
-              fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all',
+              position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
+              background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 12, padding: 6, minWidth: 220,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
             }}>
-              {portalUrl}
+              <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Quick Actions
+              </div>
+              {QUICK_CREATE.map(item => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => { setCreateOpen(false); router.push(item.href) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '8px 10px', borderRadius: 8,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text1)', fontSize: 13, fontWeight: 500, textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(34,192,122,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={14} color="var(--green)" />
+                    </div>
+                    <div>
+                      <div style={{ lineHeight: 1.2 }}>{item.label}</div>
+                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
-            <button onClick={async () => {
-              await navigator.clipboard.writeText(portalUrl)
-              setCopied(true)
-              setTimeout(() => setCopied(false), 2000)
-            }} style={{
-              padding: '10px', borderRadius: 8, border: 'none',
-              background: copied ? 'rgba(34,192,122,0.15)' : 'var(--surface2)',
-              color: copied ? '#22c07a' : 'var(--text1)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          )}
+        </div>
+
+        {/* ── User avatar / profile ─────────────────────────────────────── */}
+        <div ref={profileRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => { setProfileOpen(v => !v); setCreateOpen(false); setNotifOpen(false) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: profileOpen ? 'var(--surface2)' : 'transparent',
+            }}
+          >
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: 'var(--accent)', overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
             }}>
-              {copied ? 'Copied!' : 'Copy Link'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initial
+              }
+            </div>
+            <div className="hidden md:block" style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {profile.name ?? profile.email}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'capitalize' }}>
+                {profile.role.replace('_', ' ')}
+              </div>
+            </div>
+            <ChevronDown size={11} className="hidden md:block" color="var(--text3)" style={{ transform: profileOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+
+          {profileOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
+              width: 220, background: 'var(--surface)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.5)', overflow: 'hidden',
+            }}>
+              {/* User info */}
+              <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{profile.name ?? profile.email}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{profile.email}</div>
+                <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 6, background: 'rgba(79,127,255,0.1)', fontSize: 10, fontWeight: 700, color: 'var(--accent)', textTransform: 'capitalize' }}>
+                  {profile.role.replace('_', ' ')}
+                </div>
+              </div>
+
+              {/* Actions */}
+              {[
+                { href: '/settings', label: 'Settings', icon: Settings },
+                { href: '/settings/email-accounts', label: 'Email Signature', icon: UserCheck },
+                ...(isAdminRole(profile.role) ? [{ href: '/enterprise', label: 'Enterprise Hub', icon: Palette }] : []),
+                ...(!isInstalled && installPrompt ? [{ id: 'install', label: 'Install App', icon: Download }] : []),
+              ].map((item: any) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.href || item.id}
+                    onClick={() => {
+                      setProfileOpen(false)
+                      if (item.id === 'install' && installPrompt) {
+                        installPrompt.prompt()
+                      } else {
+                        router.push(item.href)
+                      }
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '9px 14px', border: 'none',
+                      background: 'none', cursor: 'pointer', color: 'var(--text2)',
+                      fontSize: 13, fontWeight: 500, textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <Icon size={14} style={{ flexShrink: 0 }} />
+                    {item.label}
+                  </button>
+                )
+              })}
+
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '2px 0' }} />
+              <button
+                onClick={handleSignOut}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '9px 14px', border: 'none',
+                  background: 'none', cursor: 'pointer', color: 'var(--red)',
+                  fontSize: 13, fontWeight: 500, textAlign: 'left',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(242,90,90,0.06)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                <LogOut size={14} style={{ flexShrink: 0 }} />
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* ── Design intake modal ───────────────────────────────────────── */}
+      {showDesignIntakeModal && (
+        <DesignIntakeLinkModal
+          orgId={profile.org_id}
+          onClose={() => setShowDesignIntakeModal(false)}
+        />
+      )}
+
+      {/* ── Product tour ─────────────────────────────────────────────── */}
+      {tourOpen && <ProductTour onClose={closeTour} />}
+      {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
+
+      {/* ── Quick Permissions Widget (admin/owner only, fixed) ──────── */}
+      <QuickPermissionsWidget profile={profile} />
+    </>
   )
 }

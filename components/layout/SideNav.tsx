@@ -200,13 +200,14 @@ export function SideNav({
           display: 'flex',
           flexDirection: 'column',
           zIndex: 40,
-          transition: 'width 0.2s ease',
+          transition: 'width 0.2s ease, transform 0.25s ease',
           overflowX: 'hidden',
           overflowY: 'auto',
           scrollbarWidth: 'none',
         }}
         // Mobile: hide off-screen by default, slide in when mobileOpen
-        className={mobileOpen ? '' : 'max-md:-translate-x-full'}
+        // Desktop (md+): always visible via translate-x-0 override
+        className={mobileOpen ? 'translate-x-0' : 'max-md:-translate-x-full'}
       >
         {/* ── Brand / Logo ────────────────────────────────────────────────── */}
         <div

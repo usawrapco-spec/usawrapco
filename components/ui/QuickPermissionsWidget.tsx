@@ -24,7 +24,13 @@ interface Props {
   profile: Profile
 }
 
+// Gate — only renders inner component for admin/owner
 export function QuickPermissionsWidget({ profile }: Props) {
+  if (!isAdminRole(profile.role)) return null
+  return <WidgetInner profile={profile} />
+}
+
+function WidgetInner({ profile }: Props) {
   const pathname = usePathname()
   const supabase = createClient()
 
@@ -42,9 +48,6 @@ export function QuickPermissionsWidget({ profile }: Props) {
   })
 
   const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Only admins/owners see this widget
-  if (!isAdminRole(profile.role)) return null
 
   // Load saved visibility for this page
   useEffect(() => {
@@ -113,7 +116,7 @@ export function QuickPermissionsWidget({ profile }: Props) {
     <div
       style={{
         position: 'fixed',
-        bottom: 80,
+        bottom: 136,
         right: 16,
         zIndex: 200,
       }}

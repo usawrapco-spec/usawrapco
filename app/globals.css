@@ -37,6 +37,7 @@
   body {
     @apply bg-bg text-text1 font-sans antialiased;
     min-height: 100vh;
+    transition: padding-left 0.2s ease;
   }
 
   * { box-sizing: border-box; }
