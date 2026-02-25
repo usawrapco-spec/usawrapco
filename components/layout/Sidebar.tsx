@@ -7,7 +7,6 @@ import { hasPermission, type ModulePermission } from '@/lib/permissions'
 import type { Profile } from '@/types'
 import { useState } from 'react'
 import NewProjectModal from '@/components/dashboard/NewProjectModal'
-import GenieFAB from '@/components/genie/GenieFAB'
 import {
   LayoutDashboard,
   TrendingUp,
@@ -335,10 +334,6 @@ export function Sidebar({ profile }: SidebarProps) {
 
   return (
     <>
-      <GenieFAB
-        userName={profile.name ?? profile.email ?? 'Team Member'}
-        userRole={profile.role}
-      />
       <aside style={{
         width: 220,
         background: 'var(--surface)',

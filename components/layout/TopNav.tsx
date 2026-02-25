@@ -14,7 +14,6 @@ import {
   Bot, Building2, Globe, TrendingUp, Layers, Map, Package, MessageSquare, CreditCard,
   type LucideIcon,
 } from 'lucide-react'
-import GenieFAB from '@/components/genie/GenieFAB'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -927,7 +926,6 @@ export function TopNav({ profile }: { profile: Profile }) {
         </div>
       </div>
     </header>
-    <GenieFAB userName={profile.name || profile.email || 'User'} userRole={profile.role} />
     <ProductTour userName={profile.name || profile.email || 'User'} open={tourOpen} onClose={closeTour} />
     {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { MessageSquare, X, Minus, Send, Mic, Bot } from 'lucide-react'
 
 interface Message {
@@ -30,6 +31,7 @@ const iconBtnStyle: React.CSSProperties = {
 }
 
 export default function VinylChat() {
+  const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -82,12 +84,17 @@ export default function VinylChat() {
     setIsTyping(true)
 
     try {
+      const projectMatch = pathname?.match(/\/projects\/([^/]+)/)
       const res = await fetch('/api/ai/vinyl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg.content,
           history: messages.map(m => ({ role: m.role, content: m.content })),
+          context: {
+            page: pathname || '/',
+            projectId: projectMatch ? projectMatch[1] : undefined,
+          },
         }),
       })
       const data = await res.json()
@@ -104,7 +111,7 @@ export default function VinylChat() {
     } finally {
       setIsTyping(false)
     }
-  }, [input, messages, isTyping])
+  }, [input, messages, isTyping, pathname])
 
   // Drag — desktop only
   const handleDragStart = useCallback((e: React.MouseEvent) => {
