@@ -1,10 +1,9 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 export async function POST(req: Request) {
   try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const { jobId, panels } = await req.json()
     if (!panels || !Array.isArray(panels)) {
       return Response.json({ matches: [] })

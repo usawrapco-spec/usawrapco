@@ -1,9 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
 
 export const runtime = 'nodejs'
-
-const client = new Anthropic()
 
 export async function POST(req: Request) {
   const supabase = createClient()
@@ -19,6 +16,8 @@ Context: ${description}
 Write a single enthusiastic 1-2 sentence narration (max 130 chars) that highlights the key benefit. Friendly, energetic, no emojis. Just the narration text, nothing else.`
 
   try {
+    const Anthropic = (await import('@anthropic-ai/sdk')).default
+    const client = new Anthropic()
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 150,

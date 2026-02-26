@@ -1,9 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 export async function POST(req: Request) {
   try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const { vehicleType, wrapType, sqft, panels, material, division, jobDetails } = await req.json()
 
     const prompt = `You are a vehicle wrap pricing expert for USA WRAP CO.
