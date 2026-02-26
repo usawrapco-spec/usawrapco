@@ -792,6 +792,7 @@ export default function CommHubClient({
                 smsTemplates={smsTemplates}
                 onSend={handleNewSend}
                 composingNew
+                defaultTab={newChannel}
                 newTo={newTo}
                 onNewToChange={setNewTo}
                 newName={newName}

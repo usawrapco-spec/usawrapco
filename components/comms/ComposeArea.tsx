@@ -41,6 +41,7 @@ interface Props {
     contact_name?: string
   }) => Promise<void>
   composingNew?: boolean
+  defaultTab?: ComposeTab
   newTo?: string
   onNewToChange?: (v: string) => void
   newName?: string
@@ -273,12 +274,13 @@ export function ComposeArea({
   replySubject,
   onSend,
   composingNew,
+  defaultTab,
   newTo,
   onNewToChange,
   newName,
   onNewNameChange,
 }: Props) {
-  const [tab, setTab] = useState<ComposeTab>('email')
+  const [tab, setTab] = useState<ComposeTab>(defaultTab || 'email')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [photos, setPhotos] = useState<PhotoSelection[]>([])
