@@ -49,8 +49,7 @@ export async function POST(req: NextRequest) {
       org_id: ORG_ID,
       type: 'appointment',
       title: `Consultation Booked: ${contact_name || 'Website Lead'}`,
-      body: `${slotText} — ${vehicle} — ${contact_email}`,
-      link: session?.project_id ? `/projects/${session.project_id}` : '/tasks',
+      message: `${slotText} — ${vehicle} — ${contact_email}`,
       read: false,
     })
 

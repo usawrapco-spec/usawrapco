@@ -65,22 +65,18 @@ export async function POST(req: NextRequest) {
       console.log('[comms/email/send] Demo mode — Resend not configured. Would send to:', to)
     }
 
-    // Log to communications table
+    // Log to customer_communications table
     const { data: comm, error: insertError } = await admin
-      .from('communications')
+      .from('customer_communications')
       .insert({
         org_id: orgId,
         customer_id: customer_id || null,
-        project_id: project_id || null,
         direction: 'outbound',
         channel: 'email',
         subject,
         body,
-        to_email: to,
-        from_email: fromEmail,
-        status,
-        resend_id: resendId,
-        sent_by: user.id,
+        agent_id: user.id,
+        metadata: { to_email: to, from_email: fromEmail, resend_id: resendId, status },
       })
       .select()
       .single()

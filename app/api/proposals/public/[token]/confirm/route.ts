@@ -88,10 +88,8 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
         org_id: estimate.org_id || ORG_ID,
         user_id: estimate.sales_rep_id,
         title: 'Proposal Accepted!',
-        body: `Customer accepted your proposal! Package: ${pkgName}, Total: $${Number(total_amount || 0).toLocaleString()}, Deposit paid.`,
+        message: `Customer accepted your proposal! Package: ${pkgName}, Total: $${Number(total_amount || 0).toLocaleString()}, Deposit paid.`,
         type: 'proposal_accepted',
-        entity_type: 'proposal',
-        entity_id: proposal.id,
         read: false,
       }).then(() => {})
     }

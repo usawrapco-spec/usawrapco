@@ -25,10 +25,10 @@ export async function POST(req: Request) {
   if (!body.customer_id) return NextResponse.json({ error: 'Missing customer_id' }, { status: 400 })
   const db = getSupabaseAdmin()
 
-  const { customer_id, org_id, year, make, model, color, trim, vin, mileage, notes, is_primary } = body
+  const { customer_id, org_id, year, make, model, color, trim, vin, notes, is_primary, nickname, vehicle_type, license_plate } = body
   const { data, error } = await db
     .from('customer_vehicles')
-    .insert({ customer_id, org_id, year, make, model, color, trim, vin, mileage, notes, is_primary })
+    .insert({ customer_id, org_id, year, make, model, color, trim, vin, notes, is_primary, nickname, vehicle_type, license_plate })
     .select()
     .single()
 

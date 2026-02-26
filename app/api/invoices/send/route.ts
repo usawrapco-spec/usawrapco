@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       org_id: orgId,
       user_id: user.id,
       title: `Invoice INV-${inv.invoice_number} sent`,
-      body: `Sent to ${customerName}${customerEmail ? ` (${customerEmail})` : ''}${emailSent ? ' via email' : ' — email not configured'}`,
+      message: `Sent to ${customerName}${customerEmail ? ` (${customerEmail})` : ''}${emailSent ? ' via email' : ' — email not configured'}`,
       type: 'invoice',
       read: false,
     })

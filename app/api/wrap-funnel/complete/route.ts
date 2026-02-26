@@ -117,8 +117,7 @@ export async function POST(req: NextRequest) {
       org_id: ORG_ID,
       type: 'new_lead',
       title: `New Website Lead: ${session.contact_name || session.business_name || 'Unknown'}`,
-      body: `${vehicleDesc} ${session.wrap_coverage ? '— ' + session.wrap_coverage + ' wrap' : ''}. Est $${session.estimated_price_low}–$${session.estimated_price_high}`,
-      link: projectId ? `/projects/${projectId}` : '/pipeline',
+      message: `${vehicleDesc} ${session.wrap_coverage ? '— ' + session.wrap_coverage + ' wrap' : ''}. Est $${session.estimated_price_low}–$${session.estimated_price_high}`,
       read: false,
     })
 

@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const VALID_CATEGORIES = [
   'vehicle', 'logo', 'design', 'before', 'after',
@@ -31,6 +28,8 @@ export async function POST(req: Request) {
     // Authenticate user
     const supabase = createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const Anthropic = (await import('@anthropic-ai/sdk')).default
+    const anthropic = new Anthropic()
 
     if (authError || !user) {
       return NextResponse.json(

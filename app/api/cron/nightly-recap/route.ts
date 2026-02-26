@@ -143,18 +143,8 @@ export async function GET(req: Request) {
         org_id: ORG_ID,
         type: 'system',
         title: alert.title,
-        body: alert.message,
-        severity: alert.severity,
-        category: 'payroll',
-        metadata: {
-          alert_type: alert.type,
-          user_id: alert.userId || null,
-          entry_id: alert.entryId || null,
-          generated_by: 'nightly-recap-cron',
-          date: today,
-        },
+        message: alert.message,
         read: false,
-        created_at: new Date().toISOString(),
       }))
 
       await admin.from('notifications').insert(notifications)

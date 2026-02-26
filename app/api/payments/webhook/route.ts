@@ -93,7 +93,7 @@ export async function POST(req: Request) {
           type: 'design_mockup_paid',
           title: 'New Paid Design Submission',
           message: `A customer paid $${((session.amount_total || 0) / 100).toFixed(0)} for AI wrap design mockups.`,
-          metadata: { mockup_id: mockupId },
+          read: false,
         }).then(() => {}, () => {})
 
         console.log('[payments/webhook] design mockup payment recorded:', mockupId)

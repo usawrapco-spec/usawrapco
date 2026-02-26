@@ -58,9 +58,8 @@ export async function POST(req: NextRequest) {
         org_id: ORG_ID,
         user_id: m.id,
         title: 'CRITICAL Install Issue',
-        body: `${body.issue_type.replace(/_/g, ' ')}: ${body.description.substring(0, 120)}`,
+        message: `${body.issue_type.replace(/_/g, ' ')}: ${body.description.substring(0, 120)}`,
         type: 'install_issue',
-        data: { project_id: body.project_id, issue_id: data.id, urgency: 'critical' },
         read: false,
       }))
       await admin.from('notifications').insert(notifications)

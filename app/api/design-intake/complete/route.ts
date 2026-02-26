@@ -90,8 +90,7 @@ export async function POST(req: NextRequest) {
       org_id: ORG_ID,
       type: 'design_intake_completed',
       title: `New Design Intake: ${session.contact_name || session.business_name || 'Unknown'}`,
-      body: `${(session.services_selected || []).join(', ')} - ${session.contact_email || 'no email'}`,
-      link: projectId ? `/projects/${projectId}` : '/design-intakes',
+      message: `${(session.services_selected || []).join(', ')} - ${session.contact_email || 'no email'}`,
       read: false,
     })
 

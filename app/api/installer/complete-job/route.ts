@@ -52,9 +52,8 @@ export async function POST(req: NextRequest) {
       org_id: ORG_ID,
       user_id: project.agent_id,
       title: 'Install Complete',
-      body: `${project.title} install is complete and ready for review.`,
+      message: `${project.title} install is complete and ready for review.`,
       type: 'install_complete',
-      data: { project_id },
       read: false,
     })
   }
@@ -72,9 +71,8 @@ export async function POST(req: NextRequest) {
           org_id: ORG_ID,
           user_id: m.id,
           title: 'Install Complete - QC Required',
-          body: `${project?.title} is ready for quality review.`,
+          message: `${project?.title} is ready for quality review.`,
           type: 'install_complete',
-          data: { project_id },
           read: false,
         })
       }

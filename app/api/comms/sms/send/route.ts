@@ -68,21 +68,17 @@ export async function POST(req: NextRequest) {
       status = 'sent'
     }
 
-    // Log to communications table
+    // Log to customer_communications table
     const { data: comm, error: insertError } = await admin
-      .from('communications')
+      .from('customer_communications')
       .insert({
         org_id: orgId,
         customer_id: customer_id || null,
-        project_id: project_id || null,
         direction: 'outbound',
         channel: 'sms',
         body,
-        to_number: to,
-        from_number: twilioFrom || null,
-        status,
-        twilio_sid: twilioMessageSid,
-        sent_by: user.id,
+        agent_id: user.id,
+        metadata: { to_number: to, from_number: twilioFrom || null, twilio_sid: twilioMessageSid, status },
       })
       .select()
       .single()

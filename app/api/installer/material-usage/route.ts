@@ -71,9 +71,8 @@ export async function POST(req: NextRequest) {
           org_id: ORG_ID,
           user_id: m.id,
           title: 'Material Overage Alert',
-          body: `Job material usage is ${wastePercentage!.toFixed(1)}% over estimate`,
+          message: `Job material usage is ${wastePercentage!.toFixed(1)}% over estimate`,
           type: 'material_overage',
-          data: { project_id: body.project_id },
           read: false,
         }))
       )
