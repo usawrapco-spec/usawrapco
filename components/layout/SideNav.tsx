@@ -12,6 +12,7 @@ import {
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
   Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench,
+  Navigation,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -126,6 +127,15 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/settings',     label: 'Org Settings', icon: Settings },
       { href: '/integrations', label: 'Integrations', icon: Globe },
+    ],
+  },
+  {
+    id: 'apps',
+    label: 'CUSTOM APPS',
+    icon: Navigation,
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    items: [
+      { href: '/apps/pnw-navigator', label: 'PNW Navigator', icon: Navigation },
     ],
   },
 ]

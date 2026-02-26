@@ -11,6 +11,7 @@ import {
 import type { Profile } from '@/types'
 import { useToast } from '@/components/shared/Toast'
 import InstallerBidCard from './InstallerBidCard'
+import InstallerJobCard from './InstallerJobCard'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -157,7 +158,7 @@ export default function InstallerPortalClient({
     const loadJobs = async () => {
       const { data } = await supabase
         .from('projects')
-        .select('id, title, vehicle_desc, form_data, fin_data, install_date, pipe_stage, status, checkout')
+        .select('id, title, vehicle_desc, form_data, fin_data, install_date, pipe_stage, status, checkout, install_address, install_lat, install_lng, installer_id, agent_id')
         .eq('installer_id', profile.id)
         .in('pipe_stage', ['install', 'prod_review', 'sales_close', 'done'])
         .order('install_date', { ascending: true, nullsFirst: false })
@@ -820,9 +821,22 @@ export default function InstallerPortalClient({
       )}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/*  JOB DETAIL VIEW (from dashboard click)                         */}
+      {/*  JOB DETAIL VIEW — InstallerJobCard                             */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       {(mainTab === 'dashboard' || mainTab === 'schedule') && selectedJobId && selectedJob && (
+        <InstallerJobCard
+          job={selectedJob}
+          profile={profile}
+          onBack={() => setSelectedJobId(null)}
+          timer={timer}
+          onStartTimer={startTimer}
+          onPauseTimer={pauseTimer}
+          onResumeTimer={resumeTimer}
+          onStopTimer={stopTimer}
+          formatTimer={formatTimer}
+        />
+      )}
+      {false && selectedJobId && selectedJob && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Back button */}
           <button onClick={() => setSelectedJobId(null)} style={{

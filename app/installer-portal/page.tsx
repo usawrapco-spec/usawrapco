@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
@@ -5,8 +6,6 @@ import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import type { Profile } from '@/types'
 import InstallerPortalClient from '@/components/installer/InstallerPortalClient'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export default async function InstallerPortalPage() {
   const supabase = createClient()
@@ -38,7 +37,7 @@ export default async function InstallerPortalPage() {
   // Fetch active jobs assigned to this installer
   const { data: activeJobs } = await admin
     .from('projects')
-    .select('id, title, vehicle_desc, form_data, fin_data, install_date, pipe_stage, status, checkout')
+    .select('id, title, vehicle_desc, form_data, fin_data, install_date, pipe_stage, status, checkout, install_address, install_lat, install_lng, installer_id, agent_id')
     .eq('installer_id', user.id)
     .in('pipe_stage', ['install', 'prod_review', 'sales_close', 'done'])
     .order('install_date', { ascending: true, nullsFirst: false })
