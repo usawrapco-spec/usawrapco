@@ -5,18 +5,18 @@ import type { CSSProperties } from 'react'
 import {
   Play, Pause, ChevronLeft, ChevronRight, Maximize, Minimize,
   X, Share2, Copy, Check, Heart, MessageSquare, Info,
-  RotateCcw, Layers,
+  RotateCcw, Layers, Star, Zap, Clock, Settings,
 } from 'lucide-react'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface PresentationSlide {
   id: string
   url: string
-  label: string            // "Front 3/4", "Driver Side", etc.
+  label: string
   type: 'wrapped' | 'original' | 'mockup' | 'canvas'
   caption?: string
-  beforeUrl?: string       // original vehicle photo for before/after
+  beforeUrl?: string
 }
 
 export interface PresentationBranding {
@@ -40,14 +40,30 @@ interface Props {
   onDecision?: (decision: 'love_it' | 'request_changes', feedback?: string) => void
 }
 
-// ─── Ken Burns animation variants ────────────────────────────────────────────
+// ─── Ken Burns variants ───────────────────────────────────────────────────────
 const KB_ANIMS = [
-  { name: 'kb1', from: 'scale(1.0) translate(0%,0%)',    to: 'scale(1.09) translate(-1.5%,-1%)' },
-  { name: 'kb2', from: 'scale(1.0) translate(0%,0%)',    to: 'scale(1.09) translate(1.5%,-1%)' },
-  { name: 'kb3', from: 'scale(1.0) translate(0%,0%)',    to: 'scale(1.09) translate(-1%,1.5%)' },
-  { name: 'kb4', from: 'scale(1.05) translate(1%,1%)',   to: 'scale(1.0) translate(-1%,-1%)' },
-  { name: 'kb5', from: 'scale(1.05) translate(-1%,-1%)', to: 'scale(1.0) translate(1%,1%)' },
+  { name: 'kb1', from: 'scale(1.0) translate(0%,0%)',      to: 'scale(1.08) translate(-1.5%,-1.2%)' },
+  { name: 'kb2', from: 'scale(1.0) translate(0%,0%)',      to: 'scale(1.08) translate(1.5%,-1%)' },
+  { name: 'kb3', from: 'scale(1.0) translate(0%,0%)',      to: 'scale(1.09) translate(-1%,1.5%)' },
+  { name: 'kb4', from: 'scale(1.06) translate(1%,1%)',     to: 'scale(1.0) translate(-1.2%,-0.8%)' },
+  { name: 'kb5', from: 'scale(1.06) translate(-1%,-1%)',   to: 'scale(1.0) translate(1.2%,0.8%)' },
+  { name: 'kb6', from: 'scale(1.0) translate(-1%,1%)',     to: 'scale(1.09) translate(1%,-1%)' },
 ]
+
+const SPEED_OPTIONS = [
+  { label: '3s', value: 3 },
+  { label: '5s', value: 5 },
+  { label: '8s', value: 8 },
+]
+
+const SLIDE_TYPE_BADGE: Record<string, { label: string; color: string }> = {
+  wrapped:  { label: 'WRAPPED',  color: '#4f7fff' },
+  original: { label: 'ORIGINAL', color: '#9299b5' },
+  mockup:   { label: 'AI RENDER', color: '#8b5cf6' },
+  canvas:   { label: 'RENDER',   color: '#22d3ee' },
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PresentationViewer({
   slides,
@@ -58,293 +74,344 @@ export default function PresentationViewer({
   onClose,
   publicMode = false,
   token,
-  sessionId,
   onDecision,
 }: Props) {
-  const [current, setCurrent] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(true)
+  // ── Core state ──────────────────────────────────────────────────────────
+  const [current, setCurrent]             = useState(0)
+  const [prevIdx, setPrevIdx]             = useState<number | null>(null)
+  const [prevVariant, setPrevVariant]     = useState(0)
+  const [animVariant, setAnimVariant]     = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [imgLoaded, setImgLoaded]         = useState(false)
+  const [prevImgLoaded, setPrevImgLoaded] = useState(false)
+
+  // ── Playback ────────────────────────────────────────────────────────────
+  const [isPlaying, setIsPlaying]         = useState(true)
+  const [speed, setSpeed]                 = useState(timerSeconds)
+  const [elapsed, setElapsed]             = useState(0)
+
+  // ── UI visibility ───────────────────────────────────────────────────────
   const [controlsVisible, setControlsVisible] = useState(true)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showFilmstrip, setShowFilmstrip] = useState(true)
+  const [showDetails, setShowDetails]     = useState(false)
+  const [showSharePanel, setShowSharePanel] = useState(false)
+  const [showIntro, setShowIntro]         = useState(true)
+  const [showOutro, setShowOutro]         = useState(false)
+
+  // ── Compare mode ────────────────────────────────────────────────────────
   const [showBeforeAfter, setShowBeforeAfter] = useState(false)
-  const [sliderPos, setSliderPos] = useState(50)
+  const [sliderPos, setSliderPos]         = useState(50)
   const [isDraggingSlider, setIsDraggingSlider] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
-  const [animVariant, setAnimVariant] = useState(0)
-  const [fadeOut, setFadeOut] = useState(false)
-  const [imgLoaded, setImgLoaded] = useState(false)
-  const [timer, setTimer] = useState(timerSeconds)
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [linkCopied, setLinkCopied] = useState(false)
-  const [showDecisionModal, setShowDecisionModal] = useState(false)
-  const [decisionMade, setDecisionMade] = useState<'love_it' | 'request_changes' | null>(null)
-  const [feedbackText, setFeedbackText] = useState('')
+
+  // ── Fullscreen ──────────────────────────────────────────────────────────
+  const [isFullscreen, setIsFullscreen]   = useState(false)
+
+  // ── Public: star rating / decision ──────────────────────────────────────
+  const [starHover, setStarHover]         = useState(0)
+  const [starRating, setStarRating]       = useState(0)
+  const [decisionMade, setDecisionMade]   = useState<'love_it' | 'request_changes' | null>(null)
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
-  const [slidesSeen, setSlidesSeen] = useState<string[]>([])
-  const [showIntro, setShowIntro] = useState(true)
-  const [pwInput, setPwInput] = useState('')
-  const [pwError, setPwError] = useState('')
+  const [feedbackText, setFeedbackText]   = useState('')
+  const [linkCopied, setLinkCopied]       = useState(false)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const slideTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const tickRef = useRef<NodeJS.Timeout | null>(null)
-  const touchStartX = useRef(0)
-  const sliderRef = useRef<HTMLDivElement>(null)
+  // ── Refs ────────────────────────────────────────────────────────────────
+  const containerRef   = useRef<HTMLDivElement>(null)
+  const filmstripRef   = useRef<HTMLDivElement>(null)
+  const hideTimerRef   = useRef<NodeJS.Timeout | null>(null)
+  const touchStartX    = useRef(0)
+  const touchStartY    = useRef(0)
+  const sliderRef      = useRef<HTMLDivElement>(null)
+  const playStartRef   = useRef(Date.now())
 
-  const slide = slides[current]
-  const hasBeforeAfter = !!(slide?.beforeUrl)
-  const accent = branding.accentColor || '#4f7fff'
+  const slide     = slides[current]
+  const prevSlide = prevIdx !== null ? slides[prevIdx] : null
+  const accent    = branding.accentColor || '#4f7fff'
+  const hasBA     = !!(slide?.beforeUrl) || slides.some(s => s.type === 'original' && s !== slide)
 
-  // ── Inject keyframe CSS ──────────────────────────────────────────────────
+  // Get a "before" URL for the current slide — try beforeUrl first, then first 'original' slide
+  const beforeUrl = slide?.beforeUrl
+    || slides.find(s => s.type === 'original')?.url
+
+  // ── Inject CSS keyframes ─────────────────────────────────────────────────
   useEffect(() => {
-    const id = 'presentation-keyframes'
+    const id = 'pv2-keyframes'
     if (document.getElementById(id)) return
-    const style = document.createElement('style')
-    style.id = id
-    style.innerHTML = KB_ANIMS.map(({ name, from, to }) => `
-      @keyframes ${name} {
-        from { transform: ${from}; }
-        to   { transform: ${to}; }
+    const s = document.createElement('style')
+    s.id = id
+    s.innerHTML = KB_ANIMS.map(({ name, from, to }) => `
+      @keyframes ${name} { from{transform:${from}} to{transform:${to}} }
+    `).join('') + `
+      @keyframes pvFadeIn  { from{opacity:0} to{opacity:1} }
+      @keyframes pvFadeOut { from{opacity:1} to{opacity:0} }
+      @keyframes pvSlideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes pvPulse   { 0%,100%{opacity:1} 50%{opacity:0.45} }
+      @keyframes pvIntro   { 0%{opacity:0;transform:translateY(32px) scale(0.97)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+      @keyframes pvGrain   {
+        0%  {transform:translate(0%,0%)}
+        20% {transform:translate(-4%,-8%)}
+        40% {transform:translate(4%,4%)}
+        60% {transform:translate(-2%,6%)}
+        80% {transform:translate(6%,-4%)}
+        100%{transform:translate(0%,0%)}
       }
-    `).join('\n') + `
-      @keyframes presenterFadeIn {
-        from { opacity: 0; }
-        to   { opacity: 1; }
-      }
-      @keyframes presenterSlideUp {
-        from { opacity: 0; transform: translateY(24px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes presenterPulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.5; }
-      }
-      @keyframes introReveal {
-        0%   { opacity: 0; transform: translateY(40px) scale(0.96); }
-        100% { opacity: 1; transform: translateY(0) scale(1); }
+      @keyframes pvShimmer {
+        0%   {opacity:0}
+        50%  {opacity:1}
+        100% {opacity:0}
       }
     `
-    document.head.appendChild(style)
+    document.head.appendChild(s)
     return () => { document.getElementById(id)?.remove() }
   }, [])
 
-  // ── Track viewed slides ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!slide) return
-    setSlidesSeen(prev => prev.includes(slide.id) ? prev : [...prev, slide.id])
-  }, [slide])
-
   // ── Auto-hide controls ───────────────────────────────────────────────────
-  const resetHideTimer = useCallback(() => {
+  const resetHide = useCallback(() => {
     setControlsVisible(true)
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     hideTimerRef.current = setTimeout(() => setControlsVisible(false), 3500)
   }, [])
 
   useEffect(() => {
-    resetHideTimer()
+    resetHide()
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
-  }, [resetHideTimer])
+  }, [resetHide])
 
-  // ── Slide timer / auto-play ──────────────────────────────────────────────
+  // ── Core navigation ───────────────────────────────────────────────────────
+  const goTo = useCallback((next: number, wrap = true) => {
+    if (isTransitioning || !slides.length) return
+    const target = wrap
+      ? ((next % slides.length) + slides.length) % slides.length
+      : next
+
+    if (target < 0 || target >= slides.length) return
+
+    setIsTransitioning(true)
+    setPrevIdx(current)
+    setPrevVariant(animVariant)
+    setPrevImgLoaded(true)
+    setCurrent(target)
+    setAnimVariant(v => (v + 1) % KB_ANIMS.length)
+    setImgLoaded(false)
+    setElapsed(0)
+    playStartRef.current = Date.now()
+
+    setTimeout(() => {
+      setPrevIdx(null)
+      setIsTransitioning(false)
+    }, 600)
+  }, [current, animVariant, slides.length, isTransitioning])
+
   const goNext = useCallback(() => {
-    if (!slides.length) return
-    setFadeOut(true)
-    setTimeout(() => {
-      setCurrent(c => (c + 1) % slides.length)
-      setAnimVariant(v => (v + 1) % KB_ANIMS.length)
-      setImgLoaded(false)
-      setFadeOut(false)
-      setTimer(timerSeconds)
-    }, 400)
-  }, [slides.length, timerSeconds])
-
-  const goPrev = useCallback(() => {
-    if (!slides.length) return
-    setFadeOut(true)
-    setTimeout(() => {
-      setCurrent(c => (c - 1 + slides.length) % slides.length)
-      setAnimVariant(v => (v + 1) % KB_ANIMS.length)
-      setImgLoaded(false)
-      setFadeOut(false)
-      setTimer(timerSeconds)
-    }, 400)
-  }, [slides.length, timerSeconds])
-
-  useEffect(() => {
-    if (slideTimerRef.current) clearInterval(slideTimerRef.current)
-    if (tickRef.current) clearInterval(tickRef.current)
-    if (!isPlaying || showIntro) return
-    setTimer(timerSeconds)
-    tickRef.current = setInterval(() => {
-      setTimer(t => t > 0 ? t - 0.1 : 0)
-    }, 100)
-    slideTimerRef.current = setInterval(goNext, timerSeconds * 1000)
-    return () => {
-      if (slideTimerRef.current) clearInterval(slideTimerRef.current)
-      if (tickRef.current) clearInterval(tickRef.current)
+    // In public mode, show outro after last slide
+    if (publicMode && current === slides.length - 1 && !showOutro) {
+      setShowOutro(true)
+      setIsPlaying(false)
+      return
     }
-  }, [isPlaying, timerSeconds, goNext, showIntro])
+    goTo(current + 1)
+  }, [current, slides.length, publicMode, showOutro, goTo])
 
-  // ── Keyboard nav ─────────────────────────────────────────────────────────
+  const goPrev = useCallback(() => goTo(current - 1), [current, goTo])
+
+  // ── Auto-play with elapsed tracker ───────────────────────────────────────
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    if (!isPlaying || showIntro || showOutro || decisionMade) return
+    setElapsed(0)
+    playStartRef.current = Date.now()
+
+    const tick = setInterval(() => {
+      setElapsed(Math.min((Date.now() - playStartRef.current) / 1000, speed))
+    }, 80)
+
+    const adv = setTimeout(goNext, speed * 1000)
+    return () => { clearInterval(tick); clearTimeout(adv) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, speed, current, showIntro, showOutro, decisionMade])
+
+  // ── Keyboard ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goNext() }
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
-      if (e.key === 'Escape') { if (onClose) onClose() }
+      if (e.key === 'Escape') { if (showFeedbackForm) { setShowFeedbackForm(false) } else if (onClose) { onClose() } }
       if (e.key === 'f') toggleFullscreen()
       if (e.key === 'p') setIsPlaying(v => !v)
-      resetHideTimer()
+      resetHide()
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [goNext, goPrev, onClose, resetHideTimer])
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [goNext, goPrev, onClose, resetHide, showFeedbackForm])
 
-  // ── Fullscreen API ───────────────────────────────────────────────────────
+  // ── Fullscreen ────────────────────────────────────────────────────────────
   const toggleFullscreen = async () => {
     if (!containerRef.current) return
     if (!document.fullscreenElement) {
       await containerRef.current.requestFullscreen?.()
-      setIsFullscreen(true)
     } else {
       await document.exitFullscreen?.()
-      setIsFullscreen(false)
     }
   }
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement)
-    document.addEventListener('fullscreenchange', handler)
-    return () => document.removeEventListener('fullscreenchange', handler)
+    const h = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', h)
+    return () => document.removeEventListener('fullscreenchange', h)
   }, [])
 
-  // ── Touch / swipe ────────────────────────────────────────────────────────
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // ── Filmstrip auto-scroll ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!filmstripRef.current || !showFilmstrip) return
+    const el = filmstripRef.current
+    const thumb = el.querySelector(`[data-slide="${current}"]`) as HTMLElement
+    if (thumb) {
+      el.scrollTo({ left: thumb.offsetLeft - el.clientWidth / 2 + thumb.offsetWidth / 2, behavior: 'smooth' })
+    }
+  }, [current, showFilmstrip])
+
+  // ── Touch swipe ───────────────────────────────────────────────────────────
+  const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
-    resetHideTimer()
+    touchStartY.current = e.touches[0].clientY
+    resetHide()
   }
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const onTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current
-    if (dx < -50) goNext()
-    else if (dx > 50) goPrev()
-    resetHideTimer()
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current)
+    if (Math.abs(dx) > 50 && dy < 80) {
+      dx < 0 ? goNext() : goPrev()
+    }
+    resetHide()
   }
 
-  // ── Before/After slider drag ─────────────────────────────────────────────
-  const handleSliderMove = useCallback((e: MouseEvent | TouchEvent) => {
+  // ── Before/After drag ─────────────────────────────────────────────────────
+  const onSliderMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDraggingSlider || !sliderRef.current) return
     const rect = sliderRef.current.getBoundingClientRect()
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const pos = Math.max(5, Math.min(95, ((clientX - rect.left) / rect.width) * 100))
-    setSliderPos(pos)
+    const cx = 'touches' in e ? e.touches[0].clientX : e.clientX
+    setSliderPos(Math.max(5, Math.min(95, ((cx - rect.left) / rect.width) * 100)))
   }, [isDraggingSlider])
 
   useEffect(() => {
     const up = () => setIsDraggingSlider(false)
-    window.addEventListener('mousemove', handleSliderMove)
-    window.addEventListener('touchmove', handleSliderMove)
+    window.addEventListener('mousemove', onSliderMove)
+    window.addEventListener('touchmove', onSliderMove, { passive: true })
     window.addEventListener('mouseup', up)
     window.addEventListener('touchend', up)
     return () => {
-      window.removeEventListener('mousemove', handleSliderMove)
-      window.removeEventListener('touchmove', handleSliderMove)
+      window.removeEventListener('mousemove', onSliderMove)
+      window.removeEventListener('touchmove', onSliderMove)
       window.removeEventListener('mouseup', up)
       window.removeEventListener('touchend', up)
     }
-  }, [handleSliderMove])
+  }, [onSliderMove])
 
-  // ── Share link ───────────────────────────────────────────────────────────
-  const copyShareLink = () => {
-    const url = `${window.location.origin}/presentation/${token}`
-    navigator.clipboard.writeText(url)
+  // ── Share ─────────────────────────────────────────────────────────────────
+  const copyLink = () => {
+    if (!token) return
+    navigator.clipboard.writeText(`${window.location.origin}/presentation/${token}`)
     setLinkCopied(true)
-    setTimeout(() => setLinkCopied(false), 2000)
+    setTimeout(() => setLinkCopied(false), 2500)
   }
 
-  // ── Decision (public mode) ───────────────────────────────────────────────
-  const handleDecision = async (d: 'love_it' | 'request_changes', fb?: string) => {
+  // ── Public decision ───────────────────────────────────────────────────────
+  const handleDecision = (d: 'love_it' | 'request_changes', fb?: string) => {
     setDecisionMade(d)
-    if (onDecision) onDecision(d, fb)
-    setShowDecisionModal(false)
     setShowFeedbackForm(false)
+    if (onDecision) onDecision(d, fb)
   }
 
-  // ── Intro screen ─────────────────────────────────────────────────────────
-  if (showIntro) {
+  const handleStarRating = (n: number) => {
+    setStarRating(n)
+    if (n >= 4) {
+      handleDecision('love_it')
+    } else {
+      setShowFeedbackForm(true)
+    }
+  }
+
+  // ── Circular progress math ────────────────────────────────────────────────
+  const R    = 15
+  const CIRC = 2 * Math.PI * R
+  const pct  = isPlaying && !showIntro ? Math.min(elapsed / speed, 1) : 0
+  const dash = CIRC * (1 - pct)
+
+  // ─── INTRO SCREEN ─────────────────────────────────────────────────────────
+  if (showIntro && slides.length) {
     return (
       <div
         ref={containerRef}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: '#000',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column',
-          cursor: 'pointer',
-        }}
-        onClick={() => setShowIntro(false)}
+        onClick={() => { setShowIntro(false); playStartRef.current = Date.now() }}
+        style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden', cursor: 'pointer' }}
       >
-        {/* Cinematic vignette */}
+        {/* Blurred first slide as background */}
+        <img
+          src={slides[0].url}
+          alt=""
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', filter: 'blur(60px) brightness(0.2) saturate(1.4)',
+            transform: 'scale(1.15)', pointerEvents: 'none',
+          }}
+        />
+
+        {/* Grain overlay */}
+        <GrainOverlay />
+
+        {/* Cinematic letterbox bars */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 60, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
+
+        {/* Content */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%)',
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{
-          textAlign: 'center', padding: '0 40px', maxWidth: 600,
-          animation: 'introReveal 1s ease forwards',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+          padding: '80px 48px', textAlign: 'center',
         }}>
-          {/* Company branding */}
-          {branding.logoUrl && (
-            <img
-              src={branding.logoUrl}
-              alt="Logo"
-              style={{ height: 48, objectFit: 'contain', marginBottom: 32, opacity: 0.9 }}
-            />
-          )}
-          {!branding.logoUrl && (
-            <div style={{
-              fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.4)',
-              letterSpacing: '0.2em', textTransform: 'uppercase',
-              marginBottom: 32, fontFamily: 'Barlow Condensed, sans-serif',
-            }}>
-              {branding.companyName || 'USA WRAP CO'}
-            </div>
-          )}
-
+          {/* Prepared by */}
           <div style={{
             fontSize: 11, fontWeight: 700, color: accent,
-            letterSpacing: '0.25em', textTransform: 'uppercase',
-            marginBottom: 16,
+            letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12,
+            animation: 'pvIntro 1s 0.2s both',
           }}>
-            Prepared for
+            Prepared by {branding.companyName || 'USA Wrap Co'}
           </div>
 
+          {/* Divider */}
+          <div style={{
+            width: 48, height: 2, background: accent, borderRadius: 1, marginBottom: 28,
+            animation: 'pvIntro 1s 0.3s both',
+          }} />
+
+          {/* Client name */}
           <h1 style={{
-            fontSize: 'clamp(36px, 8vw, 72px)',
-            fontWeight: 900,
-            color: '#fff',
+            fontSize: 'clamp(40px, 9vw, 88px)',
+            fontWeight: 900, color: '#fff',
             fontFamily: 'Barlow Condensed, sans-serif',
-            lineHeight: 1.1,
-            margin: '0 0 24px',
+            lineHeight: 1.0, margin: 0, marginBottom: 24,
+            animation: 'pvIntro 1s 0.4s both',
+            textShadow: '0 4px 32px rgba(0,0,0,0.8)',
           }}>
-            {clientName || title || 'Vehicle Wrap Presentation'}
+            {clientName || title || 'Your Custom Wrap'}
           </h1>
 
-          {branding.tagline && (
-            <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.5)', marginBottom: 40, lineHeight: 1.6 }}>
-              {branding.tagline}
-            </p>
-          )}
-
+          {/* Slide count */}
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '12px 28px', borderRadius: 50,
-            border: `1px solid rgba(255,255,255,0.2)`,
-            fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
-            animation: 'presenterPulse 2s ease infinite',
+            fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 48,
+            animation: 'pvIntro 1s 0.55s both',
           }}>
-            <Play size={14} fill="currentColor" />
+            {slides.length} view{slides.length !== 1 ? 's' : ''} of your wrap design
+          </div>
+
+          {/* CTA */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            padding: '13px 32px', borderRadius: 50,
+            border: '1px solid rgba(255,255,255,0.25)',
+            background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)',
+            fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.8)',
+            animation: 'pvIntro 1s 0.7s both, pvPulse 2.5s 1.8s ease infinite',
+          }}>
+            <Play size={15} fill="currentColor" />
             Tap anywhere to begin
           </div>
         </div>
@@ -352,543 +419,530 @@ export default function PresentationViewer({
     )
   }
 
-  // ── Success screen ───────────────────────────────────────────────────────
+  // ─── DECISION MADE ────────────────────────────────────────────────────────
   if (decisionMade && publicMode) {
+    const isLoveit = decisionMade === 'love_it'
     return (
-      <div ref={containerRef} style={{
-        position: 'fixed', inset: 0, zIndex: 9999, background: '#000',
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexDirection: 'column', padding: 40,
       }}>
-        <div style={{
-          textAlign: 'center', maxWidth: 480,
-          animation: 'introReveal 0.8s ease forwards',
-        }}>
-          {decisionMade === 'love_it' ? (
-            <>
-              <div style={{
-                width: 80, height: 80, borderRadius: '50%',
-                background: 'rgba(34,192,122,0.15)', border: '2px solid #22c07a',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 24px',
-              }}>
-                <Heart size={36} fill="#22c07a" color="#22c07a" />
-              </div>
-              <h2 style={{ fontSize: 40, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 12 }}>
-                Let&apos;s Do This!
-              </h2>
-              <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-                Your team has been notified. We&apos;ll be in touch shortly to move forward with your project.
-              </p>
-              {branding.contactInfo && (
-                <p style={{ marginTop: 24, fontSize: 13, color: accent }}>
-                  {branding.contactInfo}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <div style={{
-                width: 80, height: 80, borderRadius: '50%',
-                background: 'rgba(245,158,11,0.15)', border: '2px solid #f59e0b',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 24px',
-              }}>
-                <MessageSquare size={36} color="#f59e0b" />
-              </div>
-              <h2 style={{ fontSize: 40, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 12 }}>
-                Feedback Sent!
-              </h2>
-              <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-                Your feedback has been received. Our designer will review and reach out with updates.
-              </p>
-            </>
+        {/* Blurred bg */}
+        {slide && (
+          <img src={slide.url} alt="" style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', filter: 'blur(50px) brightness(0.15) saturate(1.3)',
+            transform: 'scale(1.1)',
+          }} />
+        )}
+        <GrainOverlay />
+
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 500, padding: '0 32px', animation: 'pvIntro 0.8s ease both' }}>
+          {/* Icon */}
+          <div style={{
+            width: 88, height: 88, borderRadius: '50%', margin: '0 auto 28px',
+            background: isLoveit ? 'rgba(34,192,122,0.15)' : 'rgba(245,158,11,0.15)',
+            border: `2px solid ${isLoveit ? '#22c07a' : '#f59e0b'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: `0 0 40px ${isLoveit ? 'rgba(34,192,122,0.3)' : 'rgba(245,158,11,0.3)'}`,
+          }}>
+            {isLoveit
+              ? <Heart size={40} fill="#22c07a" color="#22c07a" />
+              : <MessageSquare size={40} color="#f59e0b" />
+            }
+          </div>
+
+          {starRating > 0 && isLoveit && (
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 20 }}>
+              {[1,2,3,4,5].map(n => (
+                <Star key={n} size={20} fill={n <= starRating ? '#f59e0b' : 'none'} color={n <= starRating ? '#f59e0b' : 'rgba(255,255,255,0.2)'} />
+              ))}
+            </div>
           )}
+
+          <h2 style={{ fontSize: 48, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 12 }}>
+            {isLoveit ? "Let's Do This!" : 'Feedback Received!'}
+          </h2>
+          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, marginBottom: 32 }}>
+            {isLoveit
+              ? "We've received your approval. Our team will reach out shortly to finalize your project."
+              : "Thank you for your feedback. Our designer will review your notes and follow up with updates."}
+          </p>
+
+          {branding.contactInfo && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 20px', borderRadius: 50,
+              background: `${accent}15`, border: `1px solid ${accent}40`,
+              fontSize: 13, color: accent, fontWeight: 600,
+            }}>
+              {branding.contactInfo}
+            </div>
+          )}
+
+          {/* Powered by */}
+          <div style={{ marginTop: 48, fontSize: 11, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em' }}>
+            Powered by {branding.companyName || 'USA Wrap Co'}
+          </div>
         </div>
       </div>
     )
   }
 
-  const kbAnim = KB_ANIMS[animVariant % KB_ANIMS.length]
+  const kbAnim     = KB_ANIMS[animVariant % KB_ANIMS.length]
+  const prevKbAnim = KB_ANIMS[prevVariant % KB_ANIMS.length]
 
+  // ─── MAIN VIEWER ──────────────────────────────────────────────────────────
   return (
     <div
       ref={containerRef}
-      onMouseMove={resetHideTimer}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: '#000', overflow: 'hidden',
-        userSelect: 'none',
-      }}
+      onMouseMove={resetHide}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden', userSelect: 'none' }}
     >
-      {/* ── Main image with Ken Burns ──────────────────────────────────── */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        opacity: fadeOut ? 0 : 1,
-        transition: 'opacity 0.4s ease',
-      }}>
-        {slide && (
-          <>
-            {/* Before layer (always visible) */}
-            {showBeforeAfter && slide.beforeUrl ? (
-              <img
-                src={slide.beforeUrl}
-                alt="Original"
-                style={{
-                  position: 'absolute', inset: 0,
-                  width: '100%', height: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : null}
+      {/* ══ IMAGE LAYERS ═══════════════════════════════════════════════════ */}
 
-            {/* Main / After image */}
-            <div style={{
+      {/* Previous slide — fades out during transition */}
+      {prevSlide && prevIdx !== null && (
+        <div key={`prev-${prevIdx}`} style={{ position: 'absolute', inset: 0, animation: 'pvFadeOut 0.6s ease forwards', zIndex: 1 }}>
+          <AmbientLayer url={prevSlide.url} />
+          <img
+            src={prevSlide.url}
+            alt={prevSlide.label}
+            style={{
               position: 'absolute', inset: 0,
-              clipPath: showBeforeAfter && slide.beforeUrl
-                ? `inset(0 ${100 - sliderPos}% 0 0)`
-                : undefined,
-            }}>
-              <img
-                key={`${current}-${slide.url}`}
-                src={slide.url}
-                alt={slide.label}
-                onLoad={() => setImgLoaded(true)}
-                style={{
-                  width: '100%', height: '100%',
-                  objectFit: 'contain',
-                  animation: imgLoaded && isPlaying
-                    ? `${kbAnim.name} ${timerSeconds}s ease-in-out forwards`
-                    : 'none',
-                  transformOrigin: 'center center',
-                  willChange: 'transform',
-                  opacity: imgLoaded ? 1 : 0,
-                  transition: 'opacity 0.3s ease',
-                }}
-              />
+              width: '100%', height: '100%', objectFit: 'contain',
+              animation: prevImgLoaded ? `${prevKbAnim.name} ${speed}s ease-in-out both` : 'none',
+              willChange: 'transform',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Current slide — fades in */}
+      {slide && (
+        <div key={`curr-${current}`} style={{
+          position: 'absolute', inset: 0, zIndex: 2,
+          animation: prevSlide ? 'pvFadeIn 0.6s ease forwards' : 'none',
+          opacity: prevSlide ? undefined : 1,
+        }}>
+          {/* Compare mode: before image underneath */}
+          {showBeforeAfter && beforeUrl && (
+            <div style={{ position: 'absolute', inset: 0 }}>
+              <AmbientLayer url={beforeUrl} />
+              <img src={beforeUrl} alt="Original" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
+          )}
 
-            {/* Before/After divider */}
-            {showBeforeAfter && slide.beforeUrl && (
-              <div
-                ref={sliderRef}
-                style={{ position: 'absolute', inset: 0 }}
-              >
-                {/* Divider line */}
-                <div
-                  onMouseDown={() => setIsDraggingSlider(true)}
-                  onTouchStart={() => setIsDraggingSlider(true)}
-                  style={{
-                    position: 'absolute',
-                    left: `${sliderPos}%`,
-                    top: 0, bottom: 0,
-                    width: 3,
-                    background: '#fff',
-                    boxShadow: '0 0 12px rgba(0,0,0,0.8)',
-                    cursor: 'col-resize',
-                    transform: 'translateX(-50%)',
-                    zIndex: 10,
-                  }}
-                >
-                  {/* Handle */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: 40, height: 40, borderRadius: '50%',
-                    background: '#fff',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'col-resize',
-                  }}>
-                    <div style={{ display: 'flex', gap: 3 }}>
-                      <div style={{ width: 2, height: 14, background: '#555', borderRadius: 2 }} />
-                      <div style={{ width: 2, height: 14, background: '#555', borderRadius: 2 }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Labels */}
-                <div style={{
-                  position: 'absolute', left: 16, bottom: 80,
-                  padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                  background: 'rgba(0,0,0,0.6)', color: '#fff', backdropFilter: 'blur(4px)',
-                }}>BEFORE</div>
-                <div style={{
-                  position: 'absolute', right: 16, bottom: 80,
-                  padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                  background: 'rgba(0,0,0,0.6)', color: '#fff', backdropFilter: 'blur(4px)',
-                }}>AFTER</div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* No images placeholder */}
-        {!slide && (
+          {/* Main image container (clipped in compare mode) */}
           <div style={{
             position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexDirection: 'column', gap: 16,
+            clipPath: showBeforeAfter && beforeUrl ? `inset(0 ${100 - sliderPos}% 0 0)` : undefined,
           }}>
-            <Layers size={64} color="rgba(255,255,255,0.1)" />
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 16 }}>No images in this presentation</p>
+            <AmbientLayer url={slide.url} />
+            <img
+              key={`img-${current}`}
+              src={slide.url}
+              alt={slide.label}
+              onLoad={() => setImgLoaded(true)}
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%', objectFit: 'contain',
+                animation: imgLoaded && isPlaying ? `${kbAnim.name} ${speed}s ease-in-out both` : 'none',
+                willChange: 'transform',
+                opacity: imgLoaded ? 1 : 0,
+                transition: 'opacity 0.35s ease',
+              }}
+            />
           </div>
-        )}
-      </div>
 
-      {/* ── Vignette overlay ──────────────────────────────────────────── */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%)',
-      }} />
-
-      {/* ── Top branding bar ──────────────────────────────────────────── */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '20px 24px',
-        background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)',
-        opacity: controlsVisible ? 1 : 0,
-        transition: 'opacity 0.5s ease',
-        pointerEvents: controlsVisible ? 'auto' : 'none',
-      }}>
-        {/* Logo / company */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {branding.logoUrl ? (
-            <img src={branding.logoUrl} alt="Logo" style={{ height: 28, objectFit: 'contain' }} />
-          ) : (
-            <span style={{
-              fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.6)',
-              letterSpacing: '0.2em', textTransform: 'uppercase',
-              fontFamily: 'Barlow Condensed, sans-serif',
-            }}>
-              {branding.companyName || 'USA WRAP CO'}
-            </span>
+          {/* Compare divider */}
+          {showBeforeAfter && beforeUrl && (
+            <div ref={sliderRef} style={{ position: 'absolute', inset: 0, zIndex: 5 }}>
+              <div
+                onMouseDown={() => setIsDraggingSlider(true)}
+                onTouchStart={e => { e.stopPropagation(); setIsDraggingSlider(true) }}
+                style={{
+                  position: 'absolute', left: `${sliderPos}%`, top: 0, bottom: 0,
+                  width: 4, background: '#fff', cursor: 'col-resize',
+                  transform: 'translateX(-50%)',
+                  boxShadow: '0 0 20px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.3)',
+                }}
+              >
+                {/* Handle */}
+                <div style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  transform: 'translate(-50%,-50%)',
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'col-resize',
+                }}>
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    {[0,1,2].map(i => <div key={i} style={{ width: 2, height: 16, background: '#444', borderRadius: 2 }} />)}
+                  </div>
+                </div>
+              </div>
+              {/* Labels */}
+              <div style={baLabelStyle('left')}>BEFORE</div>
+              <div style={baLabelStyle('right')}>AFTER</div>
+            </div>
           )}
         </div>
+      )}
 
-        {/* Slide label */}
-        {slide && (
-          <div style={{
-            fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)',
-            textTransform: 'uppercase', letterSpacing: '0.15em',
-          }}>
-            {slide.label}
-          </div>
-        )}
+      {/* No slides */}
+      {!slide && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+          <Layers size={64} color="rgba(255,255,255,0.08)" />
+          <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 16 }}>No images added yet</p>
+        </div>
+      )}
 
-        {/* Close (internal mode) */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            style={{
-              width: 36, height: 36, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.1)', border: 'none',
-              color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <X size={16} />
-          </button>
-        )}
-        {!onClose && <div style={{ width: 36 }} />}
-      </div>
+      {/* ══ OVERLAYS ════════════════════════════════════════════════════════ */}
 
-      {/* ── Slide caption ─────────────────────────────────────────────── */}
+      {/* Grain */}
+      <GrainOverlay />
+
+      {/* Vignette */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%)',
+      }} />
+
+      {/* Slide type badge */}
+      {slide && (
+        <div style={{
+          position: 'absolute', top: 72, left: 20, zIndex: 20,
+          padding: '3px 10px', borderRadius: 20,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+          border: `1px solid ${SLIDE_TYPE_BADGE[slide.type]?.color || '#5a6080'}40`,
+          fontSize: 9, fontWeight: 900, letterSpacing: '0.2em',
+          color: SLIDE_TYPE_BADGE[slide.type]?.color || '#9299b5',
+          opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.5s ease',
+          pointerEvents: 'none',
+        }}>
+          {SLIDE_TYPE_BADGE[slide.type]?.label || slide.type.toUpperCase()}
+        </div>
+      )}
+
+      {/* Slide counter */}
+      {slides.length > 1 && (
+        <div style={{
+          position: 'absolute', top: 72, right: 20, zIndex: 20,
+          fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 600,
+          color: 'rgba(255,255,255,0.5)',
+          opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.5s ease',
+          pointerEvents: 'none',
+        }}>
+          {current + 1} <span style={{ color: 'rgba(255,255,255,0.2)' }}>/ {slides.length}</span>
+        </div>
+      )}
+
+      {/* Caption */}
       {slide?.caption && (
         <div style={{
-          position: 'absolute',
-          bottom: 120, left: '50%', transform: 'translateX(-50%)',
-          maxWidth: 600, textAlign: 'center',
-          fontSize: 18, fontStyle: 'italic', color: 'rgba(255,255,255,0.7)',
-          fontFamily: 'Georgia, serif',
-          textShadow: '0 2px 8px rgba(0,0,0,0.8)',
-          opacity: controlsVisible ? 1 : 0,
-          transition: 'opacity 0.5s ease',
+          position: 'absolute', bottom: showFilmstrip ? 180 : 120, left: '50%', transform: 'translateX(-50%)',
+          maxWidth: 560, textAlign: 'center', zIndex: 20,
+          fontSize: 17, fontStyle: 'italic', color: 'rgba(255,255,255,0.65)',
+          textShadow: '0 2px 12px rgba(0,0,0,0.9)',
+          opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.5s ease',
+          pointerEvents: 'none',
         }}>
           &ldquo;{slide.caption}&rdquo;
         </div>
       )}
 
-      {/* ── Design details panel ──────────────────────────────────────── */}
+      {/* ══ TOP BAR ═════════════════════════════════════════════════════════ */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 20px',
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
+        opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.5s ease',
+        pointerEvents: controlsVisible ? 'auto' : 'none',
+      }}>
+        {/* Logo / branding */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 120 }}>
+          {branding.logoUrl
+            ? <img src={branding.logoUrl} alt="Logo" style={{ height: 26, objectFit: 'contain' }} />
+            : <span style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>
+                {branding.companyName || 'USA WRAP CO'}
+              </span>
+          }
+        </div>
+
+        {/* Center: slide label */}
+        {slide && (
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.2em', textAlign: 'center' }}>
+            {slide.label}
+          </div>
+        )}
+
+        {/* Right: close or spacer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 120, justifyContent: 'flex-end' }}>
+          {!publicMode && onClose && (
+            <button onClick={onClose} style={topBtnSt} title="Close (Esc)">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ══ DETAILS PANEL ════════════════════════════════════════════════════ */}
       {showDetails && (
         <div style={{
-          position: 'absolute', right: 0, top: 0, bottom: 0,
-          width: 280,
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
-          borderLeft: '1px solid rgba(255,255,255,0.1)',
-          padding: 24, overflowY: 'auto',
-          animation: 'presenterSlideUp 0.3s ease forwards',
+          position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 40,
+          width: 284, background: 'rgba(8,10,16,0.92)', backdropFilter: 'blur(16px)',
+          borderLeft: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex', flexDirection: 'column',
+          animation: 'pvSlideUp 0.3s ease both',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0, fontFamily: 'Barlow Condensed, sans-serif' }}>
-              DESIGN DETAILS
-            </h3>
-            <button onClick={() => setShowDetails(false)} style={iconBtnStyle}>
-              <X size={14} />
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0' }}>
+            <span style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Details</span>
+            <button onClick={() => setShowDetails(false)} style={iconBtnSt}><X size={13} /></button>
           </div>
 
-          {clientName && (
-            <DetailRow label="Client" value={clientName} />
-          )}
-          {title && (
-            <DetailRow label="Project" value={title} />
-          )}
-          <DetailRow label="Total Slides" value={`${slides.length} views`} />
-          <DetailRow label="Wrapped Views" value={`${slides.filter(s => s.type === 'wrapped' || s.type === 'canvas').length}`} />
-          {slides.some(s => s.type === 'original') && (
-            <DetailRow label="Original Photos" value={`${slides.filter(s => s.type === 'original').length}`} />
-          )}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+            {clientName && <DetailRow label="Client" value={clientName} />}
+            {title && <DetailRow label="Project" value={title} />}
+            <DetailRow label="Total Views" value={`${slides.length}`} />
+            <DetailRow label="Wrapped" value={`${slides.filter(s => s.type === 'wrapped' || s.type === 'canvas').length}`} />
+            {slides.some(s => s.type === 'original') && (
+              <DetailRow label="Originals" value={`${slides.filter(s => s.type === 'original').length}`} />
+            )}
+            {slides.some(s => s.type === 'mockup') && (
+              <DetailRow label="AI Renders" value={`${slides.filter(s => s.type === 'mockup').length}`} />
+            )}
 
-          <div style={{ marginTop: 20, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em', marginBottom: 8 }}>
-              ANGLES
+            <div style={{ marginTop: 20, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em', marginBottom: 10 }}>SLIDES</div>
+              {slides.map((s, i) => (
+                <button
+                  key={s.id}
+                  onClick={() => goTo(i, false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    width: '100%', padding: '8px 10px', borderRadius: 8, marginBottom: 3,
+                    background: i === current ? `${accent}18` : 'transparent',
+                    border: `1px solid ${i === current ? `${accent}50` : 'transparent'}`,
+                    cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  {/* Thumb */}
+                  <div style={{ width: 40, height: 26, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
+                    <img src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: i === current ? '#fff' : 'rgba(255,255,255,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.label}
+                    </div>
+                    <div style={{ fontSize: 9, color: SLIDE_TYPE_BADGE[s.type]?.color || '#9299b5', fontWeight: 700, letterSpacing: '0.1em' }}>
+                      {SLIDE_TYPE_BADGE[s.type]?.label}
+                    </div>
+                  </div>
+                  {i === current && <div style={{ width: 6, height: 6, borderRadius: '50%', background: accent, flexShrink: 0 }} />}
+                </button>
+              ))}
             </div>
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setFadeOut(true)
-                  setTimeout(() => {
-                    setCurrent(i)
-                    setImgLoaded(false)
-                    setFadeOut(false)
-                    setTimer(timerSeconds)
-                  }, 300)
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  width: '100%', padding: '6px 8px', borderRadius: 6, marginBottom: 2,
-                  background: i === current ? `${accent}20` : 'transparent',
-                  border: `1px solid ${i === current ? accent : 'transparent'}`,
-                  color: i === current ? accent : 'rgba(255,255,255,0.5)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
-                }}
-              >
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                  background: i === current ? accent : 'rgba(255,255,255,0.2)',
-                }} />
-                {s.label}
-              </button>
-            ))}
           </div>
         </div>
       )}
 
-      {/* ── Bottom control bar ────────────────────────────────────────── */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: showDetails ? 280 : 0,
-        opacity: controlsVisible ? 1 : 0,
-        transition: 'opacity 0.5s ease',
-        pointerEvents: controlsVisible ? 'auto' : 'none',
-      }}>
-        {/* Progress bar */}
-        <div style={{ height: 2, background: 'rgba(255,255,255,0.1)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', background: accent,
-            width: `${((current + 1) / Math.max(slides.length, 1)) * 100}%`,
-            transition: 'width 0.3s ease',
-          }} />
-          {isPlaying && (
-            <div style={{
-              position: 'absolute', top: 0, left: `${(current / Math.max(slides.length, 1)) * 100}%`,
-              height: '100%', background: 'rgba(255,255,255,0.5)',
-              width: `${(1 / Math.max(slides.length, 1)) * 100}%`,
-              transformOrigin: 'left',
-              animation: `none`,
-              transition: `width ${timerSeconds}s linear`,
-            }} />
-          )}
-        </div>
-
-        {/* Controls */}
+      {/* ══ SHARE PANEL (internal) ═══════════════════════════════════════════ */}
+      {showSharePanel && !publicMode && token && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 20px 20px',
-          background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)',
+          position: 'absolute', bottom: showFilmstrip ? 186 : 100, right: 16, zIndex: 50,
+          width: 320, background: 'rgba(8,10,16,0.96)', backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 18,
+          padding: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.8)',
+          animation: 'pvSlideUp 0.3s ease both',
         }}>
-          {/* Play/Pause */}
-          <button
-            onClick={() => setIsPlaying(v => !v)}
-            style={controlBtnStyle}
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <Pause size={16} fill="#fff" /> : <Play size={16} fill="#fff" />}
-          </button>
-
-          {/* Prev */}
-          <button onClick={goPrev} style={controlBtnStyle} title="Previous">
-            <ChevronLeft size={18} />
-          </button>
-
-          {/* Next */}
-          <button onClick={goNext} style={controlBtnStyle} title="Next">
-            <ChevronRight size={18} />
-          </button>
-
-          {/* Angle pills */}
-          <div style={{ display: 'flex', gap: 4, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setFadeOut(true)
-                  setTimeout(() => {
-                    setCurrent(i)
-                    setImgLoaded(false)
-                    setFadeOut(false)
-                    setTimer(timerSeconds)
-                  }, 300)
-                }}
-                style={{
-                  padding: '4px 12px', borderRadius: 20, flexShrink: 0,
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                  border: `1px solid ${i === current ? accent : 'rgba(255,255,255,0.2)'}`,
-                  background: i === current ? `${accent}30` : 'rgba(0,0,0,0.4)',
-                  color: i === current ? accent : 'rgba(255,255,255,0.5)',
-                  backdropFilter: 'blur(4px)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>Share with Client</span>
+            <button onClick={() => setShowSharePanel(false)} style={iconBtnSt}><X size={13} /></button>
           </div>
 
-          {/* Right side controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            {/* Before/After toggle */}
-            {hasBeforeAfter && (
-              <button
-                onClick={() => setShowBeforeAfter(v => !v)}
-                style={{
-                  ...controlBtnStyle,
-                  background: showBeforeAfter ? `${accent}30` : 'rgba(255,255,255,0.1)',
-                  border: `1px solid ${showBeforeAfter ? accent : 'transparent'}`,
-                  color: showBeforeAfter ? accent : '#fff',
-                }}
-                title="Before/After"
-              >
-                <RotateCcw size={14} />
-              </button>
-            )}
-
-            {/* Details panel */}
-            <button
-              onClick={() => setShowDetails(v => !v)}
-              style={{
-                ...controlBtnStyle,
-                background: showDetails ? `${accent}30` : 'rgba(255,255,255,0.1)',
-                border: `1px solid ${showDetails ? accent : 'transparent'}`,
-                color: showDetails ? accent : '#fff',
-              }}
-              title="Design Details"
-            >
-              <Info size={14} />
-            </button>
-
-            {/* Share (internal mode) */}
-            {token && !publicMode && (
-              <button
-                onClick={() => setShowShareModal(v => !v)}
-                style={controlBtnStyle}
-                title="Share Link"
-              >
-                <Share2 size={14} />
-              </button>
-            )}
-
-            {/* Fullscreen */}
-            <button onClick={toggleFullscreen} style={controlBtnStyle} title="Fullscreen">
-              {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Slide dots */}
-        {slides.length > 1 && slides.length <= 12 && (
-          <div style={{
-            position: 'absolute', bottom: 56, left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', gap: 6,
-          }}>
-            {slides.map((_, i) => (
-              <div
-                key={i}
-                onClick={() => {
-                  setFadeOut(true)
-                  setTimeout(() => { setCurrent(i); setImgLoaded(false); setFadeOut(false) }, 300)
-                }}
-                style={{
-                  width: i === current ? 20 : 6, height: 6, borderRadius: 3,
-                  background: i === current ? accent : 'rgba(255,255,255,0.3)',
-                  cursor: 'pointer', transition: 'all 0.3s ease',
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Share modal ───────────────────────────────────────────────── */}
-      {showShareModal && token && (
-        <div style={{
-          position: 'absolute', bottom: 100, right: 20,
-          width: 340, background: 'rgba(13,15,20,0.95)', backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16,
-          padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
-          animation: 'presenterSlideUp 0.3s ease forwards',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>Share Presentation</h4>
-            <button onClick={() => setShowShareModal(false)} style={iconBtnStyle}><X size={14} /></button>
-          </div>
-
+          {/* Link row */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 10, padding: '8px 12px', marginBottom: 12,
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 10, padding: '8px 10px', marginBottom: 14,
           }}>
-            <span style={{ flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, fontSize: 10, color: 'rgba(255,255,255,0.4)', fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {typeof window !== 'undefined' ? `${window.location.origin}/presentation/${token}` : ''}
             </span>
             <button
-              onClick={copyShareLink}
+              onClick={copyLink}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '5px 10px', borderRadius: 6, border: 'none',
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 8, border: 'none',
                 background: linkCopied ? '#22c07a' : accent, color: '#fff',
                 fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+                transition: 'background 0.2s ease',
               }}
             >
-              {linkCopied ? <Check size={12} /> : <Copy size={12} />}
+              {linkCopied ? <Check size={11} /> : <Copy size={11} />}
               {linkCopied ? 'Copied!' : 'Copy'}
             </button>
           </div>
 
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0, lineHeight: 1.5 }}>
-            Anyone with this link can view the presentation. Client can approve or request changes directly.
+          {/* Speed */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', marginBottom: 8 }}>SLIDE SPEED</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {SPEED_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSpeed(opt.value)}
+                  style={{
+                    flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                    background: speed === opt.value ? accent : 'rgba(255,255,255,0.06)',
+                    color: speed === opt.value ? '#fff' : 'rgba(255,255,255,0.4)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0, lineHeight: 1.6 }}>
+            Client can review, rate the design, and leave feedback directly from this link.
           </p>
         </div>
       )}
 
-      {/* ── Public mode CTA bar ───────────────────────────────────────── */}
-      {publicMode && !decisionMade && (
+      {/* ══ OUTRO (public auto-shows after last slide) ══════════════════════ */}
+      {showOutro && publicMode && !decisionMade && (
         <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          display: controlsVisible ? 'none' : 'none', // hidden until end
-        }} />
+          position: 'absolute', inset: 0, zIndex: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)',
+          animation: 'pvFadeIn 0.6s ease both',
+        }}>
+          {showFeedbackForm ? (
+            <div style={{ maxWidth: 460, width: '100%', padding: '0 24px', animation: 'pvSlideUp 0.3s ease both' }}>
+              <h3 style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 8 }}>Request Changes</h3>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 20, lineHeight: 1.6 }}>
+                Tell us exactly what to change and our designer will update it.
+              </p>
+              <textarea
+                autoFocus
+                value={feedbackText}
+                onChange={e => setFeedbackText(e.target.value)}
+                placeholder="Describe what you'd like changed..."
+                rows={5}
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 14, padding: '14px 16px', fontSize: 14, color: '#fff',
+                  outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.6,
+                }}
+              />
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                <button onClick={() => setShowFeedbackForm(false)} style={{ flex: 1, padding: '13px 0', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Back</button>
+                <button
+                  onClick={() => handleDecision('request_changes', feedbackText)}
+                  disabled={!feedbackText.trim()}
+                  style={{
+                    flex: 2, padding: '13px 0', borderRadius: 12, border: 'none', cursor: feedbackText.trim() ? 'pointer' : 'not-allowed',
+                    background: feedbackText.trim() ? '#f59e0b' : 'rgba(245,158,11,0.15)',
+                    color: feedbackText.trim() ? '#000' : 'rgba(255,255,255,0.3)',
+                    fontSize: 14, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif',
+                  }}
+                >
+                  Send Feedback
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ maxWidth: 460, width: '100%', padding: '0 24px', textAlign: 'center', animation: 'pvSlideUp 0.4s ease both' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>Your Reaction</div>
+              <h2 style={{ fontSize: 36, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 8 }}>
+                What do you think?
+              </h2>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginBottom: 32, lineHeight: 1.6 }}>
+                Rate this design and let us know if you&apos;re ready to move forward.
+              </p>
+
+              {/* Star rating */}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 32 }}>
+                {[1,2,3,4,5].map(n => (
+                  <button
+                    key={n}
+                    onMouseEnter={() => setStarHover(n)}
+                    onMouseLeave={() => setStarHover(0)}
+                    onClick={() => handleStarRating(n)}
+                    style={{
+                      width: 52, height: 52, borderRadius: 14, border: 'none', cursor: 'pointer',
+                      background: (starHover >= n || starRating >= n) ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.15s ease',
+                      transform: starHover >= n ? 'scale(1.12)' : 'scale(1)',
+                    }}
+                    title={['Needs work', 'Not quite', 'Getting closer', 'Love it!', 'Perfect!'][n - 1]}
+                  >
+                    <Star size={24} fill={(starHover >= n || starRating >= n) ? '#f59e0b' : 'none'} color={(starHover >= n || starRating >= n) ? '#f59e0b' : 'rgba(255,255,255,0.25)'} />
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  onClick={() => handleDecision('love_it')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '14px 28px', borderRadius: 50, border: 'none',
+                    background: 'linear-gradient(135deg, #22c07a, #16a34a)',
+                    color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                    fontFamily: 'Barlow Condensed, sans-serif',
+                    boxShadow: '0 6px 24px rgba(34,192,122,0.35)',
+                  }}
+                >
+                  <Heart size={16} fill="#fff" />
+                  I Love It — Let&apos;s Do This!
+                </button>
+                <button
+                  onClick={() => setShowFeedbackForm(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '14px 24px', borderRadius: 50,
+                    background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  <MessageSquare size={15} />
+                  Request Changes
+                </button>
+              </div>
+
+              {/* Back to slideshow */}
+              <button
+                onClick={() => { setShowOutro(false); setIsPlaying(false) }}
+                style={{ marginTop: 24, background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', fontSize: 12, cursor: 'pointer' }}
+              >
+                ← Review again
+              </button>
+
+              {publicMode && (
+                <div style={{ marginTop: 32, fontSize: 11, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em' }}>
+                  Powered by {branding.companyName || 'USA Wrap Co'}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Public floating CTA */}
-      {publicMode && !decisionMade && (
+      {/* ══ PUBLIC CTA (visible during slideshow) ════════════════════════════ */}
+      {publicMode && !decisionMade && !showOutro && (
         <div style={{
-          position: 'absolute', bottom: 100, left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center',
+          position: 'absolute', bottom: showFilmstrip ? 186 : 110, left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: 10, alignItems: 'center', zIndex: 35,
           opacity: controlsVisible ? 1 : 0,
           transition: 'opacity 0.5s ease',
           pointerEvents: controlsVisible ? 'auto' : 'none',
@@ -896,85 +950,68 @@ export default function PresentationViewer({
           <button
             onClick={() => handleDecision('love_it')}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '12px 24px', borderRadius: 50, border: 'none',
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '10px 20px', borderRadius: 50, border: 'none',
               background: 'linear-gradient(135deg, #22c07a, #16a34a)',
-              color: '#fff', fontSize: 14, fontWeight: 800,
-              cursor: 'pointer', boxShadow: '0 4px 20px rgba(34,192,122,0.4)',
+              color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer',
               fontFamily: 'Barlow Condensed, sans-serif',
+              boxShadow: '0 4px 16px rgba(34,192,122,0.4)',
             }}
           >
-            <Heart size={16} fill="#fff" />
-            I Love It — Let&apos;s Do This!
+            <Heart size={14} fill="#fff" />
+            I Love It!
           </button>
           <button
             onClick={() => setShowFeedbackForm(true)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '12px 24px', borderRadius: 50,
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '10px 18px', borderRadius: 50,
               background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 700,
-              cursor: 'pointer',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             }}
           >
-            <MessageSquare size={16} />
-            Request Changes
+            <MessageSquare size={13} />
+            Changes
           </button>
         </div>
       )}
 
-      {/* ── Feedback modal ────────────────────────────────────────────── */}
-      {showFeedbackForm && (
+      {/* Floating feedback form (public, during slideshow) */}
+      {showFeedbackForm && !showOutro && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 100,
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24,
+          background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          animation: 'pvFadeIn 0.25s ease both',
         }}>
-          <div style={{
-            background: '#13151c', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 20, padding: 32, maxWidth: 480, width: '100%',
-            animation: 'presenterSlideUp 0.3s ease forwards',
-          }}>
-            <h3 style={{ fontSize: 24, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 8 }}>
-              Request Changes
-            </h3>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 20, lineHeight: 1.6 }}>
-              Tell us what you&apos;d like changed and our designer will update the wrap for you.
-            </p>
+          <div style={{ maxWidth: 460, width: '100%', animation: 'pvSlideUp 0.3s ease both' }}>
+            <h3 style={{ fontSize: 28, fontWeight: 900, color: '#fff', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 8 }}>Request Changes</h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginBottom: 20 }}>What would you like us to change?</p>
             <textarea
+              autoFocus
               value={feedbackText}
               onChange={e => setFeedbackText(e.target.value)}
-              placeholder="Describe the changes you'd like to see..."
+              placeholder="e.g. Make the logo bigger, change to blue, add website URL..."
               rows={5}
               style={{
-                width: '100%', background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
-                padding: '12px 16px', fontSize: 14, color: '#fff',
-                outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+                width: '100%', background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
+                padding: '14px 16px', fontSize: 14, color: '#fff',
+                outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.6,
               }}
             />
-            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-              <button
-                onClick={() => setShowFeedbackForm(false)}
-                style={{
-                  flex: 1, padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)',
-                  background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontWeight: 700,
-                }}
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button onClick={() => setShowFeedbackForm(false)} style={{ flex: 1, padding: '13px 0', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Cancel</button>
               <button
                 onClick={() => handleDecision('request_changes', feedbackText)}
                 disabled={!feedbackText.trim()}
                 style={{
-                  flex: 2, padding: '12px 16px', borderRadius: 12, border: 'none',
-                  background: feedbackText.trim() ? '#f59e0b' : 'rgba(245,158,11,0.2)',
+                  flex: 2, padding: '13px 0', borderRadius: 12, border: 'none',
+                  background: feedbackText.trim() ? '#f59e0b' : 'rgba(245,158,11,0.15)',
                   color: feedbackText.trim() ? '#000' : 'rgba(255,255,255,0.3)',
                   cursor: feedbackText.trim() ? 'pointer' : 'not-allowed',
-                  fontSize: 14, fontWeight: 800,
-                  fontFamily: 'Barlow Condensed, sans-serif',
+                  fontSize: 14, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif',
                 }}
               >
                 Send Feedback
@@ -983,33 +1020,280 @@ export default function PresentationViewer({
           </div>
         </div>
       )}
+
+      {/* ══ FILMSTRIP ═══════════════════════════════════════════════════════ */}
+      {showFilmstrip && slides.length > 1 && (
+        <div style={{
+          position: 'absolute', bottom: 76, left: 0, right: 0, zIndex: 25,
+          opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.5s ease',
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+        }}>
+          <div
+            ref={filmstripRef}
+            style={{
+              display: 'flex', gap: 6, padding: '8px 20px',
+              overflowX: 'auto', scrollbarWidth: 'none',
+            }}
+          >
+            {slides.map((s, i) => (
+              <button
+                key={s.id}
+                data-slide={i}
+                onClick={() => goTo(i, false)}
+                style={{
+                  flexShrink: 0, width: 88, height: 54, borderRadius: 8, overflow: 'hidden',
+                  border: `2px solid ${i === current ? accent : 'rgba(255,255,255,0.15)'}`,
+                  background: '#111', cursor: 'pointer', padding: 0,
+                  opacity: i === current ? 1 : 0.55,
+                  transition: 'all 0.25s ease',
+                  boxShadow: i === current ? `0 0 0 1px ${accent}50, 0 4px 16px rgba(0,0,0,0.5)` : 'none',
+                  transform: i === current ? 'scale(1.05)' : 'scale(1)',
+                }}
+                title={s.label}
+              >
+                <img
+                  src={s.url}
+                  alt={s.label}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ══ BOTTOM CONTROLS ══════════════════════════════════════════════════ */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: showDetails ? 284 : 0,
+        zIndex: 30,
+        opacity: controlsVisible ? 1 : 0, transition: 'opacity 0.5s ease',
+        pointerEvents: controlsVisible ? 'auto' : 'none',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)',
+        paddingBottom: 12,
+      }}>
+        {/* Overall progress line */}
+        <div style={{ height: 2, background: 'rgba(255,255,255,0.08)', position: 'relative' }}>
+          <div style={{ height: '100%', background: accent, width: `${((current + 1) / Math.max(slides.length, 1)) * 100}%`, transition: 'width 0.3s ease' }} />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px 4px' }}>
+          {/* Play/Pause with circular progress ring */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              onClick={() => setIsPlaying(v => !v)}
+              style={{ ...ctrlBtnSt, width: 38, height: 38, position: 'relative', zIndex: 1 }}
+            >
+              {isPlaying ? <Pause size={15} fill="#fff" /> : <Play size={15} fill="#fff" />}
+            </button>
+            {isPlaying && (
+              <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} width={38} height={38}>
+                <circle cx={19} cy={19} r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={2} />
+                <circle cx={19} cy={19} r={R} fill="none" stroke={accent} strokeWidth={2}
+                  strokeDasharray={CIRC} strokeDashoffset={dash}
+                  transform="rotate(-90 19 19)" strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 0.08s linear' }}
+                />
+              </svg>
+            )}
+          </div>
+
+          {/* Prev / Next */}
+          <button onClick={goPrev} style={ctrlBtnSt} title="Previous"><ChevronLeft size={17} /></button>
+          <button onClick={goNext} style={ctrlBtnSt} title="Next"><ChevronRight size={17} /></button>
+
+          {/* Angle pills */}
+          <div style={{ flex: 1, display: 'flex', gap: 4, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {slides.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => goTo(i, false)}
+                style={{
+                  padding: '4px 11px', borderRadius: 20, flexShrink: 0,
+                  fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                  border: `1px solid ${i === current ? accent : 'rgba(255,255,255,0.15)'}`,
+                  background: i === current ? `${accent}25` : 'rgba(0,0,0,0.45)',
+                  color: i === current ? accent : 'rgba(255,255,255,0.45)',
+                  backdropFilter: 'blur(4px)', transition: 'all 0.2s ease',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Right controls */}
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+            {/* Speed pills */}
+            <div style={{ display: 'flex', gap: 2 }}>
+              {SPEED_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSpeed(opt.value)}
+                  style={{
+                    padding: '3px 7px', borderRadius: 6, fontSize: 9, fontWeight: 800, cursor: 'pointer',
+                    border: 'none',
+                    background: speed === opt.value ? accent : 'rgba(255,255,255,0.08)',
+                    color: speed === opt.value ? '#fff' : 'rgba(255,255,255,0.3)',
+                    transition: 'all 0.2s ease',
+                    display: 'flex', alignItems: 'center', gap: 2,
+                  }}
+                  title={`${opt.value} seconds per slide`}
+                >
+                  <Clock size={8} />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Before/After */}
+            {hasBA && (
+              <button
+                onClick={() => setShowBeforeAfter(v => !v)}
+                style={{
+                  ...ctrlBtnSt,
+                  background: showBeforeAfter ? `${accent}25` : 'rgba(255,255,255,0.1)',
+                  border: `1px solid ${showBeforeAfter ? accent : 'transparent'}`,
+                  color: showBeforeAfter ? accent : '#fff',
+                }}
+                title="Before / After compare"
+              >
+                <RotateCcw size={13} />
+              </button>
+            )}
+
+            {/* Filmstrip toggle */}
+            <button
+              onClick={() => setShowFilmstrip(v => !v)}
+              style={{
+                ...ctrlBtnSt,
+                background: showFilmstrip ? `${accent}25` : 'rgba(255,255,255,0.1)',
+                border: `1px solid ${showFilmstrip ? accent : 'transparent'}`,
+                color: showFilmstrip ? accent : '#fff',
+              }}
+              title="Filmstrip"
+            >
+              <Layers size={13} />
+            </button>
+
+            {/* Details */}
+            <button
+              onClick={() => setShowDetails(v => !v)}
+              style={{ ...ctrlBtnSt, background: showDetails ? `${accent}25` : 'rgba(255,255,255,0.1)', border: `1px solid ${showDetails ? accent : 'transparent'}`, color: showDetails ? accent : '#fff' }}
+              title="Design details"
+            >
+              <Info size={13} />
+            </button>
+
+            {/* Share (internal) */}
+            {!publicMode && token && (
+              <button
+                onClick={() => setShowSharePanel(v => !v)}
+                style={{ ...ctrlBtnSt, background: showSharePanel ? `${accent}25` : 'rgba(255,255,255,0.1)', border: `1px solid ${showSharePanel ? accent : 'transparent'}`, color: showSharePanel ? accent : '#fff' }}
+                title="Share with client"
+              >
+                <Share2 size={13} />
+              </button>
+            )}
+
+            {/* Fullscreen */}
+            <button onClick={toggleFullscreen} style={ctrlBtnSt} title="Fullscreen (F)">
+              {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Slide dots (compact, under pills) */}
+        {slides.length > 1 && slides.length <= 16 && !showFilmstrip && (
+          <div style={{ display: 'flex', gap: 5, justifyContent: 'center', paddingBottom: 4 }}>
+            {slides.map((_, i) => (
+              <div
+                key={i}
+                onClick={() => goTo(i, false)}
+                style={{ width: i === current ? 18 : 5, height: 5, borderRadius: 3, background: i === current ? accent : 'rgba(255,255,255,0.25)', cursor: 'pointer', transition: 'all 0.3s ease' }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-// ─── Small helpers ────────────────────────────────────────────────────────────
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function AmbientLayer({ url }: { url: string }) {
+  return (
+    <img
+      src={url}
+      alt=""
+      aria-hidden
+      style={{
+        position: 'absolute', inset: 0, width: '100%', height: '100%',
+        objectFit: 'cover',
+        filter: 'blur(48px) brightness(0.22) saturate(1.6)',
+        transform: 'scale(1.12)',
+        pointerEvents: 'none',
+      }}
+    />
+  )
+}
+
+function GrainOverlay() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute', inset: '-50%', zIndex: 15, pointerEvents: 'none',
+        backgroundImage: `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/></filter><rect width='256' height='256' filter='url(%23n)' opacity='1'/></svg>")`,
+        backgroundRepeat: 'repeat',
+        opacity: 0.028,
+        mixBlendMode: 'overlay',
+        animation: 'pvGrain 0.4s steps(1) infinite',
+      }}
+    />
+  )
+}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, alignItems: 'flex-start' }}>
-      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>{label}</span>
-      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 700, textAlign: 'right', maxWidth: 160 }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'flex-start' }}>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 700, textAlign: 'right', maxWidth: 160 }}>{value}</span>
     </div>
   )
 }
 
-const controlBtnStyle: CSSProperties = {
-  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+function baLabelStyle(side: 'left' | 'right'): CSSProperties {
+  return {
+    position: 'absolute',
+    [side]: 16, bottom: 96,
+    padding: '4px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900,
+    background: 'rgba(0,0,0,0.65)', color: '#fff', backdropFilter: 'blur(4px)',
+    letterSpacing: '0.12em', pointerEvents: 'none',
+  }
+}
+
+const ctrlBtnSt: CSSProperties = {
+  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
   background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  border: '1px solid rgba(255,255,255,0.08)',
   color: '#fff', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   transition: 'all 0.2s ease',
 }
 
-const iconBtnStyle: CSSProperties = {
-  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-  background: 'rgba(255,255,255,0.08)', border: 'none',
-  color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
+const topBtnSt: CSSProperties = {
+  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+  background: 'rgba(255,255,255,0.1)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  color: '#fff', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+}
+
+const iconBtnSt: CSSProperties = {
+  width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+  background: 'rgba(255,255,255,0.06)', border: 'none',
+  color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
