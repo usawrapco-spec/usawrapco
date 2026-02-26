@@ -11,7 +11,7 @@ import {
   LayoutDashboard, ClipboardList, CalendarDays, Palette,
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
-  Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench,
+  Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench, Phone,
   Navigation, Waves, Glasses, Trophy, Filter, Store, Kanban,
 } from 'lucide-react'
 
@@ -82,10 +82,11 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Users,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/customers',    label: 'Contacts',      icon: Users },
-      { href: '/inbox',        label: 'Conversations', icon: MessageSquare },
-      { href: '/maintenance',  label: 'Maintenance',   icon: Wrench,         roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/ai-comms',     label: 'AI Comms Hub',  icon: Bot,            roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/customers',       label: 'Contacts',       icon: Users },
+      { href: '/inbox',          label: 'Conversations',  icon: MessageSquare },
+      { href: '/communications', label: 'SMS & Calling',  icon: Phone,          roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/maintenance',    label: 'Maintenance',    icon: Wrench,         roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/ai-comms',       label: 'AI Comms Hub',   icon: Bot,            roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
@@ -100,6 +101,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/mileage',      label: 'Mileage',         icon: Car },
       { href: '/expenses',     label: 'Expenses',        icon: Receipt },
       { href: '/payroll',      label: 'Payroll',         icon: DollarSign,   roles: ['owner', 'admin'] },
+      { href: '/rate-card',    label: 'Rate Card',       icon: Wrench,       roles: ['owner', 'admin', 'installer'] },
       { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,        roles: ['owner', 'admin'] },
       { href: '/install/bids', label: 'Installer Bids',  icon: ClipboardList },
     ],

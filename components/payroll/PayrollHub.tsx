@@ -3,14 +3,15 @@
 import { useState } from 'react'
 import type { Profile } from '@/types'
 import {
-  DollarSign, Car, Receipt, Play, Truck, Users, Settings
+  DollarSign, Car, Receipt, Play, Truck, Users, Settings, Wrench
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const EnhancedPayrollClient = dynamic(() => import('./EnhancedPayrollClient'), { ssr: false })
 const PayrollRunsClient = dynamic(() => import('./PayrollRunsClient'), { ssr: false })
+const InstallerPayClient = dynamic(() => import('./InstallerPayClient'), { ssr: false })
 
-type HubTab = 'runs' | 'legacy' | 'reports'
+type HubTab = 'runs' | 'legacy' | 'installer'
 
 export default function PayrollHub({
   profile,
@@ -25,6 +26,7 @@ export default function PayrollHub({
 
   const tabs: { id: HubTab; label: string; icon: typeof DollarSign; desc: string }[] = [
     { id: 'runs', label: 'Payroll Runs', icon: Play, desc: 'Process pay periods with mileage + expenses' },
+    { id: 'installer', label: 'Installer Pay Calculator', icon: Wrench, desc: 'Flat rate + speed bonus CAGE pay calculator' },
     { id: 'legacy', label: 'Pay Settings & Commissions', icon: Settings, desc: 'Employee pay types, rates, and commission history' },
   ]
 
@@ -54,6 +56,9 @@ export default function PayrollHub({
 
       {tab === 'runs' && (
         <PayrollRunsClient profile={profile} employees={employees} projects={projects} />
+      )}
+      {tab === 'installer' && (
+        <InstallerPayClient profile={profile} />
       )}
       {tab === 'legacy' && (
         <EnhancedPayrollClient profile={profile} employees={employees} projects={projects} />
