@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
         if (anthropic) {
           const message = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-sonnet-4-6',
             max_tokens: 500,
             system: 'You are a professional work log summarizer for a vehicle wrap shop. Generate a concise daily summary for management review. Include key accomplishments, jobs worked on, and total hours. Keep it to 3-6 bullet points.',
             messages: [{

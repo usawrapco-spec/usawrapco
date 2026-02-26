@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     const anthropic = new Anthropic({ apiKey })
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 300,
       system: 'You are a professional work log summarizer for a vehicle wrap shop. Clean up employee notes into concise, professional bullet points. Keep it brief (2-4 bullets max).',
       messages: [{

@@ -111,7 +111,7 @@ export async function POST(req: Request) {
 
         if (anthropic && empEntries.length > 0) {
           const message = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-sonnet-4-6',
             max_tokens: 600,
             system: 'You are a professional work log summarizer for a vehicle wrap shop. Generate a weekly performance recap for management. Be concise and highlight key accomplishments, concerns, and patterns.',
             messages: [{
