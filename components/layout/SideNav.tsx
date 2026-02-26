@@ -91,7 +91,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/contacts',     label: 'Contacts',      icon: Users },
       { href: '/comms',        label: 'Comms Hub',     icon: MessageSquare },
       { href: '/ai-comms',     label: 'AI Comms',      icon: Bot,    roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/phone',        label: 'Phone',         icon: Phone,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/phone',          label: 'Phone',        icon: Phone,        roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/communications', label: 'SMS & Calls',  icon: MessageCircle, roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {

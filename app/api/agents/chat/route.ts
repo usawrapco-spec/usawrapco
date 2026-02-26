@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 type AgentId = 'bookkeeper' | 'fleet_manager' | 'sales_agent' | 'production_manager'
@@ -149,6 +148,7 @@ Answer concisely. Flag urgent items.`
 }
 
 export async function POST(req: Request) {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
