@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     // Find or create customer
     let customerId: string | null = null
     const { data: existingCust } = await admin.from('customers')
-      .select('id').eq('org_id', ORG_ID).eq('email', email).limit(1).single()
+      .select('id').eq('org_id', ORG_ID).eq('email', email).limit(1).maybeSingle()
 
     if (existingCust) {
       customerId = existingCust.id
@@ -68,11 +68,10 @@ export async function POST(req: Request) {
       org_id: ORG_ID,
       customer_id: customerId,
       amount: depositAmount,
-      type: 'deposit',
-      status: 'completed',
       method: 'stripe_demo',
-      reference: `demo_${Date.now()}`,
-      metadata: { conversation_id, vehicle_desc },
+      reference_number: `demo_${Date.now()}`,
+      notes: `Deposit - ${vehicle_desc || 'vehicle wrap'}${conversation_id ? ` (conv: ${conversation_id})` : ''}`,
+      payment_date: new Date().toISOString().slice(0, 10),
     })
 
     return NextResponse.json({ success: true, demo: true })

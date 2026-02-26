@@ -134,17 +134,17 @@ export async function POST(req: Request) {
 
   // 1. Find or create conversation
   let conversation: any = null
-  const matchField = channel === 'sms' ? 'phone_number' : 'email_address'
+  const matchField = channel === 'sms' ? 'contact_phone' : 'contact_email'
 
   const { data: existingConvo } = await admin
     .from('conversations')
     .select('*')
     .eq('org_id', ORG_ID)
     .eq(matchField, inboundFrom)
-    .in('status', ['active', 'escalated'])
+    .not('status', 'eq', 'resolved')
     .order('updated_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (existingConvo) {
     conversation = existingConvo
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
     let customerId: string | null = null
     if (channel === 'sms' && inboundFrom) {
       const { data: cust } = await admin.from('customers')
-        .select('id').eq('org_id', ORG_ID).eq('phone', inboundFrom).limit(1).single()
+        .select('id').eq('org_id', ORG_ID).eq('phone', inboundFrom).limit(1).maybeSingle()
       if (cust) customerId = cust.id
       else {
         const { data: newCust } = await admin.from('customers').insert({
@@ -164,7 +164,7 @@ export async function POST(req: Request) {
       }
     } else if (channel === 'email' && inboundFrom) {
       const { data: cust } = await admin.from('customers')
-        .select('id').eq('org_id', ORG_ID).eq('email', inboundFrom).limit(1).single()
+        .select('id').eq('org_id', ORG_ID).eq('email', inboundFrom).limit(1).maybeSingle()
       if (cust) customerId = cust.id
       else {
         const { data: newCust } = await admin.from('customers').insert({
@@ -178,15 +178,15 @@ export async function POST(req: Request) {
     const { data: newConvo } = await admin.from('conversations').insert({
       org_id: ORG_ID,
       customer_id: customerId,
-      channel,
-      phone_number: channel === 'sms' ? inboundFrom : null,
-      email_address: channel === 'email' ? inboundFrom : null,
-      status: 'active',
-      ai_enabled: true,
-      lead_stage: 'new',
-      vehicle_info: {},
-      wrap_preferences: {},
-      quote_data: {},
+      contact_name: inboundFrom,
+      contact_phone: channel === 'sms' ? inboundFrom : null,
+      contact_email: channel === 'email' ? inboundFrom : null,
+      status: 'open',
+      last_message_at: new Date().toISOString(),
+      last_message_preview: inboundBody.slice(0, 120),
+      last_message_channel: channel,
+      unread_count: 1,
+      tags: { ai_enabled: true, lead_stage: 'new', vehicle_info: {}, wrap_preferences: {}, quote_data: {} },
     }).select('*').single()
     conversation = newConvo
   }
@@ -197,19 +197,16 @@ export async function POST(req: Request) {
 
   // 2. Log inbound message
   await admin.from('messages').insert({
+    org_id: ORG_ID,
     conversation_id: conversation.id,
-    role: 'customer',
+    direction: 'inbound',
     content: inboundBody,
     channel,
     external_id: externalId || null,
-    ai_reasoning: null,
-    ai_confidence: null,
-    tokens_used: null,
-    cost_cents: null,
   })
 
   // 3. If AI is disabled, just log and return
-  if (!conversation.ai_enabled) {
+  if ((conversation.tags as any)?.ai_enabled === false) {
     return NextResponse.json({ status: 'logged', ai_enabled: false, conversation_id: conversation.id })
   }
 
@@ -275,10 +272,10 @@ ESCALATION BOUNDARIES:
 
 THIS CUSTOMER:
 ${customerInfo}
-- Vehicle: ${JSON.stringify(conversation.vehicle_info || {})}
-- Wrap preferences: ${JSON.stringify(conversation.wrap_preferences || {})}
-- Current quote: ${JSON.stringify(conversation.quote_data || {})}
-- Lead stage: ${conversation.lead_stage}
+- Vehicle: ${JSON.stringify((conversation.tags as any)?.vehicle_info || {})}
+- Wrap preferences: ${JSON.stringify((conversation.tags as any)?.wrap_preferences || {})}
+- Current quote: ${JSON.stringify((conversation.tags as any)?.quote_data || {})}
+- Lead stage: ${(conversation.tags as any)?.lead_stage || 'new'}
 
 CONVERSATION HISTORY:
 ${conversationHistory}
@@ -307,7 +304,7 @@ RULES:
   try {
     const anthropic = new Anthropic()
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 800,
       messages: [{ role: 'user', content: inboundBody }],
       system: systemPrompt,
@@ -337,30 +334,29 @@ RULES:
       const reason = ruleCheck.reason || aiResponse.escalation_reason || 'AI-triggered escalation'
 
       // Update conversation status
+      const existingTags = (conversation.tags as any) || {}
       await admin.from('conversations').update({
-        status: 'escalated',
-        escalation_reason: reason,
+        status: 'open',
+        tags: { ...existingTags, escalated: true, escalation_reason: reason },
         updated_at: new Date().toISOString(),
       }).eq('id', conversation.id)
 
       // Send escalation message to customer
       const escalationMsg = "Let me connect you with our team. A specialist will be with you shortly!"
-      if (channel === 'sms' && conversation.phone_number) {
-        await sendSMS(conversation.phone_number, escalationMsg)
-      } else if (channel === 'email' && conversation.email_address) {
-        await sendEmail(conversation.email_address, 'USA Wrap Co - Connecting You With Our Team', `<p>${escalationMsg}</p>`)
+      if (channel === 'sms' && conversation.contact_phone) {
+        await sendSMS(conversation.contact_phone, escalationMsg)
+      } else if (channel === 'email' && conversation.contact_email) {
+        await sendEmail(conversation.contact_email, 'USA Wrap Co - Connecting You With Our Team', `<p>${escalationMsg}</p>`)
       }
 
       // Log AI message
       await admin.from('messages').insert({
+        org_id: ORG_ID,
         conversation_id: conversation.id,
-        role: 'ai',
+        direction: 'outbound',
         content: escalationMsg,
         channel,
-        ai_reasoning: `ESCALATED: ${reason}`,
-        ai_confidence: confidence,
-        tokens_used: tokensUsed,
-        cost_cents: costCents,
+        metadata: { ai_reasoning: `ESCALATED: ${reason}`, ai_confidence: confidence, tokens_used: tokensUsed, cost_cents: costCents },
       })
 
       return NextResponse.json({ status: 'escalated', reason, conversation_id: conversation.id })
@@ -370,36 +366,38 @@ RULES:
     const aiMessage = aiResponse.message || 'Thanks for reaching out! Let me get back to you shortly.'
     let sentExternalId: string | null = null
 
-    if (channel === 'sms' && conversation.phone_number) {
-      sentExternalId = await sendSMS(conversation.phone_number, aiMessage)
-    } else if (channel === 'email' && conversation.email_address) {
-      await sendEmail(conversation.email_address, 'USA Wrap Co', `<p>${aiMessage}</p>`)
+    if (channel === 'sms' && conversation.contact_phone) {
+      sentExternalId = await sendSMS(conversation.contact_phone, aiMessage)
+    } else if (channel === 'email' && conversation.contact_email) {
+      await sendEmail(conversation.contact_email, 'USA Wrap Co', `<p>${aiMessage}</p>`)
     }
 
     // 10. Log AI response
     await admin.from('messages').insert({
+      org_id: ORG_ID,
       conversation_id: conversation.id,
-      role: 'ai',
+      direction: 'outbound',
       content: aiMessage,
       channel,
-      ai_reasoning: aiResponse.reasoning || null,
-      ai_confidence: confidence,
-      tokens_used: tokensUsed,
-      cost_cents: costCents,
       external_id: sentExternalId,
+      metadata: { ai_reasoning: aiResponse.reasoning || null, ai_confidence: confidence, tokens_used: tokensUsed, cost_cents: costCents },
     })
 
     // 11. Update conversation with extracted info
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if (aiResponse.lead_stage) updates.lead_stage = aiResponse.lead_stage
+    const existingTags2 = (conversation.tags as any) || {}
+    const tagUpdates: Record<string, unknown> = {}
+    if (aiResponse.lead_stage) tagUpdates.lead_stage = aiResponse.lead_stage
     if (aiResponse.vehicle_info && Object.keys(aiResponse.vehicle_info).length > 0) {
-      updates.vehicle_info = { ...(conversation.vehicle_info || {}), ...aiResponse.vehicle_info }
+      tagUpdates.vehicle_info = { ...(existingTags2.vehicle_info || {}), ...aiResponse.vehicle_info }
     }
     if (aiResponse.wrap_preferences && Object.keys(aiResponse.wrap_preferences).length > 0) {
-      updates.wrap_preferences = { ...(conversation.wrap_preferences || {}), ...aiResponse.wrap_preferences }
+      tagUpdates.wrap_preferences = { ...(existingTags2.wrap_preferences || {}), ...aiResponse.wrap_preferences }
     }
 
-    await admin.from('conversations').update(updates).eq('id', conversation.id)
+    await admin.from('conversations').update({
+      updated_at: new Date().toISOString(),
+      ...(Object.keys(tagUpdates).length > 0 ? { tags: { ...existingTags2, ...tagUpdates } } : {}),
+    }).eq('id', conversation.id)
 
     // 12. If AI wants to send a quote, trigger it
     if (aiResponse.should_send_quote) {
@@ -418,7 +416,7 @@ RULES:
       conversation_id: conversation.id,
       message: aiMessage,
       confidence,
-      lead_stage: aiResponse.lead_stage || conversation.lead_stage,
+      lead_stage: aiResponse.lead_stage || (conversation.tags as any)?.lead_stage || 'new',
     })
   } catch (err: any) {
     console.error('[VINYL] AI broker error:', err)

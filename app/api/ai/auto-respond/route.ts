@@ -39,6 +39,15 @@ async function sendTwilioSMS(to: string, body: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth: require session or internal secret
+  const internalSecret = req.headers.get('x-internal-secret')
+  if (!internalSecret || internalSecret !== process.env.INTERNAL_API_SECRET) {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY
 
   let body: {

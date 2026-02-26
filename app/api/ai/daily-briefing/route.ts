@@ -86,7 +86,7 @@ Generate 3-5 actionable bullet points highlighting:
 Keep each bullet concise (1-2 sentences). Focus on what needs attention today. If there's nothing urgent, say so positively.`
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250219',
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [{
         role: 'user',
