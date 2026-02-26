@@ -361,12 +361,12 @@ function XPLeaderboard({ members, period, currentId }: {
 
 // ─── Shop Records ─────────────────────────────────────────────────────────────
 
-const PLACEHOLDER_RECORDS = [
-  { icon: '💰', label: 'Biggest Job' },
-  { icon: '📈', label: 'Best GPM' },
-  { icon: '⚡', label: 'Fastest Install' },
-  { icon: '🚛', label: 'Biggest Fleet' },
-  { icon: '🏆', label: 'Most Jobs/Mo' },
+const PLACEHOLDER_RECORDS: { Icon: LucideIcon; label: string }[] = [
+  { Icon: DollarSign, label: 'Biggest Job' },
+  { Icon: BarChart2,  label: 'Best GPM' },
+  { Icon: Zap,        label: 'Fastest Install' },
+  { Icon: Award,      label: 'Biggest Fleet' },
+  { Icon: Trophy,     label: 'Most Jobs/Mo' },
 ]
 
 function ShopRecordsPanel({ records }: { records: ShopRecord[] }) {
@@ -385,7 +385,7 @@ function ShopRecordsPanel({ records }: { records: ShopRecord[] }) {
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0',
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
               }}>
-                <span style={{ fontSize: 16, width: 24, flexShrink: 0 }}>{r.icon}</span>
+                <r.Icon size={18} style={{ color: '#f59e0b', flexShrink: 0, width: 28 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)' }}>{r.label}</div>
                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>No record yet</div>

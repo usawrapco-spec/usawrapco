@@ -30,7 +30,6 @@
     --transition-fast: 150ms;
     --transition-base: 200ms;
     --transition-slow: 350ms;
-    --sidebar-w: 240px;
   }
 
   html { background: var(--bg); }
