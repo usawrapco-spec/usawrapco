@@ -13,7 +13,7 @@ import {
   ArrowRight, PenLine, Ruler, Droplet, Bold, Italic, Underline,
   AlignLeft, Package, Printer, Wand2, Pencil, RefreshCw,
   Settings2, MousePointer2, Sparkles, Globe, ChevronRight,
-  ChevronLeft,
+  ChevronLeft, MonitorPlay,
 } from 'lucide-react'
 import DesignMenuBar from './DesignMenuBar'
 import ThreeViewport from './ThreeViewport'
@@ -22,6 +22,7 @@ import type { CanvasMode, ThreeMeshMeta } from './design-types'
 import type { WrapMaterial, PanelConfig, ConfiguratorHandle } from '@/components/configurator/VehicleConfigurator'
 import type { VehicleCategory } from '@/lib/configurator/vehicleModels'
 import MaterialPickerPanel from './MaterialPickerPanel'
+import PresentationViewer, { type PresentationSlide } from '@/components/presentation/PresentationViewer'
 
 interface DesignCanvasClientProps {
   profile: Profile
@@ -296,6 +297,11 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     design.portal_token ? `${typeof window !== 'undefined' ? window.location.origin : ''}/portal/${design.portal_token}` : null
   )
   const [portalCopied, setPortalCopied] = useState(false)
+
+  // Presentation mode
+  const [showPresentation, setShowPresentation] = useState(false)
+  const [presentationToken, setPresentationToken] = useState<string | null>(null)
+  const [creatingPresentation, setCreatingPresentation] = useState(false)
 
   const linkedJob = design.linked_project || null
 
@@ -827,6 +833,91 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     navigator.clipboard.writeText(link)
     setPortalCopied(true)
     setTimeout(() => setPortalCopied(false), 2000)
+  }
+
+  // ── Build presentation slides from available images ──
+  const buildPresentationSlides = (): PresentationSlide[] => {
+    const slides: PresentationSlide[] = []
+
+    // 1. High-res canvas render (wrapped)
+    if (highResExportUrl) {
+      slides.push({
+        id: 'canvas-render',
+        url: highResExportUrl,
+        label: 'Design Render',
+        type: 'canvas',
+      })
+    }
+
+    // 2. AI generated mockup results (wrapped)
+    aiResults.forEach((url, i) => {
+      const angleLabels = ['Front 3/4', 'Driver Side', 'Rear 3/4', 'Passenger Side']
+      slides.push({
+        id: `ai-${i}`,
+        url,
+        label: angleLabels[i] || `View ${i + 1}`,
+        type: 'wrapped',
+        beforeUrl: jobImages[i]?.image_url || jobImages[0]?.image_url,
+      })
+    })
+
+    // 3. Design project files (renders uploaded to the project)
+    designFiles.forEach((f, i) => {
+      if (!f.file_url && !f.url) return
+      const url = f.file_url || f.url
+      const isImage = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url)
+      if (!isImage) return
+      slides.push({
+        id: `file-${f.id || i}`,
+        url,
+        label: f.file_name ? f.file_name.replace(/\.[^.]+$/, '') : `Render ${i + 1}`,
+        type: 'wrapped',
+      })
+    })
+
+    // 4. Original vehicle photos (before)
+    jobImages.forEach((img, i) => {
+      const url = img.image_url || img.url
+      if (!url) return
+      const existing = slides.find(s => s.beforeUrl === url)
+      if (!existing) {
+        slides.push({
+          id: `original-${img.id || i}`,
+          url,
+          label: img.angle || `Original ${i + 1}`,
+          type: 'original',
+        })
+      }
+    })
+
+    return slides
+  }
+
+  // ── Open presentation mode ──
+  const handlePresent = async () => {
+    const slides = buildPresentationSlides()
+    setShowPresentation(true)
+
+    // Create/update the presentation record for sharing
+    if (!presentationToken) {
+      setCreatingPresentation(true)
+      try {
+        const res = await fetch('/api/presentation/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            designProjectId: design.id,
+            title: design.client_name || titleValue,
+            clientName: design.client_name,
+            slides,
+            timerSeconds: 4,
+          }),
+        })
+        const data = await res.json()
+        if (data.token) setPresentationToken(data.token)
+      } catch { /* non-fatal */ }
+      setCreatingPresentation(false)
+    }
   }
 
   // ── AI Generate ──
@@ -1381,6 +1472,16 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           style={{ ...accentBtnStyle, background: savingHighRes ? 'rgba(79,127,255,0.05)' : highResExportUrl ? 'rgba(34,192,122,0.08)' : 'rgba(79,127,255,0.1)', color: highResExportUrl ? '#22c07a' : '#4f7fff', border: `1px solid ${highResExportUrl ? 'rgba(34,192,122,0.2)' : 'rgba(79,127,255,0.2)'}` }}>
           <Download size={13} />
           {savingHighRes ? 'Exporting...' : highResExportUrl ? 'High-Res Saved' : 'Save High-Res Export'}
+        </button>
+
+        <button
+          onClick={handlePresent}
+          disabled={creatingPresentation}
+          title="Present to client — cinematic fullscreen slideshow"
+          style={{ ...accentBtnStyle, background: 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(79,127,255,0.25))', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.4)' }}
+        >
+          <MonitorPlay size={13} />
+          {creatingPresentation ? 'Loading...' : 'Present'}
         </button>
 
         <button onClick={saveCanvas} disabled={saving} style={{ ...accentBtnStyle, background: '#4f7fff', color: '#fff', border: 'none' }}>
@@ -2549,6 +2650,18 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* ── PRESENTATION MODE ── */}
+      {showPresentation && (
+        <PresentationViewer
+          slides={buildPresentationSlides()}
+          clientName={design.client_name}
+          title={titleValue}
+          timerSeconds={4}
+          token={presentationToken || undefined}
+          onClose={() => setShowPresentation(false)}
+        />
+      )}
     </div>
   )
 }
