@@ -178,6 +178,7 @@ severity guide: minor=small cosmetic issue, moderate=noticeable but not urgent, 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
+  const orgId = searchParams.get('org_id') || ORG_ID
   const db = getSupabaseAdmin()
 
   let query = db
@@ -188,6 +189,7 @@ export async function GET(req: Request) {
       project:original_project_id(id, title, vehicle_desc),
       assignee:assigned_to(id, name, avatar_url)
     `)
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
   if (status && status !== 'all') {
