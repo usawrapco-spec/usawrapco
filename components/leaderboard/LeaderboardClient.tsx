@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   Trophy, Zap, Flame, Crown,
   Medal, DollarSign, Wrench,
@@ -84,10 +85,6 @@ const DIVISIONS = [
   { id: 'marine',  label: 'Marine',        icon: Anchor,   color: '#f59e0b' },
 ]
 
-const DIVISION_ICONS: Record<string, string> = {
-  wraps: '🎨', decking: '🌊', tinting: '🕶️', ppf: '🛡️', marine: '⚓',
-}
-
 const DEPT_TABS = [
   { id: 'sales',      label: 'Sales',      icon: DollarSign, color: '#22c07a' },
   { id: 'install',    label: 'Install',    icon: Wrench,     color: '#22d3ee' },
@@ -96,14 +93,14 @@ const DEPT_TABS = [
   { id: 'xp',         label: 'XP Board',   icon: Zap,        color: '#4f7fff' },
 ]
 
-const RECORD_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
-  highest_single_job_revenue: { label: 'Biggest Job',       icon: '💰' },
-  highest_single_job_gpm:     { label: 'Best GPM',          icon: '📈' },
-  most_jobs_in_month:         { label: 'Most Jobs/Month',   icon: '🏆' },
-  most_revenue_in_month:      { label: 'Best Month',        icon: '🔥' },
-  fastest_install:            { label: 'Fastest Install',   icon: '⚡' },
-  biggest_fleet_deal:         { label: 'Biggest Fleet',     icon: '🚛' },
-  most_installs_in_week:      { label: 'Most Installs/Wk',  icon: '📆' },
+const RECORD_TYPE_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
+  highest_single_job_revenue: { label: 'Biggest Job',      Icon: DollarSign },
+  highest_single_job_gpm:     { label: 'Best GPM',         Icon: BarChart2  },
+  most_jobs_in_month:         { label: 'Most Jobs/Month',  Icon: Trophy     },
+  most_revenue_in_month:      { label: 'Best Month',       Icon: Flame      },
+  fastest_install:            { label: 'Fastest Install',  Icon: Zap        },
+  biggest_fleet_deal:         { label: 'Biggest Fleet',    Icon: Award      },
+  most_installs_in_week:      { label: 'Most Installs/Wk', Icon: Users      },
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -397,13 +394,14 @@ function ShopRecordsPanel({ records }: { records: ShopRecord[] }) {
               </div>
             ))
           : records.map(r => {
-              const meta = RECORD_TYPE_LABELS[r.record_type] || { label: r.record_type, icon: '📊' }
+              const meta = RECORD_TYPE_LABELS[r.record_type] || { label: r.record_type, Icon: Award }
+              const RecordIcon = meta.Icon
               return (
                 <div key={r.id} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0',
                   borderBottom: '1px solid rgba(255,255,255,0.05)',
                 }}>
-                  <span style={{ fontSize: 18, width: 28, flexShrink: 0 }}>{meta.icon}</span>
+                  <RecordIcon size={18} style={{ color: '#f59e0b', flexShrink: 0, width: 28 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)' }}>{meta.label}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>
@@ -475,7 +473,7 @@ function DivisionBreakdown({ projects }: { projects: ProjectRow[] }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                 <Icon size={13} style={{ color: d.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.04em', flex: 1 }}>
-                  {DIVISION_ICONS[d.id]} {d.label}
+                  {d.label}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: d.color }}>
                   {fM(d.rev)}
@@ -703,7 +701,7 @@ export default function LeaderboardClient({
             borderRadius: '0 12px 12px 12px', padding: 16,
           }}>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-              {PERIOD_LABELS[period]} · {division !== 'all' ? `${DIVISION_ICONS[division] || ''} ${division.toUpperCase()}` : 'All Divisions'} · {filteredProjects.length} jobs
+              {PERIOD_LABELS[period]} · {division !== 'all' ? division.toUpperCase() : 'All Divisions'} · {filteredProjects.length} jobs
             </div>
 
             {dept === 'sales'      && <SalesLeaderboard   members={members} projects={filteredProjects} currentId={currentProfile.id} />}

@@ -30,6 +30,7 @@
     --transition-fast: 150ms;
     --transition-base: 200ms;
     --transition-slow: 350ms;
+    --sidebar-w: 240px;
   }
 
   html { background: var(--bg); }
@@ -408,6 +409,14 @@
 /* Glow effects for active elements */
 .glow-accent { box-shadow: 0 0 20px var(--glow-accent); }
 .glow-green  { box-shadow: 0 0 20px var(--glow-green); }
+
+/* ─── Sidebar-aware offset (desktop only) ────────────────────────── */
+@media (min-width: 768px) {
+  .sidebar-offset {
+    margin-left: var(--sidebar-w, 240px);
+    transition: margin-left 0.2s ease;
+  }
+}
 
 /* ─── Mobile Responsive Base ─────────────────────────────────────── */
 html { overflow-x: hidden; }
