@@ -157,6 +157,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
       title: form.clientName,
       status: 'active',
       division: jobType === 'wrap' ? 'wraps' : 'decking',
+      service_division: jobType === 'wrap' ? 'wraps' : 'decking',
       pipe_stage: 'sales_in',
       priority: 'normal',
       customer_id: selectedCustomerId !== 'new' ? selectedCustomerId : null,
