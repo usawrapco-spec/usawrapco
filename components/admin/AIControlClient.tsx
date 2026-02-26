@@ -378,11 +378,15 @@ export default function AIControlClient({ profile }: Props) {
                     <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                       <div>
                         <div style={{ fontSize: 9, color: 'var(--text3)' }}>Quality</div>
-                        <div>{Array(modelInfo.quality).fill('⭐').join('')}</div>
+                        <div style={{ display: 'flex', gap: 1 }}>
+                          {Array(modelInfo.quality).fill(null).map((_, i) => <Star key={i} size={11} color="#f59e0b" fill="#f59e0b" />)}
+                        </div>
                       </div>
                       <div>
                         <div style={{ fontSize: 9, color: 'var(--text3)' }}>Speed</div>
-                        <div>{Array(modelInfo.speed).fill('⚡').join('')}</div>
+                        <div style={{ display: 'flex', gap: 1 }}>
+                          {Array(modelInfo.speed).fill(null).map((_, i) => <Zap key={i} size={11} color="#22d3ee" fill="#22d3ee" />)}
+                        </div>
                       </div>
                     </div>
                     <button

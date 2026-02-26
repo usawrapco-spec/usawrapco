@@ -13,7 +13,11 @@ function ensureVapid(): boolean {
   const priv = process.env.VAPID_PRIVATE_KEY
   const mail = process.env.VAPID_EMAIL
   if (!pub || !priv || !mail) return false
-  webpush.setVapidDetails(`mailto:${mail}`, pub, priv)
+  try {
+    webpush.setVapidDetails(`mailto:${mail}`, pub, priv)
+  } catch {
+    return false
+  }
   vapidInitialized = true
   return true
 }

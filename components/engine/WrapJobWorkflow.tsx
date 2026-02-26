@@ -8,7 +8,11 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
-import { X, Wrench } from 'lucide-react'
+import {
+  X, Wrench, PhoneIncoming, Phone, CreditCard, ClipboardList,
+  Palette, CheckCircle, Printer, Scissors, Search, Calendar,
+  Car, Camera, Star, type LucideIcon,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface WorkflowProps {
@@ -19,26 +23,26 @@ interface WorkflowProps {
 interface WFStage {
   key: string
   label: string
-  icon: string
+  Icon: LucideIcon
   color: string
 }
 
 const WF_STAGES: WFStage[] = [
-  { key: 'new_lead', label: 'New Lead', icon: '📥', color: '#4f7fff' },
-  { key: 'qualified', label: 'Qualified', icon: '📞', color: '#8b5cf6' },
-  { key: 'deposit_paid', label: 'Deposit Paid', icon: '💵', color: '#22c07a' },
-  { key: 'intake', label: 'Intake', icon: '📋', color: '#22d3ee' },
-  { key: 'design', label: 'Design', icon: '🎨', color: '#8b5cf6' },
-  { key: 'proof_approved', label: 'Proof OK', icon: '👍', color: '#22c07a' },
-  { key: 'print', label: 'Print', icon: '🖨️', color: '#22d3ee' },
-  { key: 'cut_prep', label: 'Cut & Prep', icon: '✂️', color: '#f59e0b' },
-  { key: 'qc', label: 'QC', icon: '🔍', color: '#f59e0b' },
-  { key: 'scheduled', label: 'Scheduled', icon: '📅', color: '#4f7fff' },
-  { key: 'check_in', label: 'Check-In', icon: '🚗', color: '#22d3ee' },
-  { key: 'installing', label: 'Installing', icon: '🔧', color: '#f59e0b' },
-  { key: 'photos', label: 'Photos', icon: '📸', color: '#8b5cf6' },
-  { key: 'complete', label: 'Complete', icon: '✅', color: '#22c07a' },
-  { key: 'review', label: 'Review', icon: '⭐', color: '#f59e0b' },
+  { key: 'new_lead',      label: 'New Lead',     Icon: PhoneIncoming, color: '#4f7fff' },
+  { key: 'qualified',     label: 'Qualified',    Icon: Phone,         color: '#8b5cf6' },
+  { key: 'deposit_paid',  label: 'Deposit Paid', Icon: CreditCard,    color: '#22c07a' },
+  { key: 'intake',        label: 'Intake',       Icon: ClipboardList, color: '#22d3ee' },
+  { key: 'design',        label: 'Design',       Icon: Palette,       color: '#8b5cf6' },
+  { key: 'proof_approved',label: 'Proof OK',     Icon: CheckCircle,   color: '#22c07a' },
+  { key: 'print',         label: 'Print',        Icon: Printer,       color: '#22d3ee' },
+  { key: 'cut_prep',      label: 'Cut & Prep',   Icon: Scissors,      color: '#f59e0b' },
+  { key: 'qc',            label: 'QC',           Icon: Search,        color: '#f59e0b' },
+  { key: 'scheduled',     label: 'Scheduled',    Icon: Calendar,      color: '#4f7fff' },
+  { key: 'check_in',      label: 'Check-In',     Icon: Car,           color: '#22d3ee' },
+  { key: 'installing',    label: 'Installing',   Icon: Wrench,        color: '#f59e0b' },
+  { key: 'photos',        label: 'Photos',       Icon: Camera,        color: '#8b5cf6' },
+  { key: 'complete',      label: 'Complete',     Icon: CheckCircle,   color: '#22c07a' },
+  { key: 'review',        label: 'Review',       Icon: Star,          color: '#f59e0b' },
 ]
 
 // Map pipeline stages to workflow stages
@@ -86,7 +90,9 @@ function WFNode({ data }: { data: any }) {
     >
       <Handle type="target" position={Position.Left} style={{ background: borderColor, width: 6, height: 6, border: 'none' }} />
       <Handle type="source" position={Position.Right} style={{ background: borderColor, width: 6, height: 6, border: 'none' }} />
-      <div style={{ fontSize: 22, marginBottom: 4 }}>{data.icon}</div>
+      <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'center' }}>
+        {data.Icon && <data.Icon size={20} color={borderColor} />}
+      </div>
       <div style={{
         fontSize: 9, fontWeight: 800, color: borderColor,
         fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase',
@@ -241,7 +247,7 @@ export default function WrapJobWorkflow({ profile, initialProjects }: WorkflowPr
               padding: '14px 16px', borderBottom: '1px solid var(--border)',
             }}>
               <div>
-                <div style={{ fontSize: 22 }}>{drawerStage.icon}</div>
+                <drawerStage.Icon size={22} color={drawerStage.color} />
                 <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif', color: drawerStage.color, textTransform: 'uppercase' }}>
                   {drawerStage.label}
                 </div>
