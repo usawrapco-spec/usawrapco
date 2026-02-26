@@ -231,6 +231,11 @@ export interface Project {
   install_lng?: number | null
   weather_alerts?: any[]
   last_weather_check?: string | null
+  // Computed / joined fields (not DB columns)
+  render_count?: number
+  deposit_status?: string | null
+  designer_id?: string | null
+  designer?: Pick<Profile, 'id' | 'name' | 'email'>
 }
 
 export interface InstallerBid {

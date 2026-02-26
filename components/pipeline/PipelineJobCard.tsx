@@ -10,6 +10,7 @@ import {
   CheckCircle, ExternalLink, ImagePlay,
 } from 'lucide-react'
 import { RaceTrackTimeline } from './RaceTrackTimeline'
+import type { Project } from '@/types'
 
 // ─── Card Field Types (exported for KanbanBoard) ─────────────────────────────
 
@@ -87,7 +88,7 @@ const fDate = (d: string | null | undefined) =>
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface PipelineJobCardProps {
-  project: any
+  project: Project
   department: 'sales' | 'production' | 'install'
   isGhost: boolean
   onClick?: () => void
@@ -149,16 +150,16 @@ export default function PipelineJobCard({
   const stageColor = STAGE_COLORS[stage] || '#4f7fff'
   const statusColor = STATUS_COLORS[project.status] || '#6b7280'
 
-  const customerName = (project.customer as any)?.name || fd.client || fd.clientName || project.title || 'Untitled'
+  const customerName = project.customer?.name || fd.client || fd.clientName || project.title || 'Untitled'
   const vehicle = project.vehicle_desc || fd.vehicle || ''
   const jobType = fd.jobType || project.type || ''
   const revenue = project.revenue || 0
   const profit = project.profit || 0
   const gpm = project.gpm || 0
   const installDate = project.install_date || fd.installDate
-  const agentName = (project.agent as any)?.name || fd.agent || ''
-  const installerName = (project.installer as any)?.name || fd.installer || ''
-  const designerName = (project.designer as any)?.name || fd.designer || ''
+  const agentName = project.agent?.name || fd.agent || ''
+  const installerName = project.installer?.name || fd.installer || ''
+  const designerName = project.designer?.name || fd.designer || ''
   const contractSigned = !!(fd.contractSigned || fd.contract_signed)
   const depositPaid = !!(fd.depositPaid || fd.deposit_paid || project.deposit_status === 'paid')
   const mockupUrl = fd.mockup_url || fd.mockupUrl || null
@@ -279,7 +280,8 @@ export default function PipelineJobCard({
 
   const handleMessage = (e: React.MouseEvent) => {
     e.stopPropagation()
-    router.push('/inbox')
+    const customerId = project.customer_id
+    router.push(customerId ? `/inbox?customerId=${customerId}` : '/inbox')
   }
 
   const handleEdit = (e: React.MouseEvent) => {

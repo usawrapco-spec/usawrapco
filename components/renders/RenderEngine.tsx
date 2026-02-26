@@ -5,7 +5,7 @@ import {
   Sparkles, X, Download, Eye, Layers, Sun, Moon, Cloud,
   Building2, Car, Trash2, RefreshCw, Camera,
   LayoutGrid, List, Package, ChevronDown, ChevronRight,
-  Sunset, Copy, ExternalLink,
+  Sunset,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -56,10 +56,13 @@ const LIGHTING_OPTIONS = [
 ]
 
 const BACKGROUND_OPTIONS = [
-  { key: 'studio',      label: 'White Studio',   Icon: Sparkles },
-  { key: 'city_street', label: 'City Street',    Icon: Building2 },
-  { key: 'dealership',  label: 'Dealership',     Icon: Car },
+  { key: 'studio',      label: 'White Studio',  Icon: Sparkles },
+  { key: 'city_street', label: 'City Street',   Icon: Building2 },
+  { key: 'dealership',  label: 'Dealership',    Icon: Car },
 ]
+
+// Canonical angle sort order for display
+const ANGLE_ORDER = ['original', 'front', 'side', 'rear', 'three_quarter']
 
 const ANGLE_LABELS: Record<string, string> = {
   original:      'Original',
@@ -69,7 +72,6 @@ const ANGLE_LABELS: Record<string, string> = {
   three_quarter: '¾ View',
 }
 
-// One-click render packages
 const RENDER_PACKAGES = [
   {
     key:   'showroom_set',
@@ -113,7 +115,8 @@ const RENDER_PACKAGES = [
   },
 ]
 
-// ─── Helper: Spinner ──────────────────────────────────────────────────────────
+// ─── Spinner ─────────────────────────────────────────────────────────────────
+
 function Spinner({ size = 16, color = 'var(--accent)' }: { size?: number; color?: string }) {
   return (
     <div style={{
@@ -127,6 +130,7 @@ function Spinner({ size = 16, color = 'var(--accent)' }: { size?: number; color?
 }
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
+
 function ProgressBar({ pct, label, subLabel }: { pct: number; label: string; subLabel?: string }) {
   return (
     <div style={{ marginTop: 14 }}>
@@ -150,6 +154,7 @@ function ProgressBar({ pct, label, subLabel }: { pct: number; label: string; sub
 }
 
 // ─── Render Card ──────────────────────────────────────────────────────────────
+
 function RenderCard({ render, onView, onCompare, onDelete, onDownload }: {
   render: Render
   onView: (r: Render) => void
@@ -169,7 +174,7 @@ function RenderCard({ render, onView, onCompare, onDelete, onDownload }: {
         position: 'relative', borderRadius: 10, overflow: 'hidden',
         background: 'var(--surface2)',
         border: `1px solid ${hover && render.render_url ? 'var(--accent)' : 'var(--border)'}`,
-        transition: 'border-color 0.15s, transform 0.15s',
+        transition: 'border-color 0.15s, transform 0.15s, box-shadow 0.15s',
         transform: hover && render.render_url ? 'translateY(-2px)' : 'none',
         boxShadow: hover && render.render_url ? '0 6px 20px rgba(79,127,255,0.2)' : 'none',
         aspectRatio: '4/3',
@@ -195,13 +200,12 @@ function RenderCard({ render, onView, onCompare, onDelete, onDownload }: {
             <>
               <Spinner size={26} />
               <span style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 700 }}>Rendering…</span>
-              <span style={{ fontSize: 9, color: 'var(--text3)' }}>10–30 seconds</span>
+              <span style={{ fontSize: 9, color: 'var(--text3)' }}>10–30 sec</span>
             </>
           )}
         </div>
       )}
 
-      {/* Angle badge */}
       {render.angle !== 'original' && (
         <div style={{
           position: 'absolute', top: 6, left: 6,
@@ -213,7 +217,6 @@ function RenderCard({ render, onView, onCompare, onDelete, onDownload }: {
         </div>
       )}
 
-      {/* Version */}
       <div style={{
         position: 'absolute', top: 6, right: 6,
         background: 'rgba(0,0,0,0.72)', color: '#fff',
@@ -223,23 +226,21 @@ function RenderCard({ render, onView, onCompare, onDelete, onDownload }: {
         v{render.version}
       </div>
 
-      {/* Hover action overlay */}
       {hover && render.render_url && (
         <div style={{
           position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           backdropFilter: 'blur(2px)',
         }}>
-          <HoverBtn icon={<Eye size={13} />}      label="View"     onClick={() => onView(render)} />
+          <HoverBtn icon={<Eye size={13} />}     label="View"    onClick={() => onView(render)} />
           {render.original_photo_url && (
-            <HoverBtn icon={<Layers size={13} />}  label="Compare"  onClick={() => onCompare(render)} />
+            <HoverBtn icon={<Layers size={13} />} label="Compare" onClick={() => onCompare(render)} />
           )}
-          <HoverBtn icon={<Download size={13} />}  label="Save"     onClick={() => onDownload(render)} />
-          <HoverBtn icon={<Trash2 size={13} />}    label="Delete"   onClick={() => onDelete(render.id)} danger />
+          <HoverBtn icon={<Download size={13} />} label="Save"    onClick={() => onDownload(render)} />
+          <HoverBtn icon={<Trash2 size={13} />}   label="Delete"  onClick={() => onDelete(render.id)} danger />
         </div>
       )}
 
-      {/* Bottom info strip */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
         background: 'linear-gradient(transparent, rgba(0,0,0,0.82))',
@@ -253,7 +254,9 @@ function RenderCard({ render, onView, onCompare, onDelete, onDownload }: {
   )
 }
 
-function HoverBtn({ icon, label, onClick, danger = false }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
+function HoverBtn({ icon, label, onClick, danger = false }: {
+  icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean
+}) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick() }}
@@ -274,6 +277,7 @@ function HoverBtn({ icon, label, onClick, danger = false }: { icon: React.ReactN
 }
 
 // ─── Angle Set Group ──────────────────────────────────────────────────────────
+
 function AngleSetGroup({ renders, onView, onCompare, onDelete, onDownload }: {
   renders: Render[]
   onView: (r: Render) => void
@@ -282,8 +286,9 @@ function AngleSetGroup({ renders, onView, onCompare, onDelete, onDownload }: {
   onDownload: (r: Render) => void
 }) {
   const [collapsed, setCollapsed] = useState(false)
+  const sorted = [...renders].sort((a, b) => ANGLE_ORDER.indexOf(a.angle) - ANGLE_ORDER.indexOf(b.angle))
   const done = renders.filter(r => r.status === 'succeeded').length
-  const first = renders[0]
+  const first = sorted[0]
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
@@ -301,7 +306,7 @@ function AngleSetGroup({ renders, onView, onCompare, onDelete, onDownload }: {
           <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text1)' }}>
             Multi-Angle Set — v{first?.version}
           </span>
-          <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 10 }}>
+          <span style={{ fontSize: 10, color: done < renders.length ? 'var(--accent)' : 'var(--green)', marginLeft: 10 }}>
             {done}/{renders.length} complete
           </span>
           <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 10 }}>
@@ -312,7 +317,7 @@ function AngleSetGroup({ renders, onView, onCompare, onDelete, onDownload }: {
       </button>
       {!collapsed && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, padding: 12 }}>
-          {renders.map(r => (
+          {sorted.map(r => (
             <RenderCard key={r.id} render={r} onView={onView} onCompare={onCompare} onDelete={onDelete} onDownload={onDownload} />
           ))}
         </div>
@@ -322,27 +327,34 @@ function AngleSetGroup({ renders, onView, onCompare, onDelete, onDownload }: {
 }
 
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
-function Lightbox({ render, onClose, compareMode, original, renders, onNav }: {
+
+function Lightbox({ render, onClose, compareMode, original, allRenders, onNav }: {
   render: Render
   onClose: () => void
   compareMode: boolean
   original?: string | null
-  renders: Render[]
+  allRenders: Render[]
   onNav: (r: Render) => void
 }) {
-  const successfulRenders = renders.filter(r => r.status === 'succeeded' && r.render_url)
+  const successfulRenders = allRenders.filter(r => r.status === 'succeeded' && r.render_url)
   const currentIdx = successfulRenders.findIndex(r => r.id === render.id)
 
-  function handleKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') onClose()
-    if (e.key === 'ArrowRight' && currentIdx < successfulRenders.length - 1) onNav(successfulRenders[currentIdx + 1])
-    if (e.key === 'ArrowLeft' && currentIdx > 0) onNav(successfulRenders[currentIdx - 1])
-  }
-
+  // Keyboard nav — proper deps, no stale closures, proper cleanup
   useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'ArrowRight' && currentIdx < successfulRenders.length - 1) {
+        onNav(successfulRenders[currentIdx + 1])
+      }
+      if (e.key === 'ArrowLeft' && currentIdx > 0) {
+        onNav(successfulRenders[currentIdx - 1])
+      }
+    }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  })
+  }, [onClose, onNav, currentIdx, successfulRenders.length]) // stable deps — no stale closures
+
+  if (!render.render_url) return null
 
   return (
     <div
@@ -363,14 +375,13 @@ function Lightbox({ render, onClose, compareMode, original, renders, onNav }: {
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: 'var(--accent)', marginBottom: 8, fontWeight: 900, letterSpacing: '.1em', textTransform: 'uppercase' }}>AI RENDER</div>
-              <img src={render.render_url!} alt="Render" style={{ maxHeight: '78vh', maxWidth: '43vw', borderRadius: 12, border: '1px solid var(--accent)', boxShadow: '0 0 30px rgba(79,127,255,0.3)' }} />
+              <img src={render.render_url} alt="Render" style={{ maxHeight: '78vh', maxWidth: '43vw', borderRadius: 12, border: '1px solid var(--accent)', boxShadow: '0 0 30px rgba(79,127,255,0.3)' }} />
             </div>
           </div>
         ) : (
-          <img src={render.render_url!} alt="Render" style={{ maxHeight: '82vh', maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)' }} />
+          <img src={render.render_url} alt="Render" style={{ maxHeight: '82vh', maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)' }} />
         )}
 
-        {/* Caption + nav */}
         <div style={{ marginTop: 12, display: 'flex', gap: 16, alignItems: 'center' }}>
           {currentIdx > 0 && (
             <button onClick={() => onNav(successfulRenders[currentIdx - 1])} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: '#fff', fontSize: 11 }}>
@@ -390,7 +401,6 @@ function Lightbox({ render, onClose, compareMode, original, renders, onNav }: {
         </div>
       </div>
 
-      {/* Close */}
       <button
         onClick={onClose}
         style={{
@@ -417,82 +427,109 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
   const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
 
-  // Form state
+  // Form
   const [vehiclePhotoUrl, setVehiclePhotoUrl] = useState('')
-  const [wrapDescription, setWrapDescription] = useState(initialDesc || `${vehicleType} vinyl wrap`.trim())
+  const [wrapDescription, setWrapDescription] = useState(
+    () => initialDesc || (vehicleType ? `${vehicleType} vinyl wrap` : '')
+  )
   const [lighting, setLighting] = useState('showroom')
   const [background, setBackground] = useState('studio')
   const [multiAngle, setMultiAngle] = useState(false)
+  const [activeTab, setActiveTab] = useState<'custom' | 'packages'>('custom')
 
-  // Gallery state
+  // Gallery
   const [viewingRender, setViewingRender] = useState<Render | null>(null)
   const [compareMode, setCompareMode] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [activeTab, setActiveTab] = useState<'custom' | 'packages'>('custom')
 
-  // Upload state
+  // Upload
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
-  // Polling
+  // Polling refs
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const isPollingRef = useRef(false)    // guard: prevents double-start
+  const rendersRef = useRef(renders)    // access current renders inside interval without dep
+  rendersRef.current = renders          // always sync
 
   const loadRenders = useCallback(async () => {
     try {
       const res = await fetch(`/api/renders/${jobId}`)
       const data = await res.json()
-      if (data.renders) {
-        setRenders(data.renders)
-        if (data.settings) setSettings(data.settings)
-      }
+      if (data.renders) { setRenders(data.renders) }
+      if (data.settings) { setSettings(data.settings) }
     } catch { /* silent */ }
     finally { setLoading(false) }
   }, [jobId])
 
   useEffect(() => { loadRenders() }, [loadRenders])
 
-  // Polling engine: poll all in-progress renders
+  // Cleanup on unmount only
   useEffect(() => {
-    const pending = renders.filter(r => r.status === 'pending' || r.status === 'processing')
-    if (pending.length === 0) {
+    return () => {
       if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
-      return
+      isPollingRef.current = false
     }
-    if (pollingRef.current) return
+  }, [])
 
-    let ticker = 0
-    pollingRef.current = setInterval(async () => {
-      ticker++
-      const fakeProgress = Math.min(92, 15 + ticker * 4)
-      setProgress(fakeProgress)
+  // Polling engine — watches pending count (a number) not the full renders array
+  const pendingCount = renders.filter(r => r.status === 'pending' || r.status === 'processing').length
 
-      let allDone = true
-      for (const r of pending) {
-        try {
-          const res = await fetch(`/api/renders/generate?renderId=${r.id}`)
-          const data = await res.json()
-          if (data.progress) setProgress(Math.max(fakeProgress, data.progress))
-          if (data.status === 'processing' || data.status === 'pending') {
-            allDone = false
-          } else {
-            setRenders(prev => prev.map(pr => pr.id === r.id ? { ...pr, ...data.render } : pr))
-          }
-        } catch { allDone = false }
-      }
-
-      if (allDone) {
-        clearInterval(pollingRef.current!)
-        pollingRef.current = null
+  useEffect(() => {
+    // All done — stop polling
+    if (pendingCount === 0) {
+      if (isPollingRef.current) {
+        if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+        isPollingRef.current = false
         setGenerating(false)
         setProgress(100)
         setTimeout(() => setProgress(0), 2500)
       }
+      return
+    }
+
+    // Already polling — don't start another interval
+    if (isPollingRef.current) return
+
+    isPollingRef.current = true
+    let ticker = 0
+
+    pollingRef.current = setInterval(async () => {
+      ticker++
+
+      // Monotonically increase fake progress (never goes backwards)
+      setProgress(prev => Math.min(92, Math.max(prev, 15 + ticker * 3)))
+
+      const currentPending = rendersRef.current.filter(
+        r => r.status === 'pending' || r.status === 'processing'
+      )
+
+      // All resolved inside the interval itself
+      if (currentPending.length === 0) {
+        clearInterval(pollingRef.current!)
+        pollingRef.current = null
+        isPollingRef.current = false
+        setGenerating(false)
+        setProgress(100)
+        setTimeout(() => setProgress(0), 2500)
+        return
+      }
+
+      // Poll each pending render
+      for (const r of currentPending) {
+        try {
+          const res = await fetch(`/api/renders/generate?renderId=${r.id}`)
+          if (!res.ok) continue
+          const data = await res.json()
+          if (data.status === 'succeeded' || data.status === 'failed' || data.status === 'canceled') {
+            setRenders(prev => prev.map(pr => pr.id === r.id ? { ...pr, ...data.render } : pr))
+          }
+        } catch { /* ignore individual failures, keep polling */ }
+      }
     }, 3500)
+  }, [pendingCount]) // only re-run when pending count changes (number, not array)
 
-    return () => { if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null } }
-  }, [renders])
-
-  // Photo upload directly to Supabase
+  // Photo upload
   async function handlePhotoUpload(file: File) {
     setUploadingPhoto(true)
     try {
@@ -509,7 +546,7 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
     finally { setUploadingPhoto(false) }
   }
 
-  // Fire generate request
+  // Fire render request
   async function fireGenerate(overrideBody?: Record<string, any>) {
     if (generating) return
     setError('')
@@ -517,7 +554,6 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
     setProgress(5)
 
     const body = overrideBody ?? {
-      jobId,
       vehiclePhotoUrl: vehiclePhotoUrl || undefined,
       wrapDescription,
       lighting,
@@ -534,27 +570,26 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Render failed')
+        setError(data.error || 'Render failed to start')
         setGenerating(false)
         setProgress(0)
         return
       }
 
-      if (data.renders) {
+      if (data.renders?.length) {
         setRenders(prev => [...data.renders, ...prev])
         setProgress(12)
         setProgressLabel(`${data.count} render${data.count !== 1 ? 's' : ''} queued — processing…`)
       }
     } catch {
-      setError('Network error')
+      setError('Network error — check your connection')
       setGenerating(false)
       setProgress(0)
     }
   }
 
-  // Package render
   async function handlePackage(pkg: typeof RENDER_PACKAGES[0]) {
-    if (!wrapDescription && !vehiclePhotoUrl) {
+    if (!wrapDescription.trim() && !vehiclePhotoUrl) {
       setError('Add a wrap description or vehicle photo first')
       return
     }
@@ -586,16 +621,14 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
   }
 
   function handleDownloadAll() {
-    succeededRenders.forEach((r, i) => {
-      setTimeout(() => handleDownload(r), i * 250)
-    })
+    // Snapshot the list at click time, stagger to avoid browser throttling
+    const toDownload = renders.filter(r => r.status === 'succeeded' && r.render_url)
+    toDownload.forEach((r, i) => setTimeout(() => handleDownload(r), i * 400))
   }
 
-  // Group renders: angle sets and singles
-  const succeededRenders = renders.filter(r => r.status === 'succeeded')
-  const pendingRenders = renders.filter(r => r.status === 'pending' || r.status === 'processing')
+  // Grouping
+  const succeededRenders = renders.filter(r => r.status === 'succeeded' && r.render_url)
 
-  // Group multi-angle sets
   const angleSets: Record<string, Render[]> = {}
   const singleRenders: Render[] = []
   for (const r of renders) {
@@ -608,7 +641,8 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
   }
 
   const totalCost = renders.reduce((a, r) => a + (r.cost_credits || 0), 0)
-  const remaining = settings.max_renders_per_job - renders.filter(r => r.status !== 'failed' && r.status !== 'canceled').length
+  const usedCount = renders.filter(r => r.status !== 'failed' && r.status !== 'canceled').length
+  const remaining = Math.max(0, settings.max_renders_per_job - usedCount)
 
   return (
     <div>
@@ -617,7 +651,7 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8, letterSpacing: '-.01em' }}>
+          <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Sparkles size={18} color="var(--accent)" />
             AI Photorealistic Renders
           </div>
@@ -629,25 +663,14 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {succeededRenders.length > 1 && (
-            <button
-              onClick={handleDownloadAll}
-              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', color: 'var(--text2)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}
-            >
+            <button onClick={handleDownloadAll} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', color: 'var(--text2)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
               <Download size={13} /> All
             </button>
           )}
-          <button
-            onClick={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')}
-            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: 'var(--text2)' }}
-            title={viewMode === 'grid' ? 'List view' : 'Grid view'}
-          >
+          <button onClick={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: 'var(--text2)' }} title={viewMode === 'grid' ? 'List view' : 'Grid view'}>
             {viewMode === 'grid' ? <List size={14} /> : <LayoutGrid size={14} />}
           </button>
-          <button
-            onClick={loadRenders}
-            style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: 'var(--text2)' }}
-            title="Refresh"
-          >
+          <button onClick={loadRenders} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: 'var(--text2)' }} title="Refresh">
             <RefreshCw size={14} />
           </button>
         </div>
@@ -658,13 +681,13 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
 
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 18, background: 'var(--surface2)', borderRadius: 10, padding: 3, width: 'fit-content' }}>
-          {[
-            { key: 'custom',   label: 'Custom Render', icon: <Sparkles size={12} /> },
+          {([
+            { key: 'custom',   label: 'Custom Render',  icon: <Sparkles size={12} /> },
             { key: 'packages', label: 'Render Packages', icon: <Package size={12} /> },
-          ].map(t => (
+          ] as const).map(t => (
             <button
               key={t.key}
-              onClick={() => setActiveTab(t.key as any)}
+              onClick={() => setActiveTab(t.key)}
               style={{
                 padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
                 background: activeTab === t.key ? 'var(--surface)' : 'transparent',
@@ -680,64 +703,48 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
           ))}
         </div>
 
-        {/* Shared: wrap description + photo */}
+        {/* Shared: photo + wrap description */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 18 }}>
-          {/* Left: photo */}
+          {/* Photo */}
           <div>
             <label style={{ fontSize: 11, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.07em', display: 'block', marginBottom: 8 }}>
-              Vehicle Photo <span style={{ fontWeight: 600, textTransform: 'none', color: 'var(--accent)' }}>— boosts realism with img2img</span>
+              Vehicle Photo <span style={{ color: 'var(--accent)', fontWeight: 600, textTransform: 'none' }}>— enables img2img</span>
             </label>
             {vehiclePhotoUrl ? (
               <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '4/3' }}>
                 <img src={vehiclePhotoUrl} alt="Vehicle" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <button
-                  onClick={() => setVehiclePhotoUrl('')}
-                  style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.65)', border: 'none', borderRadius: '50%', width: 26, height: 26, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
+                <button onClick={() => setVehiclePhotoUrl('')} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.65)', border: 'none', borderRadius: '50%', width: 26, height: 26, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <X size={12} />
                 </button>
                 <div style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(34,192,122,0.9)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 5, letterSpacing: '.06em' }}>
-                  IMG2IMG
+                  IMG2IMG MODE
                 </div>
               </div>
             ) : (
               <>
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    aspectRatio: '4/3', border: '2px dashed var(--border)', borderRadius: 10,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    cursor: 'pointer', background: 'var(--surface2)', transition: 'border-color 0.15s, background 0.15s',
-                  }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(79,127,255,0.04)' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface2)' }}
+                  style={{ aspectRatio: '4/3', border: '2px dashed var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', background: 'var(--surface2)', transition: 'border-color 0.15s, background 0.15s' }}
                 >
-                  {uploadingPhoto ? (
-                    <><Spinner size={24} /><span style={{ fontSize: 11, color: 'var(--text3)' }}>Uploading…</span></>
-                  ) : (
-                    <>
-                      <Camera size={28} color="var(--text3)" />
-                      <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 700 }}>Upload Vehicle Photo</span>
-                      <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: '0 20px', lineHeight: 1.5 }}>
-                        Enables img2img — wrap wraps around your actual vehicle
-                      </span>
-                    </>
-                  )}
+                  {uploadingPhoto
+                    ? <><Spinner size={24} /><span style={{ fontSize: 11, color: 'var(--text3)' }}>Uploading…</span></>
+                    : <>
+                        <Camera size={28} color="var(--text3)" />
+                        <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 700 }}>Upload Vehicle Photo</span>
+                        <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: '0 20px', lineHeight: 1.5 }}>Wrap applied to your actual vehicle via img2img</span>
+                      </>
+                  }
                 </div>
-                <input
-                  type="text"
-                  placeholder="Or paste image URL…"
-                  value={vehiclePhotoUrl}
-                  onChange={e => setVehiclePhotoUrl(e.target.value)}
-                  style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text1)', outline: 'none', boxSizing: 'border-box' }}
-                />
+                <input type="text" placeholder="Or paste photo URL…" value={vehiclePhotoUrl} onChange={e => setVehiclePhotoUrl(e.target.value)} style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text1)', outline: 'none', boxSizing: 'border-box' }} />
               </>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
               onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])} />
           </div>
 
-          {/* Right: wrap description */}
+          {/* Description */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.07em', display: 'block', marginBottom: 6 }}>
@@ -748,17 +755,9 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                 onChange={e => setWrapDescription(e.target.value)}
                 placeholder="e.g. matte black full wrap with red racing stripes, carbon fiber hood, chrome accents…"
                 rows={4}
-                style={{
-                  width: '100%', padding: '10px 12px',
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  borderRadius: 10, fontSize: 12, color: 'var(--text1)',
-                  resize: 'vertical', outline: 'none', boxSizing: 'border-box',
-                  fontFamily: 'inherit', lineHeight: 1.5,
-                }}
+                style={{ width: '100%', padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, color: 'var(--text1)', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: 1.5 }}
               />
             </div>
-
-            {/* Quick fill chips */}
             <div>
               <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700 }}>Quick add:</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
@@ -766,9 +765,9 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                   <button
                     key={chip}
                     onClick={() => setWrapDescription(d => d ? `${d}, ${chip}` : chip)}
-                    style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text3)', transition: 'all 0.1s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
+                    style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text3)', transition: 'all 0.1s' }}
                   >
                     + {chip}
                   </button>
@@ -778,26 +777,14 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
           </div>
         </div>
 
-        {/* ── Custom tab ── */}
+        {/* Custom tab */}
         {activeTab === 'custom' && (
           <>
-            {/* Lighting */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.07em', display: 'block', marginBottom: 8 }}>Lighting</label>
               <div style={{ display: 'flex', gap: 6 }}>
                 {LIGHTING_OPTIONS.map(({ key, label, desc, Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setLighting(key)}
-                    title={desc}
-                    style={{
-                      flex: 1, padding: '9px 6px', borderRadius: 9, cursor: 'pointer', border: 'none',
-                      background: lighting === key ? 'rgba(79,127,255,0.15)' : 'var(--surface2)',
-                      outline: lighting === key ? '2px solid var(--accent)' : '1px solid var(--border)',
-                      transition: 'all 0.15s',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                    }}
-                  >
+                  <button key={key} onClick={() => setLighting(key)} title={desc} style={{ flex: 1, padding: '9px 6px', borderRadius: 9, cursor: 'pointer', border: 'none', background: lighting === key ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', outline: lighting === key ? '2px solid var(--accent)' : '1px solid var(--border)', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
                     <Icon size={15} color={lighting === key ? 'var(--accent)' : 'var(--text3)'} />
                     <span style={{ fontSize: 10, fontWeight: 800, color: lighting === key ? 'var(--accent)' : 'var(--text2)' }}>{label}</span>
                   </button>
@@ -805,22 +792,11 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
               </div>
             </div>
 
-            {/* Background */}
             <div style={{ marginBottom: 18 }}>
               <label style={{ fontSize: 11, fontWeight: 900, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.07em', display: 'block', marginBottom: 8 }}>Background</label>
               <div style={{ display: 'flex', gap: 6 }}>
                 {BACKGROUND_OPTIONS.map(({ key, label, Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setBackground(key)}
-                    style={{
-                      flex: 1, padding: '9px 6px', borderRadius: 9, cursor: 'pointer', border: 'none',
-                      background: background === key ? 'rgba(79,127,255,0.15)' : 'var(--surface2)',
-                      outline: background === key ? '2px solid var(--accent)' : '1px solid var(--border)',
-                      transition: 'all 0.15s',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                    }}
-                  >
+                  <button key={key} onClick={() => setBackground(key)} style={{ flex: 1, padding: '9px 6px', borderRadius: 9, cursor: 'pointer', border: 'none', background: background === key ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', outline: background === key ? '2px solid var(--accent)' : '1px solid var(--border)', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
                     <Icon size={14} color={background === key ? 'var(--accent)' : 'var(--text3)'} />
                     <span style={{ fontSize: 10, fontWeight: 800, color: background === key ? 'var(--accent)' : 'var(--text2)' }}>{label}</span>
                   </button>
@@ -828,7 +804,6 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
               </div>
             </div>
 
-            {/* Multi-angle toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={multiAngle} onChange={e => setMultiAngle(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
@@ -837,14 +812,13 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                   <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 8 }}>Original · Front · Side · Rear · ¾ View</span>
                 </div>
               </label>
-              {vehiclePhotoUrl && multiAngle && (
+              {multiAngle && (
                 <span style={{ fontSize: 10, color: 'var(--text3)', background: 'var(--surface2)', padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
                   5 renders · ~60 sec
                 </span>
               )}
             </div>
 
-            {/* Generate button */}
             <button
               onClick={() => fireGenerate()}
               disabled={generating || (!wrapDescription.trim() && !vehiclePhotoUrl)}
@@ -852,8 +826,7 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                 width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
                 cursor: generating || (!wrapDescription.trim() && !vehiclePhotoUrl) ? 'not-allowed' : 'pointer',
                 background: generating || (!wrapDescription.trim() && !vehiclePhotoUrl)
-                  ? 'var(--surface2)'
-                  : 'linear-gradient(135deg, var(--accent) 0%, #22d3ee 100%)',
+                  ? 'var(--surface2)' : 'linear-gradient(135deg, var(--accent), #22d3ee)',
                 color: generating || (!wrapDescription.trim() && !vehiclePhotoUrl) ? 'var(--text3)' : '#fff',
                 fontSize: 15, fontWeight: 900, letterSpacing: '.03em',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
@@ -861,26 +834,25 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                 boxShadow: (!generating && (wrapDescription.trim() || vehiclePhotoUrl)) ? '0 4px 20px rgba(79,127,255,0.4)' : 'none',
               }}
             >
-              {generating ? <><Spinner size={16} color="var(--text3)" /> Generating…</> : <><Sparkles size={16} /> Generate Render{multiAngle && vehiclePhotoUrl ? ' (5 Angles)' : ''}</>}
+              {generating
+                ? <><Spinner size={16} color="var(--text3)" /> Generating…</>
+                : <><Sparkles size={16} /> Generate Render{multiAngle ? ' (5 Angles)' : ''}</>
+              }
             </button>
           </>
         )}
 
-        {/* ── Packages tab ── */}
+        {/* Packages tab */}
         {activeTab === 'packages' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             {RENDER_PACKAGES.map(pkg => (
               <button
                 key={pkg.key}
                 onClick={() => handlePackage(pkg)}
-                disabled={generating || (!wrapDescription.trim() && !vehiclePhotoUrl)}
-                style={{
-                  padding: '16px 14px', borderRadius: 12, cursor: generating ? 'not-allowed' : 'pointer',
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  textAlign: 'left', transition: 'all 0.15s', opacity: generating ? 0.6 : 1,
-                }}
+                disabled={generating}
                 onMouseEnter={e => { if (!generating) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(79,127,255,0.06)' } }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface2)' }}
+                style={{ padding: '16px 14px', borderRadius: 12, cursor: generating ? 'not-allowed' : 'pointer', background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'left', transition: 'all 0.15s', opacity: generating ? 0.6 : 1 }}
               >
                 <div style={{ fontSize: 22, marginBottom: 8 }}>{pkg.icon}</div>
                 <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--text1)', marginBottom: 4 }}>{pkg.label}</div>
@@ -907,18 +879,18 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
         )}
       </div>
 
-      {/* ── Pending strip ── */}
-      {pendingRenders.length > 0 && (
+      {/* Pending strip */}
+      {pendingCount > 0 && (
         <div style={{ marginBottom: 14, padding: '10px 16px', background: 'rgba(79,127,255,0.07)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
           <Spinner size={14} />
           <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>
-            {pendingRenders.length} render{pendingRenders.length !== 1 ? 's' : ''} processing
+            {pendingCount} render{pendingCount !== 1 ? 's' : ''} processing
           </span>
           <span style={{ fontSize: 11, color: 'var(--text3)' }}>Results appear automatically</span>
         </div>
       )}
 
-      {/* ── Gallery ── */}
+      {/* Gallery */}
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, color: 'var(--text3)', gap: 10 }}>
           <Spinner size={18} /> Loading renders…
@@ -928,11 +900,10 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
           <Sparkles size={44} color="var(--text3)" style={{ marginBottom: 16, opacity: 0.3 }} />
           <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text2)', marginBottom: 8 }}>No renders yet</div>
           <div style={{ fontSize: 13, color: 'var(--text3)', maxWidth: 340, lineHeight: 1.6 }}>
-            Enter a wrap description and click <strong>Generate Render</strong>, or pick a <strong>Render Package</strong> for a one-click presentation set.
+            Enter a wrap description above and click <strong>Generate Render</strong>, or try a <strong>Render Package</strong> for a full presentation set.
           </div>
         </div>
       ) : viewMode === 'list' ? (
-        /* List view */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {renders.map(render => (
             <div key={render.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
@@ -949,7 +920,7 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                   {render.wrap_description || render.prompt?.slice(0, 70)}
                 </div>
               </div>
-              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, textTransform: 'uppercase', letterSpacing: '.05em', background: render.status === 'succeeded' ? 'rgba(34,192,122,0.1)' : render.status === 'failed' ? 'rgba(242,90,90,0.1)' : 'rgba(79,127,255,0.1)', color: render.status === 'succeeded' ? 'var(--green)' : render.status === 'failed' ? 'var(--red)' : 'var(--accent)', flexShrink: 0 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 5, textTransform: 'uppercase', letterSpacing: '.05em', flexShrink: 0, background: render.status === 'succeeded' ? 'rgba(34,192,122,0.1)' : render.status === 'failed' ? 'rgba(242,90,90,0.1)' : 'rgba(79,127,255,0.1)', color: render.status === 'succeeded' ? 'var(--green)' : render.status === 'failed' ? 'var(--red)' : 'var(--accent)' }}>
                 {render.status}
               </span>
               {render.render_url && (
@@ -963,20 +934,18 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
           ))}
         </div>
       ) : (
-        /* Grid view — angle sets + singles */
         <div>
-          {/* Multi-angle sets */}
+          {/* Angle sets */}
           {Object.entries(angleSets).map(([setId, setRenders]) => (
             <AngleSetGroup
               key={setId}
               renders={setRenders}
-              onView={(r) => { setViewingRender(r); setCompareMode(false) }}
-              onCompare={(r) => { setViewingRender(r); setCompareMode(true) }}
+              onView={r => { setViewingRender(r); setCompareMode(false) }}
+              onCompare={r => { setViewingRender(r); setCompareMode(true) }}
               onDelete={handleDelete}
               onDownload={handleDownload}
             />
           ))}
-
           {/* Single renders */}
           {singleRenders.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
@@ -984,8 +953,8 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
                 <RenderCard
                   key={render.id}
                   render={render}
-                  onView={(r) => { setViewingRender(r); setCompareMode(false) }}
-                  onCompare={(r) => { setViewingRender(r); setCompareMode(true) }}
+                  onView={r => { setViewingRender(r); setCompareMode(false) }}
+                  onCompare={r => { setViewingRender(r); setCompareMode(true) }}
                   onDelete={handleDelete}
                   onDownload={handleDownload}
                 />
@@ -996,14 +965,14 @@ export default function RenderEngine({ jobId, orgId, wrapDescription: initialDes
       )}
 
       {/* Lightbox */}
-      {viewingRender && (
+      {viewingRender?.render_url && (
         <Lightbox
           render={viewingRender}
           onClose={() => setViewingRender(null)}
           compareMode={compareMode}
           original={viewingRender.original_photo_url}
-          renders={renders}
-          onNav={(r) => setViewingRender(r)}
+          allRenders={renders}
+          onNav={r => setViewingRender(r)}
         />
       )}
     </div>
