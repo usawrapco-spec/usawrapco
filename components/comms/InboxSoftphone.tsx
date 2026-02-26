@@ -101,6 +101,8 @@ export function InboxSoftphone() {
   // Keep the active number while in-call so we can save the note after hang-up
   const prevNumberRef = useRef('')
   const prevNameRef = useRef('')
+  // Ref keeps callNote in sync so the hang-up effect sees the latest value
+  const callNoteRef = useRef('')
 
   // ── Track active number before it resets ──────────────────
   useEffect(() => {
@@ -109,6 +111,9 @@ export function InboxSoftphone() {
       if (phone.activeName) prevNameRef.current = phone.activeName
     }
   }, [phone?.activeNumber, phone?.callState])
+
+  // ── Keep callNoteRef in sync with callNote state ─────────
+  useEffect(() => { callNoteRef.current = callNote }, [callNote])
 
   // ── Auto-open on active call ──────────────────────────────
   useEffect(() => {
@@ -127,10 +132,11 @@ export function InboxSoftphone() {
       setSmsText('')
       setSmsSent(false)
 
-      // Auto-save call note if one was written
-      if (callNote.trim() && prevNumberRef.current) {
-        saveCallNote(prevNumberRef.current, callNote.trim())
+      // Auto-save call note if one was written (use ref to avoid stale closure)
+      if (callNoteRef.current.trim() && prevNumberRef.current) {
+        saveCallNote(prevNumberRef.current, callNoteRef.current.trim())
         setCallNote('')
+        callNoteRef.current = ''
       }
     }
   }, [phone?.callState]) // eslint-disable-line react-hooks/exhaustive-deps

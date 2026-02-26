@@ -820,8 +820,6 @@ export default function InstallerJobCard({
               {installAddr && (
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(installAddr)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     color: 'var(--accent)', textDecoration: 'none', fontSize: 13, fontWeight: 600,
@@ -898,7 +896,7 @@ export default function InstallerJobCard({
           {[
             { label: 'Pre-check', done: preCheckComplete },
             { label: 'Before Photos', done: beforeComplete },
-            { label: 'Clocked In', done: isTimerActive || (!isTimerActive && timer.elapsed > 0) },
+            { label: 'Clocked In', done: isTimerActive },
             { label: 'After Photos', done: afterComplete },
           ].map(cp => (
             <div key={cp.label} style={{
@@ -1092,19 +1090,45 @@ export default function InstallerJobCard({
                 {/* Controls */}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' as const }}>
                   {!isTimerActive ? (
-                    <button
-                      onClick={() => onStartTimer(jobId)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '14px 36px', borderRadius: 12, border: 'none',
-                        background: 'var(--green)',
-                        color: '#0d1a10',
-                        fontSize: 15, fontWeight: 900, cursor: 'pointer',
-                        fontFamily: 'Barlow Condensed, sans-serif',
-                      }}
-                    >
-                      <Play size={18} /> Clock In
-                    </button>
+                    <>
+                      {installLat && installLng && gpsStatus !== 'verified' ? (
+                        <div style={{ textAlign: 'center' as const }}>
+                          <div style={{
+                            padding: '10px 20px', borderRadius: 10,
+                            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                            fontSize: 12, color: 'var(--amber)', fontWeight: 700, marginBottom: 8,
+                          }}>
+                            Verify GPS location above before clocking in
+                          </div>
+                          <button
+                            onClick={handleGPSCheckin}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 8, margin: '0 auto',
+                              padding: '12px 28px', borderRadius: 10, border: 'none',
+                              background: 'var(--amber)', color: '#1a1400',
+                              fontSize: 14, fontWeight: 900, cursor: 'pointer',
+                              fontFamily: 'Barlow Condensed, sans-serif',
+                            }}
+                          >
+                            <Navigation size={16} /> {gpsStatus === 'checking' ? 'Getting location...' : 'Verify Location'}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onStartTimer(jobId)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '14px 36px', borderRadius: 12, border: 'none',
+                            background: 'var(--green)',
+                            color: '#0d1a10',
+                            fontSize: 15, fontWeight: 900, cursor: 'pointer',
+                            fontFamily: 'Barlow Condensed, sans-serif',
+                          }}
+                        >
+                          <Play size={18} /> Clock In
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <>
                       {!timer.paused ? (
@@ -1155,7 +1179,7 @@ export default function InstallerJobCard({
           id="photos"
           icon={<Camera size={16} />}
           title="Photo Checklist"
-          badge={`${Object.values(photoStatus).filter(Boolean).length}/${PHOTO_ITEMS.filter(p => p.required).length} req`}
+          badge={`${PHOTO_ITEMS.filter(p => p.required && photoStatus[p.id]).length}/${PHOTO_ITEMS.filter(p => p.required).length} req`}
         />
         {open('photos') && (
           <div style={{ padding: '14px 18px' }}>
@@ -1394,7 +1418,7 @@ export default function InstallerJobCard({
                     fontWeight: 700,
                   }}>
                     Waste: {(((parseFloat(matSqFt) - parseFloat(matEstSq)) / parseFloat(matEstSq)) * 100).toFixed(1)}%
-                    {(((parseFloat(matSqFt) - parseFloat(matEstSq)) / parseFloat(matEstSq) * 100)) > 15 && ' ⚠ Over 15% — will flag PM'}
+                    {(((parseFloat(matSqFt) - parseFloat(matEstSq)) / parseFloat(matEstSq) * 100)) > 15 && ' — Over 15%, PM will be notified'}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 8 }}>
