@@ -42,6 +42,8 @@ import {
   Kanban,
   Waves,
   Glasses,
+  Truck,
+  Sparkles,
 } from 'lucide-react'
 
 /* ─── Quick create items for the bottom sheet ─────────────────────── */
@@ -85,6 +87,9 @@ const MORE_ITEMS = [
   { href: '/contacts',     label: 'Contacts',       icon: Contact },
   { href: '/comms',        label: 'Comms',          icon: MessageSquare },
   { href: '/bids',         label: 'Bids',           icon: Hammer },
+  // Fleet
+  { href: '/fleet',        label: 'Fleet Hub',      icon: Truck },
+  { href: '/agents',       label: 'AI Agents',      icon: Sparkles },
   // More
   { href: '/dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
   { href: '/tasks',        label: 'Tasks',          icon: CheckSquare },

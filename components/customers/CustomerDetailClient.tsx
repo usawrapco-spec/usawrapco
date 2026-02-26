@@ -8,7 +8,7 @@ import {
   Edit2, Save, X, ExternalLink,
   Activity, Link2, ClipboardList, StickyNote, FileText, DollarSign,
   Heart, Tag, Plus, Check, Star, TrendingUp, Clock, Trash2, ChevronRight,
-  Car, Users, AlertCircle, CreditCard, Receipt
+  Car, Users, AlertCircle, CreditCard, Receipt, Truck, Loader2, Shield
 } from 'lucide-react'
 import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
 import ClickToCallButton from '@/components/phone/ClickToCallButton'
@@ -140,10 +140,11 @@ const TAG_COLORS: Record<CustomerTag, string> = {
   referral: '#f59e0b',
 }
 
-type TabKey = 'activity' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments'
+type TabKey = 'activity' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments' | 'fleet'
 
 const TAB_DEFS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'activity', label: 'Activity', Icon: Activity },
+  { key: 'fleet', label: 'Fleet', Icon: Truck },
   { key: 'associations', label: 'Associations', Icon: Link2 },
   { key: 'tasks', label: 'Tasks', Icon: ClipboardList },
   { key: 'notes', label: 'Notes', Icon: StickyNote },
@@ -388,6 +389,169 @@ function healthLabel(score: number): string {
   if (score >= 70) return 'Healthy'
   if (score >= 40) return 'At Risk'
   return 'Needs Attention'
+}
+
+// ─── Customer Fleet Panel ─────────────────────────────────────────────────────
+
+interface FleetVehicle {
+  id: string
+  year: string | null
+  make: string | null
+  model: string | null
+  vin: string | null
+  color: string | null
+  wrap_status: string
+}
+
+function CustomerFleetPanel({ customerId, orgId }: { customerId: string; orgId: string }) {
+  const [vehicles, setVehicles] = useState<FleetVehicle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [addForm, setAddForm] = useState({ year: '', make: '', model: '', vin: '', color: '' })
+  const [saving, setSaving] = useState(false)
+  const supabase = createClient()
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('fleet_vehicles')
+      .select('id, year, make, model, vin, color, wrap_status')
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false })
+    setVehicles(data || [])
+    setLoading(false)
+  }, [customerId, supabase])
+
+  useEffect(() => { load() }, [load])
+
+  const addVehicle = async () => {
+    setSaving(true)
+    await fetch('/api/fleet/vehicles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...addForm, customer_id: customerId, source: 'customer-onboarding' }),
+    })
+    setShowAdd(false)
+    setAddForm({ year: '', make: '', model: '', vin: '', color: '' })
+    setSaving(false)
+    load()
+  }
+
+  const WRAP_BADGE: Record<string, { bg: string; color: string }> = {
+    none: { bg: 'rgba(90,96,128,0.15)', color: 'var(--text3)' },
+    quoted: { bg: 'rgba(245,158,11,0.15)', color: 'var(--amber)' },
+    scheduled: { bg: 'rgba(79,127,255,0.15)', color: 'var(--accent)' },
+    'in-progress': { bg: 'rgba(139,92,246,0.15)', color: 'var(--purple)' },
+    wrapped: { bg: 'rgba(34,192,122,0.15)', color: 'var(--green)' },
+  }
+
+  const fs: React.CSSProperties = {
+    width: '100%', padding: '8px 10px', borderRadius: 7,
+    background: 'var(--surface2)', border: '1px solid var(--border)',
+    color: 'var(--text1)', fontSize: 12, outline: 'none',
+  }
+
+  return (
+    <div style={{ padding: '16px 20px' }}>
+      {/* Privacy banner */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8,
+        background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.15)',
+        marginBottom: 16, fontSize: 12, color: 'var(--text2)',
+      }}>
+        <Shield size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+        Privacy Mode: Only name and business name are stored for communication safety.
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Customer Fleet ({vehicles.length})
+        </div>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 6,
+            fontSize: 12, fontWeight: 600, background: 'var(--accent)', color: '#fff',
+            border: 'none', cursor: 'pointer',
+          }}
+        >
+          <Plus size={12} /> Add Vehicle
+        </button>
+      </div>
+
+      {showAdd && (
+        <div style={{
+          padding: 12, borderRadius: 8, background: 'var(--surface2)', marginBottom: 12,
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 8 }}>
+            <input style={fs} placeholder="Year" value={addForm.year} onChange={e => setAddForm(f => ({ ...f, year: e.target.value }))} />
+            <input style={fs} placeholder="Make" value={addForm.make} onChange={e => setAddForm(f => ({ ...f, make: e.target.value }))} />
+            <input style={fs} placeholder="Model" value={addForm.model} onChange={e => setAddForm(f => ({ ...f, model: e.target.value }))} />
+            <input style={{ ...fs, fontFamily: 'JetBrains Mono, monospace' }} placeholder="VIN" value={addForm.vin}
+              onChange={e => setAddForm(f => ({ ...f, vin: e.target.value.toUpperCase() }))} maxLength={17} />
+            <input style={fs} placeholder="Color" value={addForm.color} onChange={e => setAddForm(f => ({ ...f, color: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            <button onClick={() => setShowAdd(false)} style={{
+              padding: '6px 12px', borderRadius: 6, fontSize: 12, background: 'none',
+              border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer',
+            }}>Cancel</button>
+            <button onClick={addVehicle} disabled={saving} style={{
+              padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+              background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+              Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 24, color: 'var(--text3)' }}>
+          <Loader2 size={20} className="animate-spin" style={{ margin: '0 auto' }} />
+        </div>
+      ) : vehicles.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--text3)', fontSize: 13 }}>
+          <Truck size={24} style={{ margin: '0 auto 6px', display: 'block', opacity: 0.3 }} />
+          No vehicles in this customer&apos;s fleet yet.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {vehicles.map(v => {
+            const wb = WRAP_BADGE[v.wrap_status] || WRAP_BADGE.none
+            return (
+              <div key={v.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                borderRadius: 8, background: 'var(--surface2)',
+              }}>
+                <Truck size={16} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>
+                    {[v.year, v.make, v.model].filter(Boolean).join(' ') || 'Unknown'}
+                    {v.color && <span style={{ color: 'var(--text3)', fontWeight: 400, marginLeft: 6 }}>{v.color}</span>}
+                  </div>
+                  {v.vin && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace', marginTop: 2 }}>
+                      VIN: {v.vin}
+                    </div>
+                  )}
+                </div>
+                <span style={{
+                  padding: '3px 10px', borderRadius: 12, fontSize: 10, fontWeight: 700,
+                  background: wb.bg, color: wb.color, textTransform: 'capitalize',
+                }}>
+                  {v.wrap_status}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -1550,6 +1714,10 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'fleet' && (
+          <CustomerFleetPanel customerId={customer.id} orgId={customer.org_id || ''} />
         )}
       </div>
 

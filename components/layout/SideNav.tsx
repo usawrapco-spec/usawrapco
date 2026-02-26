@@ -12,7 +12,7 @@ import {
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
   Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench,
-  Navigation, Waves, Glasses, Trophy, Filter, Store, Kanban,
+  Navigation, Waves, Glasses, Trophy, Filter, Store, Kanban, Sparkles,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -101,6 +101,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/expenses',     label: 'Expenses',        icon: Receipt },
       { href: '/payroll',      label: 'Payroll',         icon: DollarSign,   roles: ['owner', 'admin'] },
       { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,        roles: ['owner', 'admin'] },
+      { href: '/fleet',        label: 'Fleet Hub',       icon: Truck,        roles: ['owner', 'admin'] },
       { href: '/install/bids', label: 'Installer Bids',  icon: ClipboardList },
     ],
   },
@@ -133,6 +134,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/settings',     label: 'Org Settings', icon: Settings },
       { href: '/integrations', label: 'Integrations', icon: Globe },
+      { href: '/agents',       label: 'AI Agents',    icon: Sparkles, roles: ['owner', 'admin'] },
     ],
   },
   {

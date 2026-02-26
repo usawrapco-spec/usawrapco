@@ -7,15 +7,26 @@ import Link from 'next/link'
 import {
   DollarSign, Briefcase, TrendingUp, Wrench, Calendar,
   FileText, Users, Package, ChevronRight, ArrowUpRight,
-  Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap, Cloud, Sun,
+  Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap, Cloud, Sun, Truck,
 } from 'lucide-react'
 import AIBriefing from '@/components/dashboard/AIBriefing'
 import GoalsTracker from '@/components/dashboard/GoalsTracker'
+
+interface DashboardAppointment {
+  id: string
+  customer_name: string
+  appointment_type: string
+  date: string
+  time: string
+  assigned_name?: string
+  status: string
+}
 
 interface Props {
   profile: Profile
   projects: Project[]
   canSeeFinancials: boolean
+  todayAppointments?: DashboardAppointment[]
 }
 
 // Animated counter hook
@@ -105,7 +116,57 @@ function WxIcon({ code, size = 14 }: { code: number; size?: number }) {
   return <Sun size={size} style={{ color: '#f59e0b' }} />
 }
 
-export default function DashboardHero({ profile, projects, canSeeFinancials }: Props) {
+function FleetOpportunityWidget() {
+  const [stats, setStats] = useState<{ unwrapped: number; fleetCustomers: number } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/fleet/vehicles')
+      .then(r => r.json())
+      .then(data => {
+        const vehicles = data.vehicles || []
+        const unwrapped = vehicles.filter((v: any) => v.wrap_status === 'none' && v.customer_id)
+        const customerIds = new Set(unwrapped.map((v: any) => v.customer_id))
+        setStats({ unwrapped: unwrapped.length, fleetCustomers: customerIds.size })
+      })
+      .catch(() => setStats({ unwrapped: 0, fleetCustomers: 0 }))
+  }, [])
+
+  if (!stats || (stats.unwrapped === 0 && stats.fleetCustomers === 0)) return null
+
+  return (
+    <Link href="/fleet?tab=vehicles&filter=unwrapped" style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      padding: '14px 20px', borderRadius: 12,
+      background: 'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(245,158,11,0.02) 100%)',
+      border: '1px solid rgba(245,158,11,0.2)',
+      textDecoration: 'none', transition: 'border-color 0.15s',
+    }}>
+      <div style={{
+        width: 38, height: 38, borderRadius: 10,
+        background: 'rgba(245,158,11,0.12)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <Truck size={18} style={{ color: 'var(--amber)' }} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>
+          Fleet Wrap Opportunities
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+          <span style={{ fontWeight: 700, color: 'var(--amber)', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stats.unwrapped}
+          </span> vehicles unwrapped across{' '}
+          <span style={{ fontWeight: 700, color: 'var(--amber)', fontFamily: 'JetBrains Mono, monospace' }}>
+            {stats.fleetCustomers}
+          </span> customer fleets
+        </div>
+      </div>
+      <ChevronRight size={16} style={{ color: 'var(--text3)' }} />
+    </Link>
+  )
+}
+
+export default function DashboardHero({ profile, projects, canSeeFinancials, todayAppointments = [] }: Props) {
   const router = useRouter()
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -693,6 +754,9 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
         </div>
       </div>
 
+      {/* Fleet Wrap Opportunities Widget */}
+      <FleetOpportunityWidget />
+
       {/* Conversion Funnel + Top Customers */}
       {canSeeFinancials && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -778,6 +842,72 @@ export default function DashboardHero({ profile, projects, canSeeFinancials }: P
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Today's Appointments */}
+      {todayAppointments.length > 0 && (
+        <div style={{
+          background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+          borderRadius: 16, padding: '16px 24px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CalendarClock size={14} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Today&apos;s Appointments
+              </span>
+              <span style={{
+                fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
+                color: 'var(--accent)', background: 'rgba(79,127,255,0.1)',
+                padding: '2px 8px', borderRadius: 6,
+              }}>
+                {todayAppointments.length}
+              </span>
+            </div>
+            <Link href="/schedule" style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 2 }}>
+              Schedule <ArrowUpRight size={11} />
+            </Link>
+          </div>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+            {todayAppointments.map(appt => {
+              const statusColor = appt.status === 'confirmed' ? 'var(--green)' : appt.status === 'no_show' ? 'var(--text3)' : 'var(--amber)'
+              return (
+                <Link
+                  key={appt.id}
+                  href="/schedule"
+                  style={{
+                    flexShrink: 0, minWidth: 180, padding: '10px 14px',
+                    borderRadius: 10, textDecoration: 'none',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--card-border)',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--card-border)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Clock size={11} style={{ color: 'var(--accent)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {appt.time}
+                    </span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, color: statusColor,
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                    }}>
+                      {appt.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {appt.customer_name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                    {appt.appointment_type}{appt.assigned_name ? ` \u00B7 ${appt.assigned_name}` : ''}
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </div>
       )}
