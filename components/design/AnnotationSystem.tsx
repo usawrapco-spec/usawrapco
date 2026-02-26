@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import {
   Pin, Pencil, ArrowRight, Square, Type, Eraser, Trash2, Mic,
-  MicOff, Video, VideoOff, Check, CheckSquare, X, ChevronDown,
-  ChevronUp, Plus, Play, Pause, Eye, EyeOff, Send, MessageSquare,
-  ClipboardList, ListChecks, StopCircle, Loader2, Volume2,
+  Video, Check, CheckSquare, X, ChevronDown,
+  ChevronUp, Plus, Play, Pause, Send,
+  ListChecks, StopCircle, Loader2, Volume2,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,8 +165,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
   const voiceRecorderRef = useRef<MediaRecorder | null>(null)
   const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const voiceChunksRef = useRef<Blob[]>([])
-  const [playingNoteId, setPlayingNoteId] = useState<string | null>(null)
-  const audioRefs = useRef<Record<string, HTMLAudioElement>>({})
+  const voiceRecordTimeRef = useRef(0)
 
   // ── Video walkthroughs
   const [videoWalkthroughs, setVideoWalkthroughs] = useState<DesignVideoWalkthrough[]>([])
@@ -177,6 +176,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
   const videoRecorderRef = useRef<MediaRecorder | null>(null)
   const videoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const videoChunksRef = useRef<Blob[]>([])
+  const videoRecordTimeRef = useRef(0)
 
   // ── Instructions
   const [instructions, setInstructions] = useState<DesignInstruction[]>([])
@@ -231,6 +231,16 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
     }
   }, [designProjectId])
 
+  // ── Cleanup timers on unmount ──────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (voiceTimerRef.current) clearInterval(voiceTimerRef.current)
+      if (videoTimerRef.current) clearInterval(videoTimerRef.current)
+      voiceRecorderRef.current?.stop()
+      videoRecorderRef.current?.stop()
+    }
+  }, [])
+
   // ── Draw markups on overlay canvas ─────────────────────────────────────
   useEffect(() => {
     renderMarkupCanvas()
@@ -243,6 +253,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
 
     const W = container.clientWidth
     const H = container.clientHeight
+    if (!W || !H) return
     canvas.width = W
     canvas.height = H
 
@@ -313,7 +324,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
   }
 
   // ── Pointer events for markup drawing ──────────────────────────────────
-  function getRelPct(e: React.PointerEvent): { x: number; y: number } {
+  function getRelPct(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const container = canvasContainerRef.current
     if (!container) return { x: 0, y: 0 }
     const rect = container.getBoundingClientRect()
@@ -381,7 +392,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
   }
 
   async function onPointerUp(e: React.PointerEvent) {
-    if (!isDrawingRef.current && annotMode !== 'pin') return
+    if (!isDrawingRef.current) return
     isDrawingRef.current = false
     const pos = getRelPct(e)
     const color = LAYER_CFG[activeLayer].color
@@ -410,7 +421,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
   function onOverlayClick(e: React.MouseEvent) {
     if (annotMode === 'none') return
     e.stopPropagation()
-    const pos = getRelPct(e as unknown as React.PointerEvent)
+    const pos = getRelPct(e)
     const posPct = { x_pct: pos.x, y_pct: pos.y }
 
     if (annotMode === 'pin') {
@@ -423,7 +434,64 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
       setPendingTextPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
       setPendingTextVal('')
       textInputRef.current = posPct
+    } else if (annotMode === 'erase') {
+      eraseNearestMarkup(pos.x, pos.y)
     }
+  }
+
+  function eraseNearestMarkup(clickX: number, clickY: number) {
+    const container = canvasContainerRef.current
+    if (!container) return
+    const W = container.clientWidth
+    const H = container.clientHeight
+    // Convert click pct to pixels for distance math
+    const cx = (clickX / 100) * W
+    const cy = (clickY / 100) * H
+    const HIT = 20 // pixel hit radius
+
+    // Find the first matching markup for the active layer
+    const layerMarkups = markups.filter(m => m.layer === activeLayer)
+    for (const m of layerMarkups) {
+      let hit = false
+      if (m.markup_type === 'draw') {
+        const pts: { x: number; y: number }[] = m.data.points || []
+        hit = pts.some(p => {
+          const dx = (p.x / 100) * W - cx
+          const dy = (p.y / 100) * H - cy
+          return Math.sqrt(dx * dx + dy * dy) < HIT
+        })
+      } else if (m.markup_type === 'arrow') {
+        const { x1, y1, x2, y2 } = m.data
+        // Hit test: distance from click to line segment
+        const ax = (x1 / 100) * W, ay = (y1 / 100) * H
+        const bx = (x2 / 100) * W, by = (y2 / 100) * H
+        hit = distToSegment(cx, cy, ax, ay, bx, by) < HIT
+      } else if (m.markup_type === 'rect') {
+        const { x, y, width, height } = m.data
+        const rx = (x / 100) * W, ry = (y / 100) * H
+        const rw = (width / 100) * W, rh = (height / 100) * H
+        // Hit if inside rect or within HIT px of border
+        hit = cx >= rx - HIT && cx <= rx + rw + HIT && cy >= ry - HIT && cy <= ry + rh + HIT
+      } else if (m.markup_type === 'text') {
+        const { x, y } = m.data
+        const tx = (x / 100) * W, ty = (y / 100) * H
+        const dx = tx - cx, dy = ty - cy
+        hit = Math.sqrt(dx * dx + dy * dy) < HIT * 2
+      }
+      if (hit) {
+        deleteMarkup(m.id)
+        return
+      }
+    }
+  }
+
+  function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+    const dx = bx - ax, dy = by - ay
+    const lenSq = dx * dx + dy * dy
+    if (lenSq === 0) return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2)
+    let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+    t = Math.max(0, Math.min(1, t))
+    return Math.sqrt((px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2)
   }
 
   async function saveMarkup({ type, data, color }: { type: string; data: any; color: string }) {
@@ -535,11 +603,16 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       voiceChunksRef.current = []
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/mp4'
+      const recorder = new MediaRecorder(stream, { mimeType })
       recorder.ondataavailable = e => { if (e.data.size > 0) voiceChunksRef.current.push(e.data) }
       recorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop())
-        const blob = new Blob(voiceChunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(voiceChunksRef.current, { type: mimeType })
         setVoiceBlob(blob)
         setVoicePreviewUrl(URL.createObjectURL(blob))
       }
@@ -547,9 +620,11 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
       voiceRecorderRef.current = recorder
       setIsRecordingVoice(true)
       setVoiceRecordTime(0)
+      voiceRecordTimeRef.current = 0
       let t = 0
       voiceTimerRef.current = setInterval(() => {
         t++
+        voiceRecordTimeRef.current = t
         setVoiceRecordTime(t)
         if (t >= 120) stopVoiceRecording()
       }, 1000)
@@ -594,11 +669,16 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
     try {
       const stream = await (navigator.mediaDevices as any).getDisplayMedia({ video: { cursor: 'always' }, audio: true })
       videoChunksRef.current = []
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' })
+      const videoMimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm')
+        ? 'video/webm'
+        : 'video/mp4'
+      const recorder = new MediaRecorder(stream, { mimeType: videoMimeType })
       recorder.ondataavailable = e => { if (e.data.size > 0) videoChunksRef.current.push(e.data) }
       recorder.onstop = () => {
         stream.getTracks().forEach((t: MediaStreamTrack) => t.stop())
-        const blob = new Blob(videoChunksRef.current, { type: 'video/webm' })
+        const blob = new Blob(videoChunksRef.current, { type: videoMimeType })
         uploadVideo(blob)
       }
       // Auto-stop when screen share ends
@@ -611,8 +691,9 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
       videoRecorderRef.current = recorder
       setIsRecordingVideo(true)
       setVideoRecordTime(0)
+      videoRecordTimeRef.current = 0
       let t = 0
-      videoTimerRef.current = setInterval(() => { t++; setVideoRecordTime(t) }, 1000)
+      videoTimerRef.current = setInterval(() => { t++; videoRecordTimeRef.current = t; setVideoRecordTime(t) }, 1000)
     } catch (err) {
       alert('Screen recording not available or permission denied')
     }
@@ -630,7 +711,7 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
     fd.append('video', blob, 'walkthrough.webm')
     fd.append('design_project_id', designProjectId)
     fd.append('title', `Design Walkthrough — ${new Date().toLocaleDateString()}`)
-    fd.append('duration', String(videoRecordTime))
+    fd.append('duration', String(videoRecordTimeRef.current))
     const res = await fetch('/api/annotations/video-walkthroughs', { method: 'POST', body: fd })
     const { walkthrough } = await res.json()
     if (walkthrough) setVideoWalkthroughs(prev => [walkthrough, ...prev])
@@ -682,10 +763,6 @@ export default function AnnotationSystem({ designProjectId, profile, canvasConta
   // ──────────────────────────────────────────────────────────────────────
   // RENDER
   // ──────────────────────────────────────────────────────────────────────
-  const isAnnotating = annotMode !== 'none'
-  const overlayPointerEvents: React.CSSProperties['pointerEvents'] =
-    isAnnotating ? 'all' : 'none'
-
   return (
     <div
       style={{ position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none' }}

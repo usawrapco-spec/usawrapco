@@ -3,10 +3,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
   Trophy, Zap, Flame, Crown,
-  Medal, DollarSign, Wrench, Clock,
-  CheckCircle2, Layers, Waves, Glasses, Shield, Anchor,
-  Award, ChevronUp, ChevronDown, Minus,
-  BarChart2, Paintbrush, Printer, Users,
+  Medal, DollarSign, Wrench,
+  Layers, Waves, Glasses, Shield, Anchor,
+  Award, BarChart2, Paintbrush, Printer, Users,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
