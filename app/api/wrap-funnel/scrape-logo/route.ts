@@ -83,7 +83,7 @@ function extractCssBrandVars(html: string): string[] {
 
 function extractTopHexColors(html: string): string[] {
   const colorCount: Record<string, number> = {}
-  const matches = html.match(/#[0-9A-Fa-f]{6}\b/g) || []
+  const matches = (html.match(/#[0-9A-Fa-f]{6}\b/g) ?? []) as string[]
   matches.forEach(c => {
     const hex = c.toLowerCase()
     if (!isNeutral(hex)) colorCount[hex] = (colorCount[hex] || 0) + 1

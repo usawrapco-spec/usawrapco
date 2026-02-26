@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin()
 
   if (id) {
-    const { data } = await admin.from('fish_species').select('*').eq('id', id).single()
+    const { data, error: singleError } = await admin.from('fish_species').select('*').eq('id', id).single()
+    if (singleError) return Response.json({ species: null }, { status: 404 })
     return Response.json({ species: data })
   }
 

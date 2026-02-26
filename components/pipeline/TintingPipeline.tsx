@@ -265,8 +265,8 @@ function TintJobCard({ project, onClick }: { project: Project; onClick: () => vo
         borderRadius: 12, padding: '12px 14px', cursor: 'pointer',
         borderLeft: '3px solid #22c07a',
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = '#22c07a'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderLeftColor = '#22c07a' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#22c07a'; e.currentTarget.style.borderLeftColor = '#22c07a'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.borderLeftColor = '#22c07a'; e.currentTarget.style.transform = 'none' }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>

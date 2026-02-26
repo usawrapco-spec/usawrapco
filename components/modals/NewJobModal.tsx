@@ -12,6 +12,7 @@ interface NewJobModalProps {
   orgId: string;
   currentUserId: string;
   onJobCreated?: (job: any) => void;
+  initialJobType?: 'wrap' | 'deck';
 }
 
 interface CustomerOption {
@@ -47,9 +48,9 @@ const SELECT_CLASS = `w-full bg-[#111827] border border-[#1e2d4a] rounded-lg px-
 
 const LABEL_CLASS = 'block text-[11px] font-bold text-gray-500 uppercase tracking-[1px] mb-1.5';
 
-export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJobCreated }: NewJobModalProps) {
+export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJobCreated, initialJobType }: NewJobModalProps) {
   const router = useRouter();
-  const [jobType, setJobType] = useState<'wrap' | 'deck'>('wrap');
+  const [jobType, setJobType] = useState<'wrap' | 'deck'>(initialJobType ?? 'wrap');
   const [saving, setSaving] = useState(false);
   const { toast, xpToast, badgeToast } = useToast();
 

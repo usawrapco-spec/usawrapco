@@ -285,7 +285,7 @@ function SpotCard({ spot, selected, onClick }: { spot: FishingSpot; selected: bo
           <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.55, margin: '0 0 8px' }}>{spot.description}</p>
           {spot.hazards && <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}><AlertTriangle size={12} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} /><span style={{ fontSize: 11, color: 'var(--amber)' }}>{spot.hazards}</span></div>}
           {spot.regulations_notes && <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}><BookOpen size={12} color="var(--cyan)" style={{ flexShrink: 0, marginTop: 1 }} /><span style={{ fontSize: 11, color: 'var(--text2)' }}>{spot.regulations_notes}</span></div>}
-          {tech.length > 0 && <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}><span style={{ color: 'var(--text3)' }}>Techniques: </span>{tech.map((t: any) => typeof t === 'string' ? t : t).join(', ')}</div>}
+          {tech.length > 0 && <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}><span style={{ color: 'var(--text3)' }}>Techniques: </span>{tech.map((t: any) => typeof t === 'string' ? t : (t?.name ?? String(t))).join(', ')}</div>}
           <a href={`https://www.google.com/maps?q=${spot.lat},${spot.lng}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>
             <MapPin size={11} /> Open in Maps · {spot.lat.toFixed(4)}°N {Math.abs(spot.lng).toFixed(4)}°W
           </a>
@@ -519,8 +519,8 @@ function MyStuffTab({ catches, profile, onRefresh }: { catches: CatchEntry[]; pr
   }
 
   const delCatch = async (id: string) => {
-    await fetch(`/api/pnw-navigator/catch-log?id=${id}`, { method: 'DELETE' })
-    onRefresh()
+    const r = await fetch(`/api/pnw-navigator/catch-log?id=${id}`, { method: 'DELETE' })
+    if (r.ok) onRefresh()
   }
 
   return (
@@ -703,8 +703,8 @@ function RegsTab() {
             </button>
             {open === reg.id && (
               <div style={{ background: 'var(--surface2)', borderRadius: '0 0 10px 10px', padding: '10px 14px', marginTop: -3, border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none' }}>
-                {reg.items.map((item, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5, alignItems: 'flex-start' }}>
+                {reg.items.map((item) => (
+                  <div key={item} style={{ display: 'flex', gap: 8, marginBottom: 5, alignItems: 'flex-start' }}>
                     <span style={{ color: 'var(--accent)', flexShrink: 0 }}>•</span>
                     <span style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{item}</span>
                   </div>
