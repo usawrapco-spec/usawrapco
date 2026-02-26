@@ -241,6 +241,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   // ── Save ───────────────────────────────────────────────────────
   async function save(updates: any = {}) {
     setSaving(true)
+    const prevInstallDate = project.install_date
     const formData = { ...f, jobType, subType, wrapDetail, selectedVehicle, selectedPPF,
                        selectedSides: Array.from(selectedSides) }
     const { error } = await supabase.from('projects').update({
@@ -253,6 +254,22 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     if (!error) {
       setProject(p => ({...p, ...updates}))
       setSaved(true); setTimeout(() => setSaved(false), 2000)
+      // Auto-create appointment when install_date is newly set
+      const newDate = f.installDate || null
+      if (newDate && newDate !== prevInstallDate) {
+        supabase.from('appointments').insert({
+          org_id: project.org_id,
+          customer_name: f.client || project.title || 'Customer',
+          appointment_type: 'Install Drop-off',
+          date: newDate,
+          time: '09:00',
+          assigned_to: project.installer_id || null,
+          assigned_name: (project.installer as any)?.name || null,
+          status: 'pending',
+          notes: `Auto-created from job: ${project.title || f.client || project.id}`,
+        }).then(() => {})
+        .catch(() => {})
+      }
     }
   }
 

@@ -58,12 +58,23 @@ export default async function DashboardPage() {
 
     const canSeeFinancials = isAdminRole(profile.role) || canAccess(profile.role, 'view_financials')
 
+    // Fetch today's appointments
+    const todayStr = new Date().toISOString().split('T')[0]
+    const { data: todayAppointments } = await admin
+        .from('appointments')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('date', todayStr)
+        .neq('status', 'cancelled')
+        .order('time', { ascending: true })
+
     return (
         <XPAwarder>
             <DashboardHero
                 profile={profile as unknown as Profile}
                 projects={(projects as unknown as Project[]) || []}
                 canSeeFinancials={canSeeFinancials}
+                todayAppointments={todayAppointments || []}
             />
             <RoleDashboard
                 profile={profile as unknown as Profile}
