@@ -11,7 +11,7 @@ import {
   LayoutDashboard, ClipboardList, CalendarDays, Palette,
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
-  Truck, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare,
+  Truck, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -78,6 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/customers', label: 'Contacts',      icon: Users },
       { href: '/inbox',     label: 'Conversations', icon: MessageSquare },
+      { href: '/ai-comms', label: 'AI Comms Hub',  icon: Bot,            roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
