@@ -13,7 +13,12 @@ import {
   Pencil,
   X,
   PenLine,
+  Zap,
+  ArrowDownToLine,
+  ExternalLink,
 } from 'lucide-react'
+
+const BASE_URL = 'https://usawrapco.com'
 
 interface EmailTemplate {
   id: string
@@ -59,20 +64,21 @@ export default function EmailSettingsClient({ profile, templates: initialTemplat
     setTimeout(() => setSignatureSaved(false), 2500)
   }
 
-  const webhookUrl = 'https://app.usawrapco.com/api/email/webhook'
-  const resendWebhookUrl = 'https://app.usawrapco.com/api/email/resend-webhook'
+  const resendWebhookUrl = `${BASE_URL}/api/email/resend-webhook`
+  const inboundWebhookUrl = `${BASE_URL}/api/inbox/inbound-email`
   const [copiedResend, setCopiedResend] = useState(false)
-
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const [copiedInbound, setCopiedInbound] = useState(false)
 
   const copyResendWebhook = () => {
     navigator.clipboard.writeText(resendWebhookUrl)
     setCopiedResend(true)
     setTimeout(() => setCopiedResend(false), 2000)
+  }
+
+  const copyInboundWebhook = () => {
+    navigator.clipboard.writeText(inboundWebhookUrl)
+    setCopiedInbound(true)
+    setTimeout(() => setCopiedInbound(false), 2000)
   }
 
   const startEdit = (tmpl: EmailTemplate) => {
@@ -187,115 +193,85 @@ export default function EmailSettingsClient({ profile, templates: initialTemplat
         </h1>
       </div>
 
-      {/* SendGrid webhook */}
+      {/* Resend — Outbound Tracking Webhook */}
       <div style={sectionStyle}>
-        <div
-          style={{
-            fontFamily: 'Barlow Condensed, sans-serif',
-            fontWeight: 700,
-            fontSize: 15,
-            color: 'var(--text1)',
-            marginBottom: 12,
-          }}
-        >
-          SendGrid Webhook URL
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <Zap size={15} style={{ color: 'var(--accent)' }} />
+          <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700, fontSize: 15, color: 'var(--text1)' }}>
+            Resend — Email Tracking Webhook
+          </div>
         </div>
-        <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10, margin: '0 0 10px' }}>
-          Add this URL in your SendGrid Event Webhook settings to receive delivery, open, click, bounce, and spam notifications.
+        <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 10px' }}>
+          Tracks opens, clicks, bounces, and delivery on every email you send. Add this URL in{' '}
+          <a href="https://resend.com/webhooks" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            resend.com → Webhooks <ExternalLink size={11} />
+          </a>
+          {' '}and subscribe to: <code style={{ fontSize: 11, color: 'var(--cyan)' }}>email.sent email.delivered email.opened email.clicked email.bounced email.complained</code>
         </p>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <code
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--cyan)',
-              fontSize: 12,
-              fontFamily: 'JetBrains Mono, monospace',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {webhookUrl}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <code style={{ flex: 1, padding: '8px 12px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--cyan)', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {resendWebhookUrl}
           </code>
-          <button
-            onClick={copyWebhook}
-            style={{
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: copied ? 'var(--green)' : 'var(--accent)',
-              border: 'none',
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-            {copied ? 'Copied' : 'Copy'}
+          <button onClick={copyResendWebhook} style={{ padding: '8px 12px', borderRadius: 8, background: copiedResend ? 'var(--green)' : 'var(--accent)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+            {copiedResend ? <Check size={13} /> : <Copy size={13} />}
+            {copiedResend ? 'Copied' : 'Copy'}
           </button>
         </div>
+        <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px', fontSize: 11, color: 'var(--text3)', lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--text2)' }}>After adding the webhook:</strong> copy the <strong>Signing Secret</strong> from Resend and add it to Vercel as{' '}
+          <code style={{ color: 'var(--cyan)', fontSize: 10 }}>RESEND_WEBHOOK_SECRET</code>. This verifies each event is genuinely from Resend.
+        </div>
+      </div>
 
-        {/* Resend webhook */}
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', marginBottom: 4 }}>
-            Resend Webhook URL
+      {/* Resend — Inbound Email */}
+      <div style={sectionStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <ArrowDownToLine size={15} style={{ color: 'var(--green)' }} />
+          <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700, fontSize: 15, color: 'var(--text1)' }}>
+            Resend — Receive Inbound Replies
           </div>
-          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 8px' }}>
-            Add in your Resend dashboard → Webhooks to track email opens, clicks, and bounces.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <code
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: 8,
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                color: 'var(--cyan)',
-                fontSize: 12,
-                fontFamily: 'JetBrains Mono, monospace',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {resendWebhookUrl}
-            </code>
-            <button
-              onClick={copyResendWebhook}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 8,
-                background: copiedResend ? 'var(--green)' : 'var(--surface2)',
-                border: '1px solid var(--border)',
-                color: copiedResend ? '#fff' : 'var(--text2)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {copiedResend ? <Check size={13} /> : <Copy size={13} />}
-              {copiedResend ? 'Copied' : 'Copy'}
-            </button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 12px' }}>
+          When customers reply to your emails, replies land directly in the inbox. Requires DNS setup for your domain.
+        </p>
+
+        {/* Step 1 */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>1</div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', marginBottom: 2 }}>Add MX records to usawrapco.com</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
+              In{' '}
+              <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                resend.com → Domains <ExternalLink size={10} />
+              </a>
+              {' '}→ click <strong>usawrapco.com</strong> → <strong>Inbound</strong> tab → copy the MX records and add them to your domain registrar (GoDaddy / Cloudflare / etc.).
+            </div>
           </div>
+        </div>
+
+        {/* Step 2 */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>2</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', marginBottom: 4 }}>Add the inbound webhook URL in Resend</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>
+              In Resend → Domains → usawrapco.com → Inbound → <strong>Add Webhook</strong> → paste this URL:
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <code style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--cyan)', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {inboundWebhookUrl}
+              </code>
+              <button onClick={copyInboundWebhook} style={{ padding: '7px 12px', borderRadius: 8, background: copiedInbound ? 'var(--green)' : 'var(--surface2)', border: '1px solid var(--border)', color: copiedInbound ? '#fff' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                {copiedInbound ? <Check size={13} /> : <Copy size={13} />}
+                {copiedInbound ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(34,192,122,0.08)', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: 'var(--green)', lineHeight: 1.6, border: '1px solid rgba(34,192,122,0.2)' }}>
+          Once active, customer replies to <strong>shop@usawrapco.com</strong> will appear in the inbox and be threaded with the original conversation automatically.
         </div>
       </div>
 
@@ -341,15 +317,9 @@ export default function EmailSettingsClient({ profile, templates: initialTemplat
             />
           </div>
         </div>
-        <p
-          style={{
-            fontSize: 11,
-            color: 'var(--text3)',
-            marginTop: 10,
-            margin: '10px 0 0',
-          }}
-        >
-          Sender settings are managed through SendGrid. Update them in your SendGrid dashboard.
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10, margin: '10px 0 0' }}>
+          Sender settings are managed through Resend. Verify your domain at{' '}
+          <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>resend.com → Domains</a>.
         </p>
       </div>
 
