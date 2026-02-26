@@ -13,7 +13,9 @@ import {
   ArrowRight, PenLine, Ruler, Droplet, Bold, Italic, Underline,
   AlignLeft, Package, Printer, Wand2, Pencil, RefreshCw,
   Settings2, MousePointer2, Sparkles, Globe, ChevronRight,
-  ChevronLeft, MonitorPlay,
+  ChevronLeft, MonitorPlay, Pentagon, Calculator, Sliders,
+  History, Maximize2, Crosshair, ZapOff, Zap, FileOutput,
+  RotateCcw, SlidersHorizontal,
 } from 'lucide-react'
 import DesignMenuBar from './DesignMenuBar'
 import ThreeViewport from './ThreeViewport'
@@ -32,8 +34,8 @@ interface DesignCanvasClientProps {
   wrapMaterials?: WrapMaterial[]
 }
 
-type ToolMode = 'select' | 'draw' | 'arrow' | 'rect' | 'circle' | 'text' | 'image' | 'measure' | 'eyedropper'
-type RightPanel = 'layers' | 'coverage' | 'print' | 'files' | 'comments'
+type ToolMode = 'select' | 'draw' | 'arrow' | 'rect' | 'circle' | 'text' | 'image' | 'measure' | 'eyedropper' | 'custom'
+type RightPanel = 'layers' | 'coverage' | 'print' | 'files' | 'comments' | 'calculator' | 'upscale'
 
 const VEHICLE_PANELS: Record<string, { label: string; sqft: number }[]> = {
   'Pickup Truck Crew Cab': [
@@ -181,6 +183,10 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadFileRef = useRef<HTMLInputElement>(null)
   const configuratorRef = useRef<ConfiguratorHandle>(null)
+  const pixelsPerInchRef = useRef<number>(10) // synced with pixelsPerInch state
+  // Refs to stable callback functions (avoid stale closures in event handlers)
+  const completeCustomShapeRef = useRef<() => void>(() => {})
+  const cancelCustomShapeRef = useRef<() => void>(() => {})
 
   // 3D mode state
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('2d')
@@ -303,7 +309,96 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   const [presentationToken, setPresentationToken] = useState<string | null>(null)
   const [creatingPresentation, setCreatingPresentation] = useState(false)
 
+  // ── Custom shape (polygon tracing) tool ──
+  const [customShapePoints, setCustomShapePoints] = useState<{ x: number; y: number }[]>([])
+  const [customShapeActive, setCustomShapeActive] = useState(false)
+  const customShapeRef = useRef<{ x: number; y: number }[]>([])
+  const customOverlayRef = useRef<HTMLCanvasElement>(null)
+  const [customShapeLiveSqft, setCustomShapeLiveSqft] = useState(0)
+  const [customShapeLiveSqIn, setCustomShapeLiveSqIn] = useState(0)
+
+  // ── Status bar ──
+  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
+  const [colorUnderCursor, setColorUnderCursor] = useState('#0d0f14')
+  const [snapEnabled, setSnapEnabled] = useState(false)
+  const [pixelsPerInch, setPixelsPerInch] = useState(10) // default: 10px = 1 inch
+  const [canvasShapeSqft, setCanvasShapeSqft] = useState(0)
+  const [selectedObjectDims, setSelectedObjectDims] = useState<{ w: number; h: number; sqft: number } | null>(null)
+
+  // ── Save As / Version history ──
+  const [showSaveAsModal, setShowSaveAsModal] = useState(false)
+  const [saveAsName, setSaveAsName] = useState('')
+  const [versionHistory, setVersionHistory] = useState<any[]>([])
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
+  const [savingVersion, setSavingVersion] = useState(false)
+
+  // ── Preferences ──
+  const [showPrefsModal, setShowPrefsModal] = useState(false)
+  const [prefsUnits, setPrefsUnits] = useState<'inches' | 'mm' | 'px' | 'ft'>('inches')
+  const [prefsAutoSaveInterval, setPrefsAutoSaveInterval] = useState(120)
+  const [prefsSavingMsg, setPrefsSavingMsg] = useState(false)
+
+  // ── Job Calculator ──
+  const [calcMaterial, setCalcMaterial] = useState('Cast Vinyl')
+  const [calcMaterialCostPerSqft, setCalcMaterialCostPerSqft] = useState(3.5)
+  const [calcPrintCostPerSqft, setCalcPrintCostPerSqft] = useState(1.5)
+  const [calcLaborCostPerSqft, setCalcLaborCostPerSqft] = useState(2.0)
+  const [calcMarkup, setCalcMarkup] = useState(40)
+  const [calcWastePercent, setCalcWastePercent] = useState(15)
+  const [creatingLineItem, setCreatingLineItem] = useState(false)
+  const [lineItemCreated, setLineItemCreated] = useState(false)
+
+  // ── Photo Upscaler ──
+  const [upscaleFile, setUpscaleFile] = useState<any>(null)
+  const [upscaleScale, setUpscaleScale] = useState<2 | 4 | 8>(4)
+  const [upscaleFaceEnhance, setUpscaleFaceEnhance] = useState(false)
+  const [upscaling, setUpscaling] = useState(false)
+  const [upscaleProgress, setUpscaleProgress] = useState(0)
+  const [upscaleResult, setUpscaleResult] = useState<string | null>(null)
+  const [upscaleFileName, setUpscaleFileName] = useState<string>('')
+  const upscaleProgressRef = useRef<NodeJS.Timeout | null>(null)
+
   const linkedJob = design.linked_project || null
+
+  // ── Sync pixelsPerInch to ref (accessible in fabric event handlers) ──
+  useEffect(() => { pixelsPerInchRef.current = pixelsPerInch }, [pixelsPerInch])
+  // ── Sync custom shape callbacks to refs ──
+  useEffect(() => { completeCustomShapeRef.current = completeCustomShape }, [completeCustomShape])
+  useEffect(() => { cancelCustomShapeRef.current = cancelCustomShape }, [cancelCustomShape])
+
+  // ── Recalculate total canvas shape sqft ──
+  const recalcCanvasSqft = useCallback((fc: any, ppi: number) => {
+    if (!fc) return
+    let totalSqIn = 0
+    fc.getObjects().forEach((obj: any) => {
+      // Skip background photos, templates, text
+      if (['i-text', 'text', 'image'].includes(obj.type)) return
+      const w = (obj.width || 0) * (obj.scaleX || 1)
+      const h = (obj.height || 0) * (obj.scaleY || 1)
+      if (obj.type === 'polygon' && obj.points?.length >= 3) {
+        // Shoelace formula for polygon area
+        let area = 0
+        const pts = obj.points as { x: number; y: number }[]
+        for (let i = 0; i < pts.length; i++) {
+          const j = (i + 1) % pts.length
+          area += pts[i].x * pts[j].y
+          area -= pts[j].x * pts[i].y
+        }
+        area = Math.abs(area) / 2
+        // Apply scale factors
+        const scaledArea = area * (obj.scaleX || 1) * (obj.scaleY || 1)
+        totalSqIn += scaledArea / (ppi * ppi)
+      } else if (obj.type === 'ellipse') {
+        const rx = (obj.rx || 0) * (obj.scaleX || 1)
+        const ry = (obj.ry || 0) * (obj.scaleY || 1)
+        const area = Math.PI * rx * ry
+        totalSqIn += area / (ppi * ppi)
+      } else {
+        totalSqIn += (w * h) / (ppi * ppi)
+      }
+    })
+    setCanvasShapeSqft(Math.round((totalSqIn / 144) * 10) / 10)
+  }, [])
 
   // ── Coverage calculator ──
   const panelList = VEHICLE_PANELS[vehicleType] || VEHICLE_PANELS[VEHICLE_TYPES[0]]
@@ -355,23 +450,106 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         fc.on('object:removed', () => { if (mounted) setObjectCount(fc.getObjects().length); setHasUnsaved(true) })
         fc.on('object:modified', () => { if (mounted) setHasUnsaved(true) })
 
-        // Keyboard shortcuts
+        // ── Illustrator-style keyboard shortcuts ──
         const handleKey = (e: KeyboardEvent) => {
+          const inInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || (document.activeElement as HTMLElement)?.isContentEditable
           if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
+            if (inInput) return
             const active = fc.getActiveObject()
             if (active) { fc.remove(active); fc.discardActiveObject(); fc.renderAll() }
           }
-          if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoCanvas() }
-          if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redoCanvas() }
-          if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCanvas() }
-          if (e.key === 'v') setTool('select')
-          if (e.key === 'r') setTool('rect')
-          if (e.key === 'c') setTool('circle')
-          if (e.key === 't') setTool('text')
-          if (e.key === 'p') setTool('draw')
-          if (e.key === 'a') setTool('arrow')
-          if (e.key === 'm') setTool('measure')
+
+          const ctrl = e.ctrlKey || e.metaKey
+          const shift = e.shiftKey
+
+          // Ctrl/Cmd combos
+          if (ctrl && shift && e.key === 's') { e.preventDefault(); setShowSaveAsModal(true); return }
+          if (ctrl && shift && e.key === 'z') { e.preventDefault(); redoCanvas(); return }
+          if (ctrl && shift && e.key === 'g') { e.preventDefault(); /* ungroup placeholder */; return }
+          if (ctrl && shift && e.key === 'a') { e.preventDefault(); fc.discardActiveObject(); fc.renderAll(); return }
+          if (ctrl && shift && e.key === ']') { e.preventDefault(); const a = fc.getActiveObject(); if (a) { fc.bringObjectToFront(a); fc.renderAll() }; return }
+          if (ctrl && shift && e.key === '[') { e.preventDefault(); const a = fc.getActiveObject(); if (a) { fc.sendObjectToBack(a); fc.renderAll() }; return }
+          if (ctrl && e.key === 'k') { e.preventDefault(); setShowPrefsModal(true); return }
+          if (ctrl && e.key === 'z') { e.preventDefault(); undoCanvas(); return }
+          if (ctrl && e.key === 'y') { e.preventDefault(); redoCanvas(); return }
+          if (ctrl && e.key === 's') { e.preventDefault(); saveCanvas(); return }
+          if (ctrl && e.key === 'a') { e.preventDefault(); /* select all handled externally */; selectAll(); return }
+          if (ctrl && e.key === 'c') { e.preventDefault(); const a = fc.getActiveObject(); if (a) { (window as any).__fabricClipboard = a }; return }
+          if (ctrl && e.key === 'v') {
+            e.preventDefault()
+            const clip = (window as any).__fabricClipboard
+            if (clip) { clip.clone((cloned: any) => { cloned.set({ left: (clip.left || 0) + 20, top: (clip.top || 0) + 20 }); fc.add(cloned); fc.setActiveObject(cloned); fc.renderAll() }) }
+            return
+          }
+          if (ctrl && e.key === 'x') {
+            e.preventDefault()
+            const a = fc.getActiveObject()
+            if (a) { (window as any).__fabricClipboard = a; fc.remove(a); fc.discardActiveObject(); fc.renderAll() }
+            return
+          }
+          if (ctrl && e.key === 'd') {
+            e.preventDefault()
+            const a = fc.getActiveObject()
+            if (a) { a.clone((cloned: any) => { cloned.set({ left: (a.left || 0) + 20, top: (a.top || 0) + 20 }); fc.add(cloned); fc.setActiveObject(cloned); fc.renderAll() }) }
+            return
+          }
+          if (ctrl && e.key === 'g') {
+            e.preventDefault()
+            // Group selected
+            const active = fc.getActiveObject() as any
+            if (active && active.type === 'activeSelection') {
+              const group = active.toGroup()
+              fc.setActiveObject(group)
+              fc.renderAll()
+            }
+            return
+          }
+          if (ctrl && e.key === ']') { e.preventDefault(); const a = fc.getActiveObject(); if (a) { fc.bringObjectForward(a); fc.renderAll() }; return }
+          if (ctrl && e.key === '[') { e.preventDefault(); const a = fc.getActiveObject(); if (a) { fc.sendObjectBackwards(a); fc.renderAll() }; return }
+          if (ctrl && (e.key === '=' || e.key === '+')) { e.preventDefault(); const nz = Math.min((fc.getZoom() || 1) + 0.1, 5); fc.setZoom(nz); setZoom(nz); return }
+          if (ctrl && e.key === '-') { e.preventDefault(); const nz = Math.max((fc.getZoom() || 1) - 0.1, 0.05); fc.setZoom(nz); setZoom(nz); return }
+          if (ctrl && e.key === '0') { e.preventDefault(); fc.setZoom(0.5); setZoom(0.5); return }
+          if (ctrl && e.key === '1') { e.preventDefault(); fc.setZoom(1); setZoom(1); return }
+
+          if (inInput) return
+
+          // Single-key tool shortcuts (Illustrator standard)
+          if (e.key === 'v' || e.key === 'V') { setTool('select'); return }
+          if (e.key === 'a' || e.key === 'A') { setTool('select'); return } // Direct Selection (node edit) — use select for now
+          if (e.key === 'p' || e.key === 'P') { setTool('custom'); return } // Pen / custom shape
+          if (e.key === 't' || e.key === 'T') { setTool('text'); return }
+          if (e.key === 'l' || e.key === 'L') { setTool('circle'); return } // Ellipse
+          if (e.key === 'm' || e.key === 'M') { setTool('rect'); return }   // Rectangle
+          if (e.key === 'b' || e.key === 'B') { setTool('draw'); return }   // Brush/draw
+          if (e.key === 'e' || e.key === 'E') { /* eraser — use delete */; return }
+          if (e.key === 'i' || e.key === 'I') { setTool('eyedropper'); return }
+          if (e.key === 'z' || e.key === 'Z') { setTool('select'); return } // Zoom (simplified)
+          if (e.key === 'h' || e.key === 'H') { setTool('select'); return } // Hand/pan (select for now)
+          if (e.key === 'r' || e.key === 'R') { setTool('rect'); return }
+          if (e.key === 'c') { setTool('circle'); return }
+          if (e.key === 'Tab') { /* toggle panels — could add later */ return }
+
+          // Brush size
+          if (e.key === '[') { setStrokeWidth(w => Math.max(1, w - 1)); return }
+          if (e.key === ']') { setStrokeWidth(w => Math.min(50, w + 1)); return }
+
+          // Enter = complete custom shape if in progress
+          if (e.key === 'Enter' && !inInput) {
+            if (customShapeRef.current.length >= 3) {
+              e.preventDefault()
+              completeCustomShapeRef.current()
+            }
+            return
+          }
+          // Escape = cancel custom shape
+          if (e.key === 'Escape') {
+            if (customShapeRef.current.length > 0) {
+              cancelCustomShapeRef.current()
+              return
+            }
+          }
+
+          // Alt+drag duplicate — handled in fabric mouse events
         }
         window.addEventListener('keydown', handleKey)
 
@@ -386,6 +564,65 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           fabricRef.current.renderAll()
         }
         window.addEventListener('resize', handleResize)
+
+        // ── Status bar: cursor position + color ──
+        fc.on('mouse:move', (opt: any) => {
+          if (!mounted) return
+          const ptr = fc.getPointer(opt.e)
+          setCursorPos({ x: Math.round(ptr.x), y: Math.round(ptr.y) })
+          // Sample color under cursor from canvas element
+          try {
+            const canvasEl = canvasElRef.current
+            if (canvasEl) {
+              const ctx = canvasEl.getContext('2d')
+              if (ctx) {
+                const pixel = ctx.getImageData(Math.round(opt.e.offsetX), Math.round(opt.e.offsetY), 1, 1).data
+                const hex = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`
+                setColorUnderCursor(hex)
+              }
+            }
+          } catch { /* cross-origin or read error */ }
+        })
+
+        // ── Status bar: selected object dimensions ──
+        fc.on('selection:created', (opt: any) => {
+          if (!mounted) return
+          const obj = opt.selected?.[0] || fc.getActiveObject()
+          if (obj) {
+            const w = Math.round((obj.width || 0) * (obj.scaleX || 1))
+            const h = Math.round((obj.height || 0) * (obj.scaleY || 1))
+            const ppi = pixelsPerInchRef.current
+            const sqIn = (w / ppi) * (h / ppi)
+            setSelectedObjectDims({ w, h, sqft: Math.round((sqIn / 144) * 100) / 100 })
+          }
+        })
+        fc.on('selection:updated', (opt: any) => {
+          if (!mounted) return
+          const obj = opt.selected?.[0] || fc.getActiveObject()
+          if (obj) {
+            const w = Math.round((obj.width || 0) * (obj.scaleX || 1))
+            const h = Math.round((obj.height || 0) * (obj.scaleY || 1))
+            const ppi = pixelsPerInchRef.current
+            const sqIn = (w / ppi) * (h / ppi)
+            setSelectedObjectDims({ w, h, sqft: Math.round((sqIn / 144) * 100) / 100 })
+          }
+        })
+        fc.on('selection:cleared', () => { if (mounted) setSelectedObjectDims(null) })
+        fc.on('object:modified', (opt: any) => {
+          if (!mounted) return
+          const obj = opt.target
+          if (obj) {
+            const w = Math.round((obj.width || 0) * (obj.scaleX || 1))
+            const h = Math.round((obj.height || 0) * (obj.scaleY || 1))
+            const ppi = pixelsPerInchRef.current
+            const sqIn = (w / ppi) * (h / ppi)
+            setSelectedObjectDims({ w, h, sqft: Math.round((sqIn / 144) * 100) / 100 })
+          }
+          // Recalculate total canvas sqft
+          recalcCanvasSqft(fc, pixelsPerInchRef.current)
+        })
+        fc.on('object:added', () => { if (mounted) recalcCanvasSqft(fc, pixelsPerInchRef.current) })
+        fc.on('object:removed', () => { if (mounted) recalcCanvasSqft(fc, pixelsPerInchRef.current) })
 
         if (mounted) {
           fc.renderAll()
@@ -423,7 +660,25 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         fc.freeDrawingBrush.width = strokeWidth
       }
     }
-    fc.defaultCursor = tool === 'select' ? 'default' : 'crosshair'
+    if (tool === 'custom') {
+      fc.defaultCursor = 'crosshair'
+      fc.selection = false
+      setCustomShapeActive(true)
+    } else {
+      fc.selection = true
+      setCustomShapeActive(false)
+      // If switching away from custom, cancel in-progress shape
+      if (customShapeRef.current.length > 0) {
+        const existing = fc.getObjects().filter((o: any) => o._customPreview)
+        existing.forEach((o: any) => fc.remove(o))
+        fc.renderAll()
+        customShapeRef.current = []
+        setCustomShapePoints([])
+        setCustomShapeLiveSqft(0)
+        setCustomShapeLiveSqIn(0)
+      }
+      fc.defaultCursor = tool === 'select' ? 'default' : 'crosshair'
+    }
   }, [tool, fillColor, strokeWidth])
 
   // ── Canvas click handlers for non-draw tools ──
@@ -436,8 +691,10 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
       addCircle()
     } else if (tool === 'text') {
       addText()
+    } else if (tool === 'custom') {
+      handleCustomShapeClick(e)
     }
-  }, [tool])
+  }, [tool, handleCustomShapeClick])
 
   // ── Autosave every 30s ──
   useEffect(() => {
@@ -1173,6 +1430,276 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     if (active) { fc.sendObjectToBack(active); fc.renderAll() }
   }
 
+  // ── Custom Shape Tool (polygon tracing) ──
+  const handleCustomShapeClick = useCallback(async (e: React.MouseEvent) => {
+    if (tool !== 'custom') return
+    const fc = fabricRef.current
+    if (!fc) return
+    const canvasRect = canvasContainerRef.current?.getBoundingClientRect()
+    if (!canvasRect) return
+    let ptr: { x: number; y: number }
+    try { ptr = fc.getPointer(e.nativeEvent as any) } catch { return }
+    const newPts = [...customShapeRef.current, { x: ptr.x, y: ptr.y }]
+    customShapeRef.current = newPts
+    setCustomShapePoints([...newPts])
+
+    // Live sqft calculation using Shoelace
+    if (newPts.length >= 3) {
+      let area = 0
+      for (let i = 0; i < newPts.length; i++) {
+        const j = (i + 1) % newPts.length
+        area += newPts[i].x * newPts[j].y
+        area -= newPts[j].x * newPts[i].y
+      }
+      area = Math.abs(area) / 2
+      const ppi = pixelsPerInchRef.current
+      const sqIn = area / (ppi * ppi)
+      const sqFt = sqIn / 144
+      setCustomShapeLiveSqIn(Math.round(sqIn))
+      setCustomShapeLiveSqft(Math.round(sqFt * 10) / 10)
+    }
+
+    // Draw overlay dots + lines
+    drawCustomShapeOverlay(newPts)
+  }, [tool])
+
+  const drawCustomShapeOverlay = (pts: { x: number; y: number }[]) => {
+    const fc = fabricRef.current
+    if (!fc || pts.length === 0) return
+    // Remove previous preview objects tagged as customPreview
+    const existing = fc.getObjects().filter((o: any) => o._customPreview)
+    existing.forEach((o: any) => fc.remove(o))
+
+    // Draw lines between points
+    for (let i = 0; i < pts.length - 1; i++) {
+      import('fabric').then(fabric => {
+        const line = new (fabric as any).Line([pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y], {
+          stroke: '#4f7fff', strokeWidth: 1.5, strokeDashArray: [4, 3],
+          selectable: false, evented: false, _customPreview: true,
+        })
+        fc.add(line)
+      })
+    }
+    // Draw point markers
+    pts.forEach((pt, idx) => {
+      import('fabric').then(fabric => {
+        const circle = new (fabric as any).Circle({
+          left: pt.x - 4, top: pt.y - 4, radius: 4,
+          fill: idx === 0 ? '#22c07a' : '#4f7fff', stroke: '#fff', strokeWidth: 1,
+          selectable: false, evented: false, _customPreview: true,
+        })
+        fc.add(circle)
+      })
+    })
+    fc.renderAll()
+  }
+
+  const completeCustomShape = useCallback(async () => {
+    const pts = customShapeRef.current
+    if (pts.length < 3) {
+      cancelCustomShapeRef.current()
+      return
+    }
+    const fabric = await import('fabric')
+    const fc = fabricRef.current
+    if (!fc) return
+    pushUndo()
+
+    // Remove preview objects
+    const existing = fc.getObjects().filter((o: any) => o._customPreview)
+    existing.forEach((o: any) => fc.remove(o))
+
+    // Calculate sqft via Shoelace
+    let area = 0
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length
+      area += pts[i].x * pts[j].y
+      area -= pts[j].x * pts[i].y
+    }
+    area = Math.abs(area) / 2
+    const ppi = pixelsPerInchRef.current
+    const sqIn = area / (ppi * ppi)
+    const sqFt = sqIn / 144
+
+    const polygon = new (fabric as any).Polygon(pts, {
+      fill: fillColor + '33',
+      stroke: fillColor,
+      strokeWidth,
+      opacity: opacity / 100,
+      selectable: true,
+      objectCaching: false,
+      // Store sqft metadata
+      customSqft: Math.round(sqFt * 10) / 10,
+      customSqIn: Math.round(sqIn),
+    })
+    fc.add(polygon)
+    fc.setActiveObject(polygon)
+    fc.renderAll()
+
+    customShapeRef.current = []
+    setCustomShapePoints([])
+    setCustomShapeActive(false)
+    setCustomShapeLiveSqft(0)
+    setCustomShapeLiveSqIn(0)
+    setTool('select')
+    setHasUnsaved(true)
+    recalcCanvasSqft(fc, ppi)
+  }, [fillColor, strokeWidth, opacity, recalcCanvasSqft])
+
+  const cancelCustomShape = useCallback(() => {
+    const fc = fabricRef.current
+    if (fc) {
+      const existing = fc.getObjects().filter((o: any) => o._customPreview)
+      existing.forEach((o: any) => fc.remove(o))
+      fc.renderAll()
+    }
+    customShapeRef.current = []
+    setCustomShapePoints([])
+    setCustomShapeActive(false)
+    setCustomShapeLiveSqft(0)
+    setCustomShapeLiveSqIn(0)
+    setTool('select')
+  }, [])
+
+  // ── Save As / Versions ──
+  const handleSaveAs = useCallback(async () => {
+    const fc = fabricRef.current
+    if (!fc || savingVersion) return
+    setSavingVersion(true)
+    const name = saveAsName.trim() || `Version ${new Date().toLocaleString()}`
+    const canvasData = fc.toJSON(['id', 'layerId', 'selectable', 'customSqft', 'customSqIn', '_customPreview'])
+    try {
+      // Generate thumbnail
+      let thumbnailUrl = ''
+      try {
+        const dataUrl = fc.toDataURL({ format: 'jpeg', quality: 0.6, multiplier: 0.25 })
+        const res = await fetch(dataUrl)
+        const blob = await res.blob()
+        const path = `designs/${design.id}/versions/${Date.now()}_thumb.jpg`
+        const { error: upErr } = await supabase.storage.from('project-files').upload(path, blob, { upsert: false, contentType: 'image/jpeg' })
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
+          thumbnailUrl = urlData?.publicUrl || ''
+        }
+      } catch { /* thumbnail optional */ }
+
+      const res = await fetch('/api/canvas/save-version', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designProjectId: design.id, name, canvasData, thumbnailUrl }),
+      })
+      const data = await res.json()
+      if (data.version) {
+        setVersionHistory(prev => [data.version, ...prev])
+        setSaveAsName('')
+        setShowSaveAsModal(false)
+      }
+    } catch (err) { console.error('Save version error:', err) }
+    setSavingVersion(false)
+  }, [saveAsName, design.id, supabase, savingVersion])
+
+  const loadVersionHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/canvas/save-version?designProjectId=${design.id}`)
+      const data = await res.json()
+      if (data.versions) setVersionHistory(data.versions)
+    } catch { /* ignore */ }
+  }, [design.id])
+
+  const restoreVersion = useCallback(async (versionId: string) => {
+    const fc = fabricRef.current
+    if (!fc) return
+    const { data } = await supabase.from('design_canvas_versions').select('canvas_data').eq('id', versionId).single()
+    if (!data?.canvas_data) return
+    pushUndo()
+    fc.loadFromJSON(data.canvas_data, () => { fc.renderAll(); setHasUnsaved(true) })
+    setShowVersionHistory(false)
+  }, [supabase])
+
+  // ── Photo Upscaler ──
+  const handleUpscale = useCallback(async () => {
+    if (!upscaleFile?.file_url || upscaling) return
+    setUpscaling(true)
+    setUpscaleProgress(0)
+    setUpscaleResult(null)
+
+    // Fake progress bar (upscaling takes 30-90s)
+    upscaleProgressRef.current = setInterval(() => {
+      setUpscaleProgress(p => Math.min(p + 1.5, 90))
+    }, 1000)
+
+    try {
+      const res = await fetch('/api/upscale-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: upscaleFile.file_url,
+          scale: upscaleScale,
+          faceEnhance: upscaleFaceEnhance,
+          designId: design.id,
+          originalName: upscaleFile.file_name,
+        }),
+      })
+      const data = await res.json()
+      if (upscaleProgressRef.current) clearInterval(upscaleProgressRef.current)
+      setUpscaleProgress(100)
+      if (data.url) {
+        setUpscaleResult(data.url)
+        setUpscaleFileName(data.fileName || '')
+        // Refresh design files to show new upscaled file
+        const { data: refreshed } = await supabase.from('design_project_files').select('*')
+          .eq('design_project_id', design.id).order('created_at', { ascending: false })
+        if (refreshed) setDesignFiles(refreshed)
+      } else {
+        alert('Upscale failed: ' + (data.error || 'Unknown error'))
+      }
+    } catch (err: any) {
+      if (upscaleProgressRef.current) clearInterval(upscaleProgressRef.current)
+      alert('Upscale error: ' + err.message)
+    }
+    setUpscaling(false)
+  }, [upscaleFile, upscaleScale, upscaleFaceEnhance, design.id, supabase])
+
+  // ── Job Calculator line item ──
+  const handleCreateLineItem = useCallback(async () => {
+    if (!linkedJob?.id) { alert('No linked job. Link a job first.'); return }
+    setCreatingLineItem(true)
+    const sqft = canvasShapeSqft || totalToOrder
+    const wasteMultiplier = 1 + calcWastePercent / 100
+    const sqftWithWaste = Math.ceil(sqft * wasteMultiplier)
+    const materialTotal = sqftWithWaste * calcMaterialCostPerSqft
+    const printTotal = sqftWithWaste * calcPrintCostPerSqft
+    const laborTotal = sqft * calcLaborCostPerSqft
+    const subtotal = materialTotal + printTotal + laborTotal
+    const salePrice = subtotal * (1 + calcMarkup / 100)
+    const unitPrice = sqft > 0 ? salePrice / sqft : 0
+
+    try {
+      await supabase.from('line_items').insert({
+        project_id: linkedJob.id,
+        description: `${calcMaterial} Wrap — ${sqft} sqft canvas design (${sqftWithWaste} sqft with ${calcWastePercent}% waste)\nMaterial: ${sqftWithWaste} sqft @ $${calcMaterialCostPerSqft}/sqft | Print: $${calcPrintCostPerSqft}/sqft | Labor: $${calcLaborCostPerSqft}/sqft | Markup: ${calcMarkup}%`,
+        quantity: sqft,
+        unit: 'sqft',
+        unit_price: Math.round(unitPrice * 100) / 100,
+        total_price: Math.round(salePrice * 100) / 100,
+      })
+      setLineItemCreated(true)
+      setTimeout(() => setLineItemCreated(false), 3000)
+    } catch (err: any) {
+      alert('Failed to create line item: ' + err.message)
+    }
+    setCreatingLineItem(false)
+  }, [canvasShapeSqft, totalToOrder, calcWastePercent, calcMaterialCostPerSqft, calcPrintCostPerSqft, calcLaborCostPerSqft, calcMarkup, calcMaterial, linkedJob, supabase])
+
+  // ── Save preferences to profile ──
+  const savePreferences = useCallback(async () => {
+    setPrefsSavingMsg(true)
+    await supabase.from('profiles').update({
+      preferences: { units: prefsUnits, autoSaveInterval: prefsAutoSaveInterval, pixelsPerInch },
+    }).eq('id', profile.id)
+    setTimeout(() => setPrefsSavingMsg(false), 1500)
+  }, [prefsUnits, prefsAutoSaveInterval, pixelsPerInch, profile.id, supabase])
+
   const selectAll = async () => {
     const fabric = await import('fabric')
     const fc = fabricRef.current
@@ -1488,6 +2015,19 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           <Save size={13} />
           {saving ? 'Saving...' : 'Save'}
         </button>
+
+        <button onClick={() => { setSaveAsName(''); setShowSaveAsModal(true) }}
+          title="Save As version (Ctrl+Shift+S)"
+          style={{ ...accentBtnStyle, background: 'rgba(79,127,255,0.1)', color: '#4f7fff', border: '1px solid rgba(79,127,255,0.2)' }}>
+          <History size={13} />
+          Save As
+        </button>
+
+        <button onClick={() => setShowPrefsModal(true)}
+          title="Preferences (Ctrl+K)"
+          style={{ ...topBtnStyle, color: '#5a6080' }}>
+          <SlidersHorizontal size={16} />
+        </button>
       </div>
 
       {/* ─── INFO CHIPS ─── */}
@@ -1786,14 +2326,15 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           transition: 'width 0.2s',
         }}>
           <ToolBtn icon={MousePointer2} label="Select (V)" active={tool === 'select'} onClick={() => setTool('select')} />
-          <ToolBtn icon={PenLine} label="Draw (P)" active={tool === 'draw'} onClick={() => setTool('draw')} />
+          <ToolBtn icon={PenLine} label="Draw Brush (B)" active={tool === 'draw'} onClick={() => setTool('draw')} />
+          <ToolBtn icon={Pentagon} label="Custom Shape / Pen (P) — click to trace, dbl-click to close" active={tool === 'custom'} onClick={() => setTool('custom')} />
           <ToolBtn icon={ArrowRight} label="Arrow (A)" active={tool === 'arrow'} onClick={() => { setTool('arrow'); addArrow() }} />
-          <ToolBtn icon={Square} label="Rectangle (R)" active={tool === 'rect'} onClick={() => setTool('rect')} />
-          <ToolBtn icon={Circle} label="Circle (C)" active={tool === 'circle'} onClick={() => setTool('circle')} />
+          <ToolBtn icon={Square} label="Rectangle (M)" active={tool === 'rect'} onClick={() => setTool('rect')} />
+          <ToolBtn icon={Circle} label="Circle / Ellipse (L)" active={tool === 'circle'} onClick={() => setTool('circle')} />
           <ToolBtn icon={Type} label="Text (T)" active={tool === 'text'} onClick={() => setTool('text')} />
-          <ToolBtn icon={ImageIcon} label="Image (L)" active={tool === 'image'} onClick={() => { setTool('image'); fileInputRef.current?.click() }} />
-          <ToolBtn icon={Ruler} label="Measure (M)" active={tool === 'measure'} onClick={() => setTool('measure')} />
-          <ToolBtn icon={Droplet} label="Eyedropper" active={tool === 'eyedropper'} onClick={() => setTool('eyedropper')} />
+          <ToolBtn icon={ImageIcon} label="Image" active={tool === 'image'} onClick={() => { setTool('image'); fileInputRef.current?.click() }} />
+          <ToolBtn icon={Ruler} label="Measure" active={tool === 'measure'} onClick={() => setTool('measure')} />
+          <ToolBtn icon={Droplet} label="Eyedropper (I)" active={tool === 'eyedropper'} onClick={() => setTool('eyedropper')} />
 
           <div style={{ width: '80%', height: 1, background: '#1a1d27', margin: '4px 0' }} />
 
@@ -1857,6 +2398,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           ref={canvasContainerRef}
           style={{ flex: 1, position: 'relative', overflow: canvasMode === '2d' ? 'auto' : 'hidden', background: '#0a0c11' }}
           onClick={canvasMode === '2d' ? handleCanvasClick : undefined}
+          onDoubleClick={canvasMode === '2d' && tool === 'custom' ? completeCustomShape : undefined}
           onDragOver={canvasMode === '2d' ? e => { e.preventDefault(); setCanvasDragOver(true) } : undefined}
           onDragLeave={canvasMode === '2d' ? () => setCanvasDragOver(false) : undefined}
           onDrop={canvasMode === '2d' ? async e => {
@@ -1867,7 +2409,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           } : undefined}
         >
           {/* Fabric.js canvas — always mounted, hidden in 3D modes to preserve state */}
-          <canvas ref={canvasElRef} style={{ display: canvasMode === '2d' ? 'block' : 'none' }} />
+          <canvas ref={canvasElRef} style={{ display: canvasMode === '2d' ? 'block' : 'none', paddingBottom: 26 }} />
 
           {/* 3D Viewport — rendered when not in 2D mode */}
           {canvasMode !== '2d' && (
@@ -1897,29 +2439,119 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
             </div>
           )}
 
-          {/* Zoom controls overlay — 2D only */}
+          {/* ── BOTTOM STATUS BAR — always visible in 2D mode ── */}
           {canvasMode === '2d' && (
             <div style={{
-              position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-              background: 'rgba(13,15,20,0.9)', borderRadius: 20, border: '1px solid #1a1d27',
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              display: 'flex', alignItems: 'center', gap: 0,
+              background: 'rgba(13,15,20,0.95)', borderTop: '1px solid #1a1d27',
+              height: 26, fontSize: 10, fontFamily: 'JetBrains Mono, monospace', flexShrink: 0,
+              backdropFilter: 'blur(8px)',
             }}>
-              <button onClick={zoomOut} style={miniBtn}>
-                <ZoomOut size={14} />
+              {/* Zoom controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2, paddingLeft: 8, paddingRight: 8, borderRight: '1px solid #1a1d27', height: '100%' }}>
+                <button onClick={zoomOut} style={{ ...miniBtn, padding: 2 }}><ZoomOut size={11} /></button>
+                <span style={{ color: '#9299b5', minWidth: 34, textAlign: 'center', fontSize: 10 }}>{Math.round(zoom * 100)}%</span>
+                <button onClick={zoomIn} style={{ ...miniBtn, padding: 2 }}><ZoomIn size={11} /></button>
+                <button onClick={() => { const fc = fabricRef.current; if (fc) { fc.setZoom(0.5); setZoom(0.5) } }}
+                  style={{ ...miniBtn, fontSize: 9, padding: '1px 4px', marginLeft: 2 }}>Fit</button>
+              </div>
+
+              {/* Cursor position */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 8, paddingRight: 8, borderRight: '1px solid #1a1d27', height: '100%', color: '#5a6080' }}>
+                <Crosshair size={10} />
+                <span>{cursorPos.x}, {cursorPos.y} px</span>
+                <span style={{ color: '#3a3f55' }}>|</span>
+                <span>{Math.round(cursorPos.x / pixelsPerInch * 10) / 10}", {Math.round(cursorPos.y / pixelsPerInch * 10) / 10}"</span>
+              </div>
+
+              {/* Color under cursor */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 8, paddingRight: 8, borderRight: '1px solid #1a1d27', height: '100%' }}>
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: colorUnderCursor, border: '1px solid #2a2f3d', flexShrink: 0 }} />
+                <span style={{ color: '#5a6080' }}>{colorUnderCursor}</span>
+              </div>
+
+              {/* Selected object dimensions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 8, paddingRight: 8, borderRight: '1px solid #1a1d27', height: '100%' }}>
+                {selectedObjectDims ? (
+                  <>
+                    <span style={{ color: '#9299b5' }}>W:{selectedObjectDims.w}px H:{selectedObjectDims.h}px</span>
+                    <span style={{ color: '#3a3f55' }}>·</span>
+                    <span style={{ color: '#22c07a' }}>{selectedObjectDims.sqft} sqft</span>
+                  </>
+                ) : (
+                  <span style={{ color: '#3a3f55' }}>no selection</span>
+                )}
+              </div>
+
+              {/* Total canvas sqft */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 8, paddingRight: 8, borderRight: '1px solid #1a1d27', height: '100%' }}>
+                <span style={{ color: '#5a6080' }}>Total:</span>
+                <span style={{ color: '#22c07a', fontWeight: 700 }}>{canvasShapeSqft > 0 ? canvasShapeSqft : (totalToOrder || 0)} sqft</span>
+              </div>
+
+              {/* Custom shape live measurement */}
+              {tool === 'custom' && customShapePoints.length >= 2 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 8, paddingRight: 8, borderRight: '1px solid #1a1d27', height: '100%', background: 'rgba(79,127,255,0.08)' }}>
+                  <Pentagon size={10} style={{ color: '#4f7fff' }} />
+                  <span style={{ color: '#4f7fff' }}>{customShapeLiveSqft} sqft ({customShapeLiveSqIn} sq in)</span>
+                  <span style={{ color: '#5a6080' }}>{customShapePoints.length} pts</span>
+                </div>
+              )}
+
+              <div style={{ flex: 1 }} />
+
+              {/* Snap toggle */}
+              <button
+                onClick={() => setSnapEnabled(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 10px', height: '100%', background: 'none', border: 'none', cursor: 'pointer', borderLeft: '1px solid #1a1d27', color: snapEnabled ? '#22c07a' : '#3a3f55', fontSize: 10 }}>
+                {snapEnabled ? <Zap size={10} /> : <ZapOff size={10} />}
+                Snap
               </button>
-              <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#9299b5', minWidth: 40, textAlign: 'center' }}>
-                {Math.round(zoom * 100)}%
-              </span>
-              <button onClick={zoomIn} style={miniBtn}>
-                <ZoomIn size={14} />
+
+              {/* Objects count */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 10px', height: '100%', borderLeft: '1px solid #1a1d27', color: '#3a3f55' }}>
+                {objectCount} obj
+              </div>
+
+              {/* Scale */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 10px', height: '100%', borderLeft: '1px solid #1a1d27', color: '#3a3f55' }}>
+                1" = {pixelsPerInch}px
+              </div>
+            </div>
+          )}
+
+          {/* Custom shape instruction banner */}
+          {canvasMode === '2d' && tool === 'custom' && (
+            <div style={{
+              position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 16px', background: 'rgba(79,127,255,0.92)', borderRadius: 20,
+              fontSize: 11, color: '#fff', fontWeight: 600, pointerEvents: 'none', zIndex: 5,
+            }}>
+              <Pentagon size={12} />
+              {customShapePoints.length === 0
+                ? 'Click to start tracing shape — double-click to close'
+                : `${customShapePoints.length} points — double-click or press Enter to close (${customShapeLiveSqft} sqft)`
+              }
+            </div>
+          )}
+
+          {/* Custom shape complete / cancel controls */}
+          {canvasMode === '2d' && tool === 'custom' && customShapePoints.length >= 3 && (
+            <div style={{
+              position: 'absolute', top: 44, left: '50%', transform: 'translateX(-50%)',
+              display: 'flex', gap: 6, zIndex: 5,
+            }}>
+              <button onClick={completeCustomShape}
+                style={{ padding: '5px 14px', background: '#22c07a', color: '#0d1a10', border: 'none', borderRadius: 20, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                <Check size={11} style={{ display: 'inline', marginRight: 4 }} />
+                Close Shape
               </button>
-              <div style={{ width: 1, height: 14, background: '#1a1d27' }} />
-              <button onClick={() => {
-                const fc = fabricRef.current
-                if (!fc) return
-                fc.setZoom(0.5)
-                setZoom(0.5)
-              }} style={{ ...miniBtn, fontSize: 10 }}>Fit</button>
+              <button onClick={cancelCustomShape}
+                style={{ padding: '5px 12px', background: 'rgba(242,90,90,0.15)', color: '#f25a5a', border: '1px solid rgba(242,90,90,0.3)', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                Cancel
+              </button>
             </div>
           )}
 
@@ -1945,6 +2577,8 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
             {([
               { key: 'layers' as const, icon: Layers, label: 'Layers' },
               { key: 'coverage' as const, icon: Package, label: 'SqFt' },
+              { key: 'calculator' as const, icon: Calculator, label: 'Calc' },
+              { key: 'upscale' as const, icon: Maximize2, label: 'Upscale' },
               { key: 'print' as const, icon: Printer, label: 'Print' },
               { key: 'files' as const, icon: ImageIcon, label: 'Files' },
               { key: 'comments' as const, icon: MessageCircle, label: 'Chat' },
@@ -2127,6 +2761,249 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
                 <div>
                   <label style={labelSt}>Material Cost ($/sqft)</label>
                   <input type="number" step="0.25" value={materialCostPerSqft} onChange={e => setMaterialCostPerSqft(+e.target.value)} style={inputSt} />
+                </div>
+              </div>
+            )}
+
+            {/* ── JOB CALCULATOR PANEL ── */}
+            {canvasMode === '2d' && rightPanel === 'calculator' && (() => {
+              const sqft = canvasShapeSqft || totalToOrder || 0
+              const wasteMultiplier = 1 + calcWastePercent / 100
+              const sqftWithWaste = Math.ceil(sqft * wasteMultiplier)
+              const materialTotal = sqftWithWaste * calcMaterialCostPerSqft
+              const printTotal = sqftWithWaste * calcPrintCostPerSqft
+              const laborTotal = sqft * calcLaborCostPerSqft
+              const subtotal = materialTotal + printTotal + laborTotal
+              const salePrice = subtotal * (1 + calcMarkup / 100)
+              const unitPrice = sqft > 0 ? salePrice / sqft : 0
+              const MATERIALS = ['Cast Vinyl', 'Calendered Vinyl', 'Reflective Vinyl', 'Perforated Vinyl', 'Mesh Vinyl', 'Chrome Vinyl', 'Satin Vinyl', 'Matte Vinyl', 'PPF', 'Carbon Fiber']
+              return (
+                <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+                  <div style={panelTitleStyle}>Job Calculator</div>
+
+                  {/* Sqft source */}
+                  <div style={{ padding: '8px 10px', background: canvasShapeSqft > 0 ? 'rgba(34,192,122,0.08)' : '#0d0f14', border: `1px solid ${canvasShapeSqft > 0 ? 'rgba(34,192,122,0.2)' : '#1a1d27'}`, borderRadius: 8 }}>
+                    <div style={{ fontSize: 9, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Canvas Shape Sqft</div>
+                    <div style={{ fontSize: 22, fontFamily: 'JetBrains Mono, monospace', color: canvasShapeSqft > 0 ? '#22c07a' : '#5a6080', fontWeight: 800 }}>
+                      {canvasShapeSqft > 0 ? canvasShapeSqft : (totalToOrder > 0 ? totalToOrder : '—')} sqft
+                    </div>
+                    <div style={{ fontSize: 9, color: '#5a6080', marginTop: 2 }}>
+                      {canvasShapeSqft > 0 ? 'From traced shapes' : totalToOrder > 0 ? 'From coverage panel' : 'Draw shapes or select panels'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={labelSt}>Material</label>
+                    <select value={calcMaterial} onChange={e => setCalcMaterial(e.target.value)} style={selectSt}>
+                      {MATERIALS.map(m => <option key={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={labelSt}>Material $/sqft</label>
+                      <input type="number" step="0.25" min="0" value={calcMaterialCostPerSqft} onChange={e => setCalcMaterialCostPerSqft(+e.target.value)} style={inputSt} />
+                    </div>
+                    <div>
+                      <label style={labelSt}>Print $/sqft</label>
+                      <input type="number" step="0.25" min="0" value={calcPrintCostPerSqft} onChange={e => setCalcPrintCostPerSqft(+e.target.value)} style={inputSt} />
+                    </div>
+                    <div>
+                      <label style={labelSt}>Labor $/sqft</label>
+                      <input type="number" step="0.25" min="0" value={calcLaborCostPerSqft} onChange={e => setCalcLaborCostPerSqft(+e.target.value)} style={inputSt} />
+                    </div>
+                    <div>
+                      <label style={labelSt}>Waste %</label>
+                      <input type="number" step="1" min="0" value={calcWastePercent} onChange={e => setCalcWastePercent(+e.target.value)} style={inputSt} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={labelSt}>Markup %</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[20, 30, 40, 50, 60].map(m => (
+                        <button key={m} onClick={() => setCalcMarkup(m)}
+                          style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                            background: calcMarkup === m ? '#4f7fff' : '#1a1d27', color: calcMarkup === m ? '#fff' : '#9299b5' }}>
+                          {m}%
+                        </button>
+                      ))}
+                    </div>
+                    <input type="number" step="1" min="0" value={calcMarkup} onChange={e => setCalcMarkup(+e.target.value)} style={{ ...inputSt, marginTop: 4 }} />
+                  </div>
+
+                  {/* Calculation results */}
+                  <div style={{ background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                      <span style={{ color: '#5a6080' }}>Material needed ({calcWastePercent}% waste)</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8eaed' }}>{sqftWithWaste} sqft</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                      <span style={{ color: '#5a6080' }}>Material cost</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8eaed' }}>{fmtMoney(materialTotal)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                      <span style={{ color: '#5a6080' }}>Print cost</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8eaed' }}>{fmtMoney(printTotal)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                      <span style={{ color: '#5a6080' }}>Labor cost</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8eaed' }}>{fmtMoney(laborTotal)}</span>
+                    </div>
+                    <div style={{ borderTop: '1px solid #1a1d27', marginTop: 4, paddingTop: 4, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                      <span style={{ color: '#5a6080' }}>Subtotal (COGS)</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#e8eaed' }}>{fmtMoney(subtotal)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: '#e8eaed' }}>Sale Price ({calcMarkup}% markup)</span>
+                      <span style={{ fontSize: 18, fontFamily: 'JetBrains Mono, monospace', color: '#22c07a', fontWeight: 800 }}>{fmtMoney(salePrice)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+                      <span style={{ color: '#5a6080' }}>Unit price</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#9299b5' }}>{fmtMoney(unitPrice)}/sqft</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleCreateLineItem}
+                    disabled={creatingLineItem || sqft === 0 || !linkedJob}
+                    style={{
+                      padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: lineItemCreated ? '#22c07a' : sqft === 0 || !linkedJob ? '#1a1d27' : '#4f7fff',
+                      color: lineItemCreated ? '#0d1a10' : '#fff', fontSize: 12, fontWeight: 800,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      opacity: (sqft === 0 || !linkedJob) ? 0.5 : 1,
+                    }}
+                  >
+                    {lineItemCreated ? <><Check size={13} /> Line Item Created!</> : creatingLineItem ? 'Creating...' : <><Plus size={13} /> Create Line Item in Job</>}
+                  </button>
+                  {!linkedJob && (
+                    <div style={{ fontSize: 10, color: '#f59e0b', textAlign: 'center' }}>Link a job in Brief tab to enable line item creation</div>
+                  )}
+
+                  {/* Scale setting */}
+                  <div style={{ borderTop: '1px solid #1a1d27', paddingTop: 10 }}>
+                    <label style={labelSt}>Scale: pixels per inch (current: {pixelsPerInch}px = 1")</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[5, 10, 20, 50, 96].map(ppi => (
+                        <button key={ppi} onClick={() => { setPixelsPerInch(ppi); recalcCanvasSqft(fabricRef.current, ppi) }}
+                          style={{ flex: 1, padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                            background: pixelsPerInch === ppi ? '#22d3ee' : '#1a1d27', color: pixelsPerInch === ppi ? '#0d1a10' : '#9299b5' }}>
+                          {ppi}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 9, color: '#5a6080', marginTop: 4 }}>10px/in = rough scale · 96px/in = screen DPI · match your canvas setup</div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── PHOTO UPSCALER PANEL ── */}
+            {canvasMode === '2d' && rightPanel === 'upscale' && (
+              <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+                <div style={panelTitleStyle}>AI Photo Upscaler</div>
+                <div style={{ fontSize: 10, color: '#5a6080', lineHeight: 1.5 }}>
+                  Real-ESRGAN neural upscaling — best quality AI upscaler available. Produces crisp, print-ready results.
+                </div>
+
+                {/* File selector */}
+                <div>
+                  <label style={labelSt}>Select Image to Upscale</label>
+                  <select
+                    value={upscaleFile?.id || ''}
+                    onChange={e => {
+                      const f = designFiles.find(f => f.id === e.target.value)
+                      setUpscaleFile(f || null)
+                      setUpscaleResult(null)
+                    }}
+                    style={selectSt}
+                  >
+                    <option value="">— Choose a design file —</option>
+                    {designFiles.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f.file_url || '')).map(f => (
+                      <option key={f.id} value={f.id}>{f.file_name}</option>
+                    ))}
+                  </select>
+                  {upscaleFile?.file_url && (
+                    <img src={upscaleFile.file_url} alt="" style={{ width: '100%', borderRadius: 8, border: '1px solid #1a1d27', marginTop: 8, maxHeight: 120, objectFit: 'contain', background: '#0d0f14' }} />
+                  )}
+                </div>
+
+                {/* Scale selector */}
+                <div>
+                  <label style={labelSt}>Upscale Factor</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {([2, 4, 8] as const).map(s => (
+                      <button key={s} onClick={() => setUpscaleScale(s)}
+                        style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 800,
+                          background: upscaleScale === s ? '#4f7fff' : '#1a1d27', color: upscaleScale === s ? '#fff' : '#9299b5' }}>
+                        {s}×
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Face enhancement */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: '#e8eaed' }}>
+                  <input type="checkbox" checked={upscaleFaceEnhance} onChange={e => setUpscaleFaceEnhance(e.target.checked)} style={{ accentColor: '#4f7fff' }} />
+                  Face enhancement (for photos with people)
+                </label>
+
+                {/* Upscale button */}
+                <button
+                  onClick={handleUpscale}
+                  disabled={upscaling || !upscaleFile}
+                  style={{
+                    padding: '10px', borderRadius: 8, border: 'none',
+                    background: upscaling ? '#1a1d27' : upscaleFile ? 'linear-gradient(135deg, #4f7fff, #8b5cf6)' : '#1a1d27',
+                    color: '#fff', fontSize: 12, fontWeight: 800, cursor: upscaling || !upscaleFile ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    opacity: !upscaleFile ? 0.4 : 1,
+                  }}
+                >
+                  <Maximize2 size={13} />
+                  {upscaling ? `Upscaling... ${Math.round(upscaleProgress)}%` : `Upscale ${upscaleScale}×`}
+                </button>
+
+                {/* Progress bar */}
+                {upscaling && (
+                  <div style={{ background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 8, padding: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, color: '#9299b5' }}>AI processing... (30–90s)</span>
+                      <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#4f7fff' }}>{Math.round(upscaleProgress)}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: 6, background: '#1a1d27', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ width: `${upscaleProgress}%`, height: '100%', background: 'linear-gradient(90deg, #4f7fff, #8b5cf6)', borderRadius: 3, transition: 'width 0.5s' }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Result */}
+                {upscaleResult && (
+                  <div style={{ background: 'rgba(34,192,122,0.06)', border: '1px solid rgba(34,192,122,0.2)', borderRadius: 10, padding: 10 }}>
+                    <div style={{ fontSize: 11, color: '#22c07a', fontWeight: 700, marginBottom: 8 }}>Upscale complete!</div>
+                    <img src={upscaleResult} alt="Upscaled" style={{ width: '100%', borderRadius: 6, border: '1px solid #1a1d27', maxHeight: 200, objectFit: 'contain', background: '#0d0f14' }} />
+                    <div style={{ fontSize: 9, color: '#5a6080', marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{upscaleFileName}</div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                      <button
+                        onClick={() => placeImageOnCanvas(upscaleResult!, 0, 0)}
+                        style={{ flex: 1, padding: '6px', background: '#22c07a', color: '#0d1a10', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        Add to Canvas
+                      </button>
+                      <a href={upscaleResult} download={upscaleFileName}
+                        style={{ flex: 1, padding: '6px', background: '#1a1d27', color: '#9299b5', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        <Download size={12} /> Download
+                      </a>
+                    </div>
+                    <div style={{ fontSize: 9, color: '#5a6080', marginTop: 6 }}>Saved to design files automatically</div>
+                  </div>
+                )}
+
+                <div style={{ borderTop: '1px solid #1a1d27', paddingTop: 8 }}>
+                  <div style={{ fontSize: 9, color: '#5a6080', lineHeight: 1.5 }}>
+                    Model: Real-ESRGAN (nightmareai) · Saves new file, never overwrites original · Auto-named <em>[original]_{'{scale}'}x_upscaled.png</em>
+                  </div>
                 </div>
               </div>
             )}
@@ -2645,6 +3522,213 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           }}
           onClose={() => setShow3DImporter(false)}
         />
+      )}
+
+      {/* ─── SAVE AS / VERSION HISTORY MODAL ─── */}
+      {showSaveAsModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setShowSaveAsModal(false)}>
+          <div style={{ background: '#13151c', borderRadius: 16, border: '1px solid #1a1d27', padding: 24, minWidth: 420, maxWidth: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 16 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <History size={18} style={{ color: '#4f7fff' }} />
+                <span style={{ fontSize: 18, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', color: '#e8eaed' }}>Save As Version</span>
+              </div>
+              <button onClick={() => setShowSaveAsModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a6080' }}><X size={16} /></button>
+            </div>
+
+            <div>
+              <label style={labelSt}>Version Name</label>
+              <input
+                autoFocus
+                value={saveAsName}
+                onChange={e => setSaveAsName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveAs()}
+                placeholder={`e.g. "Before client revisions" — ${new Date().toLocaleDateString()}`}
+                style={inputSt}
+              />
+            </div>
+
+            {/* Export format options */}
+            <div>
+              <div style={panelTitleStyle}>Quick Export</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'PNG (2×)', action: () => { const fc = fabricRef.current; if (!fc) return; const d = fc.toDataURL({ format: 'png', multiplier: 2 }); const a = document.createElement('a'); a.href = d; a.download = `${design.client_name || 'design'}.png`; a.click() } },
+                  { label: 'PNG (4×)', action: () => { const fc = fabricRef.current; if (!fc) return; const d = fc.toDataURL({ format: 'png', multiplier: 4 }); const a = document.createElement('a'); a.href = d; a.download = `${design.client_name || 'design'}-4x.png`; a.click() } },
+                  { label: 'JPG', action: () => { const fc = fabricRef.current; if (!fc) return; const d = fc.toDataURL({ format: 'jpeg', quality: 0.92, multiplier: 2 }); const a = document.createElement('a'); a.href = d; a.download = `${design.client_name || 'design'}.jpg`; a.click() } },
+                  { label: 'SVG', action: exportSVG },
+                  { label: 'PDF', action: () => setShowExportModal(true) },
+                ].map(({ label, action }) => (
+                  <button key={label} onClick={() => { action(); setShowSaveAsModal(false) }}
+                    style={{ padding: '6px 14px', background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 8, color: '#9299b5', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Version history */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={panelTitleStyle}>Version History</div>
+                <button onClick={loadVersionHistory} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4f7fff', fontSize: 10 }}>
+                  <RotateCcw size={12} style={{ display: 'inline', marginRight: 4 }} />
+                  Refresh
+                </button>
+              </div>
+              {versionHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#5a6080', fontSize: 12, padding: '16px 0' }}>No saved versions yet. Save one below.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {versionHistory.map(v => (
+                    <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#0d0f14', borderRadius: 8, border: '1px solid #1a1d27' }}>
+                      {v.thumbnail_url && <img src={v.thumbnail_url} alt="" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: '#e8eaed', fontWeight: 600 }}>{v.name}</div>
+                        <div style={{ fontSize: 10, color: '#5a6080' }}>{new Date(v.created_at).toLocaleString()}</div>
+                      </div>
+                      <button onClick={() => restoreVersion(v.id)}
+                        style={{ padding: '4px 10px', background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 6, color: '#4f7fff', fontSize: 11, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowSaveAsModal(false)}
+                style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #1a1d27', borderRadius: 8, color: '#9299b5', cursor: 'pointer', fontSize: 13 }}>
+                Cancel
+              </button>
+              <button onClick={handleSaveAs} disabled={savingVersion}
+                style={{ flex: 2, padding: '10px', background: '#4f7fff', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Save size={14} />
+                {savingVersion ? 'Saving...' : 'Save Version'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PREFERENCES MODAL (Cmd+K) ─── */}
+      {showPrefsModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setShowPrefsModal(false)}>
+          <div style={{ background: '#13151c', borderRadius: 16, border: '1px solid #1a1d27', padding: 24, minWidth: 460, maxWidth: 640, maxHeight: '85vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <SlidersHorizontal size={18} style={{ color: '#8b5cf6' }} />
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', color: '#e8eaed' }}>Preferences</div>
+                  <div style={{ fontSize: 10, color: '#5a6080' }}>Ctrl+K · Saved per-user</div>
+                </div>
+              </div>
+              <button onClick={() => setShowPrefsModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a6080' }}><X size={16} /></button>
+            </div>
+
+            {/* Units */}
+            <div>
+              <div style={panelTitleStyle}>Units</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['inches', 'mm', 'px', 'ft'] as const).map(u => (
+                  <button key={u} onClick={() => setPrefsUnits(u)}
+                    style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                      background: prefsUnits === u ? '#4f7fff' : '#1a1d27', color: prefsUnits === u ? '#fff' : '#9299b5' }}>
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Scale */}
+            <div>
+              <div style={panelTitleStyle}>Canvas Scale (pixels per inch)</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[5, 10, 20, 50, 96].map(ppi => (
+                  <button key={ppi} onClick={() => { setPixelsPerInch(ppi); recalcCanvasSqft(fabricRef.current, ppi) }}
+                    style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                      background: pixelsPerInch === ppi ? '#22d3ee' : '#1a1d27', color: pixelsPerInch === ppi ? '#0d1a10' : '#9299b5' }}>
+                    {ppi}px = 1"
+                  </button>
+                ))}
+              </div>
+              <input type="number" min="1" max="300" value={pixelsPerInch}
+                onChange={e => { setPixelsPerInch(+e.target.value); recalcCanvasSqft(fabricRef.current, +e.target.value) }}
+                style={{ ...inputSt, marginTop: 8, width: 120 }} />
+              <div style={{ fontSize: 10, color: '#5a6080', marginTop: 4 }}>10px = rough planning scale · 96px = screen resolution · match your actual canvas setup for accurate sqft</div>
+            </div>
+
+            {/* Auto-save interval */}
+            <div>
+              <div style={panelTitleStyle}>Auto-save Interval</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[30, 60, 120, 300].map(s => (
+                  <button key={s} onClick={() => setPrefsAutoSaveInterval(s)}
+                    style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                      background: prefsAutoSaveInterval === s ? '#4f7fff' : '#1a1d27', color: prefsAutoSaveInterval === s ? '#fff' : '#9299b5' }}>
+                    {s}s
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Keyboard shortcuts reference */}
+            <div>
+              <div style={panelTitleStyle}>Keyboard Shortcuts (Illustrator-style)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 11 }}>
+                {[
+                  ['V', 'Selection'],
+                  ['P', 'Pen / Custom Shape'],
+                  ['B', 'Brush'],
+                  ['T', 'Text'],
+                  ['L', 'Ellipse'],
+                  ['M', 'Rectangle'],
+                  ['I', 'Eyedropper'],
+                  ['[', 'Decrease brush'],
+                  [']', 'Increase brush'],
+                  ['Ctrl+Z', 'Undo'],
+                  ['Ctrl+Shift+Z', 'Redo'],
+                  ['Ctrl+C/V/X', 'Copy/Paste/Cut'],
+                  ['Ctrl+D', 'Duplicate'],
+                  ['Ctrl+G', 'Group'],
+                  ['Ctrl+A', 'Select All'],
+                  ['Ctrl+[/]', 'Move Back/Forward'],
+                  ['Ctrl+Shift+[/]', 'Send to Back/Front'],
+                  ['Ctrl++/-', 'Zoom In/Out'],
+                  ['Ctrl+0', 'Fit to Window'],
+                  ['Ctrl+1', 'Actual Size'],
+                  ['Ctrl+S', 'Save'],
+                  ['Ctrl+Shift+S', 'Save As'],
+                  ['Ctrl+K', 'Preferences'],
+                  ['Enter', 'Close shape'],
+                  ['Esc', 'Cancel / Deselect'],
+                  ['Delete', 'Delete selected'],
+                ].map(([key, label]) => (
+                  <div key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #0d0f14' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#4f7fff', fontSize: 10, minWidth: 100 }}>{key}</span>
+                    <span style={{ color: '#9299b5' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowPrefsModal(false)}
+                style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #1a1d27', borderRadius: 8, color: '#9299b5', cursor: 'pointer', fontSize: 13 }}>
+                Close
+              </button>
+              <button onClick={async () => { await savePreferences(); setShowPrefsModal(false) }}
+                style={{ flex: 2, padding: '10px', background: '#4f7fff', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 800 }}>
+                {prefsSavingMsg ? 'Saved!' : 'Save Preferences'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`
