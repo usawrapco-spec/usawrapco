@@ -12,7 +12,7 @@ import {
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
   Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench,
-  Navigation,
+  Navigation, Waves, Glasses, Trophy, Filter, Store, Kanban,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +44,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/invoices',     label: 'Invoices',     icon: Receipt },
       { href: '/deposit',      label: 'Payments',     icon: CreditCard, roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/prospects',    label: 'Proposals',    icon: Briefcase },
+      { href: '/funnel',       label: 'Lead Funnel',  icon: Filter,     roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/shop',         label: 'Shop',         icon: Store },
     ],
   },
   {
@@ -55,6 +57,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/pipeline',         label: 'Pipeline',         icon: LayoutDashboard },
       { href: '/jobs',             label: 'All Jobs',         icon: ClipboardList },
       { href: '/install/schedule', label: 'Install Schedule', icon: CalendarDays },
+      { href: '/decking',          label: 'Decking',          icon: Waves },
+      { href: '/tinting',          label: 'Tinting',          icon: Glasses },
     ],
   },
   {
@@ -64,6 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
       { href: '/design',           label: 'Projects',         icon: LayoutGrid },
+      { href: '/design/manage',    label: 'Design Manager',   icon: Kanban,       roles: ['owner', 'admin', 'designer'] },
       { href: '/design/briefs',    label: 'Briefs',           icon: FileInput },
       { href: '/design/materials', label: 'Materials',        icon: Layers },
       { href: '/design/proofs',    label: 'Proofs',           icon: CheckSquare },
@@ -90,6 +95,7 @@ const NAV_SECTIONS: NavSection[] = [
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
       { href: '/employees',    label: 'Staff',           icon: Users,        roles: ['owner', 'admin'] },
+      { href: '/leaderboard',  label: 'Leaderboard',     icon: Trophy },
       { href: '/timeclock',    label: 'Time Clock',      icon: Clock },
       { href: '/mileage',      label: 'Mileage',         icon: Car },
       { href: '/expenses',     label: 'Expenses',        icon: Receipt },
