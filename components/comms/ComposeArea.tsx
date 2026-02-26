@@ -15,10 +15,20 @@ import {
   ListOrdered,
   Link2,
   PenLine,
+  Briefcase,
 } from 'lucide-react'
 import type { Conversation, EmailTemplate, SmsTemplate, PhotoSelection } from './types'
 import type { Profile } from '@/types'
 import { PhotoPickerModal } from './PhotoPickerModal'
+import { createClient } from '@/lib/supabase/client'
+
+interface ContactSuggestion {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  hasActiveJob: boolean
+}
 
 type ComposeTab = 'email' | 'sms' | 'note'
 
@@ -294,7 +304,65 @@ export function ComposeArea({
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
 
+  const supabase = createClient()
   const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+
+  // ── Contact autocomplete ───────────────────────────────────────
+  const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const toWrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!composingNew || !newTo || newTo.length < 2) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, name, email, phone')
+        .eq('org_id', orgId)
+        .or(`name.ilike.%${newTo}%,email.ilike.%${newTo}%,phone.ilike.%${newTo}%`)
+        .limit(8)
+      if (!customers?.length) { setSuggestions([]); setShowSuggestions(false); return }
+
+      const ids = customers.map((c) => c.id)
+      const { data: jobs } = await supabase
+        .from('projects')
+        .select('customer_id')
+        .in('customer_id', ids)
+        .not('status', 'in', '("done","cancelled")')
+      const activeSet = new Set((jobs || []).map((j) => j.customer_id))
+
+      setSuggestions(customers.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        hasActiveJob: activeSet.has(c.id),
+      })))
+      setShowSuggestions(true)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [newTo, composingNew]) // eslint-disable-line
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (toWrapperRef.current && !toWrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selectSuggestion = (s: ContactSuggestion) => {
+    onNewNameChange?.(s.name)
+    onNewToChange?.(tab === 'sms' ? (s.phone || '') : (s.email || ''))
+    setShowSuggestions(false)
+  }
 
   // Signature HTML block appended below message body
   const sigHtml = profile.email_signature
@@ -445,48 +513,113 @@ export function ComposeArea({
           flexShrink: 0,
         }}
       >
-        {/* New conversation To field */}
+        {/* New conversation To field with contact autocomplete */}
         {composingNew && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              padding: '8px 14px',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Name"
-              value={newName || ''}
-              onChange={(e) => onNewNameChange?.(e.target.value)}
-              style={{
-                flex: 1,
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '6px 10px',
-                fontSize: 13,
-                color: 'var(--text1)',
-                outline: 'none',
-              }}
-            />
-            <input
-              type="text"
-              placeholder={tab === 'sms' ? 'Phone number' : 'Email address'}
-              value={newTo || ''}
-              onChange={(e) => onNewToChange?.(e.target.value)}
-              style={{
-                flex: 2,
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '6px 10px',
-                fontSize: 13,
-                color: 'var(--text1)',
-                outline: 'none',
-              }}
-            />
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Name"
+                value={newName || ''}
+                onChange={(e) => onNewNameChange?.(e.target.value)}
+                style={{
+                  flex: 1,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  fontSize: 13,
+                  color: 'var(--text1)',
+                  outline: 'none',
+                }}
+              />
+              <div ref={toWrapperRef} style={{ flex: 2, position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder={tab === 'sms' ? 'Phone number' : 'Email or name to search...'}
+                  value={newTo || ''}
+                  onChange={(e) => { onNewToChange?.(e.target.value); setShowSuggestions(true) }}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    padding: '6px 10px',
+                    fontSize: 13,
+                    color: 'var(--text1)',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                {/* Suggestions dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                    zIndex: 50,
+                  }}>
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s) }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          width: '100%',
+                          padding: '8px 12px',
+                          background: 'none',
+                          border: 'none',
+                          borderBottom: '1px solid var(--surface2)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                      >
+                        {/* Avatar */}
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--accent)', flexShrink: 0, fontFamily: 'Barlow Condensed, sans-serif' }}>
+                          {(s.name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {s.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {tab === 'sms' ? (s.phone || s.email || '') : (s.email || s.phone || '')}
+                          </div>
+                        </div>
+                        {/* Job badge */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          padding: '2px 7px',
+                          borderRadius: 99,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          background: s.hasActiveJob ? 'rgba(34,192,122,0.15)' : 'var(--surface2)',
+                          color: s.hasActiveJob ? 'var(--green)' : 'var(--text3)',
+                          flexShrink: 0,
+                        }}>
+                          <Briefcase size={9} />
+                          {s.hasActiveJob ? 'Active job' : 'No job'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
