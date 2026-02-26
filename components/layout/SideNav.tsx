@@ -11,7 +11,7 @@ import {
   LayoutDashboard, ClipboardList, CalendarDays, Palette,
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
-  Truck, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot,
+  Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -76,9 +76,10 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Users,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/customers', label: 'Contacts',      icon: Users },
-      { href: '/inbox',     label: 'Conversations', icon: MessageSquare },
-      { href: '/ai-comms', label: 'AI Comms Hub',  icon: Bot,            roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/customers',    label: 'Contacts',      icon: Users },
+      { href: '/inbox',        label: 'Conversations', icon: MessageSquare },
+      { href: '/maintenance',  label: 'Maintenance',   icon: Wrench,         roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/ai-comms',     label: 'AI Comms Hub',  icon: Bot,            roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
@@ -89,6 +90,10 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/employees',    label: 'Staff',           icon: Users,        roles: ['owner', 'admin'] },
       { href: '/timeclock',    label: 'Time Clock',      icon: Clock },
+      { href: '/mileage',      label: 'Mileage',         icon: Car },
+      { href: '/expenses',     label: 'Expenses',        icon: Receipt },
+      { href: '/payroll',      label: 'Payroll',         icon: DollarSign,   roles: ['owner', 'admin'] },
+      { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,        roles: ['owner', 'admin'] },
       { href: '/install/bids', label: 'Installer Bids',  icon: ClipboardList },
     ],
   },

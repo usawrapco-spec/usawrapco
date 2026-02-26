@@ -340,7 +340,7 @@ export default function MaintenanceClient({ profile }: { profile: Profile | null
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
                         {chip(t.status, sc)}
-                        {t.is_warranty_eligible && <Shield size={16} color={C.green} title="Warranty eligible" />}
+                        {t.is_warranty_eligible && <Shield size={16} color={C.green} aria-label="Warranty eligible" />}
                       </div>
                     </div>
 

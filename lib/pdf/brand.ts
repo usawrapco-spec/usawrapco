@@ -31,8 +31,6 @@ export const PDF_COLORS = {
   textMuted: '#94a3b8',
 } as const
 
-export const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export const PDF_TERMS = [
   '50% deposit required to schedule. Remaining balance due upon vehicle pickup.',
   'Deposits are non-refundable after design work has begun.',
