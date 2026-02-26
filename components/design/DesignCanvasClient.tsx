@@ -361,7 +361,11 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   const linkedJob = design.linked_project || null
 
   // ── Sync pixelsPerInch to ref (accessible in fabric event handlers) ──
-  useEffect(() => { pixelsPerInchRef.current = pixelsPerInch }, [pixelsPerInch])
+  useEffect(() => {
+    pixelsPerInchRef.current = pixelsPerInch
+    // Recalculate total canvas sqft whenever scale changes
+    if (fabricRef.current) recalcCanvasSqft(fabricRef.current, pixelsPerInch)
+  }, [pixelsPerInch, recalcCanvasSqft])
   // ── Sync custom shape callbacks to refs ──
   useEffect(() => { completeCustomShapeRef.current = completeCustomShape }, [completeCustomShape])
   useEffect(() => { cancelCustomShapeRef.current = cancelCustomShape }, [cancelCustomShape])
@@ -565,23 +569,31 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         }
         window.addEventListener('resize', handleResize)
 
-        // ── Status bar: cursor position + color ──
+        // ── Status bar: cursor position + color (throttled to ~30fps) ──
+        let lastMoveTs = 0
+        let colorSampleFrame = 0
         fc.on('mouse:move', (opt: any) => {
           if (!mounted) return
+          const now = Date.now()
+          if (now - lastMoveTs < 33) return // ~30fps throttle
+          lastMoveTs = now
           const ptr = fc.getPointer(opt.e)
           setCursorPos({ x: Math.round(ptr.x), y: Math.round(ptr.y) })
-          // Sample color under cursor from canvas element
-          try {
-            const canvasEl = canvasElRef.current
-            if (canvasEl) {
-              const ctx = canvasEl.getContext('2d')
-              if (ctx) {
-                const pixel = ctx.getImageData(Math.round(opt.e.offsetX), Math.round(opt.e.offsetY), 1, 1).data
-                const hex = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`
-                setColorUnderCursor(hex)
+          // Sample color every 3rd frame to reduce getImageData cost
+          colorSampleFrame = (colorSampleFrame + 1) % 3
+          if (colorSampleFrame === 0) {
+            try {
+              const canvasEl = canvasElRef.current
+              if (canvasEl) {
+                const ctx = canvasEl.getContext('2d')
+                if (ctx) {
+                  const pixel = ctx.getImageData(Math.round(opt.e.offsetX), Math.round(opt.e.offsetY), 1, 1).data
+                  const hex = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`
+                  setColorUnderCursor(hex)
+                }
               }
-            }
-          } catch { /* cross-origin or read error */ }
+            } catch { /* cross-origin or read error */ }
+          }
         })
 
         // ── Status bar: selected object dimensions ──
@@ -644,6 +656,11 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
       if (fabricRef.current) {
         fabricRef.current.dispose()
         fabricRef.current = null
+      }
+      // Clean up upscale progress interval if component unmounts mid-upscale
+      if (upscaleProgressRef.current) {
+        clearInterval(upscaleProgressRef.current)
+        upscaleProgressRef.current = null
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1463,34 +1480,34 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     drawCustomShapeOverlay(newPts)
   }, [tool])
 
-  const drawCustomShapeOverlay = (pts: { x: number; y: number }[]) => {
+  const drawCustomShapeOverlay = async (pts: { x: number; y: number }[]) => {
     const fc = fabricRef.current
     if (!fc || pts.length === 0) return
-    // Remove previous preview objects tagged as customPreview
+    // Remove previous preview objects
     const existing = fc.getObjects().filter((o: any) => o._customPreview)
     existing.forEach((o: any) => fc.remove(o))
 
+    // Single import — module is cached after first call, so this is fast
+    const fabric = await import('fabric')
+
     // Draw lines between points
     for (let i = 0; i < pts.length - 1; i++) {
-      import('fabric').then(fabric => {
-        const line = new (fabric as any).Line([pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y], {
-          stroke: '#4f7fff', strokeWidth: 1.5, strokeDashArray: [4, 3],
-          selectable: false, evented: false, _customPreview: true,
-        })
-        fc.add(line)
+      const line = new (fabric as any).Line([pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y], {
+        stroke: '#4f7fff', strokeWidth: 1.5, strokeDashArray: [4, 3],
+        selectable: false, evented: false, _customPreview: true,
       })
+      fc.add(line)
     }
     // Draw point markers
     pts.forEach((pt, idx) => {
-      import('fabric').then(fabric => {
-        const circle = new (fabric as any).Circle({
-          left: pt.x - 4, top: pt.y - 4, radius: 4,
-          fill: idx === 0 ? '#22c07a' : '#4f7fff', stroke: '#fff', strokeWidth: 1,
-          selectable: false, evented: false, _customPreview: true,
-        })
-        fc.add(circle)
+      const circle = new (fabric as any).Circle({
+        left: pt.x - 4, top: pt.y - 4, radius: 4,
+        fill: idx === 0 ? '#22c07a' : '#4f7fff', stroke: '#fff', strokeWidth: 1,
+        selectable: false, evented: false, _customPreview: true,
       })
+      fc.add(circle)
     })
+    // renderAll after all objects are added
     fc.renderAll()
   }
 
@@ -1641,9 +1658,10 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
         }),
       })
       const data = await res.json()
-      if (upscaleProgressRef.current) clearInterval(upscaleProgressRef.current)
-      setUpscaleProgress(100)
+      // Stop progress bar before any state updates
+      if (upscaleProgressRef.current) { clearInterval(upscaleProgressRef.current); upscaleProgressRef.current = null }
       if (data.url) {
+        setUpscaleProgress(100)
         setUpscaleResult(data.url)
         setUpscaleFileName(data.fileName || '')
         // Refresh design files to show new upscaled file
@@ -1651,10 +1669,14 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           .eq('design_project_id', design.id).order('created_at', { ascending: false })
         if (refreshed) setDesignFiles(refreshed)
       } else {
+        setUpscaleProgress(0)
+        console.error('Upscale failed:', data.error)
         alert('Upscale failed: ' + (data.error || 'Unknown error'))
       }
     } catch (err: any) {
-      if (upscaleProgressRef.current) clearInterval(upscaleProgressRef.current)
+      if (upscaleProgressRef.current) { clearInterval(upscaleProgressRef.current); upscaleProgressRef.current = null }
+      setUpscaleProgress(0)
+      console.error('Upscale error:', err)
       alert('Upscale error: ' + err.message)
     }
     setUpscaling(false)
@@ -2398,7 +2420,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           ref={canvasContainerRef}
           style={{ flex: 1, position: 'relative', overflow: canvasMode === '2d' ? 'auto' : 'hidden', background: '#0a0c11' }}
           onClick={canvasMode === '2d' ? handleCanvasClick : undefined}
-          onDoubleClick={canvasMode === '2d' && tool === 'custom' ? completeCustomShape : undefined}
+          onDoubleClick={canvasMode === '2d' && tool === 'custom' ? (_e: React.MouseEvent) => { _e.preventDefault(); completeCustomShape() } : undefined}
           onDragOver={canvasMode === '2d' ? e => { e.preventDefault(); setCanvasDragOver(true) } : undefined}
           onDragLeave={canvasMode === '2d' ? () => setCanvasDragOver(false) : undefined}
           onDrop={canvasMode === '2d' ? async e => {
