@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Store, ExternalLink, Edit2, ToggleLeft, ToggleRight, Plus, TrendingUp, ShoppingBag, Star, Package, BarChart2, Eye, EyeOff } from 'lucide-react'
 
 const C = {
@@ -63,13 +64,12 @@ export default function ShopManageClient({ products: initial }: { products: Prod
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <a
+          <Link
             href="/shop"
-            target="_blank"
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, fontSize: 12, fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }}
           >
             <ExternalLink size={14} /> Preview Shop
-          </a>
+          </Link>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: C.accent, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
           >
