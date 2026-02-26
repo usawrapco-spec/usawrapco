@@ -12,7 +12,7 @@ import {
   TrendingUp, Calculator, Settings,
   Package, Image, Link2, UserPlus, Ruler,
   FoldVertical, UnfoldVertical,
-  GripVertical, Upload, Camera,
+  GripVertical, Upload, Camera, Loader2,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
@@ -1815,6 +1815,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           )}
 
+          {/* ── 2-col layout: items on left, financial sidebar on right ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px]" style={{ gap: 20, alignItems: 'start' }}>
+            <div>{/* left column */}
           {/* Line items */}
           {lineItemsList.length === 0 ? (
             <div style={{
@@ -1918,30 +1921,23 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           )}
 
-          {/* ── Bottom Summary ───────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_340px]" style={{
-            gap: 20,
-            marginTop: 24, alignItems: 'flex-start',
-          }}>
-            {/* Left: Customer Note */}
-            <div>
-              <label style={fieldLabelStyle}>Customer Note</label>
-              <textarea
-                value={customerNote}
-                onChange={e => setCustomerNote(e.target.value)}
-                disabled={!canWrite}
-                placeholder="Note visible to customer on the estimate..."
-                rows={4}
-                style={{
-                  ...fieldInputStyle,
-                  resize: 'vertical',
-                  minHeight: 80,
-                }}
-              />
-            </div>
+          {/* Customer Note */}
+          <div style={{ marginTop: 16 }}>
+            <label style={fieldLabelStyle}>Customer Note</label>
+            <textarea
+              value={customerNote}
+              onChange={e => setCustomerNote(e.target.value)}
+              disabled={!canWrite}
+              placeholder="Note visible to customer on the estimate..."
+              rows={4}
+              style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 80 }}
+            />
+          </div>
+            </div>{/* end left column */}
 
             {/* Right: Financial Sidebar */}
-            <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
+            <div style={{ position: 'sticky', top: 16 }}>
+            <div style={{ ...cardStyle }}>
               {/* GP Summary */}
               <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 10 }}>
@@ -2030,7 +2026,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 </button>
               </div>
             </div>
-          </div>
+            </div>{/* end sticky right column */}
+          </div>{/* end 2-col grid */}
         </div>
       )}
 
@@ -2613,10 +2610,30 @@ function VehicleAutocomplete({
     ? (yearNum > 0 ? getModelsForMakeYear(currentMake, yearNum) : getModelsForMake(currentMake))
     : []
 
+  const [dbMeas, setDbMeas] = useState<{
+    total_sqft: number | null; side_sqft: number | null
+    hood_sqft: number | null; roof_sqft: number | null; back_sqft: number | null
+  } | null>(null)
+  const [measLoading, setMeasLoading] = useState(false)
+
+  async function fetchDbMeasurement(make: string, model: string, year: string) {
+    if (!make || !model) return
+    setMeasLoading(true)
+    try {
+      const params = new URLSearchParams({ make, model })
+      if (year) params.set('year', year)
+      const res = await fetch(`/api/vehicles/lookup?${params}`)
+      const data = await res.json()
+      const m = data.measurement ?? null
+      setDbMeas(m)
+      if (m?.total_sqft) updateSpec('vinylArea', m.total_sqft)
+    } catch { setDbMeas(null) }
+    finally { setMeasLoading(false) }
+  }
+
   function selectYear(yr: string) {
     updateSpec('vehicleYear', yr)
     const y = parseInt(yr)
-    // If current make is not available for this year, clear it
     if (currentMake && y > 0) {
       const makes = getMakesForYear(y)
       if (!makes.includes(currentMake)) {
@@ -2629,6 +2646,7 @@ function VehicleAutocomplete({
         } else {
           const v = findVehicle(currentMake, currentModel, yr)
           if (v) onVehicleSelect(v)
+          fetchDbMeasurement(currentMake, currentModel, yr)
         }
       }
     }
@@ -2645,6 +2663,7 @@ function VehicleAutocomplete({
     updateSpec('vehicleModel', model)
     const v = findVehicle(currentMake, model, currentYear)
     if (v) onVehicleSelect(v)
+    fetchDbMeasurement(currentMake, model, currentYear)
     handleBlur()
   }
 
@@ -2755,6 +2774,28 @@ function VehicleAutocomplete({
           </span>
         </div>
       )}
+      {measLoading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 11, color: 'var(--text3)' }}>
+          <Loader2 size={11} className="animate-spin" /> Looking up measurements...
+        </div>
+      )}
+      {!measLoading && dbMeas && dbMeas.total_sqft && (
+        <div style={{
+          display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
+          background: 'rgba(79,127,255,0.06)', borderRadius: 6,
+          border: '1px solid rgba(79,127,255,0.15)', alignItems: 'center', flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+            Auto-calculated
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
+            Total: {dbMeas.total_sqft} sqft
+          </span>
+          {!!dbMeas.side_sqft && <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>Side: {dbMeas.side_sqft}</span>}
+          {!!dbMeas.hood_sqft && <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>Hood: {dbMeas.hood_sqft}</span>}
+          {!!dbMeas.roof_sqft && <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>Roof: {dbMeas.roof_sqft}</span>}
+        </div>
+      )}
     </div>
   )
 }
@@ -2764,13 +2805,14 @@ function VehicleAutocomplete({
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function VehicleInfoBlock({
-  specs, updateSpec, handleBlur, canWrite, onVehicleSelect,
+  specs, updateSpec, handleBlur, canWrite, onVehicleSelect, onVehicleDecoded,
 }: {
   specs: LineItemSpecs
   updateSpec: (key: string, value: unknown) => void
   handleBlur: () => void
   canWrite: boolean
   onVehicleSelect: (v: VehicleEntry) => void
+  onVehicleDecoded?: (data: Record<string, string | undefined>) => void
 }) {
   const [showMeasurementModal, setShowMeasurementModal] = useState(false)
 
@@ -2805,19 +2847,8 @@ function VehicleInfoBlock({
             updateSpec('vin', vin)
           }}
           onVehicleDecoded={(data) => {
-            // Batch all spec updates into a single onChange to prevent stale-ref data loss
-            const batchSpecs: Record<string, unknown> = { ...latestRef.current.specs }
-            batchSpecs.vehicleYear = data.year
-            batchSpecs.vehicleMake = data.make
-            batchSpecs.vehicleModel = data.model
-            if (data.trim) batchSpecs.vehicleTrim = data.trim
-            if (data.bodyClass) batchSpecs.bodyClass = data.bodyClass
-            if (data.driveType) batchSpecs.driveType = data.driveType
-            if (data.engineCylinders && data.engineLiters) {
-              batchSpecs.engine = `${data.engineLiters}L ${data.engineCylinders}cyl`
-            }
-            const updated = { ...latestRef.current, specs: batchSpecs as typeof latestRef.current.specs }
-            onChange(updated)
+            // Delegate batch update to parent (has latestRef in scope)
+            onVehicleDecoded?.(data)
             // Cross-reference vehicles.json for sqft/pricing
             const v = findVehicle(data.make, data.model, data.year)
             if (v) onVehicleSelect(v)
@@ -3131,10 +3162,17 @@ function LineItemCard({
                     key={opt.key}
                     onClick={() => {
                       if (!canWrite) return
-                      updateSpec('productLineType', opt.key)
-                      if (opt.vehicleType) updateSpec('vehicleType', opt.vehicleType)
-                      if (opt.calcType) updateSpec('calculatorType', opt.calcType)
-                      updateSpec('product_type', opt.productType)
+                      const updated: LineItem = {
+                        ...latestRef.current,
+                        product_type: opt.productType,
+                        specs: {
+                          ...latestRef.current.specs,
+                          productLineType: opt.key,
+                          vehicleType: opt.vehicleType || latestRef.current.specs.vehicleType,
+                          calculatorType: opt.calcType || '',
+                        },
+                      }
+                      onChange(updated)
                     }}
                     style={{
                       padding: '5px 10px', borderRadius: 6, cursor: canWrite ? 'pointer' : 'default',
@@ -3159,6 +3197,21 @@ function LineItemCard({
                 updateSpec={updateSpec}
                 handleBlur={handleBlur}
                 canWrite={canWrite}
+                onVehicleDecoded={(data) => {
+                  // Batch all spec updates into a single onChange to prevent stale-ref data loss
+                  const batchSpecs: Record<string, unknown> = { ...latestRef.current.specs }
+                  batchSpecs.vehicleYear = data.year
+                  batchSpecs.vehicleMake = data.make
+                  batchSpecs.vehicleModel = data.model
+                  if (data.trim) batchSpecs.vehicleTrim = data.trim
+                  if (data.bodyClass) batchSpecs.bodyClass = data.bodyClass
+                  if (data.driveType) batchSpecs.driveType = data.driveType
+                  if (data.engineCylinders && data.engineLiters) {
+                    batchSpecs.engine = `${data.engineLiters}L ${data.engineCylinders}cyl`
+                  }
+                  const updated = { ...latestRef.current, specs: batchSpecs as typeof latestRef.current.specs }
+                  onChange(updated)
+                }}
                 onVehicleSelect={(v) => {
                   const updated = { ...latestRef.current }
                   const newSpecs = { ...updated.specs, vinylArea: v.sqft, vehicleYear: String(v.year), vehicleMake: v.make, vehicleModel: v.model, vehicleTier: v.tier }
@@ -4095,6 +4148,122 @@ function LineItemCard({
                   {specs.materialCost && (
                     <span style={{ color: 'var(--amber)', fontWeight: 700 }}>Material: <span style={{ fontFamily: monoFont }}>{fmtCurrency(specs.materialCost || 0)}</span></span>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Print Media Calculator ──────────────────────────────────── */}
+          {productLineType === 'print_media' && (
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
+                <Image size={12} style={{ color: 'var(--text2)' }} /> Print Media Calculator
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Width (in)</label>
+                  <input type="number" value={(specs.printWidth as number) || ''} onChange={e => {
+                    const w = Number(e.target.value); const h = (specs.printHeight as number) || 0; const qty = (specs.printQuantity as number) || 1
+                    updateSpec('printWidth', w); setTimeout(() => updateSpec('vinylArea', Math.round((w * h / 144) * qty * 100) / 100), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Height (in)</label>
+                  <input type="number" value={(specs.printHeight as number) || ''} onChange={e => {
+                    const h = Number(e.target.value); const w = (specs.printWidth as number) || 0; const qty = (specs.printQuantity as number) || 1
+                    updateSpec('printHeight', h); setTimeout(() => updateSpec('vinylArea', Math.round((w * h / 144) * qty * 100) / 100), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={0} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Quantity</label>
+                  <input type="number" value={(specs.printQuantity as number) || 1} onChange={e => {
+                    const qty = Number(e.target.value); const w = (specs.printWidth as number) || 0; const h = (specs.printHeight as number) || 0
+                    updateSpec('printQuantity', qty); setTimeout(() => updateSpec('vinylArea', Math.round((w * h / 144) * qty * 100) / 100), 0)
+                  }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12 }} disabled={!canWrite} min={1} />
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Finish</label>
+                  <select value={(specs.printFinish as string) || 'matte'} onChange={e => updateSpec('printFinish', e.target.value)} style={fieldSelectStyle} disabled={!canWrite}>
+                    <option value="matte">Matte</option><option value="gloss">Gloss</option><option value="satin">Satin</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Material</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[{ key: 'vinyl', label: 'Vinyl', cost: 1.20 }, { key: 'canvas', label: 'Canvas', cost: 3.50 }, { key: 'coroplast', label: 'Coroplast', cost: 2.00 }, { key: 'foam_board', label: 'Foam Board', cost: 1.50 }, { key: 'mesh', label: 'Mesh', cost: 1.80 }].map(mat => {
+                    const sel = (specs.printMaterial as string) === mat.key
+                    return <button key={mat.key} onClick={() => { if (!canWrite) return; updateSpec('printMaterial', mat.key); const sq = (specs.vinylArea as number) || 0; if (sq > 0) updateSpec('materialCost', Math.round(sq * mat.cost * 100) / 100) }} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: canWrite ? 'pointer' : 'default', border: sel ? '2px solid var(--text2)' : '1px solid var(--border)', background: sel ? 'rgba(90,96,128,0.15)' : 'transparent', color: sel ? 'var(--text1)' : 'var(--text3)' }}>{mat.label} <span style={{ fontFamily: monoFont }}>${mat.cost}</span>/sqft</button>
+                  })}
+                </div>
+              </div>
+              {(specs.printWidth as number) > 0 && (specs.printHeight as number) > 0 && (
+                <div style={{ ...gadgetOutputStyle, background: 'rgba(90,96,128,0.08)' }}>
+                  <span style={{ color: 'var(--text2)' }}>Size: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.printWidth as number}&quot;×{specs.printHeight as number}&quot;</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Qty: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.printQuantity as number) || 1}</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Sqft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{((specs.vinylArea as number) || 0).toFixed(1)}</span></span>
+                  {!!specs.materialCost && <span style={{ color: 'var(--text2)', fontWeight: 700 }}>Material: <span style={{ fontFamily: monoFont }}>{fmtCurrency(specs.materialCost as number)}</span></span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Apparel Calculator ──────────────────────────────────────── */}
+          {productLineType === 'apparel' && (
+            <div style={gadgetStyle}>
+              <div style={gadgetHeaderStyle}>
+                <Package size={12} style={{ color: 'var(--cyan)' }} /> Apparel Calculator
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Garment Type</label>
+                  <select value={(specs.apparelType as string) || ''} onChange={e => updateSpec('apparelType', e.target.value)} style={fieldSelectStyle} disabled={!canWrite}>
+                    <option value="">Select Type</option>
+                    {['T-Shirt', 'Long Sleeve', 'Hoodie', 'Polo', 'Hat', 'Jacket', 'Vest'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Print Method</label>
+                  <select value={(specs.apparelMethod as string) || ''} onChange={e => updateSpec('apparelMethod', e.target.value)} style={fieldSelectStyle} disabled={!canWrite}>
+                    <option value="">Select Method</option>
+                    {['Screen Print', 'DTG', 'HTV', 'Embroidery', 'Sublimation'].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Print Location</label>
+                  <select value={(specs.apparelLocation as string) || ''} onChange={e => updateSpec('apparelLocation', e.target.value)} style={fieldSelectStyle} disabled={!canWrite}>
+                    <option value="">Select Location</option>
+                    {['Left Chest', 'Full Front', 'Full Back', 'Front+Back', 'Sleeve'].map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Total Units</label>
+                  <input type="number" value={(specs.apparelTotal as number) || 0} readOnly style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12, background: 'var(--bg)', color: 'var(--text3)' }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Size Breakdown</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {(['S', 'M', 'L', 'XL', '2XL', '3XL'] as const).map(sz => {
+                    const key = `apparel_${sz.toLowerCase()}` as keyof typeof specs
+                    return (
+                      <div key={sz} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 48 }}>
+                        <span style={{ fontSize: 9, color: 'var(--text3)', fontFamily: headingFont, fontWeight: 700 }}>{sz}</span>
+                        <input type="number" value={(specs[key] as number) || 0} onChange={e => {
+                          const val = Number(e.target.value); updateSpec(key as string, val)
+                          const total = ['s','m','l','xl','2xl','3xl'].reduce((sum, s) => { const k = `apparel_${s}` as keyof typeof specs; return sum + (s === sz.toLowerCase() ? val : ((specs[k] as number) || 0)) }, 0)
+                          setTimeout(() => updateSpec('apparelTotal', total), 0)
+                        }} style={{ ...fieldInputStyle, fontFamily: monoFont, fontSize: 12, textAlign: 'center' as const, width: 52 }} disabled={!canWrite} min={0} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {((specs.apparelTotal as number) || 0) > 0 && (
+                <div style={{ ...gadgetOutputStyle, background: 'rgba(34,211,238,0.06)' }}>
+                  <span style={{ color: 'var(--text2)' }}>Units: <span style={{ fontFamily: monoFont, color: 'var(--cyan)', fontWeight: 700 }}>{specs.apparelTotal as number}</span></span>
+                  {!!(specs.apparelType as string) && <span style={{ color: 'var(--text2)' }}>Type: <span style={{ color: 'var(--text1)', fontWeight: 700 }}>{specs.apparelType as string}</span></span>}
+                  {!!(specs.apparelMethod as string) && <span style={{ color: 'var(--text2)' }}>Method: <span style={{ color: 'var(--text1)', fontWeight: 700 }}>{specs.apparelMethod as string}</span></span>}
                 </div>
               )}
             </div>
