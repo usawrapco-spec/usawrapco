@@ -8,6 +8,7 @@ import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import XPAwarder from '@/components/dashboard/XPAwarder'
 import RoleDashboard from '@/components/dashboard/RoleDashboard'
 import DashboardHero from '@/components/dashboard/DashboardHero'
+import VinylDailyBrief from '@/components/dashboard/VinylDailyBrief'
 
 export default async function DashboardPage() {
     const supabase = createClient()
@@ -70,6 +71,15 @@ export default async function DashboardPage() {
 
     return (
         <XPAwarder>
+            {profile.role === 'owner' && (
+                <div style={{ padding: '20px 24px 0' }}>
+                    <VinylDailyBrief
+                        orgId={orgId}
+                        ownerName={profile.name || profile.email || 'Owner'}
+                        profileId={profile.id}
+                    />
+                </div>
+            )}
             <DashboardHero
                 profile={profile as unknown as Profile}
                 projects={(projects as unknown as Project[]) || []}
