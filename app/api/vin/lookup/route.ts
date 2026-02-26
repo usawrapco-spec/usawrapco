@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const runtime = 'edge'
-
 /**
  * VIN Lookup API - NHTSA Integration
  * Decodes vehicle VIN using NHTSA vPIC API

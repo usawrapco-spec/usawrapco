@@ -34,6 +34,14 @@ export default async function CalendarPage() {
 
   const { data: projects } = await query
 
+  // Fetch appointments for the calendar overlay
+  const { data: appointments } = await admin
+    .from('appointments')
+    .select('*')
+    .eq('org_id', orgId)
+    .neq('status', 'cancelled')
+    .order('date', { ascending: true })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
@@ -41,6 +49,7 @@ export default async function CalendarPage() {
           <CalendarPageClient
             profile={profile as Profile}
             projects={(projects as Project[]) || []}
+            appointments={appointments || []}
           />
         </main>
       <div className="md:hidden">

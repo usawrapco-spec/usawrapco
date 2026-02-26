@@ -16,11 +16,23 @@ import {
   Check,
   XCircle,
   DollarSign,
+  CalendarClock,
 } from 'lucide-react'
+
+interface CalendarAppointment {
+  id: string
+  customer_name: string
+  appointment_type: string
+  date: string
+  time: string
+  assigned_name?: string
+  status: string
+}
 
 interface CalendarPageProps {
   profile: any
   projects: any[]
+  appointments?: CalendarAppointment[]
 }
 
 type PipeStage = 'sales_in' | 'production' | 'install' | 'prod_review' | 'sales_close' | 'done'
@@ -58,7 +70,7 @@ interface InstallerBidRow {
   project?: { id: string; title: string; vehicle_desc: string | null } | null
 }
 
-export default function CalendarPage({ profile, projects }: CalendarPageProps) {
+export default function CalendarPage({ profile, projects, appointments = [] }: CalendarPageProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -102,6 +114,11 @@ export default function CalendarPage({ profile, projects }: CalendarPageProps) {
     if (filterInstaller === 'all') return projects
     return projects.filter(p => p.installer_id === filterInstaller)
   }, [projects, filterInstaller])
+
+  // Appointments by date
+  const getAppointmentsForDate = useCallback((dateStr: string) => {
+    return appointments.filter(a => a.date === dateStr)
+  }, [appointments])
 
   const scheduledProjects = useMemo(() =>
     filteredProjects.filter(p => p.install_date),
@@ -164,6 +181,7 @@ export default function CalendarPage({ profile, projects }: CalendarPageProps) {
     { label: 'Production', color: '#4f7fff' },
     { label: 'Install', color: '#22d3ee' },
     { label: 'Done', color: '#22c07a' },
+    { label: 'Appointments', color: '#f59e0b', dashed: true },
   ]
 
   return (
@@ -230,7 +248,12 @@ export default function CalendarPage({ profile, projects }: CalendarPageProps) {
       <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
         {stageLegend.map(s => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#5a6080' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: s.color, display: 'inline-block' }} />
+            <span style={{
+              width: 10, height: 10, borderRadius: 3, display: 'inline-block',
+              ...((s as any).dashed
+                ? { border: `2px dashed ${s.color}`, background: 'transparent' }
+                : { background: s.color }),
+            }} />
             {s.label}
           </div>
         ))}
@@ -301,6 +324,7 @@ export default function CalendarPage({ profile, projects }: CalendarPageProps) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
             {calendarDays.map((day, i) => {
               const dayProjects = getProjectsForDate(day.dateStr)
+              const dayAppts = getAppointmentsForDate(day.dateStr)
               const isToday = day.dateStr === today
               const isSelected = day.dateStr === selectedDay
 
@@ -371,6 +395,16 @@ export default function CalendarPage({ profile, projects }: CalendarPageProps) {
                         />
                       )
                     })}
+                    {dayAppts.length > 0 && (
+                      <div
+                        title={`${dayAppts.length} appointment${dayAppts.length !== 1 ? 's' : ''}`}
+                        style={{
+                          height: 6, borderRadius: 3,
+                          background: '#f59e0b', opacity: 0.7,
+                          border: '1px dashed rgba(245,158,11,0.4)',
+                        }}
+                      />
+                    )}
                     {dayProjects.length > 3 && (
                       <div style={{ fontSize: 9, color: '#5a6080', paddingLeft: 2 }}>
                         +{dayProjects.length - 3}
@@ -413,16 +447,61 @@ export default function CalendarPage({ profile, projects }: CalendarPageProps) {
               {new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
 
-            <div style={{ fontSize: 12, color: '#5a6080', marginBottom: 12 }}>
-              {selectedDayProjects.length} job{selectedDayProjects.length !== 1 ? 's' : ''}
-            </div>
+            {(() => {
+              const dayAppts = getAppointmentsForDate(selectedDay)
+              return (
+                <div style={{ fontSize: 12, color: '#5a6080', marginBottom: 12 }}>
+                  {selectedDayProjects.length} job{selectedDayProjects.length !== 1 ? 's' : ''}
+                  {dayAppts.length > 0 && (
+                    <span> &middot; {dayAppts.length} appointment{dayAppts.length !== 1 ? 's' : ''}</span>
+                  )}
+                </div>
+              )
+            })()}
 
-            {selectedDayProjects.length === 0 ? (
+            {selectedDayProjects.length === 0 && getAppointmentsForDate(selectedDay).length === 0 ? (
               <div style={{ fontSize: 13, color: '#5a6080', textAlign: 'center', padding: '24px 0' }}>
-                No jobs scheduled.
+                Nothing scheduled.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Appointments */}
+                {getAppointmentsForDate(selectedDay).map(appt => {
+                  const statusColor = appt.status === 'confirmed' ? '#22c07a' : appt.status === 'no_show' ? '#5a6080' : '#f59e0b'
+                  return (
+                    <div
+                      key={appt.id}
+                      onClick={() => router.push('/schedule')}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        background: 'rgba(245,158,11,0.06)',
+                        borderLeft: '3px solid #f59e0b',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.12)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.06)' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <CalendarClock size={11} style={{ color: '#f59e0b' }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', fontFamily: 'JetBrains Mono, monospace' }}>
+                          {appt.time}
+                        </span>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: statusColor, textTransform: 'uppercase' }}>
+                          {appt.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#e8eaed' }}>
+                        {appt.customer_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#5a6080', marginTop: 2 }}>
+                        {appt.appointment_type}{appt.assigned_name ? ` \u00B7 ${appt.assigned_name}` : ''}
+                      </div>
+                    </div>
+                  )
+                })}
+                {/* Jobs */}
                 {selectedDayProjects.map(p => {
                   const color = getProjectColor(p)
                   return (

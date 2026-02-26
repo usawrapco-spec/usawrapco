@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { X, Mail, MessageSquare, Send, Paperclip, FileText, Loader2, AlertTriangle, Plus } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -164,6 +165,19 @@ export default function EmailComposeModal({
   const [sendVia, setSendVia] = useState<'email' | 'sms' | 'both'>('email')
   const [sending, setSending] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
+  const [emailSignature, setEmailSignature] = useState('')
+
+  // Load email signature from profile once
+  useEffect(() => {
+    const sb = createClient()
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      sb.from('profiles').select('email_signature').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data?.email_signature) setEmailSignature(data.email_signature)
+        })
+    })
+  }, [])
 
   // Reset form when modal opens or props change
   useEffect(() => {
@@ -172,15 +186,14 @@ export default function EmailComposeModal({
       setCc('')
       setShowCc(false)
       setSubject(subjectProp || buildDefaultSubject(type, estimateNumber))
-      setMessage(
-        buildDefaultMessage(type, recipientName, senderName, vehicleDescription, estimateTotal, viewUrl),
-      )
+      const defaultMsg = buildDefaultMessage(type, recipientName, senderName, vehicleDescription, estimateTotal, viewUrl)
+      setMessage(emailSignature ? `${defaultMsg}\n\n--\n${emailSignature}` : defaultMsg)
       setAttachPdf(true)
       setAttachTerms(type === 'estimate' || type === 'invoice')
       setSendVia('email')
       setSending(false)
     }
-  }, [isOpen, recipientEmail, recipientName, senderName, subjectProp, estimateNumber, estimateTotal, vehicleDescription, viewUrl, type])
+  }, [isOpen, recipientEmail, recipientName, senderName, subjectProp, estimateNumber, estimateTotal, vehicleDescription, viewUrl, type, emailSignature])
 
   // Escape key handler
   const handleKeyDown = useCallback(

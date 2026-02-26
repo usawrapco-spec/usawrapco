@@ -29,6 +29,8 @@ import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComp
 import PanelSelector from '@/components/vehicle/PanelSelector'
 import type { Panel } from '@/components/vehicle/PanelSelector'
 import VinLookupField from '@/components/shared/VinLookupField'
+import VehicleLookupModal from '@/components/VehicleLookupModal'
+import type { MeasurementResult } from '@/components/VehicleMeasurementPicker'
 import vehiclesData from '@/lib/data/vehicles.json'
 
 // ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
@@ -2770,13 +2772,29 @@ function VehicleInfoBlock({
   canWrite: boolean
   onVehicleSelect: (v: VehicleEntry) => void
 }) {
+  const [showMeasurementModal, setShowMeasurementModal] = useState(false)
+
   return (
     <div style={{
       marginTop: 12, padding: 14, background: 'var(--bg)',
       border: '1px solid var(--border)', borderRadius: 10,
     }}>
-      <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-        <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Information
+      <div style={{ ...fieldLabelStyle, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Car size={12} style={{ color: 'var(--accent)' }} /> Vehicle Information
+        </div>
+        <button
+          onClick={() => setShowMeasurementModal(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+            color: 'var(--amber)', cursor: 'pointer', fontFamily: headingFont,
+            textTransform: 'uppercase', letterSpacing: '0.04em',
+          }}
+        >
+          <Ruler size={10} /> Sq Ft Lookup
+        </button>
       </div>
 
       {/* VIN Lookup Field */}
@@ -2787,15 +2805,19 @@ function VehicleInfoBlock({
             updateSpec('vin', vin)
           }}
           onVehicleDecoded={(data) => {
-            updateSpec('vehicleYear', data.year)
-            updateSpec('vehicleMake', data.make)
-            updateSpec('vehicleModel', data.model)
-            if (data.trim) updateSpec('vehicleTrim', data.trim)
-            if (data.bodyClass) updateSpec('bodyClass', data.bodyClass)
-            if (data.driveType) updateSpec('driveType', data.driveType)
+            // Batch all spec updates into a single onChange to prevent stale-ref data loss
+            const batchSpecs: Record<string, unknown> = { ...latestRef.current.specs }
+            batchSpecs.vehicleYear = data.year
+            batchSpecs.vehicleMake = data.make
+            batchSpecs.vehicleModel = data.model
+            if (data.trim) batchSpecs.vehicleTrim = data.trim
+            if (data.bodyClass) batchSpecs.bodyClass = data.bodyClass
+            if (data.driveType) batchSpecs.driveType = data.driveType
             if (data.engineCylinders && data.engineLiters) {
-              updateSpec('engine', `${data.engineLiters}L ${data.engineCylinders}cyl`)
+              batchSpecs.engine = `${data.engineLiters}L ${data.engineCylinders}cyl`
             }
+            const updated = { ...latestRef.current, specs: batchSpecs as typeof latestRef.current.specs }
+            onChange(updated)
             // Cross-reference vehicles.json for sqft/pricing
             const v = findVehicle(data.make, data.model, data.year)
             if (v) onVehicleSelect(v)
@@ -2813,6 +2835,22 @@ function VehicleInfoBlock({
         handleBlur={handleBlur}
         canWrite={canWrite}
         onVehicleSelect={onVehicleSelect}
+      />
+
+      {/* Vehicle Measurement Lookup Modal */}
+      <VehicleLookupModal
+        open={showMeasurementModal}
+        onClose={() => setShowMeasurementModal(false)}
+        onSelect={(m: MeasurementResult) => {
+          updateSpec('vinylArea', m.full_wrap_sqft)
+          updateSpec('partialSqft', m.partial_wrap_sqft)
+          updateSpec('hoodSqft', m.hood_sqft)
+          updateSpec('roofSqft', m.roof_sqft)
+          updateSpec('rearSqft', m.back_sqft)
+          updateSpec('sideSqft', m.side_sqft)
+          updateSpec('measurementSource', 'vehicle_measurements')
+          handleBlur()
+        }}
       />
     </div>
   )

@@ -11,7 +11,10 @@ import {
   GripVertical,
   Package,
   FileText,
+  Ruler,
 } from 'lucide-react'
+import VehicleLookupModal from '@/components/VehicleLookupModal'
+import type { MeasurementResult } from '@/components/VehicleMeasurementPicker'
 
 interface LineItemEnhancedProps {
   item: any
@@ -30,6 +33,7 @@ export default function LineItemEnhanced({
 }: LineItemEnhancedProps) {
   const [collapsed, setCollapsed] = useState(item.collapsed !== false)
   const [showPhotoInspection, setShowPhotoInspection] = useState(false)
+  const [showMeasurementModal, setShowMeasurementModal] = useState(false)
 
   const handleToggleCollapsed = () => {
     setCollapsed(!collapsed)
@@ -115,13 +119,46 @@ export default function LineItemEnhanced({
 
             {/* Vehicle / Description */}
             <div>
-              <label className="block text-xs font-700 text-text2 mb-1.5 uppercase">Vehicle / Description</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label className="block text-xs font-700 text-text2 uppercase" style={{ margin: 0 }}>Vehicle / Description</label>
+                <button
+                  onClick={() => setShowMeasurementModal(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                    background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+                    color: 'var(--amber)', cursor: 'pointer',
+                  }}
+                >
+                  <Ruler size={10} /> Sq Ft Lookup
+                </button>
+              </div>
               <input
                 type="text"
                 value={item.vehicle || ''}
                 onChange={(e) => onUpdate(index, { vehicle: e.target.value })}
                 className="field w-full"
                 placeholder="e.g., 2023 Ford F-150, Blue"
+              />
+              {item.sqft > 0 && (
+                <div style={{
+                  marginTop: 4, fontSize: 11, color: 'var(--green)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {item.sqft} sq ft (full wrap)
+                </div>
+              )}
+              <VehicleLookupModal
+                open={showMeasurementModal}
+                onClose={() => setShowMeasurementModal(false)}
+                onSelect={(m: MeasurementResult) => {
+                  const desc = `${m.year_start}${m.year_end !== m.year_start ? '-' + m.year_end : ''} ${m.make} ${m.model}`
+                  onUpdate(index, {
+                    vehicle: desc,
+                    sqft: m.full_wrap_sqft,
+                    qty: m.full_wrap_sqft,
+                  })
+                }}
               />
             </div>
 

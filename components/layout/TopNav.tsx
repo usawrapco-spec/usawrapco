@@ -10,7 +10,7 @@ import {
   Menu, Search, Bell, Plus, ChevronDown, X,
   Briefcase, Users, FileText, ShoppingCart, CheckSquare, UserPlus,
   Clock, LogOut, User, Settings, Download, BellOff, BellRing,
-  MessageCircle, Palette, UserCheck, Waves, Glasses,
+  MessageCircle, Palette, UserCheck, Waves, Glasses, CalendarDays,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -31,6 +31,7 @@ const QUICK_CREATE: QuickItem[] = [
   { href: '/customers?new=true', label: 'New Customer',   icon: Users,       description: 'Add a customer' },
   { href: '/tasks?new=true',     label: 'New Task',       icon: CheckSquare, description: 'Assign a task' },
   { href: '/timeclock',          label: 'Clock In',       icon: Clock,       description: 'Start your shift' },
+  { href: '/schedule?new=true',  label: 'Appointment',    icon: CalendarDays,description: 'Schedule appointment' },
 ]
 
 // ── Search result types ───────────────────────────────────────────────────────
