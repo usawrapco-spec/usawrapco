@@ -1,7 +1,6 @@
+import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 function validateTwilioSignature(req: NextRequest, body: string): boolean {
   const authToken = process.env.TWILIO_AUTH_TOKEN

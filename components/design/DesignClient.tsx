@@ -58,11 +58,12 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
   }, [designProjects, search])
 
   const columnData = useMemo(() => {
-    const result: Record<DesignProjectStatus, DesignProject[]> = {
+    const result: Partial<Record<DesignProjectStatus, DesignProject[]>> = {
       brief: [], in_progress: [], proof_sent: [], approved: [],
+      review_needed: [], revision: [], sent_to_client: [],
     }
     filteredProjects.forEach(dp => {
-      result[dp.status].push(dp)
+      if (result[dp.status]) result[dp.status]!.push(dp)
     })
     return result
   }, [filteredProjects])
@@ -206,19 +207,19 @@ export function DesignClient({ profile, projects, initialDesignProjects = [] }: 
               <span className={col.color}>{col.icon}</span>
               <span className="text-sm font-800 text-text1">{col.label}</span>
               <span className="ml-auto text-xs font-700 text-text3 bg-surface2 px-2 py-0.5 rounded-full mono">
-                {columnData[col.key].length}
+                {(columnData[col.key] ?? []).length}
               </span>
             </div>
 
             {/* Column body */}
             <div className="flex-1 bg-surface2/30 rounded-xl p-2 flex flex-col gap-2 border border-border/50">
-              {columnData[col.key].length === 0 && (
+              {(columnData[col.key] ?? []).length === 0 && (
                 <div className="flex-1 flex items-center justify-center text-text3 text-xs py-8">
                   No projects
                 </div>
               )}
 
-              {columnData[col.key].map(dp => {
+              {(columnData[col.key] ?? []).map(dp => {
                 const next = getNextStatus(dp.status)
                 return (
                   <div

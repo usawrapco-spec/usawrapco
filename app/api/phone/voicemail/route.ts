@@ -1,9 +1,8 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 import { findOrCreatePhoneConversation, updateConversationLastMessage } from '@/lib/phone/inbox'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export async function POST(req: NextRequest) {
   const supabase = getSupabaseAdmin()

@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -15,7 +17,6 @@ interface AffiliateClientProps {
   commissions: any[]
 }
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://app.usawrapco.com'
 
 const fM = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)

@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
@@ -37,7 +39,7 @@ export default function ConfiguratorClient({ profile, materials }: { profile: an
   // Create/load session on mount
   useEffect(() => {
     supabase.from('configurator_sessions').insert({
-      org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+      org_id: ORG_ID,
       vehicle_category: vehicleCategory,
       created_by: profile?.id,
     }).select('id').single().then(({ data }) => {

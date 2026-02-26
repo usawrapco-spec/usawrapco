@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   const { data: reminders } = await admin
     .from('maintenance_reminders')
     .select('*, projects(title, pipe_stage)')
-    .eq('org_id', 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f')
+    .eq('org_id', ORG_ID)
     .in('status', ['pending', 'snoozed'])
     .lte('due_date', cutoff.toISOString().split('T')[0])
     .order('due_date')
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const { data: reminder, error } = await admin
       .from('maintenance_reminders')
-      .insert({ org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f', ...body })
+      .insert({ org_id: ORG_ID, ...body })
       .select()
       .single()
 

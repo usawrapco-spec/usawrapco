@@ -1094,13 +1094,12 @@ export default function InstallerJobCard({
                   {!isTimerActive ? (
                     <button
                       onClick={() => onStartTimer(jobId)}
-                      disabled={contractStatus === 'unsigned'}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '14px 36px', borderRadius: 12, border: 'none',
-                        background: contractStatus === 'unsigned' ? 'var(--surface2)' : 'var(--green)',
-                        color: contractStatus === 'unsigned' ? 'var(--text3)' : '#0d1a10',
-                        fontSize: 15, fontWeight: 900, cursor: contractStatus === 'unsigned' ? 'not-allowed' : 'pointer',
+                        background: 'var(--green)',
+                        color: '#0d1a10',
+                        fontSize: 15, fontWeight: 900, cursor: 'pointer',
                         fontFamily: 'Barlow Condensed, sans-serif',
                       }}
                     >

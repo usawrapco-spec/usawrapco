@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -301,7 +303,7 @@ export default function ProspectorApp({
     const { data, error } = await supabase
       .from('prospecting_routes')
       .insert({
-        org_id: profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+        org_id: profile.org_id || ORG_ID,
         name,
         created_by: profile.id,
         prospect_ids: routeStops,

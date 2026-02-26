@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -39,7 +41,7 @@ export function CampaignModal({ profile, onClose, onCreated }: Props) {
     if (!name) return
     setSaving(true)
     const { data, error } = await supabase.from('prospecting_campaigns').insert({
-      org_id: profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+      org_id: profile.org_id || ORG_ID,
       name, description: description || null,
       target_business_types: types.length > 0 ? types : null,
       target_radius_miles: radius,

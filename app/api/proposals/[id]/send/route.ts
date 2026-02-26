@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Log activity
     await admin.from('activity_log').insert({
-      org_id: proposal.estimate?.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+      org_id: proposal.estimate?.org_id || ORG_ID,
       actor_id: user.id,
       action: 'proposal_sent',
       entity_type: 'proposal',

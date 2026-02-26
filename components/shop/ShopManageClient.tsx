@@ -5,7 +5,7 @@ import { Store, ExternalLink, Edit2, ToggleLeft, ToggleRight, Plus, TrendingUp, 
 
 const C = {
   bg: '#0d0f14', surface: '#13151c', surface2: '#1a1d27', border: '#1e2738',
-  accent: '#4f7fff', green: '#22c07a', red: '#f25a5a', amber: '#f59e0b',
+  accent: '#4f7fff', green: '#22c07a', red: '#f25a5a', amber: '#f59e0b', cyan: '#22d3ee',
   text1: '#e8eaed', text2: '#9299b5', text3: '#5a6080',
 }
 

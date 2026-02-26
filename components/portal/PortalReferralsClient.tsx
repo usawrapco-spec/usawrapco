@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -138,7 +140,7 @@ export default function PortalReferralsClient({ userId, userEmail }: Props) {
         Math.random().toString(36).substring(2, 6).toUpperCase()
 
       const { data, error } = await supabase.from('referral_codes').insert({
-        org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+        org_id: ORG_ID,
         code,
         type: 'customer',
         owner_id: userId,

@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -17,7 +18,7 @@ export default async function ShopManagePage() {
   const { data: products } = await admin
     .from('shop_products')
     .select('*')
-    .eq('org_id', 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f')
+    .eq('org_id', ORG_ID)
     .order('sort_order')
 
   return (
@@ -26,7 +27,7 @@ export default async function ShopManagePage() {
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
         <ShopManageClient products={products || []} />
       </main>
-      <MobileNav className="md:hidden" />
+      <MobileNav />
     </div>
   )
 }

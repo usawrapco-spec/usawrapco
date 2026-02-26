@@ -27,6 +27,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json()
+  if (!body.customer_id) return NextResponse.json({ error: 'Missing customer_id' }, { status: 400 })
   const db = supabaseAdmin()
 
   const { data, error } = await db

@@ -101,9 +101,9 @@ severity guide: minor=small cosmetic issue, moderate=noticeable but not urgent, 
           aiRecommendedAction = aiData.recommended_action || ''
           aiWarrantyNote = aiData.warranty_note || ''
 
-          // Upgrade warranty eligibility if AI says it's a defect and warranty is active
-          if (aiSeverity === 'warranty_eligible' && isWarrantyEligible) {
-            isWarrantyEligible = true
+          // If AI analyzed photos and it's NOT a warranty defect, downgrade eligibility
+          if (aiSeverity && aiSeverity !== 'warranty_eligible') {
+            isWarrantyEligible = false
           }
         }
       } catch (aiErr) {

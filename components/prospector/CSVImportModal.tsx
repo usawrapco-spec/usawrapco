@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -80,7 +82,7 @@ export function CSVImportModal({ profile, onClose, onImported }: Props) {
     setImporting(true)
     setError('')
 
-    const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+    const orgId = profile.org_id || ORG_ID
     const rows = csvData.map(row => {
       const record: Record<string, string> = {}
       Object.entries(mapping).forEach(([colIdx, field]) => {

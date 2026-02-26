@@ -6,6 +6,7 @@ import {
   Shield, Trophy, User, Calendar, Flag, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import type { Project } from '@/types'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface CpState {
@@ -27,8 +28,10 @@ interface Checkpoint {
 type DeptKey = 'sales' | 'contract' | 'design' | 'production' | 'install' | 'close'
 type DeptStatus = 'complete' | 'blocked' | 'in_progress' | 'locked' | 'upcoming'
 
+type ProjectSlice = Pick<Project, 'id' | 'pipe_stage' | 'stage_checklist'>
+
 interface Props {
-  project: any
+  project: ProjectSlice
   onChecklistUpdate?: (checklist: Record<string, Partial<CpState>>) => void
 }
 
@@ -115,9 +118,9 @@ const DEPT_STATUS_DISPLAY: Record<DeptStatus, { icon: string; color: string; lab
 }
 
 // ── Helper: compute checkpoint state ──────────────────────────────────────────
-function computeState(project: any): Record<string, CpState> {
+function computeState(project: ProjectSlice): Record<string, CpState> {
   const stage = project.pipe_stage || 'sales_in'
-  const stored = (project.stage_checklist as Record<string, any>) || {}
+  const stored = project.stage_checklist ?? {}
   const autoDoneIds = new Set<string>(STAGE_AUTODONE[stage] || ['lead_created'])
 
   const state: Record<string, CpState> = {}
@@ -190,7 +193,7 @@ export function RaceTrackTimeline({ project, onChecklistUpdate }: Props) {
   const [lockCountdown, setLockCountdown] = useState<number | null>(null)
   const [saving, setSaving]             = useState(false)
   const [localChecklist, setLocalChecklist] = useState<Record<string, any>>(
-    (project.stage_checklist as Record<string, any>) || {}
+    project.stage_checklist ?? {}
   )
 
   // Derive state from project + local checklist

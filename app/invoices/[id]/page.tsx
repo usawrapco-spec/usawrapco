@@ -4,8 +4,6 @@ import { redirect } from 'next/navigation'
 import type { Profile, Invoice, LineItem, Payment } from '@/types'
 import InvoiceDetailClient from '@/components/invoices/InvoiceDetailClient'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

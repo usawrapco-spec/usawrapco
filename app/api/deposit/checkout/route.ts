@@ -1,10 +1,9 @@
+import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://usawrapco.com'
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export async function POST(req: Request) {
   const { name, email, phone, vehicle_desc, amount, conversation_id } = await req.json()
 

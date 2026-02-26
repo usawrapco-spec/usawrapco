@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -122,7 +124,7 @@ export default function VehiclePricingClient({ profile, initialOverrides }: Vehi
     if (!override) return
 
     setSaving(key)
-    const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+    const orgId = profile.org_id || ORG_ID
     const { error } = await supabase
       .from('vehicle_pricing_overrides')
       .upsert({

@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -30,8 +32,6 @@ interface Props {
   profile: Profile
   initialVehicles: Vehicle[]
 }
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.trim().split('\n')

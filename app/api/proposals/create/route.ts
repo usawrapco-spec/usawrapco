@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
       .from('proposals')
       .insert({
         estimate_id,
-        org_id: estimate.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+        org_id: estimate.org_id || ORG_ID,
         title: 'Your Custom Wrap Proposal',
         status: 'draft',
         deposit_amount: DEFAULT_DEPOSIT,

@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -36,7 +38,7 @@ interface Props {
 
 export default function EmailSettingsClient({ profile, templates: initialTemplates }: Props) {
   const supabase = createClient()
-  const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+  const orgId = profile.org_id || ORG_ID
 
   const [templates, setTemplates] = useState(initialTemplates)
   const [copied, setCopied] = useState(false)

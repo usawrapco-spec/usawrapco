@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -6,8 +7,6 @@ import { MobileNav } from '@/components/layout/MobileNav'
 import PhoneSettingsClient from '@/components/settings/PhoneSettingsClient'
 import type { Profile } from '@/types'
 import { isAdminRole } from '@/types'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export default async function PhoneSettingsPage() {
   const supabase = createClient()

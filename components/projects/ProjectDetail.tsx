@@ -1169,7 +1169,7 @@ function LinkedEstimatePanel({ project }: { project: any }) {
   )
 }
 
-function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project }: any) {
+function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project, isMobileInstall, toggleMobileInstall, installAddress, setInstallAddress, saveInstallAddress, checkingWeather, installWeather }: any) {
   const isVehicle = jobType === 'Commercial' && subType === 'Vehicle'
   const isBox = jobType === 'Commercial' && subType === 'Box Truck'
   const isTrailer = jobType === 'Commercial' && subType === 'Trailer'
@@ -1305,6 +1305,33 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
             )}
           </div>
         )}
+
+        {/* Site Access Info — always visible, not just when mobile */}
+        <div style={{ marginTop: 14, display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--cyan)', textTransform:'uppercase', letterSpacing:'0.05em', display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ width:3, height:14, borderRadius:2, background:'var(--cyan)', display:'inline-block' }} />
+            Site Access &amp; Contact Info (shown to installer)
+          </div>
+          <Grid cols={2}>
+            <Field label="Access / Gate Code">
+              <input style={inp} value={f.access_code || ''} onChange={e=>ff('access_code',e.target.value)} placeholder="e.g. #4521 or 2B-North" />
+            </Field>
+            <Field label="Point of Contact Name">
+              <input style={inp} value={f.site_contact || ''} onChange={e=>ff('site_contact',e.target.value)} placeholder="On-site contact full name" />
+            </Field>
+          </Grid>
+          <Grid cols={2}>
+            <Field label="Contact Phone">
+              <input style={inp} value={f.site_contact_phone || ''} onChange={e=>ff('site_contact_phone',e.target.value)} placeholder="(253) 555-0100" />
+            </Field>
+            <Field label="Contact Email">
+              <input style={inp} value={f.site_contact_email || ''} onChange={e=>ff('site_contact_email',e.target.value)} placeholder="contact@example.com" />
+            </Field>
+          </Grid>
+          <Field label="Access Directions">
+            <textarea style={{...inp, minHeight:60}} value={f.access_instructions || ''} onChange={e=>ff('access_instructions',e.target.value)} placeholder="e.g. Enter through rear gate, use side entrance, ring bell at door B..." />
+          </Field>
+        </div>
       </Section>
 
       {/* Job Type */}
@@ -1743,8 +1770,56 @@ function RemnantMatchPanel({ sqft, material }: { sqft: number; material: string 
 // INSTALL TAB — Vinyl check, timer, post-install verification
 // ═══════════════════════════════════════════════════════════════════
 function InstallTab({ f, ff, project, profile, teammates }: any) {
+  const hasAccess = f.access_code || f.access_instructions || f.site_contact || f.site_contact_phone || f.site_contact_email
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+      {/* ── Site Access Card ──────────────────────────────────────── */}
+      {hasAccess && (
+        <div style={{ background:'rgba(34,211,238,0.06)', border:'1px solid rgba(34,211,238,0.3)', borderRadius:12, padding:'16px 18px' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--cyan)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ width:3, height:14, borderRadius:2, background:'var(--cyan)', display:'inline-block' }} />
+            Site Access Info
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
+            {f.access_code && (
+              <div style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:10, padding:'10px 14px' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--amber)', textTransform:'uppercase', marginBottom:4 }}>Access / Gate Code</div>
+                <div style={{ fontFamily:'JetBrains Mono, monospace', fontSize:22, fontWeight:900, color:'var(--text1)', letterSpacing:'0.15em' }}>{f.access_code}</div>
+              </div>
+            )}
+            {(f.site_contact || f.site_contact_phone || f.site_contact_email) && (
+              <div style={{ background:'var(--surface2)', borderRadius:10, padding:'10px 14px', border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>Point of Contact</div>
+                {f.site_contact && <div style={{ fontSize:14, fontWeight:700, color:'var(--text1)', marginBottom:2 }}>{f.site_contact}</div>}
+                {f.site_contact_phone && (
+                  <a href={`tel:${f.site_contact_phone}`} style={{ fontSize:13, color:'var(--accent)', textDecoration:'none', display:'flex', alignItems:'center', gap:4 }}>
+                    📞 {f.site_contact_phone}
+                  </a>
+                )}
+                {f.site_contact_email && (
+                  <a href={`mailto:${f.site_contact_email}`} style={{ fontSize:12, color:'var(--accent)', textDecoration:'none', display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                    ✉ {f.site_contact_email}
+                  </a>
+                )}
+              </div>
+            )}
+            {f.access_instructions && (
+              <div style={{ background:'var(--surface2)', borderRadius:10, padding:'10px 14px', border:'1px solid var(--border)', gridColumn: f.access_code && (f.site_contact || f.site_contact_phone) ? '1 / -1' : 'auto' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', marginBottom:4 }}>Access Directions</div>
+                <div style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{f.access_instructions}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {!hasAccess && (
+        <div style={{ background:'rgba(245,158,11,0.06)', border:'1px dashed rgba(245,158,11,0.3)', borderRadius:10, padding:'12px 16px', fontSize:13, color:'var(--amber)', display:'flex', alignItems:'center', gap:8 }}>
+          ⚠ No site access info entered. Go to the Sales tab to add access code, directions, and point of contact.
+        </div>
+      )}
+
       {/* Condition Report */}
       <ConditionReportLauncher project={project} profile={profile} />
 

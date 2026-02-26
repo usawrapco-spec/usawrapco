@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
@@ -21,7 +22,7 @@ export default async function EmailSettingsPage() {
     .single()
   if (!profile) redirect('/login')
 
-  const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+  const orgId = profile.org_id || ORG_ID
 
   // Fetch templates
   const { data: templates } = await admin

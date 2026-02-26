@@ -897,7 +897,7 @@ export default function InstallerPortalClient({
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               {!timer.startTime || timer.jobId !== selectedJobId ? (
-                <button onClick={() => startTimer(selectedJobId)} style={{
+                <button onClick={() => selectedJobId && startTimer(selectedJobId)} style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '12px 32px', borderRadius: 10, border: 'none',
                   background: 'var(--green)', color: '#0d1a10',
@@ -994,7 +994,7 @@ export default function InstallerPortalClient({
                         <input
                           type="checkbox"
                           checked={item.checked}
-                          onChange={() => toggleChecklistItem(selectedJobId, item.id)}
+                          onChange={() => selectedJobId && toggleChecklistItem(selectedJobId, item.id)}
                           style={{ width: 18, height: 18, accentColor: '#22c07a', cursor: 'pointer' }}
                         />
                         <span style={{

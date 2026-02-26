@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -268,7 +270,7 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
     const projectId = selectedJobId || projects[0].id
     await supabase.from('job_comments').insert({
       project_id: projectId, author_id: userId, author_name: displayName,
-      body: newMessage, org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+      body: newMessage, org_id: ORG_ID,
     })
     setMessages(prev => [{ id: Date.now().toString(), content: newMessage, sender_name: 'You', sender_role: 'customer', created_at: new Date().toISOString() }, ...prev])
     setNewMessage('')

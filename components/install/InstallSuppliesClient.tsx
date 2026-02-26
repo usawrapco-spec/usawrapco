@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -8,8 +10,6 @@ import {
   Package, Check, X, Clock, ArrowLeft, ChevronDown, ChevronUp,
   AlertTriangle, Calendar, MessageSquare,
 } from 'lucide-react'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 interface SupplyRequest {
   id: string

@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     const { data: photo, error } = await admin
       .from('job_photos')
       .insert({
-        org_id: profile?.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+        org_id: profile?.org_id || ORG_ID,
         project_id, photo_type, url, caption, zone,
         is_featured: is_featured ?? false,
         is_portfolio: is_portfolio ?? false,

@@ -5,8 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import type { Estimate } from '@/types'
 import { X, CheckSquare, Square } from 'lucide-react'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 interface Props {
   estimate: Estimate
   onClose: () => void

@@ -7,8 +7,6 @@ import type { Profile } from '@/types'
 import { isAdminRole } from '@/types'
 import TaxCalculatorPageClient from '@/components/financial/TaxCalculatorPage'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export default async function TaxCalcPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

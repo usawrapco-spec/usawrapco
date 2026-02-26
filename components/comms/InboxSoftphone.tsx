@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 /**
  * InboxSoftphone — embedded softphone panel in the inbox left sidebar.
@@ -16,8 +18,6 @@ import {
 } from 'lucide-react'
 import { usePhone } from '@/components/phone/PhoneProvider'
 import { createClient } from '@/lib/supabase/client'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 const DIGIT_ROWS = [
   ['1', '2', '3'],

@@ -123,7 +123,6 @@ interface EmployeePaySetting {
 
 /* ─── Constants ──────────────────────────────────────────────────────── */
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 const BIWEEKLY_MS = 14 * 24 * 60 * 60 * 1000
 const ANCHOR_DATE = new Date(2026, 0, 5) // Jan 5, 2026 Monday
 

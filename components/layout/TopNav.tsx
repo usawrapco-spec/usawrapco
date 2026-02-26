@@ -684,13 +684,13 @@ export function TopNav({ profile }: { profile: Profile }) {
       {/* ── Design intake modal ───────────────────────────────────────── */}
       {showDesignIntakeModal && (
         <DesignIntakeLinkModal
-          orgId={profile.org_id}
+          profile={profile}
           onClose={() => setShowDesignIntakeModal(false)}
         />
       )}
 
       {/* ── Product tour ─────────────────────────────────────────────── */}
-      {tourOpen && <ProductTour onClose={closeTour} />}
+      {tourOpen && <ProductTour userName={profile.name ?? ''} open={tourOpen} onClose={closeTour} />}
       {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
 
       {/* ── Quick Permissions Widget (admin/owner only, fixed) ──────── */}

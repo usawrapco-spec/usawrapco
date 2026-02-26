@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
@@ -5,8 +6,6 @@ import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import type { Profile, Project } from '@/types'
 import { TasksClient } from '@/components/tasks/TasksClient'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export default async function TasksPage() {
   const supabase = createClient()

@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    const orgId = profile?.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+    const orgId = profile?.org_id || ORG_ID
 
     const twilioSid = process.env.TWILIO_ACCOUNT_SID
     const twilioAuth = process.env.TWILIO_AUTH_TOKEN

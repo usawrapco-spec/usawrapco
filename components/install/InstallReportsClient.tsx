@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -8,8 +10,6 @@ import {
   FileBarChart, Plus, X, Clock, ArrowLeft, Check, ChevronDown, ChevronUp,
   AlertCircle, Wrench, Package, Flame, ClipboardList, ShieldCheck,
 } from 'lucide-react'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 const REPORT_TYPES = [
   { value: 'daily_summary', label: 'Daily Summary', icon: ClipboardList, color: 'var(--accent)' },

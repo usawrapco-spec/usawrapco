@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
       const { data: so } = await admin
         .from('sales_orders')
         .insert({
-          org_id: estimate.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+          org_id: estimate.org_id || ORG_ID,
           estimate_id: estimate.id,
           customer_id: estimate.customer_id,
           contact_id: estimate.contact_id || null,
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     if (estimate?.sales_rep_id) {
       const pkgName = body.package_name || 'selected package'
       await admin.from('notifications').insert({
-        org_id: estimate.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+        org_id: estimate.org_id || ORG_ID,
         user_id: estimate.sales_rep_id,
         title: 'Proposal Accepted!',
         body: `Customer accepted your proposal! Package: ${pkgName}, Total: $${Number(total_amount || 0).toLocaleString()}, Deposit paid.`,
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
     // 5. Log activity
     await admin.from('activity_log').insert({
-      org_id: estimate?.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+      org_id: estimate?.org_id || ORG_ID,
       action: 'proposal_accepted',
       entity_type: 'proposal',
       entity_id: proposal.id,

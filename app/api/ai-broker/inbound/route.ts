@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
@@ -6,8 +7,6 @@ import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || ''
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || ''
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || ''
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 /* ─── Send SMS via Twilio ────────────────────────────────────────────── */
 async function sendSMS(to: string, body: string): Promise<string | null> {
   if (!TWILIO_ACCOUNT_SID || TWILIO_ACCOUNT_SID.startsWith('PLACEHOLDER')) {

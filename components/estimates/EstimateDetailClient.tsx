@@ -957,7 +957,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         const data = await createOneJob(items, title || 'Untitled Job')
         if (data) { showToast('Job created!'); router.push(`/projects/${data.id}`) }
       } else {
-        const created = []
+        const created: Array<{ id: string }> = []
         for (const li of items) {
           const data = await createOneJob([li], li.name || title || 'Untitled Job')
           if (data) created.push(data)
@@ -2060,7 +2060,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 </div>
               </div>
               {/* Vehicle profiles from intake */}
-              {est.form_data?.vehicleProfiles && (
+              {!!est.form_data?.vehicleProfiles && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
                     Vehicle Profiles from Intake
@@ -2987,7 +2987,7 @@ function LineItemCard({
                 {vehicleDesc}
               </span>
             )}
-            {(specs.wrapType || specs.trailerCoverage) && (
+            {Boolean(specs.wrapType || specs.trailerCoverage) && (
               <span style={{ fontSize: 10, color: 'var(--text2)', background: 'rgba(90,96,128,0.1)', padding: '1px 6px', borderRadius: 3, whiteSpace: 'nowrap' as const }}>
                 {(specs.wrapType as string) || ((specs.trailerCoverage as string) || '').replace('_', ' ')}
               </span>
@@ -3007,7 +3007,7 @@ function LineItemCard({
                 x{item.quantity}
               </span>
             )}
-            {(specs.mockupImages as unknown) && (
+            {!!(specs.mockupImages as unknown) && (
               <Paintbrush size={12} style={{ color: 'var(--purple)', flexShrink: 0 }} />
             )}
           </div>
@@ -4049,7 +4049,7 @@ function LineItemCard({
               {/* Outputs */}
               {(specs.signWidth as number) > 0 && (specs.signHeight as number) > 0 && (
                 <div style={{ ...gadgetOutputStyle, background: 'rgba(245,158,11,0.06)' }}>
-                  <span style={{ color: 'var(--text2)' }}>Size: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.signWidth}&quot;x{specs.signHeight}&quot;</span></span>
+                  <span style={{ color: 'var(--text2)' }}>Size: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{specs.signWidth as number}&quot;x{specs.signHeight as number}&quot;</span></span>
                   <span style={{ color: 'var(--text2)' }}>Sqft: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{((specs.vinylArea as number) || 0).toFixed(1)}</span></span>
                   <span style={{ color: 'var(--text2)' }}>Qty: <span style={{ fontFamily: monoFont, color: 'var(--text1)', fontWeight: 700 }}>{(specs.signQuantity as number) || 1}</span></span>
                   {(specs.doubleSided as boolean) && <span style={{ fontSize: 10, color: 'var(--cyan)', fontWeight: 700 }}>2-SIDED</span>}

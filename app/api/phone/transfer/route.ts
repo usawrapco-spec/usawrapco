@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { callSid, transferToNumber, transferToAgentId, transferType, callerName } = body

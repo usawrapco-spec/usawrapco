@@ -1,14 +1,14 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import {
-  MessageCircle, Send, ArrowLeft, Users, Hash, User,
+  MessageCircle, Send, ArrowLeft, Users, Hash, User, Clock,
 } from 'lucide-react'
 import Link from 'next/link'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 interface InstallerProfile {
   id: string

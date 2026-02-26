@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useCallback } from 'react'
 import type { Profile } from '@/types'
@@ -108,7 +110,7 @@ export function AIProspectModal({ profile, onClose, onResults, settings }: Props
           maxResults,
           excludeExisting,
           minScore: settings.minScore,
-          orgId: profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+          orgId: profile.org_id || ORG_ID,
         }),
       })
 

@@ -27,6 +27,7 @@ interface Expense {
   rejection_reason: string | null
   manager_notes: string | null
   flagged: boolean
+  flag_reason?: string | null
   user?: { id: string; name: string; avatar_url: string | null }
   job?: { id: string; title: string } | null
   approver?: { id: string; name: string } | null
@@ -518,7 +519,7 @@ export default function ExpensesClient({
                       </td>
                       <td style={{ padding: '12px 14px' }}>
                         {exp.ai_extracted && <span style={{ fontSize: 11, color: 'var(--cyan)', background: 'var(--cyan)22', padding: '2px 6px', borderRadius: 6 }}>AI</span>}
-                        {exp.flagged && <AlertTriangle size={14} color="var(--amber)" title={exp.flag_reason || 'Flagged'} />}
+                        {exp.flagged && <AlertTriangle size={14} color="var(--amber)" aria-label={exp.flag_reason || 'Flagged'} />}
                       </td>
                     </tr>
                   ))}

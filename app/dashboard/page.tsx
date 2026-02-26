@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
@@ -7,8 +8,6 @@ import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import XPAwarder from '@/components/dashboard/XPAwarder'
 import RoleDashboard from '@/components/dashboard/RoleDashboard'
 import DashboardHero from '@/components/dashboard/DashboardHero'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export default async function DashboardPage() {
     const supabase = createClient()
@@ -62,17 +61,17 @@ export default async function DashboardPage() {
     return (
         <XPAwarder>
             <DashboardHero
-                profile={profile as Profile}
-                projects={(projects as Project[]) || []}
+                profile={profile as unknown as Profile}
+                projects={(projects as unknown as Project[]) || []}
                 canSeeFinancials={canSeeFinancials}
             />
             <RoleDashboard
-                profile={profile as Profile}
-                projects={(projects as Project[]) || []}
+                profile={profile as unknown as Profile}
+                projects={(projects as unknown as Project[]) || []}
             />
             <DashboardClient
-                profile={profile as Profile}
-                initialProjects={(projects as Project[]) || []}
+                profile={profile as unknown as Profile}
+                initialProjects={(projects as unknown as Project[] | null) ?? []}
                 canSeeFinancials={canSeeFinancials}
             />
         </XPAwarder>

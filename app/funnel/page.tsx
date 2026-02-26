@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -17,7 +18,7 @@ export default async function FunnelPage() {
   const { data: sessions } = await admin
     .from('wrap_funnel_sessions')
     .select('*')
-    .eq('org_id', 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f')
+    .eq('org_id', ORG_ID)
     .order('created_at', { ascending: false })
     .limit(500)
 
@@ -37,7 +38,7 @@ export default async function FunnelPage() {
           <FunnelDashboard sessions={sessions || []} />
         </div>
       </main>
-      <MobileNav className="md:hidden" />
+      <MobileNav />
     </div>
   )
 }

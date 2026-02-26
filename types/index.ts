@@ -305,8 +305,55 @@ export interface ProjectFile {
 }
 
 // ─── Design Project ────────────────────────────────────────────────────────────
-export type DesignProjectStatus = 'brief' | 'in_progress' | 'proof_sent' | 'approved'
+export type DesignProjectStatus =
+  | 'brief'
+  | 'in_progress'
+  | 'proof_sent'
+  | 'review_needed'
+  | 'revision'
+  | 'approved'
+  | 'sent_to_client'
+
 export type DesignType = 'full_wrap' | 'partial_wrap' | 'decal' | 'livery' | 'color_change' | 'other'
+export type DesignPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+export interface DesignBriefData {
+  vehicle_type?: string
+  dimensions?: string
+  brand_colors?: string[]
+  logo_files?: string[]
+  reference_images?: string[]
+  must_include?: string
+  must_avoid?: string
+  font_preferences?: string
+  copy_text?: string
+  special_instructions?: string
+}
+
+export interface DesignQualityChecklist {
+  bleed_respected: boolean
+  safe_zone_respected: boolean
+  spell_checked: boolean
+  logo_vector: boolean
+  colors_match_brand: boolean
+  contact_info_verified: boolean
+  resolution_ok: boolean
+  color_mode_cmyk: boolean
+  proof_looks_correct: boolean
+}
+
+export interface DesignRevision {
+  id: string
+  org_id: string
+  design_project_id: string
+  round: number
+  notes: string | null
+  what_changed: string | null
+  requested_by: string | null
+  time_spent_minutes: number
+  created_at: string
+  requester?: Pick<Profile, 'id' | 'name'>
+}
 
 export interface DesignProject {
   id: string
@@ -325,10 +372,23 @@ export interface DesignProject {
   vehicle_type?: string | null
   brand_files?: Record<string, unknown> | null
   design_canvas_data?: Record<string, unknown> | null
+  // Design manager fields
+  priority?: DesignPriority
+  brief_data?: DesignBriefData
+  quality_checklist?: DesignQualityChecklist
+  revision_count?: number
+  revision_limit?: number
+  hold_reason?: string | null
+  escalated?: boolean
+  rush_fee?: number
+  design_started_at?: string | null
+  proof_sent_at?: string | null
+  approved_at?: string | null
   created_at: string
   updated_at: string
   linked_project?: Pick<Project, 'id' | 'title'>
   creator?: Pick<Profile, 'id' | 'name'>
+  designer?: Pick<Profile, 'id' | 'name'>
 }
 
 // ─── Team Invite ───────────────────────────────────────────────────────────────
@@ -402,6 +462,10 @@ export interface LineItem {
   rolled_up_into?: string | null
   is_rolled_up?: boolean
   created_at: string
+  // Computed aliases used in some views
+  cogs?: number
+  qty?: number
+  price?: number
 }
 
 export interface LineItemSpecs {

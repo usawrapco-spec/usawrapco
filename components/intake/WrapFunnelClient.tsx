@@ -254,7 +254,7 @@ export default function WrapFunnelClient() {
     fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${makeFmt}/modelyear/${vehicleYear}?format=json`)
       .then(r => r.json())
       .then(data => {
-        const models: string[] = [...new Set((data.Results || []).map((r: any) => r.Model_Name as string))]
+        const models: string[] = [...new Set<string>((data.Results || []).map((r: any) => r.Model_Name as string))]
           .filter(Boolean)
           .sort()
         upd({ vehicleModels: models, loadingModels: false })

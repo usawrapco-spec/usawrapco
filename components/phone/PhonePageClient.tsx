@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -16,7 +18,6 @@ import { ConversationList } from '@/components/comms/ConversationList'
 import type { Conversation, ConversationMessage, InboxLabel } from '@/components/comms/types'
 import { usePhone } from '@/components/phone/PhoneProvider'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 const WEBHOOK_BASE = 'https://app.usawrapco.com'
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const DAY_LABELS: Record<string, string> = {

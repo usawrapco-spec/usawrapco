@@ -1,4 +1,5 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -74,7 +75,7 @@ export default function TimeclockClient({ profile, todayEntries, weekEntries }: 
         .from('time_entries')
         .insert({
           employee_id: profile.id,
-          org_id: profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+          org_id: profile.org_id || ORG_ID,
           clock_in: new Date().toISOString(),
           break_minutes: 0,
         })

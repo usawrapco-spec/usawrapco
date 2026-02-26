@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   // Optimize images from Supabase Storage and other sources
   images: {
     formats: ['image/avif', 'image/webp'],

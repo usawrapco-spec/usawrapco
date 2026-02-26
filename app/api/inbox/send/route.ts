@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
     .single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
-  const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+  const orgId = profile.org_id || ORG_ID
   const {
     conversation_id,
     channel = 'email',

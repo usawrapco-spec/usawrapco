@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       action: 'critical_issue_flagged',
       description: `Critical issue: ${body.description.substring(0, 120)}`,
       created_at: new Date().toISOString(),
-    }).catch(() => {})
+    }).then(() => {}, () => {})
   }
 
   return NextResponse.json(data)

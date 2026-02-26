@@ -1,9 +1,8 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export async function POST(req: Request) {
   const supabase = createClient()

@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     const { data: report, error } = await admin
       .from('condition_reports')
       .insert({
-        org_id: profile?.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+        org_id: profile?.org_id || ORG_ID,
         project_id,
         installer_id: user.id,
         vehicle_year, vehicle_make, vehicle_model, vehicle_color, vin,

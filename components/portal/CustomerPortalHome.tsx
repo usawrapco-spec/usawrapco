@@ -240,7 +240,7 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
   const [mainAreas, setMainAreas]   = useState<string[]>([])
   const [mainIssueType, setMainIssueType] = useState('')
   const [mainDesc, setMainDesc]     = useState('')
-  const [mainUrgency, setMainUrgency] = useState('not-urgent')
+  const [mainUrgency, setMainUrgency] = useState('not_urgent')
   const [mainSubmitting, setMainSubmitting] = useState(false)
   const [mainResult, setMainResult] = useState<Record<string, unknown> | null>(null)
   const mainPhotoRef = useRef<HTMLInputElement>(null)
@@ -369,7 +369,7 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
     try {
       const vehicle = vehicles.find(v => v.id === selectedVehicleId)
       const project = vehicle
-        ? projects.find(p => (vehicle.services_done || []).some((s) => s.project_id === p.id))
+        ? (projects.find(p => (vehicle.services_done || []).some((s) => s.project_id === p.id)) ?? projects[0])
         : projects[0]
 
       const res = await fetch('/api/portal/maintenance', {
@@ -804,7 +804,7 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
             <div style={{ color: C.text2, marginTop: 4 }}>We'll review your ticket within 24 hours.</div>
           </div>
 
-          {mainResult.ai_assessment && card(
+          {!!mainResult.ai_assessment && card(
             <div style={{ padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: 1, marginBottom: 12 }}>AI ASSESSMENT</div>
               <div style={{ color: C.text1, lineHeight: 1.6, marginBottom: 16 }}>{mainResult.ai_assessment as string}</div>
@@ -812,13 +812,13 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
                 <div style={{ padding: '6px 14px', background: `${sevColor}20`, borderRadius: 20, color: sevColor, fontSize: 13, fontWeight: 700 }}>
                   Severity: {String(sev).replace('_', ' ')}
                 </div>
-                {mainResult.is_warranty_eligible && (
+                {!!mainResult.is_warranty_eligible && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.green, fontSize: 13, fontWeight: 600 }}>
                     <Shield size={14} /> Warranty eligible
                   </div>
                 )}
               </div>
-              {mainResult.ai_recommended_action && (
+              {!!mainResult.ai_recommended_action && (
                 <div style={{ marginTop: 14, padding: '12px 14px', background: C.surface2, borderRadius: 10, color: C.text2, fontSize: 14 }}>
                   <span style={{ color: C.text3, fontWeight: 600 }}>Recommended: </span>{mainResult.ai_recommended_action as string}
                 </div>
@@ -884,12 +884,12 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
           <div style={{ fontSize: 22, fontWeight: 800, color: C.text1 }}>Request Sent!</div>
           <div style={{ color: C.text2, marginTop: 4 }}>We'll have a quote to you within 24 hours.</div>
         </div>
-        {reorderResult.ai_quote_estimate && card(
+        {!!reorderResult.ai_quote_estimate && card(
           <div style={{ padding: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: 1, marginBottom: 10 }}>INSTANT ESTIMATE</div>
             <div style={{ fontSize: 36, fontWeight: 800, color: C.green }}>{money(reorderResult.ai_quote_estimate as number)}</div>
             <div style={{ fontSize: 13, color: C.text3, marginBottom: 12 }}>Rough estimate — final quote may vary</div>
-            {reorderResult.ai_quote_reasoning && <div style={{ color: C.text2, fontSize: 14, lineHeight: 1.5 }}>{reorderResult.ai_quote_reasoning as string}</div>}
+            {!!reorderResult.ai_quote_reasoning && <div style={{ color: C.text2, fontSize: 14, lineHeight: 1.5 }}>{reorderResult.ai_quote_reasoning as string}</div>}
           </div>
         )}
         <button onClick={() => { setReorderStep('select'); setReorderVehicle(null); setReorderServices([]); setReorderPhotos([]); setReorderResult(null) }}
@@ -1082,8 +1082,8 @@ export default function CustomerPortalHome({ token }: CustomerPortalHomeProps) {
         {card(
           <div style={{ padding: 24 }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <div style={{ fontSize: 36, fontWeight: 900, color: C.green }}>${(earned / 100).toFixed(0) === '0' ? '100' : earned}</div>
-              <div style={{ color: C.text2, fontSize: 15 }}>credit earned per referral</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: C.green }}>{earned > 0 ? money(earned) : '$100'}</div>
+              <div style={{ color: C.text2, fontSize: 15 }}>{earned > 0 ? 'total credits earned' : 'credit per referral'}</div>
             </div>
             <div style={{ padding: '14px 16px', background: C.surface2, borderRadius: 12, marginBottom: 16 }}>
               <div style={{ fontSize: 12, color: C.text3, marginBottom: 4 }}>YOUR REFERRAL LINK</div>

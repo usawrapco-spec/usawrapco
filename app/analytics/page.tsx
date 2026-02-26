@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
@@ -35,7 +36,7 @@ export default async function AnalyticsPage() {
     )
   }
 
-  const orgId = profile.org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
+  const orgId = profile.org_id || ORG_ID
   const { data: projects } = await getSupabaseAdmin()
     .from('projects')
     .select(`*, agent:agent_id(id, name), installer:installer_id(id, name)`)

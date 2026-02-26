@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
@@ -19,8 +21,6 @@ import { ContactPanel } from './ContactPanel'
 import { ComposeArea } from './ComposeArea'
 import { InboxSoftphone } from './InboxSoftphone'
 import { usePhone } from '@/components/phone/PhoneProvider'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 interface Teammate {
   id: string

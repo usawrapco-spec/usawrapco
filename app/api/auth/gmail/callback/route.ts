@@ -9,7 +9,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
-  const state = searchParams.get('state') // user.id passed from connect
+  const stateRaw = searchParams.get('state')
   const error = searchParams.get('error')
 
   // Handle OAuth errors (user denied, etc.)
@@ -20,11 +20,32 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  if (!code || !state) {
+  if (!code || !stateRaw) {
     return NextResponse.redirect(
       `${APP_URL}/settings/email-accounts?error=${encodeURIComponent('Missing authorization code')}`
     )
   }
+
+  // Parse state JSON and verify CSRF nonce
+  let parsedState: { uid: string; nonce: string }
+  try {
+    parsedState = JSON.parse(stateRaw)
+  } catch {
+    return NextResponse.redirect(
+      `${APP_URL}/settings/email-accounts?error=${encodeURIComponent('Invalid OAuth state')}`
+    )
+  }
+
+  const cookieNonce = req.cookies.get('gmail_oauth_nonce')?.value
+  if (!cookieNonce || cookieNonce !== parsedState.nonce) {
+    console.error('[GMAIL OAUTH] CSRF nonce mismatch')
+    return NextResponse.redirect(
+      `${APP_URL}/settings/email-accounts?error=${encodeURIComponent('Security check failed — please try again')}`
+    )
+  }
+
+  // Extract verified user ID from state
+  const state = parsedState.uid
 
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
     return NextResponse.redirect(
@@ -33,6 +54,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Clear the nonce cookie now that it's been consumed
+    const clearNonceCookie = (res: NextResponse) => {
+      res.cookies.set('gmail_oauth_nonce', '', { maxAge: 0, path: '/' })
+      return res
+    }
+
     // Exchange code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -140,7 +167,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    return NextResponse.redirect(`${APP_URL}/settings/email-accounts?success=1`)
+    return clearNonceCookie(NextResponse.redirect(`${APP_URL}/settings/email-accounts?success=1`))
   } catch (err) {
     console.error('[GMAIL OAUTH] Callback error:', err)
     return NextResponse.redirect(

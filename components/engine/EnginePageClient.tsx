@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import ReactFlow, {
@@ -23,8 +25,6 @@ import {
   BarChart2, Activity, Users, Settings,
   Phone,
 } from 'lucide-react'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 // ── Stage definitions ─────────────────────────────────────────────
 interface StageConfig { key: string; label: string; Icon: LucideIcon; color: string }

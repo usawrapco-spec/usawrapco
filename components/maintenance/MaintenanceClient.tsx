@@ -66,6 +66,12 @@ export default function MaintenanceClient({ profile }: { profile: Profile | null
   const [notesEdit, setNotesEdit] = useState('')
   const [resolution, setResolution] = useState('')
 
+  // Sync edit state whenever selected ticket changes
+  useEffect(() => {
+    setNotesEdit(selected?.internal_notes || '')
+    setResolution(selected?.resolution_notes || '')
+  }, [selected?.id])
+
   const loadTickets = useCallback(async () => {
     setLoading(true)
     const qs = filterStatus !== 'all' ? `?status=${filterStatus}` : ''
@@ -319,7 +325,7 @@ export default function MaintenanceClient({ profile }: { profile: Profile | null
               const pc = PRIORITY_COLORS[t.priority] || C.text2
               const sevc = SEVERITY_COLORS[t.ai_severity || ''] || C.text2
               return (
-                <div key={t.id} onClick={() => { setSelected(t); setNotesEdit(t.internal_notes || ''); setResolution(t.resolution_notes || '') }}
+                <div key={t.id} onClick={() => setSelected(t)}
                   style={{ padding: '16px 20px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, cursor: 'pointer', transition: 'border-color 0.15s', display: 'flex', gap: 14, alignItems: 'flex-start' }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = `${C.accent}60`)}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = C.border)}>

@@ -7,8 +7,6 @@ import { isAdminRole, canAccess } from '@/types'
 import type { Profile } from '@/types'
 import ShopOverheadCalc from '@/components/settings/ShopOverheadCalc'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
 export default async function OverheadPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

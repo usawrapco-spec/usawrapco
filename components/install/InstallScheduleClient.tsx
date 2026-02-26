@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
@@ -7,8 +9,6 @@ import type { Profile } from '@/types'
 import {
   Calendar, ChevronLeft, ChevronRight, Plus, X, Clock, ArrowLeft, User,
 } from 'lucide-react'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 const INSTALLER_COLORS = [
   '#4f7fff', '#22c07a', '#f59e0b', '#8b5cf6', '#22d3ee',

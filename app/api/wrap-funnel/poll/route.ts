@@ -1,7 +1,6 @@
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 async function getReplicateToken(): Promise<string | null> {
   if (process.env.REPLICATE_API_TOKEN) return process.env.REPLICATE_API_TOKEN

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('project_id', project_id)
     .eq('installer_id', user.id)
-    .catch(() => {})
+    .then(() => {}, () => {})
 
   // 3. Fetch project for notifications
   const { data: project } = await admin
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (notifications.length) {
-    await admin.from('notifications').insert(notifications).catch(() => {})
+    await admin.from('notifications').insert(notifications).then(() => {}, () => {})
   }
 
   // 5. Activity log
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     action: 'install_complete',
     description: `Install marked complete. Difficulty: ${difficulty_rating}/5`,
     created_at: new Date().toISOString(),
-  }).catch(() => {})
+  }).then(() => {}, () => {})
 
   return NextResponse.json({ success: true, project_id })
 }

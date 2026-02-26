@@ -515,7 +515,7 @@ const VehicleConfigurator = forwardRef<ConfiguratorHandle, VehicleConfiguratorPr
             rotRef.current.y += dx * 0.008
             rotRef.current.x += dy * 0.006
             rotRef.current.x = Math.max(-0.35, Math.min(0.75, rotRef.current.x))
-            lastMouseRef.current = { x: ev.clientX, ev: ev.clientY }
+            lastMouseRef.current = { x: ev.clientX, y: ev.clientY }
             if (groupRef.current) {
               groupRef.current.rotation.y = rotRef.current.y
               groupRef.current.rotation.x = rotRef.current.x

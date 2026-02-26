@@ -1,4 +1,6 @@
 'use client'
+import { ORG_ID } from '@/lib/org'
+
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -9,8 +11,6 @@ import {
   ChevronRight, X, Search, Plus, Trash2, AlertCircle, Check,
   Clock, Eye, UserPlus,
 } from 'lucide-react'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 interface StatCard { label: string; value: string | number; icon: React.ReactNode; color: string; badge?: number }
 interface JobRow { id: string; title: string; vehicle_desc: string | null; pipe_stage: string; install_date: string | null; status: string }

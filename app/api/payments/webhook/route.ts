@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { awardXP } from '@/lib/gamification'
 import Stripe from 'stripe'
@@ -88,12 +89,12 @@ export async function POST(req: Request) {
 
         // Create a notification for the team
         await admin.from('notifications').insert({
-          org_id: 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
+          org_id: ORG_ID,
           type: 'design_mockup_paid',
           title: 'New Paid Design Submission',
           message: `A customer paid $${((session.amount_total || 0) / 100).toFixed(0)} for AI wrap design mockups.`,
           metadata: { mockup_id: mockupId },
-        }).then(() => {}).catch(() => {})
+        }).then(() => {}, () => {})
 
         console.log('[payments/webhook] design mockup payment recorded:', mockupId)
       }

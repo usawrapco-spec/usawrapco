@@ -550,7 +550,7 @@ export default function AICommsHubClient({ profile }: { profile: Profile }) {
               <div style={{ display: 'flex', gap: 8 }}>
                 {[true, false].map(val => (
                   <button key={String(val)} onClick={() => { setAiConfig(p => ({ ...p, ai_enabled: val })); setConfigDirty(true) }} style={{
-                    flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                    flex: 1, padding: '6px 0', borderRadius: 7, cursor: 'pointer', fontWeight: 700, fontSize: 12,
                     background: aiConfig.ai_enabled === val ? (val ? 'rgba(34,192,122,0.15)' : 'rgba(242,90,90,0.15)') : 'rgba(255,255,255,0.05)',
                     color: aiConfig.ai_enabled === val ? (val ? 'var(--green)' : 'var(--red)') : 'var(--text3)',
                     border: aiConfig.ai_enabled === val ? `1px solid ${val ? 'rgba(34,192,122,0.3)' : 'rgba(242,90,90,0.3)'}` : '1px solid transparent',

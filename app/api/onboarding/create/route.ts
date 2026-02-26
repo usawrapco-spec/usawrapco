@@ -1,9 +1,9 @@
+import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://usawrapco.com'
 
 export async function POST(req: NextRequest) {

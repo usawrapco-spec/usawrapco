@@ -1,3 +1,4 @@
+import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 export const maxDuration = 60
@@ -11,7 +12,7 @@ async function getReplicateToken(): Promise<string | null> {
     const { data: integration } = await admin
       .from('integrations')
       .select('config')
-      .eq('org_id', 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f')
+      .eq('org_id', ORG_ID)
       .eq('integration_id', 'replicate')
       .eq('enabled', true)
       .single()

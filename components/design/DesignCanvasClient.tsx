@@ -18,6 +18,7 @@ import {
   RotateCcw, SlidersHorizontal,
 } from 'lucide-react'
 import DesignMenuBar from './DesignMenuBar'
+import AnnotationSystem from './AnnotationSystem'
 import ThreeViewport from './ThreeViewport'
 import ThreeFileImporter from './ThreeFileImporter'
 import type { CanvasMode, ThreeMeshMeta } from './design-types'
@@ -309,6 +310,9 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   const [presentationToken, setPresentationToken] = useState<string | null>(null)
   const [creatingPresentation, setCreatingPresentation] = useState(false)
 
+  // Annotation System
+  const [showAnnotations, setShowAnnotations] = useState(true)
+
   // ── Custom shape (polygon tracing) tool ──
   const [customShapePoints, setCustomShapePoints] = useState<{ x: number; y: number }[]>([])
   const [customShapeActive, setCustomShapeActive] = useState(false)
@@ -365,9 +369,12 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     pixelsPerInchRef.current = pixelsPerInch
     // Recalculate total canvas sqft whenever scale changes
     if (fabricRef.current) recalcCanvasSqft(fabricRef.current, pixelsPerInch)
+  // @ts-expect-error -- forward reference: recalcCanvasSqft useCallback declared below
   }, [pixelsPerInch, recalcCanvasSqft])
   // ── Sync custom shape callbacks to refs ──
+  // @ts-expect-error -- forward reference: completeCustomShape useCallback declared below
   useEffect(() => { completeCustomShapeRef.current = completeCustomShape }, [completeCustomShape])
+  // @ts-expect-error -- forward reference: cancelCustomShape useCallback declared below
   useEffect(() => { cancelCustomShapeRef.current = cancelCustomShape }, [cancelCustomShape])
 
   // ── Recalculate total canvas shape sqft ──
@@ -711,6 +718,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
     } else if (tool === 'custom') {
       handleCustomShapeClick(e)
     }
+  // @ts-expect-error -- forward reference: handleCustomShapeClick useCallback declared below
   }, [tool, handleCustomShapeClick])
 
   // ── Autosave every 30s ──
@@ -2033,6 +2041,21 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
           {creatingPresentation ? 'Loading...' : 'Present'}
         </button>
 
+        {/* Annotation toggle */}
+        <button
+          onClick={() => setShowAnnotations(v => !v)}
+          title="Toggle annotation & collaboration overlay"
+          style={{
+            ...accentBtnStyle,
+            background: showAnnotations ? 'rgba(34,192,122,0.15)' : 'rgba(90,96,128,0.1)',
+            color: showAnnotations ? '#22c07a' : '#5a6080',
+            border: `1px solid ${showAnnotations ? 'rgba(34,192,122,0.3)' : '#1a1d27'}`,
+          }}
+        >
+          <MessageCircle size={13} />
+          Annotate
+        </button>
+
         <button onClick={saveCanvas} disabled={saving} style={{ ...accentBtnStyle, background: '#4f7fff', color: '#fff', border: 'none' }}>
           <Save size={13} />
           {saving ? 'Saving...' : 'Save'}
@@ -2237,7 +2260,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
                 groups[v].push(f)
                 return groups
               }, {})
-            ).sort(([a], [b]) => Number(b) - Number(a)).map(([ver, files]) => (
+            ).sort(([a], [b]) => Number(b) - Number(a)).map(([ver, files]: [string, any[]]) => (
               <div key={ver} style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
                   Version {ver}
@@ -2447,6 +2470,15 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
                 onImportFile={() => setShow3DImporter(true)}
               />
             </div>
+          )}
+
+          {/* ── ANNOTATION SYSTEM ── */}
+          {canvasMode === '2d' && showAnnotations && (
+            <AnnotationSystem
+              designProjectId={design.id}
+              profile={profile}
+              canvasContainerRef={canvasContainerRef}
+            />
           )}
 
           {/* Drop overlay for 2D canvas */}

@@ -3,9 +3,8 @@
  * Helpers to bridge Twilio phone events into the inbox conversation system.
  * Creates/finds conversations and inserts conversation_messages for calls, voicemails, and SMS.
  */
+import { ORG_ID } from '@/lib/org'
 import type { SupabaseClient } from '@supabase/supabase-js'
-
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export async function findOrCreatePhoneConversation(
   admin: SupabaseClient<any, any, any>,

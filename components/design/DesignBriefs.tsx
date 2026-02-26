@@ -30,6 +30,7 @@ interface Brief {
   vehicle_photos: string[]
   logo_files: string[]
   removal_required: boolean
+  removal_description: string | null
   completed: boolean
   completed_at: string | null
   created_at: string
