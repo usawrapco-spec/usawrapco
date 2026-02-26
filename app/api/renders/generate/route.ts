@@ -36,27 +36,29 @@ async function storeRender(imageUrl: string, jobId: string): Promise<string> {
   } catch { return imageUrl }
 }
 
+// ─── Prompt builders ─────────────────────────────────────────────────────────
+
 const LIGHTING_PROMPTS: Record<string, string> = {
-  showroom:    'white studio background, perfect studio lighting, clean reflective floor, showroom quality',
-  daylight:    'outdoors on a clear sunny day, natural daylight, blue sky, bright environment',
-  overcast:    'outdoors overcast day, soft diffuse lighting, no harsh shadows, even illumination',
-  golden_hour: 'golden hour sunset lighting, warm orange and golden tones, long dramatic shadows',
-  night:       'at night, headlights illuminated, dark background, dramatic night photography',
+  showroom:    'white studio background, perfect three-point studio lighting, clean seamless white floor, showroom quality photography',
+  daylight:    'outdoors on a clear sunny day, natural bright sunlight, vivid blue sky with scattered clouds',
+  overcast:    'outdoors overcast day, soft diffuse even lighting, no harsh shadows, diffused natural light',
+  golden_hour: 'golden hour sunset, warm orange and amber light, long dramatic shadows, magic hour photography',
+  night:       'night scene, vehicle headlights and taillights glowing, dramatic dark environment, moody night photography',
 }
 
 const BACKGROUND_PROMPTS: Record<string, string> = {
-  studio:      'white studio backdrop, seamless white background, clean studio environment',
-  city_street: 'city street background, urban environment, downtown setting',
-  dealership:  'car dealership lot exterior, professional automotive setting',
+  studio:      'seamless white studio backdrop, reflective polished floor',
+  city_street: 'urban city street, downtown buildings, road surface, city environment',
+  dealership:  'car dealership exterior lot, automotive showroom setting',
   custom:      '',
 }
 
 const ANGLE_PROMPTS: Record<string, string> = {
   original:      '',
-  front:         'front view of vehicle, facing camera head-on',
-  side:          'side profile view, driver side, full broadside view',
-  rear:          'rear view of vehicle, back of vehicle facing camera',
-  three_quarter: 'three-quarter front angle view, dynamic perspective',
+  front:         'front view facing camera, head-on angle',
+  side:          'driver side profile view, full broadside angle, lateral view',
+  rear:          'rear view, back of vehicle facing camera',
+  three_quarter: 'dynamic three-quarter front angle, 45-degree perspective',
 }
 
 function buildPrompt(opts: {
@@ -64,40 +66,52 @@ function buildPrompt(opts: {
   lighting: string
   background: string
   angle: string
-}) {
-  const parts = [
-    `photorealistic vehicle wrap render, ${opts.wrapDescription || 'custom vinyl wrap design'}`,
+}): string {
+  return [
+    `photorealistic professional vehicle wrap render`,
+    opts.wrapDescription || 'custom vinyl wrap design with bold graphics',
     ANGLE_PROMPTS[opts.angle] || '',
     LIGHTING_PROMPTS[opts.lighting] || LIGHTING_PROMPTS.showroom,
     BACKGROUND_PROMPTS[opts.background] || BACKGROUND_PROMPTS.studio,
-    'professional automotive photography, 8k resolution, sharp focus, commercial quality',
-  ].filter(Boolean)
-  return parts.join(', ')
+    'DSLR photography, ultra sharp, 8k resolution, commercial automotive photography',
+  ].filter(Boolean).join(', ')
 }
+
+// ─── Replicate API calls ──────────────────────────────────────────────────────
+// Uses flux-dev for img2img (vehicle photo provided) or flux-schnell for text2img
 
 async function startPrediction(
   token: string,
   prompt: string,
   vehiclePhotoUrl?: string
-): Promise<{ id: string; status: string } | null> {
-  const input: Record<string, any> = {
-    prompt,
-    negative_prompt: 'cartoon, illustration, CGI, 3d render, low quality, blurry, distorted, watermark, text overlay',
-    num_inference_steps: 28,
-    guidance_scale: 7.5,
-    width: 1024,
-    height: 768,
-  }
+): Promise<{ id: string; status: string; output?: any[] } | null> {
+  let endpoint: string
+  let input: Record<string, any>
 
-  // img2img mode when vehicle photo provided
   if (vehiclePhotoUrl) {
-    input.image = vehiclePhotoUrl
-    input.prompt_strength = 0.68  // preserve vehicle shape, change surface
+    // flux-dev img2img: applies wrap design onto actual vehicle photo
+    endpoint = 'https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions'
+    input = {
+      prompt,
+      image: vehiclePhotoUrl,
+      prompt_strength: 0.70,   // 0 = keep original, 1 = ignore original
+      num_inference_steps: 28,
+      guidance: 3.5,
+      output_format: 'jpg',
+      output_quality: 90,
+    }
+  } else {
+    // flux-schnell text2img: pure AI generation from description
+    endpoint = 'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions'
+    input = {
+      prompt,
+      num_outputs: 1,
+      aspect_ratio: '4:3',
+      output_format: 'jpg',
+      output_quality: 90,
+      go_fast: true,
+    }
   }
-
-  const endpoint = vehiclePhotoUrl
-    ? 'https://api.replicate.com/v1/models/stability-ai/sdxl/predictions'
-    : 'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions'
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -114,7 +128,7 @@ async function startPrediction(
   return await res.json()
 }
 
-// ─── POST: Start one or more renders ────────────────────────────────────────
+// ─── POST: Start one or more renders ─────────────────────────────────────────
 export async function POST(req: Request) {
   try {
     const supabase = createClient()
@@ -129,7 +143,8 @@ export async function POST(req: Request) {
       lighting = 'showroom',
       background = 'studio',
       multiAngle = false,
-      customBackground,
+      // Preset support: array of {lighting, background, angle} to batch-generate
+      presetAngles,
     } = body
 
     if (!jobId) return Response.json({ error: 'jobId required' }, { status: 400 })
@@ -137,88 +152,108 @@ export async function POST(req: Request) {
     const token = await getReplicateToken()
     if (!token) {
       return Response.json({
-        error: 'Replicate API not configured — add REPLICATE_API_TOKEN to env or enable in Integrations',
+        error: 'Replicate API not configured — add REPLICATE_API_TOKEN to .env.local or enable in Settings → Integrations',
       }, { status: 503 })
     }
 
     const admin = getSupabaseAdmin()
 
-    // Check render limit
+    // Enforce render limit
     const { data: settings } = await admin
       .from('render_settings')
       .select('max_renders_per_job')
       .eq('org_id', ORG_ID)
       .single()
-
     const maxRenders = settings?.max_renders_per_job ?? 20
 
-    const { count } = await admin
+    const { count: existing } = await admin
       .from('job_renders')
       .select('*', { count: 'exact', head: true })
       .eq('project_id', jobId)
       .neq('status', 'failed')
+      .neq('status', 'canceled')
 
-    if ((count ?? 0) >= maxRenders) {
+    // Determine angles to render
+    let angles: { angle: string; lighting: string; background: string }[]
+
+    if (presetAngles && Array.isArray(presetAngles)) {
+      // Preset batch: caller specifies exact combinations
+      angles = presetAngles
+    } else if (multiAngle && vehiclePhotoUrl) {
+      angles = [
+        { angle: 'original',      lighting, background },
+        { angle: 'front',         lighting, background },
+        { angle: 'side',          lighting, background },
+        { angle: 'rear',          lighting, background },
+        { angle: 'three_quarter', lighting, background },
+      ]
+    } else {
+      angles = [{ angle: 'original', lighting, background }]
+    }
+
+    if ((existing ?? 0) + angles.length > maxRenders) {
       return Response.json({
-        error: `Render limit reached (${maxRenders} per job). Contact admin to increase limit.`,
+        error: `Render limit would be exceeded. ${maxRenders - (existing ?? 0)} renders remaining for this job.`,
       }, { status: 429 })
     }
 
-    // Get version number for this job
-    const { count: versionCount } = await admin
+    // Version number
+    const { count: versionBase } = await admin
       .from('job_renders')
       .select('*', { count: 'exact', head: true })
       .eq('project_id', jobId)
+    const version = (versionBase ?? 0) + 1
 
-    const version = (versionCount ?? 0) + 1
-
-    const angles = multiAngle && vehiclePhotoUrl
-      ? ['original', 'front', 'side', 'rear', 'three_quarter']
-      : ['original']
-
-    const angleSetId = multiAngle ? randomUUID() : null
-
-    const bgOverride = background === 'custom' && customBackground ? customBackground : undefined
+    const angleSetId = angles.length > 1 ? randomUUID() : null
 
     // Launch all predictions in parallel
-    const renderRows: any[] = []
-    const predictionResults = await Promise.all(
-      angles.map(async (angle) => {
-        const prompt = buildPrompt({ wrapDescription, lighting, background, angle })
-        const prediction = await startPrediction(token, prompt, vehiclePhotoUrl)
-        if (!prediction) return null
+    const insertRows: any[] = []
 
-        const row = {
+    await Promise.all(
+      angles.map(async (a) => {
+        const prompt = buildPrompt({
+          wrapDescription,
+          lighting: a.lighting,
+          background: a.background,
+          angle: a.angle,
+        })
+
+        const prediction = await startPrediction(token, prompt, vehiclePhotoUrl)
+        if (!prediction) return
+
+        const row: any = {
           org_id: ORG_ID,
           project_id: jobId,
           created_by: user.id,
           prediction_id: prediction.id,
-          status: prediction.status === 'succeeded' ? 'succeeded' : 'processing',
+          status: 'processing',
           original_photo_url: vehiclePhotoUrl || null,
           prompt,
-          lighting,
-          background,
-          angle,
+          lighting: a.lighting,
+          background: a.background,
+          angle: a.angle,
           version,
-          is_multi_angle: multiAngle,
+          is_multi_angle: angles.length > 1,
           angle_set_id: angleSetId,
           wrap_description: wrapDescription || null,
           cost_credits: vehiclePhotoUrl ? 0.012 : 0.006,
         }
 
-        // If already succeeded synchronously (rare but possible)
+        // Handle synchronous completion (rare)
         if (prediction.status === 'succeeded' && prediction.output?.[0]) {
-          row.render_url = await storeRender(prediction.output[0], jobId)
+          const url = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+          row.render_url = await storeRender(typeof url === 'string' ? url : url.url, jobId)
           row.status = 'succeeded'
         }
 
-        renderRows.push({ ...row, predictionId: prediction.id })
-        return row
+        insertRows.push(row)
       })
     )
 
-    // Insert all render rows
-    const insertRows = renderRows.map(({ predictionId, ...row }) => row)
+    if (insertRows.length === 0) {
+      return Response.json({ error: 'All predictions failed to start' }, { status: 500 })
+    }
+
     const { data: inserted, error: insertErr } = await admin
       .from('job_renders')
       .insert(insertRows)
@@ -232,7 +267,8 @@ export async function POST(req: Request) {
     return Response.json({
       renders: inserted,
       angleSetId,
-      message: `${angles.length} render(s) queued`,
+      count: inserted?.length ?? 0,
+      message: `${inserted?.length ?? 0} render${(inserted?.length ?? 0) !== 1 ? 's' : ''} queued`,
     })
   } catch (err) {
     console.error('[renders/generate] POST error:', err)
@@ -240,7 +276,7 @@ export async function POST(req: Request) {
   }
 }
 
-// ─── GET: Poll prediction status and update DB ───────────────────────────────
+// ─── GET: Poll prediction status, update DB ───────────────────────────────────
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const renderId = searchParams.get('renderId')
@@ -255,13 +291,12 @@ export async function GET(req: Request) {
 
   const admin = getSupabaseAdmin()
 
-  // Look up the render record
   let renderRecord: any = null
   if (renderId) {
     const { data } = await admin.from('job_renders').select('*').eq('id', renderId).single()
     renderRecord = data
-  } else if (predictionId) {
-    const { data } = await admin.from('job_renders').select('*').eq('prediction_id', predictionId).single()
+  } else {
+    const { data } = await admin.from('job_renders').select('*').eq('prediction_id', predictionId!).single()
     renderRecord = data
   }
 
@@ -274,35 +309,47 @@ export async function GET(req: Request) {
   const res = await fetch(`https://api.replicate.com/v1/predictions/${renderRecord.prediction_id}`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
-
   if (!res.ok) return Response.json({ error: 'Failed to poll prediction' }, { status: 500 })
 
   const prediction = await res.json()
-  const updates: Record<string, any> = {
-    status: prediction.status === 'succeeded' ? 'succeeded'
-          : prediction.status === 'failed' ? 'failed'
-          : prediction.status === 'canceled' ? 'canceled'
-          : 'processing',
-    updated_at: new Date().toISOString(),
+
+  const newStatus =
+    prediction.status === 'succeeded' ? 'succeeded' :
+    prediction.status === 'failed'    ? 'failed'    :
+    prediction.status === 'canceled'  ? 'canceled'  : 'processing'
+
+  const updates: Record<string, any> = { status: newStatus, updated_at: new Date().toISOString() }
+
+  if (newStatus === 'succeeded') {
+    // flux models return output as string array OR string
+    const rawUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+    if (rawUrl) {
+      updates.render_url = await storeRender(typeof rawUrl === 'string' ? rawUrl : rawUrl.url, renderRecord.project_id)
+    }
   }
 
-  if (prediction.status === 'succeeded' && prediction.output?.[0]) {
-    const stored = await storeRender(prediction.output[0], renderRecord.project_id)
-    updates.render_url = stored
-  }
-
-  if (prediction.status === 'failed') {
+  if (newStatus === 'failed') {
     updates.notes = prediction.error || 'Prediction failed'
+  }
+
+  // Parse progress from logs
+  let progress: number | undefined
+  if (prediction.logs) {
+    const pcts = prediction.logs.match(/(\d+)%/g)
+    if (pcts?.length) progress = Math.min(95, parseInt(pcts[pcts.length - 1]))
+  }
+  // Estimate from timing
+  if (!progress && prediction.created_at) {
+    const elapsed = (Date.now() - new Date(prediction.created_at).getTime()) / 1000
+    progress = Math.min(90, Math.round((elapsed / 25) * 100))
   }
 
   await admin.from('job_renders').update(updates).eq('id', renderRecord.id)
 
   return Response.json({
-    status: updates.status,
-    renderUrl: updates.render_url || null,
+    status: newStatus,
+    renderUrl: updates.render_url ?? null,
     render: { ...renderRecord, ...updates },
-    progress: prediction.logs
-      ? Math.min(95, Math.round((prediction.logs.match(/\d+%/g)?.pop()?.replace('%', '') || 0) as number))
-      : undefined,
+    progress,
   })
 }
