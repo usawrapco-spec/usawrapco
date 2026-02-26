@@ -1,13 +1,8 @@
 import { ORG_ID } from '@/lib/org'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 export const dynamic = 'force-dynamic'
-
-const supabaseAdmin = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +22,7 @@ export async function POST(req: Request) {
       photos,
     } = body
 
-    const db = supabaseAdmin()
+    const db = getSupabaseAdmin()
 
     let aiQuoteEstimate: number | null = null
     let aiQuoteReasoning: string | null = null
@@ -157,7 +152,7 @@ flags options: "needs_surface_prep", "existing_wrap_removal", "custom_design", "
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
-  const db = supabaseAdmin()
+  const db = getSupabaseAdmin()
 
   let query = db
     .from('reorder_requests')

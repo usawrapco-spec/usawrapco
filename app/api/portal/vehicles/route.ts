@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 export const dynamic = 'force-dynamic'
-
-const supabaseAdmin = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const customer_id = searchParams.get('customer_id')
   if (!customer_id) return NextResponse.json({ error: 'Missing customer_id' }, { status: 400 })
 
-  const db = supabaseAdmin()
+  const db = getSupabaseAdmin()
   const { data, error } = await db
     .from('customer_vehicles')
     .select('*')
@@ -28,11 +23,12 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const body = await req.json()
   if (!body.customer_id) return NextResponse.json({ error: 'Missing customer_id' }, { status: 400 })
-  const db = supabaseAdmin()
+  const db = getSupabaseAdmin()
 
+  const { customer_id, org_id, year, make, model, color, trim, vin, mileage, notes, is_primary } = body
   const { data, error } = await db
     .from('customer_vehicles')
-    .insert(body)
+    .insert({ customer_id, org_id, year, make, model, color, trim, vin, mileage, notes, is_primary })
     .select()
     .single()
 
@@ -45,7 +41,7 @@ export async function PATCH(req: Request) {
   const { id, ...updates } = body
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-  const db = supabaseAdmin()
+  const db = getSupabaseAdmin()
   const { data, error } = await db
     .from('customer_vehicles')
     .update({ ...updates, updated_at: new Date().toISOString() })

@@ -1,13 +1,8 @@
 import { ORG_ID } from '@/lib/org'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 export const dynamic = 'force-dynamic'
-
-const supabaseAdmin = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: Request) {
   try {
@@ -28,7 +23,7 @@ export async function POST(req: Request) {
       vehicle_model,
     } = body
 
-    const db = supabaseAdmin()
+    const db = getSupabaseAdmin()
 
     // Determine warranty expiry and eligibility
     let warrantyExpiry: Date | null = null
@@ -183,7 +178,7 @@ severity guide: minor=small cosmetic issue, moderate=noticeable but not urgent, 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
-  const db = supabaseAdmin()
+  const db = getSupabaseAdmin()
 
   let query = db
     .from('maintenance_tickets')
@@ -209,7 +204,7 @@ export async function PATCH(req: Request) {
   const { id, ...updates } = body
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-  const db = supabaseAdmin()
+  const db = getSupabaseAdmin()
   const payload: Record<string, unknown> = { ...updates, updated_at: new Date().toISOString() }
   if (updates.status === 'resolved') {
     payload.resolved_at = new Date().toISOString()

@@ -29,8 +29,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   } else if (body.action === 'reject' && isAdmin) {
     updates.status = 'rejected'
     updates.rejection_reason = body.rejection_reason || 'No reason provided'
-    updates.approved_by = user.id
-    updates.approved_at = new Date().toISOString()
   } else {
     // Employee edits (only if still pending)
     if (log.status !== 'pending' && !isAdmin)
