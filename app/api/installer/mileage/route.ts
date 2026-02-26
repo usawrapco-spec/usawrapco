@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { ORG_ID } from '@/lib/org'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 const IRS_MILEAGE_RATE = 0.67 // 2024 IRS standard mileage rate per mile
 
 export async function GET(req: NextRequest) {
