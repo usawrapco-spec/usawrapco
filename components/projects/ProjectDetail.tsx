@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, ImagePlay, Lightbulb, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -22,6 +22,9 @@ import SalesTabBuilder from '@/components/projects/SalesTabBuilder'
 import ProofingPanel from '@/components/projects/ProofingPanel'
 import TimeTrackingTab from '@/components/projects/TimeTrackingTab'
 import CustomerCommsPanel from '@/components/comms/CustomerCommsPanel'
+import RenderEngine from '@/components/renders/RenderEngine'
+import JobPhotosTab from '@/components/projects/JobPhotosTab'
+import UpsellWidget from '@/components/projects/UpsellWidget'
 
 interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -81,7 +84,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'|'time_tracking'>('chat')
+  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'|'time_tracking'|'renders'|'photos'>('chat')
   const [aiRecap, setAiRecap] = useState<any>(null)
   const [aiRecapLoading, setAiRecapLoading] = useState(false)
   const [showAiRecap, setShowAiRecap] = useState(false)
@@ -521,6 +524,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     { key: 'qc',         label: 'QC',         Icon: Search, stageKey: 'prod_review' },
     { key: 'close',      label: 'Close',      Icon: DollarSign, stageKey: 'sales_close' },
     { key: 'renders',    label: 'Renders',    Icon: ImagePlay },
+    { key: 'photos',     label: 'Photos',     Icon: Camera },
     { key: 'expenses',   label: 'Expenses',   Icon: Receipt },
     { key: 'purchasing', label: 'Purchasing', Icon: ShoppingCart },
     { key: 'activity',   label: 'Activity',   Icon: Activity },
@@ -884,7 +888,14 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ═══ SALES TAB ═══ */}
           {tab === 'sales' && (
-            <SalesTabBuilder profile={profile} project={project} teammates={teammates} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <SalesTabBuilder profile={profile} project={project} teammates={teammates} />
+              <UpsellWidget
+                projectId={project.id}
+                serviceType={(project.form_data as any)?.serviceType || (project.form_data as any)?.wrapDetail?.toLowerCase().replace(/ /g,'_')}
+                estimateId={(project.form_data as any)?.estimateId}
+              />
+            </div>
           )}
 
           {/* ═══ DESIGN TAB ═══ */}
@@ -946,8 +957,17 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             />
           )}
 
+          {/* ═══ PHOTOS TAB ═══ */}
+          {tab === 'photos' && (
+            <JobPhotosTab
+              projectId={project.id}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+            />
+          )}
+
           {/* ── Stage Action Bar ──────────────────────────── */}
-          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && tab !== 'time_tracking' && tab !== 'renders' && (
+          {tab !== 'chat' && tab !== 'design' && tab !== 'expenses' && tab !== 'purchasing' && tab !== 'activity' && tab !== 'time_tracking' && tab !== 'renders' && tab !== 'photos' && (
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:24, paddingTop:18, borderTop:'1px solid var(--card-border)' }}>
               <div>
                 {curStageKey !== 'sales_in' && (
@@ -1725,6 +1745,9 @@ function RemnantMatchPanel({ sqft, material }: { sqft: number; material: string 
 function InstallTab({ f, ff, project, profile, teammates }: any) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Condition Report */}
+      <ConditionReportLauncher project={project} profile={profile} />
+
       {/* Pre-install vinyl check */}
       <Section label="Pre-Install Vinyl Check" color="#22d3ee">
         <div style={{ padding:14, background:'rgba(34,211,238,.06)', border:'1px solid rgba(34,211,238,.2)', borderRadius:10 }}>
@@ -2206,6 +2229,89 @@ function ActivityLogTab({ projectId }: { projectId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONDITION REPORT LAUNCHER — Creates a condition report for this job
+// ═══════════════════════════════════════════════════════════════════
+function ConditionReportLauncher({ project, profile }: { project: any; profile: any }) {
+  const [creating, setCreating] = useState(false)
+  const [reportUrl, setReportUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const fd = (project.form_data as any) || {}
+
+  const create = async () => {
+    setCreating(true)
+    try {
+      const res = await fetch('/api/condition-reports/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project.id,
+          vehicle_year: fd.vehicleYear || fd.year || '',
+          vehicle_make: fd.vehicleMake || fd.make || '',
+          vehicle_model: fd.vehicleModel || fd.model || '',
+          vehicle_color: fd.vehicleColor || fd.color || '',
+          customer_name: fd.client || fd.customerName || '',
+          customer_email: fd.email || '',
+          customer_phone: fd.phone || '',
+        }),
+      })
+      const json = await res.json()
+      if (json.report?.report_token) {
+        setReportUrl(`${window.location.origin}/condition-report/${json.report.report_token}`)
+      }
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const copyLink = () => {
+    if (!reportUrl) return
+    navigator.clipboard.writeText(reportUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  return (
+    <div style={{ background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 12, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <ClipboardCheck size={14} color='#22d3ee' />
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#22d3ee', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+          Vehicle Condition Report
+        </span>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
+        Document pre-existing damage before installation. Send to customer for review and e-signature.
+      </div>
+      {!reportUrl ? (
+        <button
+          onClick={create}
+          disabled={creating}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: 8, color: '#22d3ee', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+        >
+          {creating
+            ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+            : <ClipboardCheck size={13} />
+          }
+          {creating ? 'Creating...' : 'Create Condition Report'}
+        </button>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ flex: 1, padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {reportUrl}
+          </div>
+          <button
+            onClick={copyLink}
+            style={{ padding: '8px 14px', background: copied ? 'var(--green)' : 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {copied ? 'Copied!' : 'Copy Link'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
