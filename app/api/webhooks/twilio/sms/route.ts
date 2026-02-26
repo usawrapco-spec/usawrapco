@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       media_urls: mediaUrls.length > 0 ? mediaUrls : null,
       status: 'received',
       created_at: new Date().toISOString(),
-    }).catch(() => {})
+    })
 
     // 5. Log to activity_log
     if (customer.id) {
@@ -158,7 +158,6 @@ export async function POST(req: NextRequest) {
           details: body.length > 200 ? body.substring(0, 200) + '...' : body,
           metadata: { message_sid: messageSid, media_count: numMedia },
         })
-        .catch(() => {})
     }
 
     // 6. Trigger AI auto-respond (fire-and-forget)

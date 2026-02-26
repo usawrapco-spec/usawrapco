@@ -11,8 +11,11 @@ import {
   LayoutDashboard, ClipboardList, CalendarDays, Palette,
   Users, MessageSquare, Clock, Package, Layers, ShoppingBag,
   BarChart3, TrendingUp, DollarSign, Settings, Globe,
-  Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon, CheckSquare, Bot, Wrench,
-  Navigation, Waves, Glasses, Trophy, Filter, Store, Kanban, Sparkles,
+  Truck, Car, LayoutGrid, FileInput, Box, Image as ImageIcon,
+  CheckSquare, Bot, Wrench, Navigation, Waves, Glasses,
+  Trophy, Filter, Store, Kanban, Hammer, UserPlus,
+  Printer, Map, Factory, BookOpen, MessageCircle, Phone,
+  Zap, Activity, Target, Gauge, Workflow, Sparkles,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -34,6 +37,18 @@ interface NavSection {
 // ── Section definitions ────────────────────────────────────────────────────────
 const NAV_SECTIONS: NavSection[] = [
   {
+    id: 'core',
+    label: 'CORE',
+    icon: LayoutDashboard,
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    items: [
+      { href: '/dashboard',  label: 'Dashboard',    icon: LayoutDashboard },
+      { href: '/pipeline',   label: 'Pipeline',     icon: Kanban },
+      { href: '/inbox',      label: 'Inbox',        icon: MessageCircle },
+      { href: '/tasks',      label: 'Tasks',        icon: CheckSquare },
+    ],
+  },
+  {
     id: 'sales',
     label: 'SALES',
     icon: DollarSign,
@@ -42,9 +57,14 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/estimates',    label: 'Estimates',    icon: FileText },
       { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
       { href: '/invoices',     label: 'Invoices',     icon: Receipt },
-      { href: '/deposit',      label: 'Payments',     icon: CreditCard, roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/prospects',    label: 'Proposals',    icon: Briefcase },
-      { href: '/funnel',       label: 'Lead Funnel',  icon: Filter,     roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/deposit',      label: 'Payments',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
+      { href: '/campaigns',    label: 'Campaigns',    icon: Globe,       roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/outreach',     label: 'Outreach',     icon: Zap,         roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/roi',          label: 'ROI Engine',   icon: Target,      roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/funnel',       label: 'Lead Funnel',  icon: Filter,      roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/network',      label: 'Network Map',  icon: Map },
+      { href: '/bids',         label: 'Bids',         icon: Hammer,      roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/shop',         label: 'Shop',         icon: Store },
     ],
   },
@@ -54,26 +74,11 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Briefcase,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/pipeline',         label: 'Pipeline',         icon: LayoutDashboard },
-      { href: '/jobs',             label: 'All Jobs',         icon: ClipboardList },
-      { href: '/install/schedule', label: 'Install Schedule', icon: CalendarDays },
-      { href: '/decking',          label: 'Decking',          icon: Waves },
-      { href: '/tinting',          label: 'Tinting',          icon: Glasses },
-    ],
-  },
-  {
-    id: 'design',
-    label: 'DESIGN',
-    icon: Palette,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/design',           label: 'Projects',         icon: LayoutGrid },
-      { href: '/design/manage',    label: 'Design Manager',   icon: Kanban,       roles: ['owner', 'admin', 'designer'] },
-      { href: '/design/briefs',    label: 'Briefs',           icon: FileInput },
-      { href: '/design/materials', label: 'Materials',        icon: Layers },
-      { href: '/design/proofs',    label: 'Proofs',           icon: CheckSquare },
-      { href: '/configurator',     label: '3D Configurator',  icon: Box },
-      { href: '/mockup',           label: 'Mockup Tool',      icon: ImageIcon },
+      { href: '/jobs',         label: 'All Jobs',       icon: ClipboardList },
+      { href: '/timeline',     label: 'Timeline',       icon: Clock },
+      { href: '/engine',       label: 'Revenue Engine', icon: TrendingUp },
+      { href: '/decking',      label: 'Decking',        icon: Waves },
+      { href: '/tinting',      label: 'Tinting',        icon: Glasses },
     ],
   },
   {
@@ -82,68 +87,110 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Users,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/customers',    label: 'Contacts',      icon: Users },
-      { href: '/inbox',        label: 'Conversations', icon: MessageSquare },
-      { href: '/maintenance',  label: 'Maintenance',   icon: Wrench,         roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/ai-comms',     label: 'AI Comms Hub',  icon: Bot,            roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/customers',    label: 'All Customers', icon: Users },
+      { href: '/contacts',     label: 'Contacts',      icon: Users },
+      { href: '/comms',        label: 'Comms Hub',     icon: MessageSquare },
+      { href: '/ai-comms',     label: 'AI Comms',      icon: Bot,    roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/phone',        label: 'Phone',         icon: Phone,  roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
-    id: 'team',
-    label: 'TEAM',
-    icon: Clock,
+    id: 'design',
+    label: 'DESIGN',
+    icon: Palette,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/employees',    label: 'Staff',           icon: Users,        roles: ['owner', 'admin'] },
-      { href: '/leaderboard',  label: 'Leaderboard',     icon: Trophy },
-      { href: '/timeclock',    label: 'Time Clock',      icon: Clock },
-      { href: '/mileage',      label: 'Mileage',         icon: Car },
-      { href: '/expenses',     label: 'Expenses',        icon: Receipt },
-      { href: '/payroll',      label: 'Payroll',         icon: DollarSign,   roles: ['owner', 'admin'] },
-      { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,        roles: ['owner', 'admin'] },
-      { href: '/fleet',        label: 'Fleet Hub',       icon: Truck,        roles: ['owner', 'admin'] },
-      { href: '/install/bids', label: 'Installer Bids',  icon: ClipboardList },
+      { href: '/design',           label: 'Design Studio',   icon: LayoutGrid },
+      { href: '/design/manage',    label: 'Design Manager',  icon: Kanban,      roles: ['owner', 'admin', 'designer'] },
+      { href: '/design/briefs',    label: 'Briefs',          icon: FileInput },
+      { href: '/design/materials', label: 'Materials',        icon: Layers },
+      { href: '/design/proofs',    label: 'Proofs',          icon: CheckSquare },
+      { href: '/mockup',           label: 'Mockup Tool',     icon: ImageIcon },
+      { href: '/configurator',     label: '3D Configurator', icon: Box },
+      { href: '/media',            label: 'Media Library',   icon: ImageIcon },
+    ],
+  },
+  {
+    id: 'production',
+    label: 'PRODUCTION',
+    icon: Factory,
+    roles: ['owner', 'admin', 'designer', 'production', 'installer'],
+    items: [
+      { href: '/production',               label: 'Production Hub',   icon: Factory },
+      { href: '/production/print-schedule', label: 'Print Schedule',   icon: Printer },
+      { href: '/production/printers',       label: 'Printers',         icon: Printer },
+      { href: '/catalog',                   label: 'Material Catalog', icon: BookOpen },
+    ],
+  },
+  {
+    id: 'install',
+    label: 'INSTALL',
+    icon: Hammer,
+    roles: ['owner', 'admin', 'production', 'installer'],
+    items: [
+      { href: '/install',            label: 'Install Board',    icon: Hammer },
+      { href: '/install/bids',       label: 'Installer Bids',   icon: ClipboardList },
+      { href: '/install/schedule',   label: 'Install Schedule', icon: CalendarDays },
+      { href: '/install/supplies',   label: 'Supply Requests',  icon: ShoppingBag },
+      { href: '/install/earnings',   label: 'Earnings',         icon: DollarSign },
+      { href: '/install/reports',    label: 'Shop Reports',     icon: BarChart3 },
+      { href: '/install/chat',       label: 'Installer Chat',   icon: MessageSquare },
+      { href: '/installer-portal',   label: 'Installer Portal', icon: Hammer },
     ],
   },
   {
     id: 'inventory',
     label: 'INVENTORY',
     icon: Package,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    roles: ['owner', 'admin', 'production', 'installer'],
     items: [
-      { href: '/inventory',        label: 'Vinyl Inventory', icon: Layers },
-      { href: '/install/supplies', label: 'Supply Requests', icon: ShoppingBag },
+      { href: '/inventory',          label: 'Vinyl Inventory', icon: Layers },
+      { href: '/inventory/remnants', label: 'Remnants',        icon: Package },
     ],
   },
   {
-    id: 'reports',
-    label: 'REPORTS',
+    id: 'team',
+    label: 'TEAM',
+    icon: Users,
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    items: [
+      { href: '/employees',    label: 'Staff',           icon: Users,       roles: ['owner', 'admin'] },
+      { href: '/calendar',     label: 'Calendar',        icon: CalendarDays },
+      { href: '/schedule',     label: 'Schedule',        icon: CalendarDays },
+      { href: '/timeclock',    label: 'Time Clock',      icon: Clock },
+      { href: '/leaderboard',  label: 'Leaderboard',     icon: Trophy },
+      { href: '/mileage',      label: 'Mileage',         icon: Car },
+      { href: '/expenses',     label: 'Expenses',        icon: Receipt },
+      { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,       roles: ['owner', 'admin'] },
+      { href: '/fleet',        label: 'Fleet Hub',       icon: Truck,       roles: ['owner', 'admin'] },
+    ],
+  },
+  {
+    id: 'analytics',
+    label: 'ANALYTICS',
     icon: BarChart3,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/analytics', label: 'Analytics', icon: TrendingUp },
-      { href: '/reports',   label: 'Earnings',  icon: DollarSign },
+      { href: '/analytics',        label: 'Analytics',    icon: TrendingUp },
+      { href: '/reports',           label: 'Reports',      icon: BarChart3 },
+      { href: '/reports/revenue',   label: 'Revenue',      icon: DollarSign, roles: ['owner', 'admin'] },
     ],
   },
   {
-    id: 'settings',
-    label: 'SETTINGS',
+    id: 'admin',
+    label: 'ADMIN',
     icon: Settings,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    roles: ['owner', 'admin'],
     items: [
-      { href: '/settings',     label: 'Org Settings', icon: Settings },
-      { href: '/integrations', label: 'Integrations', icon: Globe },
-      { href: '/agents',       label: 'AI Agents',    icon: Sparkles, roles: ['owner', 'admin'] },
-    ],
-  },
-  {
-    id: 'apps',
-    label: 'CUSTOM APPS',
-    icon: Navigation,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/apps/pnw-navigator', label: 'PNW Navigator', icon: Navigation },
+      { href: '/settings',      label: 'Settings',      icon: Settings },
+      { href: '/integrations',  label: 'Integrations',  icon: Globe },
+      { href: '/automations',   label: 'Automations',   icon: Workflow },
+      { href: '/workflow',       label: 'Workflows',     icon: Activity },
+      { href: '/payroll',       label: 'Payroll',       icon: DollarSign },
+      { href: '/overhead',      label: 'Overhead',      icon: Gauge },
+      { href: '/sourcing',      label: 'Sourcing',      icon: ShoppingBag },
+      { href: '/maintenance',   label: 'Maintenance',   icon: Wrench },
+      { href: '/agents',        label: 'AI Agents',     icon: Sparkles },
     ],
   },
 ]
@@ -242,8 +289,6 @@ export function SideNav({
           overflowY: 'auto',
           scrollbarWidth: 'none',
         }}
-        // Mobile: hide off-screen by default, slide in when mobileOpen
-        // Desktop (md+): always visible via translate-x-0 override
         className={mobileOpen ? 'translate-x-0' : 'max-md:-translate-x-full'}
       >
         {/* ── Brand / Logo ────────────────────────────────────────────────── */}
@@ -285,7 +330,7 @@ export function SideNav({
                   textTransform: 'uppercase',
                 }}
               >
-                WrapShop Pro
+                v6.2
               </div>
             </Link>
           )}

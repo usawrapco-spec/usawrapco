@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, Save, Loader2 } from 'lucide-react'
+import { VehicleMeasurementPicker } from '@/components/VehicleMeasurementPicker'
 
 interface Customer {
   id: string
@@ -86,25 +87,28 @@ export default function AddVehicleForm({ customers, onClose, onSaved, initial }:
 
       {/* Form */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Year</label>
-            <input style={fieldStyle} value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} placeholder="2024" />
-          </div>
-          <div>
-            <label style={labelStyle}>Make</label>
-            <input style={fieldStyle} value={form.make} onChange={e => setForm(f => ({ ...f, make: e.target.value }))} placeholder="Ford" />
-          </div>
+        {/* Vehicle Measurement Picker (Year / Make / Model) */}
+        <div style={{ padding: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10 }}>
+          <VehicleMeasurementPicker
+            compact={true}
+            showDetailedBreakdown={false}
+            initialYear={form.year ? Number(form.year) : undefined}
+            initialMake={form.make || undefined}
+            initialModel={form.model || undefined}
+            onVehicleChange={(yr, mk, mdl) => {
+              setForm(f => ({ ...f, year: String(yr), make: mk, model: mdl }))
+            }}
+            onMeasurementFound={(m) => {
+              setForm(f => ({
+                ...f,
+                body_class: m.body_style || f.body_class,
+              }))
+            }}
+          />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Model</label>
-            <input style={fieldStyle} value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} placeholder="Transit" />
-          </div>
-          <div>
-            <label style={labelStyle}>Trim</label>
-            <input style={fieldStyle} value={form.trim} onChange={e => setForm(f => ({ ...f, trim: e.target.value }))} placeholder="XLT" />
-          </div>
+        <div>
+          <label style={labelStyle}>Trim</label>
+          <input style={fieldStyle} value={form.trim} onChange={e => setForm(f => ({ ...f, trim: e.target.value }))} placeholder="XLT" />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>

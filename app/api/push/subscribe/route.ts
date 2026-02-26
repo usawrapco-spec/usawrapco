@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 // GET — return VAPID public key so the client can subscribe
 // Use VAPID_PUBLIC_KEY (server-side) — this is a server route, NEXT_PUBLIC_ not needed
 export async function GET() {
-  const key = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const key = (process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)?.replace(/=/g, '')
   if (!key) {
     return NextResponse.json({ error: 'Push notifications not configured' }, { status: 503 })
   }

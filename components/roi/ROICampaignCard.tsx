@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Phone, QrCode, Briefcase, TrendingUp, Calendar, ChevronRight } from 'lucide-react'
+import { Phone, QrCode, Briefcase, Calendar, ChevronRight, Sparkles } from 'lucide-react'
 
 interface CampaignCardProps {
   campaign: {
@@ -11,6 +11,7 @@ interface CampaignCardProps {
     install_date?: string
     investment_amount?: number
     status: string
+    ai_insight?: string | null
     stats: {
       calls: number
       scans: number
@@ -133,6 +134,20 @@ export default function ROICampaignCard({ campaign }: CampaignCardProps) {
           }} />
         </div>
       </div>
+
+      {/* AI Insight Badge */}
+      {campaign.ai_insight && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'rgba(139,92,246,0.12)', borderRadius: 8,
+          padding: '6px 10px', marginTop: 8,
+        }}>
+          <Sparkles size={12} style={{ color: 'var(--purple)', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: 'var(--purple)', lineHeight: 1.4 }}>
+            {campaign.ai_insight}
+          </span>
+        </div>
+      )}
 
       {/* Footer */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8 }}>

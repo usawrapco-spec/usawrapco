@@ -94,7 +94,6 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: 'conversation_id' }
       )
-      .catch(() => {})
 
     return NextResponse.json({ ok: true, sid: twiData.sid })
   } catch (error) {

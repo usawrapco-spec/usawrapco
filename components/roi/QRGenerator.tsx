@@ -1,33 +1,27 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { QrCode, Download, Phone, Copy, Check } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { QrCode, Download, Copy, Check } from 'lucide-react'
+import QRCode from 'qrcode'
 
 interface QRGeneratorProps {
-  campaignId: string
   slug: string
-  trackingPhone?: string
-  qrCodeUrl?: string
+  trackingUrl?: string
+  vehicleLabel?: string
+  campaignId?: string
   onComplete?: () => void
 }
 
-export default function QRGenerator({ campaignId, slug, trackingPhone, qrCodeUrl, onComplete }: QRGeneratorProps) {
+export default function QRGenerator({ slug, trackingUrl: trackingUrlProp, vehicleLabel, campaignId, onComplete }: QRGeneratorProps) {
+  const trackingUrl = trackingUrlProp || (typeof window !== 'undefined' ? `${window.location.origin}/api/track/${slug}` : `/api/track/${slug}`)
   const [qrDataUrl, setQrDataUrl] = useState('')
-  const [areaCode, setAreaCode] = useState('')
-  const [forwardTo, setForwardTo] = useState('')
-  const [generating, setGenerating] = useState(false)
-  const [phone, setPhone] = useState(trackingPhone || '')
   const [copied, setCopied] = useState(false)
-  const [demoMode, setDemoMode] = useState(false)
 
-  const trackingUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://app.usawrapco.com'}/api/track/${slug}`
-
-  // Generate QR code
+  // Generate QR code on mount
   useEffect(() => {
     async function generateQR() {
       try {
-        const QRCode = (await import('qrcode')).default
-        const url = await QRCode.toDataURL(qrCodeUrl || trackingUrl, {
+        const url = await QRCode.toDataURL(trackingUrl, {
           width: 2000,
           margin: 2,
           color: { dark: '#000000', light: '#ffffff' },
@@ -39,260 +33,167 @@ export default function QRGenerator({ campaignId, slug, trackingPhone, qrCodeUrl
       }
     }
     generateQR()
-  }, [slug, qrCodeUrl, trackingUrl])
+  }, [trackingUrl])
 
-  const generateNumber = async () => {
-    setGenerating(true)
+  const downloadQR = async () => {
     try {
-      const res = await fetch('/api/twilio/generate-number', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          areaCode: areaCode || undefined,
-          campaignId,
-          forwardTo: forwardTo || undefined,
-        }),
+      // Generate fresh 2000x2000 PNG for print-ready download
+      const highResUrl = await QRCode.toDataURL(trackingUrl, {
+        width: 2000,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'H',
       })
-      const data = await res.json()
-      if (data.trackingNumber) {
-        setPhone(data.trackingNumber)
-        if (data.demo) setDemoMode(true)
-      }
+      const a = document.createElement('a')
+      a.href = highResUrl
+      a.download = `wrap-qr-${slug}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } catch (err) {
-      console.error('Number generation failed:', err)
-    } finally {
-      setGenerating(false)
+      console.error('QR download failed:', err)
     }
   }
 
-  const downloadQR = () => {
-    if (!qrDataUrl) return
-    const a = document.createElement('a')
-    a.href = qrDataUrl
-    a.download = `wrap-qr-${slug}.png`
-    a.click()
-  }
-
-  const copyPhone = () => {
-    if (phone) {
-      navigator.clipboard.writeText(phone)
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(trackingUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Copy failed:', err)
     }
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <QrCode size={20} style={{ color: 'var(--cyan)' }} />
-        <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text1)' }}>
-          Tracking Setup
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      padding: 24,
+      textAlign: 'center',
+    }}>
+      {/* Title */}
+      {vehicleLabel && (
+        <div style={{
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontSize: 18,
+          fontWeight: 700,
+          color: 'var(--text1)',
+          marginBottom: 4,
+        }}>
+          {vehicleLabel}
+        </div>
+      )}
+
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginBottom: 16,
+      }}>
+        <QrCode size={18} style={{ color: 'var(--cyan)' }} />
+        <span style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: 'var(--text2)',
+        }}>
+          Tracking QR Code
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* Left — Phone number generation */}
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 12 }}>
-            Tracking Phone Number
-          </div>
-
-          {phone ? (
-            <div>
-              <div style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--green)',
-                borderRadius: 12,
-                padding: 20,
-                textAlign: 'center',
-                marginBottom: 12,
-              }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-                  Your Tracking Number
-                </div>
-                <div style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  fontFamily: 'JetBrains Mono, monospace',
-                  color: 'var(--green)',
-                  letterSpacing: 1,
-                }}>
-                  {formatPhone(phone)}
-                </div>
-                <button onClick={copyPhone} style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  marginTop: 8,
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  background: 'var(--surface2)',
-                  color: copied ? 'var(--green)' : 'var(--text2)',
-                  fontSize: 12,
-                  border: 'none',
-                  cursor: 'pointer',
-                }}>
-                  {copied ? <Check size={12} /> : <Copy size={12} />}
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-              {demoMode && (
-                <div style={{
-                  background: 'rgba(245,158,11,0.08)',
-                  border: '1px solid rgba(245,158,11,0.2)',
-                  borderRadius: 8,
-                  padding: '8px 12px',
-                  fontSize: 11,
-                  color: 'var(--amber)',
-                  marginBottom: 12,
-                }}>
-                  Demo mode — configure Twilio env vars for real tracking numbers
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={labelStyle}>Area Code Preference</label>
-                <input
-                  value={areaCode}
-                  onChange={e => setAreaCode(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                  placeholder="e.g. 214"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Forward Calls To</label>
-                <input
-                  value={forwardTo}
-                  onChange={e => setForwardTo(e.target.value)}
-                  placeholder="Your real phone number"
-                  style={inputStyle}
-                />
-              </div>
-              <button
-                onClick={generateNumber}
-                disabled={generating}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '12px',
-                  borderRadius: 10,
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: generating ? 'not-allowed' : 'pointer',
-                }}
-              >
-                <Phone size={16} />
-                {generating ? 'Generating...' : 'Generate Tracking Number'}
-              </button>
-            </div>
-          )}
+      {/* QR Code Display */}
+      {qrDataUrl ? (
+        <div style={{
+          background: '#ffffff',
+          borderRadius: 12,
+          padding: 20,
+          display: 'inline-block',
+          marginBottom: 16,
+        }}>
+          <img
+            src={qrDataUrl}
+            alt="QR Code"
+            style={{ width: 200, height: 200, display: 'block' }}
+          />
         </div>
-
-        {/* Right — QR Code */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 12, textAlign: 'left' }}>
-            QR Code
-          </div>
-          {qrDataUrl ? (
-            <div>
-              <div style={{
-                background: '#fff',
-                borderRadius: 12,
-                padding: 20,
-                display: 'inline-block',
-                marginBottom: 12,
-              }}>
-                <img
-                  src={qrDataUrl}
-                  alt="QR Code"
-                  style={{ width: 200, height: 200 }}
-                />
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, wordBreak: 'break-all' }}>
-                {trackingUrl}
-              </div>
-              <button onClick={downloadQR} style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '10px 20px',
-                borderRadius: 8,
-                background: 'var(--surface2)',
-                color: 'var(--text1)',
-                fontSize: 13,
-                fontWeight: 600,
-                border: '1px solid var(--border)',
-                cursor: 'pointer',
-              }}>
-                <Download size={14} />
-                Download QR (2000x2000)
-              </button>
-            </div>
-          ) : (
-            <div style={{ padding: 40, color: 'var(--text3)', fontSize: 13 }}>
-              Generating QR code...
-            </div>
-          )}
+      ) : (
+        <div style={{
+          width: 240,
+          height: 240,
+          borderRadius: 12,
+          background: 'var(--surface2)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>Generating...</span>
         </div>
+      )}
+
+      {/* Tracking URL */}
+      <div style={{
+        fontSize: 12,
+        color: 'var(--text3)',
+        marginBottom: 16,
+        wordBreak: 'break-all',
+        padding: '0 12px',
+        fontFamily: "'JetBrains Mono', monospace",
+      }}>
+        {trackingUrl}
       </div>
 
-      {/* Continue button */}
-      {onComplete && phone && (
+      {/* Action Buttons */}
+      <div style={{
+        display: 'flex',
+        gap: 10,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+      }}>
         <button
-          onClick={onComplete}
+          onClick={downloadQR}
+          disabled={!qrDataUrl}
           style={{
-            width: '100%',
-            padding: '14px',
-            borderRadius: 10,
-            background: 'var(--green)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '10px 20px',
+            borderRadius: 8,
+            background: 'var(--accent)',
             color: '#fff',
-            fontSize: 15,
-            fontWeight: 700,
+            fontSize: 13,
+            fontWeight: 600,
             border: 'none',
-            cursor: 'pointer',
-            marginTop: 24,
+            cursor: qrDataUrl ? 'pointer' : 'not-allowed',
+            opacity: qrDataUrl ? 1 : 0.5,
           }}
         >
-          Go to Campaign Portal
+          <Download size={14} />
+          Download QR (Print-Ready)
         </button>
-      )}
+
+        <button
+          onClick={copyUrl}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '10px 20px',
+            borderRadius: 8,
+            background: 'var(--surface2)',
+            color: copied ? 'var(--green)' : 'var(--text1)',
+            fontSize: 13,
+            fontWeight: 600,
+            border: '1px solid var(--border)',
+            cursor: 'pointer',
+          }}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? 'Copied!' : 'Copy URL'}
+        </button>
+      </div>
     </div>
   )
-}
-
-function formatPhone(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '')
-  if (cleaned.length === 11 && cleaned.startsWith('1')) {
-    return `(${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`
-  }
-  if (cleaned.length === 10) {
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`
-  }
-  return phone
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 12,
-  fontWeight: 600,
-  color: 'var(--text2)',
-  marginBottom: 6,
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: 8,
-  border: '1px solid var(--border)',
-  background: 'var(--surface2)',
-  color: 'var(--text1)',
-  fontSize: 14,
-  outline: 'none',
 }

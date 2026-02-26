@@ -59,7 +59,6 @@ export async function POST(req: NextRequest) {
         sent_at: new Date().toISOString(),
         customer_status: 'pending',
       })
-      .catch(() => {})
 
     const message =
       custom_message ||

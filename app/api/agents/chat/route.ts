@@ -16,7 +16,7 @@ async function buildSystemPrompt(admin: any, orgId: string, agentId: AgentId): P
       admin.from('invoices').select('id, invoice_number, status, total, amount_paid, balance, due_date, customer_id').eq('org_id', orgId).limit(100),
       admin.from('payments').select('id, amount, method, payment_date, invoice_id').eq('org_id', orgId).limit(200),
       admin.from('estimates').select('id, estimate_number, status, total, quote_date').eq('org_id', orgId).limit(100),
-      admin.from('job_expenses').select('id, amount, category, description, created_at').eq('org_id', orgId).limit(200).catch(() => ({ data: [] })),
+      admin.from('job_expenses').select('id, amount, category, description, created_at').eq('org_id', orgId).limit(200),
     ])
 
     const totalRevenue = (invoices.data || []).reduce((s: number, i: any) => s + (i.total || 0), 0)

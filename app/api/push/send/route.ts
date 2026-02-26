@@ -9,8 +9,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 let vapidInitialized = false
 function ensureVapid(): boolean {
   if (vapidInitialized) return true
-  const pub  = process.env.VAPID_PUBLIC_KEY
-  const priv = process.env.VAPID_PRIVATE_KEY
+  const pub  = process.env.VAPID_PUBLIC_KEY?.replace(/=/g, '')
+  const priv = process.env.VAPID_PRIVATE_KEY?.replace(/=/g, '')
   const mail = process.env.VAPID_EMAIL
   if (!pub || !priv || !mail) return false
   try {

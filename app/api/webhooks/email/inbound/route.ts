@@ -25,17 +25,19 @@ export async function POST(req: NextRequest) {
     const messageId = payload.id || payload.message_id || ''
 
     // Save raw inbound email
-    await supabase.from('inbound_emails').insert({
-      org_id: ORG_ID,
-      from_email: fromEmail,
-      from_name: fromName,
-      to_email: toEmail,
-      subject,
-      body_text: bodyText,
-      body_html: bodyHtml,
-      raw_payload: payload,
-      received_at: new Date().toISOString(),
-    }).catch(() => {})
+    try {
+      await supabase.from('inbound_emails').insert({
+        org_id: ORG_ID,
+        from_email: fromEmail,
+        from_name: fromName,
+        to_email: toEmail,
+        subject,
+        body_text: bodyText,
+        body_html: bodyHtml,
+        raw_payload: payload,
+        received_at: new Date().toISOString(),
+      })
+    } catch { /* non-critical */ }
 
     // Find or create customer by email
     const normalizedEmail = fromEmail.toLowerCase().trim()
@@ -127,19 +129,20 @@ export async function POST(req: NextRequest) {
     })
 
     // Log to activity
-    await supabase
-      .from('activity_log')
-      .insert({
-        org_id: ORG_ID,
-        customer_id: customer.id,
-        actor_type: 'customer',
-        actor_id: customer.id,
-        actor_name: customer.name || fromEmail,
-        action: 'inbound_email',
-        details: subject,
-        metadata: { message_id: messageId },
-      })
-      .catch(() => {})
+    try {
+      await supabase
+        .from('activity_log')
+        .insert({
+          org_id: ORG_ID,
+          customer_id: customer.id,
+          actor_type: 'customer',
+          actor_id: customer.id,
+          actor_name: customer.name || fromEmail,
+          action: 'inbound_email',
+          details: subject,
+          metadata: { message_id: messageId },
+        })
+    } catch { /* non-critical */ }
 
     return NextResponse.json({ ok: true })
   } catch (error) {

@@ -226,10 +226,10 @@ export default function CampaignPortalPage() {
       {/* Bottom Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
         {/* Route A/B */}
-        <RouteABComparison routes={routes} />
+        <RouteABComparison campaignId={campaignId} routes={routes} />
 
         {/* Job Logger */}
-        <JobLogger campaignId={campaignId} onLogged={fetchData} />
+        <JobLogger campaignId={campaignId} orgId="" onJobLogged={fetchData} />
 
         {/* Break-Even Progress */}
         <div style={{

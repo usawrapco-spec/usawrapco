@@ -66,7 +66,6 @@ export async function POST(req: Request) {
 
     // Update vehicle mileage
     if (body.miles && body.miles > 0) {
-      await admin.rpc('', {}).catch(() => {})
       // Manual mileage update — get current + add
       const { data: vehicle } = await admin.from('fleet_vehicles').select('mileage').eq('id', body.vehicle_id).single()
       if (vehicle) {

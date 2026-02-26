@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Profile, Project } from '@/types'
 import Link from 'next/link'
 import {
-  DollarSign, Briefcase, TrendingUp, Wrench, Calendar,
+  DollarSign, Briefcase, TrendingUp, Wrench, Calendar, Clock,
   FileText, Users, Package, ChevronRight, ArrowUpRight,
   Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap, Cloud, Sun, Truck,
 } from 'lucide-react'
@@ -854,7 +854,7 @@ export default function DashboardHero({ profile, projects, canSeeFinancials, tod
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CalendarClock size={14} style={{ color: 'var(--accent)' }} />
+              <Calendar size={14} style={{ color: 'var(--accent)' }} />
               <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 Today&apos;s Appointments
               </span>

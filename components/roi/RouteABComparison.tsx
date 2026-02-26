@@ -1,6 +1,8 @@
 'use client'
 
-import { TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { TrendingUp, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface RouteLog {
   id: string
@@ -12,10 +14,38 @@ interface RouteLog {
 }
 
 interface RouteABComparisonProps {
-  routes: RouteLog[]
+  campaignId: string
+  routes?: RouteLog[]
 }
 
-export default function RouteABComparison({ routes }: RouteABComparisonProps) {
+export default function RouteABComparison({ campaignId, routes: initialRoutes }: RouteABComparisonProps) {
+  const [routes, setRoutes] = useState<RouteLog[]>(initialRoutes || [])
+  const [loading, setLoading] = useState(!initialRoutes)
+
+  useEffect(() => {
+    if (initialRoutes) return
+    const supabase = createClient()
+    async function fetchRoutes() {
+      const { data } = await supabase
+        .from('wrap_route_logs')
+        .select('id, route_name, route_date, ai_impression_estimate, calls_that_day, scans_that_day')
+        .eq('campaign_id', campaignId)
+        .order('route_date', { ascending: true })
+      if (data) setRoutes(data)
+      setLoading(false)
+    }
+    fetchRoutes()
+  }, [campaignId, initialRoutes])
+
+  if (loading) {
+    return (
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, textAlign: 'center' }}>
+        <Loader2 size={20} style={{ color: 'var(--text3)', animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
   if (routes.length < 2) {
     return (
       <div style={{

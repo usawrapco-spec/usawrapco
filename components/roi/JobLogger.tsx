@@ -1,24 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { Briefcase, DollarSign, Check, Loader2 } from 'lucide-react'
+import { Briefcase, DollarSign, Check, Loader2, CalendarDays } from 'lucide-react'
 
 interface JobLoggerProps {
   campaignId: string
-  onLogged?: () => void
+  orgId: string
+  onJobLogged?: () => void
 }
 
 const SOURCES = [
-  'Called tracking number',
-  'Scanned QR code',
-  'Saw the van / truck',
-  'Word of mouth / referral',
+  'Saw the wrap',
+  'Got a flyer',
+  'QR code',
+  'Phone call',
+  'Referral',
   'Other',
 ]
 
-export default function JobLogger({ campaignId, onLogged }: JobLoggerProps) {
+export default function JobLogger({ campaignId, orgId, onJobLogged }: JobLoggerProps) {
   const [source, setSource] = useState('')
   const [jobValue, setJobValue] = useState('')
+  const [jobDate, setJobDate] = useState(() => new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -33,17 +36,20 @@ export default function JobLogger({ campaignId, onLogged }: JobLoggerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           campaign_id: campaignId,
+          org_id: orgId,
           event_type: 'job_logged',
           job_value: parseFloat(jobValue),
           job_notes: `Source: ${source}${notes ? `. ${notes}` : ''}`,
           job_confirmed: true,
+          event_at: jobDate,
         }),
       })
       setSaved(true)
       setSource('')
       setJobValue('')
       setNotes('')
-      onLogged?.()
+      setJobDate(new Date().toISOString().split('T')[0])
+      onJobLogged?.()
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       console.error('Failed to log job:', err)
@@ -91,6 +97,16 @@ export default function JobLogger({ campaignId, onLogged }: JobLoggerProps) {
         </div>
 
         <div>
+          <label style={labelStyle}>Date</label>
+          <input
+            type="date"
+            value={jobDate}
+            onChange={e => setJobDate(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
           <label style={labelStyle}>Notes (optional)</label>
           <input
             value={notes}
@@ -110,8 +126,8 @@ export default function JobLogger({ campaignId, onLogged }: JobLoggerProps) {
             gap: 8,
             padding: '10px',
             borderRadius: 8,
-            background: source && jobValue ? 'var(--amber)' : 'var(--surface2)',
-            color: source && jobValue ? '#000' : 'var(--text3)',
+            background: source && jobValue ? 'var(--green)' : 'var(--surface2)',
+            color: source && jobValue ? '#fff' : 'var(--text3)',
             fontSize: 13,
             fontWeight: 700,
             border: 'none',

@@ -1,70 +1,104 @@
+import { NextRequest } from 'next/server'
+import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import twilio from 'twilio'
 
-const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
-export async function POST(req: Request) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { areaCode, campaignId, forwardTo } = await req.json()
-
-  if (!campaignId) {
-    return Response.json({ error: 'campaignId required' }, { status: 400 })
-  }
-
-  const accountSid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
-
-  // Demo mode if Twilio not configured
-  if (!accountSid || !authToken) {
-    const demoNumber = `+1${areaCode || '555'}${String(Math.floor(Math.random() * 9000000) + 1000000)}`
-    const admin = getSupabaseAdmin()
-    await admin.from('wrap_campaigns').update({
-      tracking_phone: demoNumber,
-      forward_to: forwardTo || null,
-      updated_at: new Date().toISOString(),
-    }).eq('id', campaignId)
-
-    return Response.json({
-      trackingNumber: demoNumber,
-      demo: true,
-      message: 'Demo mode — configure TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN for real numbers',
-    })
-  }
-
+/**
+ * Provision a Twilio Tracking Number
+ *
+ * POST { areaCode, campaignId, forwardTo }
+ * Searches for an available local number, purchases it,
+ * configures the voice webhook, and updates the campaign record.
+ */
+export async function POST(req: NextRequest) {
   try {
-    const twilio = (await import('twilio')).default
+    // Auth check
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = getSupabaseAdmin()
+    const { data: profile } = await admin.from('profiles').select('org_id').eq('id', user.id).single()
+    const orgId = profile?.org_id || ORG_ID
+
+    const body = await req.json()
+    const { areaCode, campaignId, forwardTo } = body
+
+    if (!campaignId) {
+      return Response.json({ error: 'campaignId is required' }, { status: 400 })
+    }
+
+    // Check for Twilio credentials
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken = process.env.TWILIO_AUTH_TOKEN
+
+    if (!accountSid || !authToken) {
+      // Demo mode — return a fake number so the UI still works
+      const demoNumber = `+1${areaCode || '206'}555${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`
+
+      await admin
+        .from('wrap_campaigns')
+        .update({
+          tracking_phone: demoNumber,
+          forward_to: forwardTo || null,
+        })
+        .eq('id', campaignId)
+        .eq('org_id', orgId)
+
+      return Response.json({
+        trackingNumber: demoNumber,
+        demoMode: true,
+        message: 'Twilio not configured — demo number assigned.',
+      })
+    }
+
     const client = twilio(accountSid, authToken)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
+    const voiceWebhookUrl = `${siteUrl}/api/twilio/inbound-call`
 
-    // Search for available numbers
-    const numbers = await client.availablePhoneNumbers('US')
-      .local
-      .list({ areaCode: areaCode ? parseInt(areaCode) : undefined, limit: 1 })
+    // Search for available local numbers
+    const searchParams: any = { limit: 1 }
+    if (areaCode) searchParams.areaCode = parseInt(areaCode, 10)
 
-    if (!numbers.length) {
-      return Response.json({ error: 'No numbers available for that area code' }, { status: 404 })
+    const available = await client.availablePhoneNumbers('US').local.list(searchParams)
+
+    if (!available || available.length === 0) {
+      return Response.json(
+        { error: `No numbers available for area code ${areaCode || 'any'}` },
+        { status: 404 }
+      )
     }
 
     // Purchase the number
     const purchased = await client.incomingPhoneNumbers.create({
-      phoneNumber: numbers[0].phoneNumber,
-      voiceUrl: `${appUrl}/api/twilio/inbound-call`,
+      phoneNumber: available[0].phoneNumber,
+      voiceUrl: voiceWebhookUrl,
       voiceMethod: 'POST',
+      friendlyName: `USAWrapCo Campaign ${campaignId.slice(0, 8)}`,
     })
 
-    // Update campaign
-    const admin = getSupabaseAdmin()
-    await admin.from('wrap_campaigns').update({
-      tracking_phone: purchased.phoneNumber,
-      forward_to: forwardTo || null,
-      updated_at: new Date().toISOString(),
-    }).eq('id', campaignId)
+    // Update the campaign with the new tracking number
+    await admin
+      .from('wrap_campaigns')
+      .update({
+        tracking_phone: purchased.phoneNumber,
+        forward_to: forwardTo || null,
+        twilio_sid: purchased.sid,
+      })
+      .eq('id', campaignId)
+      .eq('org_id', orgId)
 
-    return Response.json({ trackingNumber: purchased.phoneNumber })
+    return Response.json({
+      trackingNumber: purchased.phoneNumber,
+      demoMode: false,
+      sid: purchased.sid,
+    })
   } catch (err: any) {
-    return Response.json({ error: err.message || 'Failed to provision number' }, { status: 500 })
+    console.error('[twilio/generate-number] error:', err)
+    return Response.json(
+      { error: err.message || 'Failed to provision number' },
+      { status: 500 }
+    )
   }
 }
