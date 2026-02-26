@@ -15,7 +15,7 @@ import {
   CheckSquare, Bot, Wrench, Navigation, Waves, Glasses,
   Trophy, Filter, Store, Kanban, Hammer, UserPlus,
   Printer, Map, Factory, BookOpen, MessageCircle, Phone,
-  Zap, Activity, Target, Gauge, Workflow, Sparkles,
+  Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -183,6 +183,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Settings,
     roles: ['owner', 'admin'],
     items: [
+      { href: '/ai',            label: 'V.I.N.Y.L.',   icon: Brain,   roles: ['owner'] },
       { href: '/settings',      label: 'Settings',      icon: Settings },
       { href: '/integrations',  label: 'Integrations',  icon: Globe },
       { href: '/automations',   label: 'Automations',   icon: Workflow },

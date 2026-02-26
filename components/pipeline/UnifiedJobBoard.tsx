@@ -211,9 +211,9 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* ── GLASS PILL TAB BAR ─────────────────────────────────── */}
-      <div style={{ overflowX: 'auto', marginBottom: 24, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+      <div className="kanban-tab-scroll" style={{ overflowX: 'auto', marginBottom: 8, flexShrink: 0, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' } as React.CSSProperties}>
         <div style={{
           display: 'flex', gap: 6, padding: 6,
           background: 'rgba(19,21,28,0.65)',
@@ -274,7 +274,7 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
       </div>
 
       {/* ── CONTENT AREA (animated fade) ────────────────────────── */}
-      <div key={contentKey} style={{ animation: 'contentFadeIn 0.25s ease both' }}>
+      <div key={contentKey} style={{ animation: 'contentFadeIn 0.25s ease both', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: deptView === 'all' ? 'auto' : 'hidden' }}>
         {deptView === 'all' ? (
           <AllJobsView
             profile={profile}

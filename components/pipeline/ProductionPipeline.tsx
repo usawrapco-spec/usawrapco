@@ -164,10 +164,12 @@ export default function ProductionPipeline({ orgId, profileId, role }: Productio
   const readyToPrint = projects.filter(p => ['approved', 'printing'].includes(getDesignStatus(p))).length
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Stats bar — fixed height, never scrolls */}
       <div style={{
-        display: 'flex', gap: 20, marginBottom: 16, padding: '12px 16px',
+        display: 'flex', gap: 20, marginBottom: 12, padding: '10px 16px',
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+        flexShrink: 0,
       }}>
         <PipeStat label="Total in Production" value={projects.length.toString()} color="var(--accent)" />
         <PipeStat label="In Design" value={inDesign.toString()} color="#ec4899" />
@@ -175,17 +177,20 @@ export default function ProductionPipeline({ orgId, profileId, role }: Productio
         <PipeStat label="Ready to Print" value={readyToPrint.toString()} color="#22c55e" />
       </div>
 
-      <KanbanBoard
-        columns={COLUMNS}
-        projects={projects}
-        department="production"
-        profileId={profileId}
-        orgId={orgId}
-        horizontal={true}
-        onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
-        onStageChange={handleStageChange}
-        showGhosts={false}
-      />
+      {/* Kanban board — fills remaining height */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <KanbanBoard
+          columns={COLUMNS}
+          projects={projects}
+          department="production"
+          profileId={profileId}
+          orgId={orgId}
+          horizontal={true}
+          onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
+          onStageChange={handleStageChange}
+          showGhosts={false}
+        />
+      </div>
     </div>
   )
 }
@@ -201,9 +206,9 @@ function PipeStat({ label, value, color }: { label: string; value: string; color
 
 function LoadingState() {
   return (
-    <div style={{ display: 'flex', gap: 12, overflowX: 'auto' }}>
-      {[1,2,3,4,5,6].map(i => (
-        <div key={i} style={{ flex: '0 0 280px', height: 300, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, opacity: 0.5 }} />
+    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', height: '100%', minHeight: 200 }}>
+      {[1,2,3,4,5,6,7].map(i => (
+        <div key={i} style={{ flex: '1 1 0', minWidth: 155, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, opacity: 0.5 }} />
       ))}
     </div>
   )

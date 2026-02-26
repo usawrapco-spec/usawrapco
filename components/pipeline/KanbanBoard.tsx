@@ -142,6 +142,9 @@ export default function KanbanBoard({
 
   return (
     <CardFieldsContext.Provider value={visibleFields}>
+      {/* Root layout wrapper — fills parent height via flex */}
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+
       {/* Stage gate modal */}
       {gateModal && profile && (
         <StageGateModal
@@ -223,7 +226,7 @@ export default function KanbanBoard({
       )}
 
       {/* Board toolbar (customize button) */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, flexShrink: 0 }}>
         <button
           onClick={() => setShowCustomize(v => !v)}
           style={{
@@ -240,33 +243,35 @@ export default function KanbanBoard({
         </button>
       </div>
 
-      {/* Columns */}
-      <div style={{
+      {/* Columns — fills remaining height, scrolls horizontally, never vertically */}
+      <div className="kanban-cols" style={{
         display: 'flex', flexDirection: 'row', gap: 12,
-        overflowX: 'auto', padding: '0 0 16px 0',
-        minHeight: horizontal ? 'auto' : 'calc(100vh - 240px)',
+        overflowX: 'auto', overflowY: 'hidden',
+        flex: 1, minHeight: 0,
       }}>
         {columnData.map(col => (
           <div
             key={col.key}
+            className="kanban-col"
             onDragOver={e => handleDragOver(e, col.key)}
             onDragLeave={() => setDragOver(null)}
             onDrop={e => handleDrop(e, col.key)}
             style={{
-              flex: horizontal ? '0 0 280px' : '1 1 0',
-              minWidth: horizontal ? 280 : 220,
-              maxWidth: horizontal ? 280 : undefined,
+              flex: '1 1 0',
+              minWidth: 155,
+              maxWidth: 260,
               background: dragOver === col.key ? `${col.color}08` : 'var(--surface)',
               border: `1px solid ${dragOver === col.key ? col.color : 'var(--border)'}`,
               borderRadius: 12, display: 'flex', flexDirection: 'column',
               transition: 'border-color 0.2s, background 0.2s',
             }}
           >
-            {/* Column header */}
+            {/* Column header — sticky at top, never scrolls */}
             <div style={{
               padding: '12px 14px',
               borderBottom: `2px solid ${col.color}40`,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexShrink: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <col.icon size={14} color={col.color} />
@@ -285,9 +290,9 @@ export default function KanbanBoard({
               </span>
             </div>
 
-            {/* Cards */}
+            {/* Cards — scrollable within the column */}
             <div style={{
-              padding: 8, flex: 1, overflowY: 'auto',
+              padding: 8, flex: 1, minHeight: 0, overflowY: 'auto',
               display: 'flex', flexDirection: 'column', gap: 8,
             }}>
               {col.jobs.length === 0 && col.ghostJobs.length === 0 && (
@@ -335,6 +340,26 @@ export default function KanbanBoard({
           </div>
         ))}
       </div>
+
+      </div>{/* end root layout wrapper */}
+
+      {/* Hide scrollbar on columns container; mobile snap scrolling */}
+      <style>{`
+        .kanban-cols::-webkit-scrollbar { display: none; }
+        .kanban-cols { scrollbar-width: none; -ms-overflow-style: none; }
+        @media (max-width: 767px) {
+          .kanban-cols {
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+          }
+          .kanban-col {
+            flex: 0 0 85vw !important;
+            min-width: 85vw !important;
+            max-width: 85vw !important;
+            scroll-snap-align: start;
+          }
+        }
+      `}</style>
     </CardFieldsContext.Provider>
   )
 }

@@ -145,10 +145,12 @@ export default function InstallPipeline({ orgId, profileId, role }: InstallPipel
   }, 0)
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Stats bar — fixed height, never scrolls */}
       <div style={{
-        display: 'flex', gap: 20, marginBottom: 16, padding: '12px 16px',
+        display: 'flex', gap: 20, marginBottom: 12, padding: '10px 16px',
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+        flexShrink: 0,
       }}>
         <PipeStat label="Total Jobs" value={filtered.length.toString()} color="var(--accent)" />
         <PipeStat label="Available" value={available.toString()} color="#4f7fff" />
@@ -156,16 +158,19 @@ export default function InstallPipeline({ orgId, profileId, role }: InstallPipel
         <PipeStat label="Total Pay" value={`$${Math.round(totalPay).toLocaleString()}`} color="var(--green)" />
       </div>
 
-      <KanbanBoard
-        columns={COLUMNS}
-        projects={filtered}
-        department="install"
-        profileId={profileId}
-        orgId={orgId}
-        onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
-        onStageChange={handleStageChange}
-        showGhosts={false}
-      />
+      {/* Kanban board — fills remaining height */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <KanbanBoard
+          columns={COLUMNS}
+          projects={filtered}
+          department="install"
+          profileId={profileId}
+          orgId={orgId}
+          onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
+          onStageChange={handleStageChange}
+          showGhosts={false}
+        />
+      </div>
     </div>
   )
 }

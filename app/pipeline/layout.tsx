@@ -31,7 +31,7 @@ export default async function PipelineLayout({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
-      <main className="flex-1 overflow-y-auto p-4 md:px-5 md:py-4 pb-20 md:pb-4">
+      <main className="flex-1 flex flex-col overflow-hidden min-h-0 p-4 md:px-5 md:py-4 pb-20 md:pb-4">
         {children}
       </main>
       <div className="md:hidden">

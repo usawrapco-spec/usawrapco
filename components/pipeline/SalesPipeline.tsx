@@ -135,11 +135,12 @@ export default function SalesPipeline({ orgId, profileId, role }: SalesPipelineP
   const wonRevenue = wonJobs.reduce((sum, p) => sum + (p.revenue || 0), 0)
 
   return (
-    <div>
-      {/* Stats bar */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Stats bar — fixed height, never scrolls */}
       <div style={{
-        display: 'flex', gap: 20, marginBottom: 16, padding: '12px 16px',
+        display: 'flex', gap: 20, marginBottom: 12, padding: '10px 16px',
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+        flexShrink: 0,
       }}>
         <PipeStat label="Total Leads" value={filtered.length.toString()} color="var(--accent)" />
         <PipeStat label="Pipeline Value" value={`$${Math.round(totalRevenue / 1000)}k`} color="var(--text1)" />
@@ -147,17 +148,20 @@ export default function SalesPipeline({ orgId, profileId, role }: SalesPipelineP
         <PipeStat label="Won Revenue" value={`$${Math.round(wonRevenue / 1000)}k`} color="var(--green)" />
       </div>
 
-      <KanbanBoard
-        columns={COLUMNS}
-        projects={filtered}
-        department="sales"
-        profileId={profileId}
-        orgId={orgId}
-        onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
-        onStageChange={handleStageChange}
-        showGhosts={true}
-        allProjects={projects}
-      />
+      {/* Kanban board — fills remaining height */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <KanbanBoard
+          columns={COLUMNS}
+          projects={filtered}
+          department="sales"
+          profileId={profileId}
+          orgId={orgId}
+          onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
+          onStageChange={handleStageChange}
+          showGhosts={true}
+          allProjects={projects}
+        />
+      </div>
     </div>
   )
 }

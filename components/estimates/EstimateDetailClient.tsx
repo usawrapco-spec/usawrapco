@@ -28,7 +28,7 @@ import { createClient } from '@/lib/supabase/client'
 import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
 import PanelSelector from '@/components/vehicle/PanelSelector'
 import type { Panel } from '@/components/vehicle/PanelSelector'
-import VinLookupField from '@/components/shared/VinLookupField'
+import VinLookupField, { type VehicleDecodeResult } from '@/components/shared/VinLookupField'
 import VehicleLookupModal from '@/components/VehicleLookupModal'
 import type { MeasurementResult } from '@/components/VehicleMeasurementPicker'
 import vehiclesData from '@/lib/data/vehicles.json'
@@ -2812,7 +2812,7 @@ function VehicleInfoBlock({
   handleBlur: () => void
   canWrite: boolean
   onVehicleSelect: (v: VehicleEntry) => void
-  onVehicleDecoded?: (data: Record<string, string | undefined>) => void
+  onVehicleDecoded?: (data: VehicleDecodeResult) => void
 }) {
   const [showMeasurementModal, setShowMeasurementModal] = useState(false)
 

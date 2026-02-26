@@ -267,8 +267,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           assigned_name: (project.installer as any)?.name || null,
           status: 'pending',
           notes: `Auto-created from job: ${project.title || f.client || project.id}`,
-        }).then(() => {})
-        .catch(() => {})
+        }).then(() => {}, () => {})
       }
     }
   }
