@@ -40,6 +40,8 @@ import {
   PlusCircle,
   MoreHorizontal,
   Kanban,
+  Waves,
+  Glasses,
 } from 'lucide-react'
 
 /* ─── Quick create items for the bottom sheet ─────────────────────── */
@@ -58,6 +60,9 @@ const MORE_ITEMS = [
   // Jobs
   { href: '/pipeline',     label: 'Job Board',      icon: Briefcase },
   { href: '/engine',       label: 'Engine',         icon: TrendingUp },
+  // Divisions
+  { href: '/decking',      label: 'Decking Pipeline', icon: Waves },
+  { href: '/tinting',      label: 'Tinting Pipeline',  icon: Glasses },
   // Design
   { href: '/design',       label: 'Design Studio',  icon: Palette },
   { href: '/mockup',       label: 'Mockup Tool',    icon: Wand2 },

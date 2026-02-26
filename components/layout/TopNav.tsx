@@ -10,7 +10,7 @@ import {
   Menu, Search, Bell, Plus, ChevronDown, X,
   Briefcase, Users, FileText, ShoppingCart, CheckSquare, UserPlus,
   Clock, LogOut, User, Settings, Download, BellOff, BellRing,
-  MessageCircle, Palette, UserCheck,
+  MessageCircle, Palette, UserCheck, Waves, Glasses,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -25,7 +25,9 @@ interface QuickItem { href: string; label: string; icon: LucideIcon; description
 const QUICK_CREATE: QuickItem[] = [
   { href: '/estimates/new',      label: 'New Estimate',   icon: FileText,    description: 'Create a quote' },
   { href: '/sales-orders?new=1', label: 'Sales Order',    icon: ShoppingCart,description: 'Convert to order' },
-  { href: '/pipeline?new=true',  label: 'New Job',        icon: Briefcase,   description: 'Start a new job' },
+  { href: '/pipeline?new=true',  label: 'New Wrap Job',   icon: Briefcase,   description: 'Start a wrap job' },
+  { href: '/decking',            label: 'Decking Job',    icon: Waves,       description: 'DekWave decking pipeline' },
+  { href: '/tinting',            label: 'Tint Job',       icon: Glasses,     description: 'Tinting pipeline' },
   { href: '/customers?new=true', label: 'New Customer',   icon: Users,       description: 'Add a customer' },
   { href: '/tasks?new=true',     label: 'New Task',       icon: CheckSquare, description: 'Assign a task' },
   { href: '/timeclock',          label: 'Clock In',       icon: Clock,       description: 'Start your shift' },

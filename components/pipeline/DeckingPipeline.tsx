@@ -70,9 +70,9 @@ function DeckingJobCard({ project, onClick }: { project: Project; onClick: () =>
             <Anchor size={10} /> {boatInfo}
           </div>
         </div>
-        {project.revenue > 0 && (
+        {(project.revenue ?? 0) > 0 && (
           <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#22d3ee', flexShrink: 0, marginLeft: 8 }}>
-            {fM(project.revenue)}
+            {fM(project.revenue ?? 0)}
           </div>
         )}
       </div>

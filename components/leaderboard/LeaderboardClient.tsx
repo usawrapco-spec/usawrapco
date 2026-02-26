@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
-  Trophy, Zap, TrendingUp, Star, Flame, Crown,
-  Medal, DollarSign, Target, Palette, Wand2, FileText,
-  Sunrise, Activity, Camera, Users, Gem, Wrench, Clock,
-  CheckCircle2,
+  Trophy, Zap, Flame, Crown,
+  Medal, DollarSign, Wrench, Clock,
+  CheckCircle2, Layers, Waves, Glasses, Shield, Anchor,
+  Award, ChevronUp, ChevronDown, Minus,
+  BarChart2, Paintbrush, Printer, Users,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import { xpToLevel, xpForNextLevel } from '@/lib/commission'
-import { ROLE_COLORS } from '@/lib/permissions'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Member {
   id: string
@@ -26,385 +29,737 @@ interface Member {
   last_active_date: string
 }
 
-interface Project {
+interface ProjectRow {
   id: string
   title: string
   revenue: number
   profit: number
+  gpm?: number
   agent_id: string
   installer_id?: string | null
   pipe_stage: string
   updated_at: string
+  created_at?: string
+  service_division?: string
   fin_data?: Record<string, number> | null
+}
+
+interface ShopRecord {
+  id: string
+  record_type: string
+  record_category: string
+  division: string
+  record_holder_name: string
+  record_value: number
+  record_label: string
+  set_at: string
+  previous_record_value: number
+  previous_holder_name: string
+}
+
+interface UserBadge {
+  id: string
+  user_id: string
+  badge_id: string
+  earned_at: string
+  profiles?: { name: string }
+  badges?: { name: string; icon: string; rarity: string }
 }
 
 interface Props {
   currentProfile: Profile
   members: Member[]
-  projects: Project[]
+  projects: ProjectRow[]
+  shopRecords?: ShopRecord[]
+  recentBadges?: UserBadge[]
 }
 
-type Board = 'xp' | 'revenue' | 'streak' | 'installer_jobs' | 'installer_hours' | 'installer_earnings'
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-interface BadgeInfo {
-  icon: React.ReactNode
-  label: string
+const DIVISIONS = [
+  { id: 'all',     label: 'All Divisions', icon: Layers,   color: '#9299b5' },
+  { id: 'wraps',   label: 'Wraps',         icon: Layers,   color: '#4f7fff' },
+  { id: 'decking', label: 'Decking',       icon: Waves,    color: '#22d3ee' },
+  { id: 'tinting', label: 'Tinting',       icon: Glasses,  color: '#22c07a' },
+  { id: 'ppf',     label: 'PPF',           icon: Shield,   color: '#8b5cf6' },
+  { id: 'marine',  label: 'Marine',        icon: Anchor,   color: '#f59e0b' },
+]
+
+const DIVISION_ICONS: Record<string, string> = {
+  wraps: '🎨', decking: '🌊', tinting: '🕶️', ppf: '🛡️', marine: '⚓',
 }
 
-function BadgeIcon({ badge }: { badge: string }) {
-  const size = 14
-  const map: Record<string, BadgeInfo> = {
-    hot_streak:      { icon: <Flame size={size} style={{ color: '#f59e0b' }} />,   label: 'Hot Streak' },
-    closer:          { icon: <DollarSign size={size} style={{ color: '#22c07a' }} />, label: 'Closer' },
-    sharpshooter:    { icon: <Target size={size} style={{ color: '#4f7fff' }} />,   label: 'Sharpshooter' },
-    pixel_perfect:   { icon: <Palette size={size} style={{ color: '#22d3ee' }} />,  label: 'Pixel Perfect' },
-    speed_demon:     { icon: <Zap size={size} style={{ color: '#f59e0b' }} />,      label: 'Speed Demon' },
-    top_dog:         { icon: <Crown size={size} style={{ color: '#f59e0b' }} />,    label: 'Top Dog' },
-    material_wizard: { icon: <Wand2 size={size} style={{ color: '#8b5cf6' }} />,   label: 'Material Wizard' },
-    perfect_brief:   { icon: <FileText size={size} style={{ color: '#4f7fff' }} />, label: 'Perfect Brief' },
-    early_bird:      { icon: <Sunrise size={size} style={{ color: '#22d3ee' }} />,  label: 'Early Bird' },
-    marathon:        { icon: <Activity size={size} style={{ color: '#22c07a' }} />, label: 'Marathon' },
-    shutterbug:      { icon: <Camera size={size} style={{ color: '#22d3ee' }} />,   label: 'Shutterbug' },
-    team_player:     { icon: <Users size={size} style={{ color: '#8b5cf6' }} />,    label: 'Team Player' },
-    elite:           { icon: <Gem size={size} style={{ color: '#4f7fff' }} />,      label: 'Elite' },
-    zero_waste:      { icon: <Zap size={size} style={{ color: '#22c07a' }} />,      label: 'Zero Waste' },
-  }
-  const info = map[badge]
-  if (!info) return null
+const DEPT_TABS = [
+  { id: 'sales',      label: 'Sales',      icon: DollarSign, color: '#22c07a' },
+  { id: 'install',    label: 'Install',    icon: Wrench,     color: '#22d3ee' },
+  { id: 'production', label: 'Production', icon: Printer,    color: '#f59e0b' },
+  { id: 'design',     label: 'Design',     icon: Paintbrush, color: '#8b5cf6' },
+  { id: 'xp',         label: 'XP Board',   icon: Zap,        color: '#4f7fff' },
+]
+
+const RECORD_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
+  highest_single_job_revenue: { label: 'Biggest Job',       icon: '💰' },
+  highest_single_job_gpm:     { label: 'Best GPM',          icon: '📈' },
+  most_jobs_in_month:         { label: 'Most Jobs/Month',   icon: '🏆' },
+  most_revenue_in_month:      { label: 'Best Month',        icon: '🔥' },
+  fastest_install:            { label: 'Fastest Install',   icon: '⚡' },
+  biggest_fleet_deal:         { label: 'Biggest Fleet',     icon: '🚛' },
+  most_installs_in_week:      { label: 'Most Installs/Wk',  icon: '📆' },
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const fM = (n: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
+const fPct = (n: number) => `${(n || 0).toFixed(1)}%`
+
+function getPeriodCutoff(period: string): Date | null {
+  const now = new Date()
+  if (period === 'week') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  if (period === 'month') return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  if (period === 'quarter') return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+  return null
+}
+
+function rankIcon(i: number) {
+  if (i === 0) return <Crown size={18} style={{ color: '#f59e0b' }} />
+  if (i === 1) return <Medal size={18} style={{ color: '#9299b5' }} />
+  if (i === 2) return <Medal size={18} style={{ color: '#cd7f32' }} />
   return (
-    <span
-      title={info.label}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 24, height: 24, borderRadius: 6,
-        background: 'var(--surface2)', border: '1px solid var(--border)',
-      }}
-    >
-      {info.icon}
+    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text3)', width: 20, textAlign: 'center' }}>
+      #{i + 1}
     </span>
   )
 }
 
-const fM = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
-
-type Period = 'week' | 'month' | 'quarter'
-
-function getPeriodCutoff(period: Period): Date {
-  const now = new Date()
-  if (period === 'week') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  if (period === 'month') return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+function Avatar({ name, email, size = 38, idx = 99 }: { name?: string; email?: string; size?: number; idx?: number }) {
+  const initial = (name || email || '?').charAt(0).toUpperCase()
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: idx < 3 ? 'linear-gradient(135deg, var(--accent), #7c3aed)' : 'rgba(79,127,255,0.12)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.38, fontWeight: 800,
+      color: idx < 3 ? '#fff' : 'var(--accent)',
+    }}>
+      {initial}
+    </div>
+  )
 }
 
-export default function LeaderboardClient({ currentProfile, members, projects }: Props) {
-  const [board, setBoard] = useState<Board>('xp')
-  const [period, setPeriod] = useState<Period>('month')
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text3)' }}>
+      <Trophy size={32} style={{ opacity: 0.25, margin: '0 auto 10px', display: 'block' }} />
+      <div style={{ fontSize: 13 }}>{label}</div>
+    </div>
+  )
+}
 
-  // Filter projects by selected period
-  const cutoff = getPeriodCutoff(period)
-  const filteredProjects = projects.filter(p => new Date(p.updated_at) >= cutoff)
+function getRelativeTime(ts: string) {
+  const diff = Date.now() - new Date(ts).getTime()
+  const h = Math.floor(diff / 3600000)
+  if (h < 1) return 'Just now'
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d ago`
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
-  // Build revenue board from filtered projects
-  const revenueByAgent: Record<string, number> = {}
-  filteredProjects.forEach(p => {
-    if (p.agent_id && (p.pipe_stage === 'done' || p.pipe_stage === 'sales_close')) {
-      revenueByAgent[p.agent_id] = (revenueByAgent[p.agent_id] || 0) + (p.revenue || 0)
-    }
-  })
+// ─── Sales Leaderboard ────────────────────────────────────────────────────────
 
-  // Build installer stats from projects
-  const installerJobCount: Record<string, number> = {}
-  const installerHours: Record<string, number> = {}
-  const installerEarnings: Record<string, number> = {}
-  filteredProjects.forEach(p => {
-    if (p.installer_id && (p.pipe_stage === 'done' || p.pipe_stage === 'sales_close' || p.pipe_stage === 'prod_review')) {
-      installerJobCount[p.installer_id] = (installerJobCount[p.installer_id] || 0) + 1
-      const fin = (p.fin_data || {}) as Record<string, number>
-      installerHours[p.installer_id] = (installerHours[p.installer_id] || 0) + (fin.laborHrs || fin.hours || 0)
-      installerEarnings[p.installer_id] = (installerEarnings[p.installer_id] || 0) + (fin.labor || fin.install_pay || 0)
-    }
-  })
+function SalesLeaderboard({ members, projects, currentId }: {
+  members: Member[]
+  projects: ProjectRow[]
+  currentId: string
+}) {
+  const byAgent = useMemo(() => {
+    const map: Record<string, { totalGP: number; totalRev: number; jobs: number; gpms: number[] }> = {}
+    projects.forEach(p => {
+      if (!p.agent_id) return
+      if (!map[p.agent_id]) map[p.agent_id] = { totalGP: 0, totalRev: 0, jobs: 0, gpms: [] }
+      map[p.agent_id].totalGP += p.profit || 0
+      map[p.agent_id].totalRev += p.revenue || 0
+      map[p.agent_id].jobs++
+      if (p.gpm) map[p.agent_id].gpms.push(p.gpm)
+    })
+    return map
+  }, [projects])
 
-  const installerMembers = members.filter(m => m.role === 'installer')
+  const ranked = useMemo(() =>
+    members
+      .map(m => ({ ...m, ...(byAgent[m.id] || { totalGP: 0, totalRev: 0, jobs: 0, gpms: [] }) }))
+      .filter(m => m.totalGP > 0)
+      .sort((a, b) => b.totalGP - a.totalGP),
+    [members, byAgent]
+  )
 
-  const xpBoard      = [...members].sort((a, b) => (period === 'week' ? (b.weekly_xp || 0) - (a.weekly_xp || 0) : period === 'month' ? (b.monthly_xp || b.xp || 0) - (a.monthly_xp || a.xp || 0) : (b.xp || 0) - (a.xp || 0)))
-  const revenueBoard = [...members].sort((a, b) => (revenueByAgent[b.id] || 0) - (revenueByAgent[a.id] || 0))
-  const streakBoard  = [...members].sort((a, b) => (b.current_streak || 0) - (a.current_streak || 0))
+  const topGPMId = useMemo(() => {
+    if (!ranked.length) return null
+    return ranked.slice().sort((a, b) => {
+      const avgA = a.gpms.length ? a.gpms.reduce((x: number, y: number) => x + y, 0) / a.gpms.length : 0
+      const avgB = b.gpms.length ? b.gpms.reduce((x: number, y: number) => x + y, 0) / b.gpms.length : 0
+      return avgB - avgA
+    })[0]?.id
+  }, [ranked])
 
-  const installerJobsBoard    = [...installerMembers].sort((a, b) => (installerJobCount[b.id] || 0) - (installerJobCount[a.id] || 0))
-  const installerHoursBoard   = [...installerMembers].sort((a, b) => (installerHours[b.id] || 0) - (installerHours[a.id] || 0))
-  const installerEarningsBoard = [...installerMembers].sort((a, b) => (installerEarnings[b.id] || 0) - (installerEarnings[a.id] || 0))
-
-  const boardData =
-    board === 'xp' ? xpBoard :
-    board === 'revenue' ? revenueBoard :
-    board === 'streak' ? streakBoard :
-    board === 'installer_jobs' ? installerJobsBoard :
-    board === 'installer_hours' ? installerHoursBoard :
-    board === 'installer_earnings' ? installerEarningsBoard :
-    xpBoard
-
-  const getValue = (m: Member) => {
-    if (board === 'xp') return `${(period === 'week' ? m.weekly_xp || 0 : period === 'month' ? m.monthly_xp || m.xp || 0 : m.xp || 0).toLocaleString()} XP`
-    if (board === 'revenue') return fM(revenueByAgent[m.id] || 0)
-    if (board === 'installer_jobs') return `${installerJobCount[m.id] || 0} jobs`
-    if (board === 'installer_hours') return `${Math.round(installerHours[m.id] || 0)}h`
-    if (board === 'installer_earnings') return fM(installerEarnings[m.id] || 0)
-    return `${m.current_streak || 0} days`
-  }
-
-  const rankIcon = (i: number) => {
-    if (i === 0) return <Crown size={18} style={{ color: '#f59e0b' }} />
-    if (i === 1) return <Medal size={18} style={{ color: '#9299b5' }} />
-    if (i === 2) return <Medal size={18} style={{ color: '#cd7f32' }} />
-    return <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text3)', width: 20, textAlign: 'center' }}>#{i + 1}</span>
-  }
-
-  const isMe      = (m: Member) => m.id === currentProfile.id
-  const myMember  = members.find(m => m.id === currentProfile.id)
-  const myRank    = xpBoard.findIndex(m => m.id === currentProfile.id) + 1
-  const myXP      = myMember?.xp || 0
-  const myLevel   = xpToLevel(myXP)
-  const { progress } = xpForNextLevel(myXP)
+  if (!ranked.length) return <EmptyState label="No sales data for this period" />
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text1)', marginBottom: 4 }}>
-          Leaderboard
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          <span style={{ fontSize: 13, color: 'var(--text3)' }}>{members.length} team members</span>
-          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-            {(['week', 'month', 'quarter'] as Period[]).map(p => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                style={{
-                  padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700,
-                  border: period === p ? '1px solid var(--accent)' : '1px solid var(--border)',
-                  background: period === p ? 'rgba(79,127,255,0.12)' : 'transparent',
-                  color: period === p ? 'var(--accent)' : 'var(--text3)',
-                  cursor: 'pointer',
-                  fontFamily: 'Barlow Condensed, sans-serif',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {p === 'week' ? 'Week' : p === 'month' ? 'Month' : 'Quarter'}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* My stats */}
-      {myMember && (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(79,127,255,0.12) 0%, rgba(139,92,246,0.12) 100%)',
-          border: '1px solid rgba(79,127,255,0.3)',
-          borderRadius: 14, padding: '18px 20px', marginBottom: 20,
-          display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--accent), #7c3aed)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 900, color: '#fff',
-            }}>
-              {(myMember.name || myMember.email || '?').charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>
-                {myMember.name || myMember.email} <span style={{ color: 'var(--accent)' }}>· You</span>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Rank #{myRank} · Level {myLevel}</div>
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text3)', marginBottom: 5 }}>
-              <span>Level {myLevel}</span>
-              <span>{myXP.toLocaleString()} XP</span>
-            </div>
-            <div style={{ height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, var(--accent), #7c3aed)', borderRadius: 4, transition: 'width 0.5s' }} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)' }}>{(myMember.monthly_xp || 0).toLocaleString()}</div>
-              <div style={{ fontSize: 10, color: 'var(--text3)' }}>Monthly XP</div>
-            </div>
-            {myMember.current_streak > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: '#f59e0b' }}>
-                  {myMember.current_streak} <Flame size={16} style={{ color: '#f59e0b' }} />
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text3)' }}>Day Streak</div>
-              </div>
-            )}
-          </div>
-
-          {/* Badges */}
-          {(myMember.badges || []).length > 0 && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {(myMember.badges || []).map((b: string) => (
-                <BadgeIcon key={b} badge={b} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Board selector */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        {([
-          { key: 'xp' as Board, label: 'XP', icon: Zap },
-          { key: 'revenue' as Board, label: 'Revenue', icon: TrendingUp },
-          { key: 'streak' as Board, label: 'Streaks', icon: Flame },
-        ] as const).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setBoard(key)}
-            style={{
-              padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-              background: board === key ? 'var(--accent)' : 'var(--surface)',
-              border: board === key ? 'none' : '1px solid var(--border)',
-              color: board === key ? '#fff' : 'var(--text3)',
-              fontSize: 12, fontWeight: board === key ? 700 : 400,
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <Icon size={13} />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Installer-specific board selector */}
-      {installerMembers.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          <span style={{
-            fontSize: 10, fontWeight: 900, color: 'var(--text3)',
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-            display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px',
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {ranked.map((m, i) => {
+        const avgGPM = m.gpms.length ? m.gpms.reduce((a: number, b: number) => a + b, 0) / m.gpms.length : 0
+        const isTopGPM = topGPMId === m.id && avgGPM > 0
+        const valueColor = i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : 'var(--text1)'
+        return (
+          <div key={m.id} style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
+            background: m.id === currentId ? 'rgba(79,127,255,0.07)' : 'var(--surface2)',
+            border: `1px solid ${m.id === currentId ? 'rgba(79,127,255,0.35)' : 'var(--border)'}`,
+            borderRadius: 12,
           }}>
-            <Wrench size={11} /> Installers
-          </span>
-          {([
-            { key: 'installer_jobs' as Board, label: 'Jobs Done', icon: CheckCircle2 },
-            { key: 'installer_hours' as Board, label: 'Hours', icon: Clock },
-            { key: 'installer_earnings' as Board, label: 'Earnings', icon: DollarSign },
-          ] as const).map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setBoard(key)}
-              style={{
-                padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                background: board === key ? 'var(--cyan)' : 'var(--surface)',
-                border: board === key ? 'none' : '1px solid var(--border)',
-                color: board === key ? '#0a2540' : 'var(--text3)',
-                fontSize: 12, fontWeight: board === key ? 700 : 400,
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}
-            >
-              <Icon size={13} />
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+            <div style={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{rankIcon(i)}</div>
+            <Avatar name={m.name} email={m.email} idx={i} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{m.name || m.email}</span>
+                {m.id === currentId && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)' }}>YOU</span>}
+                {isTopGPM && <span style={{ fontSize: 10, fontWeight: 700, color: '#22c07a', background: 'rgba(34,192,122,0.12)', padding: '1px 6px', borderRadius: 4 }}>BEST GPM</span>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                {m.jobs} job{m.jobs !== 1 ? 's' : ''} · {fPct(avgGPM)} avg GPM
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: valueColor }}>
+                {fM(m.totalGP)} GP
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{fM(m.totalRev)} rev</div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-      {/* Leaderboard rows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {boardData.map((m, i) => {
-          const val       = getValue(m)
-          const roleColor = ROLE_COLORS[m.role] || '#5a6080'
-          const initial   = (m.name || m.email || '?').charAt(0).toUpperCase()
-          const me        = isMe(m)
+// ─── Install Leaderboard ──────────────────────────────────────────────────────
 
+function InstallLeaderboard({ members, projects, currentId }: {
+  members: Member[]
+  projects: ProjectRow[]
+  currentId: string
+}) {
+  const byInstaller = useMemo(() => {
+    const map: Record<string, { jobs: number; hrs: number }> = {}
+    projects.forEach(p => {
+      if (!p.installer_id) return
+      if (!map[p.installer_id]) map[p.installer_id] = { jobs: 0, hrs: 0 }
+      map[p.installer_id].jobs++
+      const fin = p.fin_data || {}
+      map[p.installer_id].hrs += (fin.laborHrs || fin.hours || 0)
+    })
+    return map
+  }, [projects])
+
+  const ranked = useMemo(() =>
+    members
+      .map(m => ({ ...m, ...(byInstaller[m.id] || { jobs: 0, hrs: 0 }) }))
+      .filter(m => m.jobs > 0)
+      .sort((a, b) => b.jobs - a.jobs),
+    [members, byInstaller]
+  )
+
+  if (!ranked.length) return <EmptyState label="No install data for this period" />
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {ranked.map((m, i) => {
+        const valueColor = i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : 'var(--text1)'
+        return (
+          <div key={m.id} style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
+            background: m.id === currentId ? 'rgba(34,211,238,0.07)' : 'var(--surface2)',
+            border: `1px solid ${m.id === currentId ? 'rgba(34,211,238,0.35)' : 'var(--border)'}`,
+            borderRadius: 12,
+          }}>
+            <div style={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{rankIcon(i)}</div>
+            <Avatar name={m.name} email={m.email} idx={i} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{m.name || m.email}</span>
+                {m.id === currentId && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--cyan)' }}>YOU</span>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                {m.hrs > 0 ? `${Math.round(m.hrs)}h on record` : 'Install specialist'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: valueColor }}>
+                {m.jobs} jobs
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── XP Leaderboard ───────────────────────────────────────────────────────────
+
+function XPLeaderboard({ members, period, currentId }: {
+  members: Member[]
+  period: string
+  currentId: string
+}) {
+  const ranked = useMemo(() =>
+    [...members].sort((a, b) => {
+      const aVal = period === 'week' ? (a.weekly_xp || 0) : period === 'month' ? (a.monthly_xp || a.xp || 0) : (a.xp || 0)
+      const bVal = period === 'week' ? (b.weekly_xp || 0) : period === 'month' ? (b.monthly_xp || b.xp || 0) : (b.xp || 0)
+      return bVal - aVal
+    }),
+    [members, period]
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {ranked.map((m, i) => {
+        const xpVal = period === 'week' ? (m.weekly_xp || 0) : period === 'month' ? (m.monthly_xp || m.xp || 0) : (m.xp || 0)
+        const lvl = xpToLevel(m.xp || 0)
+        const valueColor = i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : 'var(--accent)'
+        return (
+          <div key={m.id} style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
+            background: m.id === currentId ? 'rgba(79,127,255,0.07)' : 'var(--surface2)',
+            border: `1px solid ${m.id === currentId ? 'rgba(79,127,255,0.35)' : 'var(--border)'}`,
+            borderRadius: 12,
+          }}>
+            <div style={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{rankIcon(i)}</div>
+            <Avatar name={m.name} email={m.email} idx={i} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{m.name || m.email}</span>
+                {m.id === currentId && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)' }}>YOU</span>}
+                {(m.current_streak || 0) > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#f59e0b' }}>
+                    {m.current_streak}<Flame size={10} style={{ color: '#f59e0b' }} />
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                Level {lvl} · {(m.badges || []).length} badge{(m.badges || []).length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: valueColor }}>
+                {xpVal.toLocaleString()} XP
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Shop Records ─────────────────────────────────────────────────────────────
+
+const PLACEHOLDER_RECORDS = [
+  { icon: '💰', label: 'Biggest Job' },
+  { icon: '📈', label: 'Best GPM' },
+  { icon: '⚡', label: 'Fastest Install' },
+  { icon: '🚛', label: 'Biggest Fleet' },
+  { icon: '🏆', label: 'Most Jobs/Mo' },
+]
+
+function ShopRecordsPanel({ records }: { records: ShopRecord[] }) {
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 14, padding: 20,
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Trophy size={16} style={{ color: '#f59e0b' }} /> Shop Records
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {records.length === 0
+          ? PLACEHOLDER_RECORDS.map(r => (
+              <div key={r.label} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+              }}>
+                <span style={{ fontSize: 16, width: 24, flexShrink: 0 }}>{r.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)' }}>{r.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>No record yet</div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text3)' }}>—</div>
+              </div>
+            ))
+          : records.map(r => {
+              const meta = RECORD_TYPE_LABELS[r.record_type] || { label: r.record_type, icon: '📊' }
+              return (
+                <div key={r.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                  <span style={{ fontSize: 18, width: 28, flexShrink: 0 }}>{meta.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)' }}>{meta.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      {r.record_holder_name} · {new Date(r.set_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </div>
+                    {r.previous_record_value > 0 && (
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>
+                        Prev: {r.previous_holder_name}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: '#f59e0b', flexShrink: 0 }}>
+                    {r.record_label || fM(r.record_value)}
+                  </div>
+                </div>
+              )
+            })
+        }
+      </div>
+    </div>
+  )
+}
+
+// ─── Division Breakdown ───────────────────────────────────────────────────────
+
+function DivisionBreakdown({ projects }: { projects: ProjectRow[] }) {
+  const divData = useMemo(() => {
+    const map: Record<string, { rev: number; gpms: number[]; jobs: number; profit: number }> = {}
+    projects.forEach(p => {
+      const div = p.service_division || 'wraps'
+      if (!map[div]) map[div] = { rev: 0, gpms: [], jobs: 0, profit: 0 }
+      map[div].rev += p.revenue || 0
+      map[div].profit += p.profit || 0
+      map[div].jobs++
+      if (p.gpm) map[div].gpms.push(p.gpm)
+    })
+    return map
+  }, [projects])
+
+  const totalRev = Object.values(divData).reduce((s, d) => s + d.rev, 0)
+  const divList = DIVISIONS.filter(d => d.id !== 'all')
+    .map(d => ({
+      ...d,
+      rev: divData[d.id]?.rev || 0,
+      gpm: divData[d.id]?.gpms.length
+        ? divData[d.id].gpms.reduce((a, b) => a + b, 0) / divData[d.id].gpms.length
+        : 0,
+      jobs: divData[d.id]?.jobs || 0,
+    }))
+    .filter(d => d.jobs > 0)
+    .sort((a, b) => b.rev - a.rev)
+
+  if (!divList.length) return null
+
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 14, padding: 20, marginTop: 20,
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <BarChart2 size={16} style={{ color: 'var(--accent)' }} /> Division Breakdown
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {divList.map(d => {
+          const Icon = d.icon
+          const pct = totalRev > 0 ? (d.rev / totalRev) * 100 : 0
           return (
-            <div
-              key={m.id}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '12px 16px',
-                background: me ? 'rgba(79,127,255,0.06)' : 'var(--surface)',
-                border: `1px solid ${me ? 'rgba(79,127,255,0.3)' : 'var(--border)'}`,
-                borderRadius: 12,
-              }}
-            >
-              {/* Rank */}
-              <div style={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-                {rankIcon(i)}
+            <div key={d.id}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <Icon size={13} style={{ color: d.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.04em', flex: 1 }}>
+                  {DIVISION_ICONS[d.id]} {d.label}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: d.color }}>
+                  {fM(d.rev)}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 80, textAlign: 'right' }}>
+                  {fPct(d.gpm)} GPM · {d.jobs}j
+                </span>
               </div>
-
-              {/* Avatar */}
-              <div style={{
-                width: 38, height: 38, borderRadius: '50%',
-                background: i < 3 ? 'linear-gradient(135deg, var(--accent), #7c3aed)' : 'rgba(79,127,255,0.1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, fontWeight: 800,
-                color: i < 3 ? '#fff' : 'var(--accent)',
-                flexShrink: 0,
-              }}>
-                {initial}
-              </div>
-
-              {/* Name + role */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {m.name || m.email}
-                  </span>
-                  {me && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)' }}>YOU</span>}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: roleColor, textTransform: 'capitalize' }}>
-                    {m.role.replace('_', ' ')}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                    · Lv.{xpToLevel(m.xp || 0)}
-                  </span>
-                  {m.current_streak > 0 && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#f59e0b' }}>
-                      · {m.current_streak}<Flame size={10} style={{ color: '#f59e0b' }} />
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Badges (top 3) */}
-              <div style={{ display: 'flex', gap: 4 }}>
-                {(m.badges || []).slice(0, 3).map((b: string) => (
-                  <BadgeIcon key={b} badge={b} />
-                ))}
-              </div>
-
-              {/* Value */}
-              <div style={{
-                fontSize: 16, fontWeight: 900,
-                fontFamily: 'JetBrains Mono, monospace',
-                color: i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : 'var(--text1)',
-                flexShrink: 0,
-              }}>
-                {val}
+              <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: d.color, borderRadius: 3, transition: 'width 0.6s ease' }} />
               </div>
             </div>
           )
         })}
       </div>
+    </div>
+  )
+}
 
-      {members.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text3)' }}>
-          <Trophy size={40} style={{ opacity: 0.3, margin: '0 auto 12px' }} />
-          <div style={{ fontSize: 13 }}>No team members yet. Invite your team to get started.</div>
+// ─── Recent Achievements ──────────────────────────────────────────────────────
+
+function RecentAchievements({ badges }: { badges: UserBadge[] }) {
+  if (!badges.length) return null
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 14, padding: 20, marginTop: 20,
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Award size={16} style={{ color: '#8b5cf6' }} /> Recent Achievements
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {badges.slice(0, 10).map(ub => {
+          const ago = getRelativeTime(ub.earned_at)
+          const badgeIcon = ub.badges?.icon || '🏅'
+          const badgeName = ub.badges?.name || ub.badge_id
+          const personName = (ub as any).profiles?.name || 'Someone'
+          const rarity = ub.badges?.rarity || 'common'
+          const rarityColor = rarity === 'legendary' ? '#f59e0b' : rarity === 'rare' ? '#8b5cf6' : '#22c07a'
+          return (
+            <div key={ub.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '8px 12px', borderRadius: 10,
+              background: rarity === 'legendary' ? 'rgba(245,158,11,0.06)' : 'var(--surface2)',
+              border: `1px solid ${rarity === 'legendary' ? 'rgba(245,158,11,0.2)' : 'var(--border)'}`,
+            }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>{badgeIcon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>
+                  <span style={{ fontWeight: 700 }}>{personName}</span> earned &ldquo;{badgeName}&rdquo;
+                  {rarity === 'legendary' && (
+                    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: rarityColor, background: `${rarityColor}22`, padding: '1px 6px', borderRadius: 4 }}>
+                      LEGENDARY
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ago}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function LeaderboardClient({
+  currentProfile, members, projects, shopRecords = [], recentBadges = []
+}: Props) {
+  const [dept, setDept] = useState('sales')
+  const [period, setPeriod] = useState('month')
+  const [division, setDivision] = useState('all')
+  const [liveBadges, setLiveBadges] = useState<UserBadge[]>(recentBadges)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const ch = supabase.channel('badges-feed')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_badges' }, async (payload) => {
+        const { data } = await supabase
+          .from('user_badges')
+          .select('*, profiles:user_id(name), badges:badge_id(name, icon, rarity)')
+          .eq('id', (payload.new as any).id)
+          .single()
+        if (data) setLiveBadges(prev => [data as UserBadge, ...prev].slice(0, 20))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
+
+  const filteredProjects = useMemo(() => {
+    const cutoff = getPeriodCutoff(period)
+    return projects.filter(p => {
+      if (cutoff && new Date(p.updated_at) < cutoff) return false
+      if (division !== 'all' && (p.service_division || 'wraps') !== division) return false
+      return true
+    })
+  }, [projects, period, division])
+
+  const myMember = members.find(m => m.id === currentProfile.id)
+  const myXP = myMember?.xp || 0
+  const myLevel = xpToLevel(myXP)
+  const { progress } = xpForNextLevel(myXP)
+  const myXPRank = [...members].sort((a, b) => (b.xp || 0) - (a.xp || 0)).findIndex(m => m.id === currentProfile.id) + 1
+
+  const PERIOD_LABELS: Record<string, string> = {
+    week: 'This Week', month: 'This Month', quarter: 'This Quarter', alltime: 'All Time',
+  }
+
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{
+          fontSize: 32, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif',
+          color: 'var(--text1)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <Trophy size={28} style={{ color: '#f59e0b' }} /> Shop Leaderboard
+        </h1>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {['week', 'month', 'quarter', 'alltime'].map(p => (
+            <button key={p} onClick={() => setPeriod(p)} style={{
+              padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              border: period === p ? '1px solid var(--accent)' : '1px solid var(--border)',
+              background: period === p ? 'rgba(79,127,255,0.14)' : 'transparent',
+              color: period === p ? 'var(--accent)' : 'var(--text3)',
+              cursor: 'pointer', fontFamily: 'Barlow Condensed, sans-serif',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+          <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+          {DIVISIONS.map(d => {
+            const Icon = d.icon
+            return (
+              <button key={d.id} onClick={() => setDivision(d.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                border: division === d.id ? `1px solid ${d.color}` : '1px solid var(--border)',
+                background: division === d.id ? `${d.color}22` : 'transparent',
+                color: division === d.id ? d.color : 'var(--text3)',
+                cursor: 'pointer',
+              }}>
+                <Icon size={11} />
+                {d.id === 'all' ? 'All' : d.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* My profile bar */}
+      {myMember && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(79,127,255,0.1) 0%, rgba(139,92,246,0.1) 100%)',
+          border: '1px solid rgba(79,127,255,0.25)',
+          borderRadius: 14, padding: '16px 20px', marginBottom: 24,
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+        }}>
+          <Avatar name={myMember.name} email={myMember.email} size={44} idx={0} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>
+              {myMember.name} <span style={{ color: 'var(--accent)', fontSize: 12 }}>· You</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>Rank #{myXPRank} · Level {myLevel}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>
+              <span>Level {myLevel}</span>
+              <span>{myXP.toLocaleString()} XP</span>
+            </div>
+            <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, var(--accent), #7c3aed)', borderRadius: 3, transition: 'width 0.5s' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 20 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)' }}>
+                {(myMember.monthly_xp || 0).toLocaleString()}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text3)' }}>Monthly XP</div>
+            </div>
+            {(myMember.current_streak || 0) > 0 && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 18, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: '#f59e0b' }}>
+                  {myMember.current_streak}<Flame size={14} style={{ color: '#f59e0b' }} />
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text3)' }}>Day Streak</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
+        {/* Left: Department tabs */}
+        <div>
+          <div style={{ display: 'flex', gap: 0, marginBottom: 0, borderBottom: '1px solid var(--border)' }}>
+            {DEPT_TABS.map(tab => {
+              const Icon = tab.icon
+              const active = dept === tab.id
+              return (
+                <button key={tab.id} onClick={() => setDept(tab.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '9px 16px', cursor: 'pointer',
+                  borderRadius: '8px 8px 0 0',
+                  background: active ? 'var(--surface)' : 'transparent',
+                  border: active ? '1px solid var(--border)' : '1px solid transparent',
+                  borderBottom: active ? '1px solid var(--surface)' : '1px solid transparent',
+                  marginBottom: active ? '-1px' : 0,
+                  color: active ? tab.color : 'var(--text3)',
+                  fontSize: 13, fontWeight: active ? 700 : 400,
+                }}>
+                  <Icon size={14} />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: '0 12px 12px 12px', padding: 16,
+          }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+              {PERIOD_LABELS[period]} · {division !== 'all' ? `${DIVISION_ICONS[division] || ''} ${division.toUpperCase()}` : 'All Divisions'} · {filteredProjects.length} jobs
+            </div>
+
+            {dept === 'sales'      && <SalesLeaderboard   members={members} projects={filteredProjects} currentId={currentProfile.id} />}
+            {dept === 'install'    && <InstallLeaderboard  members={members} projects={filteredProjects} currentId={currentProfile.id} />}
+            {dept === 'production' && <EmptyState label="Production metrics — coming soon (printer throughput, reprint rate, on-time rate)" />}
+            {dept === 'design'     && <EmptyState label="Design metrics — coming soon (proof approval rate, avg revisions, customer satisfaction)" />}
+            {dept === 'xp'         && <XPLeaderboard members={members} period={period} currentId={currentProfile.id} />}
+          </div>
+
+          <DivisionBreakdown projects={projects} />
+          <RecentAchievements badges={liveBadges} />
+        </div>
+
+        {/* Right: Shop Records + Team summary */}
+        <div style={{ position: 'sticky', top: 16 }}>
+          <ShopRecordsPanel records={shopRecords} />
+
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 14, padding: 20, marginTop: 16,
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Users size={16} style={{ color: 'var(--accent)' }} /> Team Overview
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[
+                { label: 'Members', value: members.length, color: 'var(--accent)' },
+                { label: 'Jobs (period)', value: filteredProjects.length, color: 'var(--cyan)' },
+                {
+                  label: 'Revenue',
+                  value: fM(filteredProjects.reduce((s, p) => s + (p.revenue || 0), 0)),
+                  color: '#22c07a',
+                },
+                {
+                  label: 'Avg GPM',
+                  value: (() => {
+                    const gpms = filteredProjects.filter(p => p.gpm).map(p => p.gpm!)
+                    return gpms.length ? fPct(gpms.reduce((a, b) => a + b, 0) / gpms.length) : '—'
+                  })(),
+                  color: '#f59e0b',
+                },
+              ].map(stat => (
+                <div key={stat.label} style={{
+                  background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'JetBrains Mono, monospace', color: stat.color }}>
+                    {stat.value}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
