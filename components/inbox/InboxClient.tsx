@@ -463,6 +463,27 @@ export default function InboxClient({ profile, customers, communications, conver
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', background: c.bg, fontFamily: '-apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif', fontSize: 14, color: c.text1 }}>
 
+      {/* ─ Demo Mode Banner ─────────────────────────────────────────── */}
+      {useDemo && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '5px 16px',
+          background: 'rgba(245,158,11,0.10)',
+          borderBottom: '1px solid rgba(245,158,11,0.22)',
+        }}>
+          <span style={{
+            fontSize: 9, fontWeight: 900, letterSpacing: '0.1em',
+            color: '#f59e0b', background: 'rgba(245,158,11,0.2)',
+            padding: '1px 7px', borderRadius: 4,
+          }}>
+            DEMO
+          </span>
+          <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 500 }}>
+            Sample data — connect Twilio and Resend to activate live conversations
+          </span>
+        </div>
+      )}
+
       {/* ─ AI Broker Stats Bar ─────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 16px', background: c.surface, borderBottom: `1px solid ${c.border}`, borderRadius: '10px 10px 0 0', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -526,7 +547,9 @@ export default function InboxClient({ profile, customers, communications, conver
             {filteredConvos.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                 <Bot size={32} style={{ color: c.text3, opacity: 0.3, marginBottom: 8 }} />
-                <div style={{ color: c.text3, fontSize: 13 }}>No conversations</div>
+                <div style={{ color: c.text3, fontSize: 13 }}>
+                  {search ? `No results for "${search}"` : 'No conversations'}
+                </div>
               </div>
             ) : filteredConvos.map(convo => {
               const isActive = selectedConvoId === convo.id

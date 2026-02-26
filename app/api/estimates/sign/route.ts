@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (e: any) {
+    console.error('[estimates/sign] POST error:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

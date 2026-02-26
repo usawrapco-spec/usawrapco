@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
@@ -26,6 +27,16 @@ function isBusinessHours(): boolean {
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
+
+    // Verify this request is genuinely from Twilio
+    const params = formDataToParams(formData)
+    if (!isTwilioWebhook(req, params)) {
+      return new NextResponse(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        { status: 403, headers: { 'Content-Type': 'text/xml' } }
+      )
+    }
+
     const from = formData.get('From') as string
     const to = formData.get('To') as string
     const body = formData.get('Body') as string || ''

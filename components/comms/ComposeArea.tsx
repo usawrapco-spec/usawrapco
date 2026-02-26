@@ -297,6 +297,7 @@ export function ComposeArea({
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
   const [showCc, setShowCc] = useState(false)
   const [showBcc, setShowBcc] = useState(false)
   const [ccEmails, setCcEmails] = useState<string[]>([])
@@ -368,6 +369,33 @@ export function ComposeArea({
   const sigHtml = profile.email_signature
     ? `<div><br></div><div data-sig="1" style="color:#9299b5;font-size:12px;border-top:1px solid #1a1d27;padding-top:6px;margin-top:4px;">-- <br>${profile.email_signature.replace(/\n/g, '<br>')}</div>`
     : ''
+
+  // ── Draft auto-save (SMS + Note only; email uses contenteditable) ─
+  const draftKey = `compose-draft-${conversation?.id || 'new'}`
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(draftKey)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.body && !body) setBody(parsed.body)
+      }
+    } catch {}
+  }, [draftKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tab === 'email') return
+    const t = setTimeout(() => {
+      try {
+        if (body.trim()) {
+          localStorage.setItem(draftKey, JSON.stringify({ body }))
+        } else {
+          localStorage.removeItem(draftKey)
+        }
+      } catch {}
+    }, 600)
+    return () => clearTimeout(t)
+  }, [body, tab, draftKey])
 
   // ── Initialize editor with signature on first render ──────────
   useEffect(() => {
@@ -446,6 +474,7 @@ export function ComposeArea({
     }
 
     setSending(true)
+    setSendError(null)
     try {
       await onSend({
         channel: tab,
@@ -467,6 +496,10 @@ export function ComposeArea({
       setShowCc(false)
       setShowBcc(false)
       resetEditor()
+      try { localStorage.removeItem(draftKey) } catch {}
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send — please try again'
+      setSendError(msg)
     } finally {
       setSending(false)
     }
@@ -1052,6 +1085,11 @@ export function ComposeArea({
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {sendError && (
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--red)' }}>
+                {sendError}
+              </span>
+            )}
             <span style={{ fontSize: 10, color: 'var(--text3)' }}>
               {'\u2318'}+Enter to send
             </span>

@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   Check, Lock, AlertCircle, ChevronDown, ChevronUp,
-  Shield, Trophy, User, Calendar, Flag,
+  Shield, Trophy, User, Calendar, Flag, FileText,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -187,6 +187,7 @@ export function RaceTrackTimeline({ project, onChecklistUpdate }: Props) {
   const [pinMode, setPinMode]           = useState(false)
   const [pinValue, setPinValue]         = useState('')
   const [adminUnlocked, setAdminUnlocked] = useState(false)
+  const [lockCountdown, setLockCountdown] = useState<number | null>(null)
   const [saving, setSaving]             = useState(false)
   const [localChecklist, setLocalChecklist] = useState<Record<string, any>>(
     (project.stage_checklist as Record<string, any>) || {}
@@ -199,13 +200,23 @@ export function RaceTrackTimeline({ project, onChecklistUpdate }: Props) {
   const active = getActiveCheckpoint(state)
   const isComplete = pct === 100
 
+  // Countdown timer — auto-locks admin after 2 minutes, warns at 30s
+  useEffect(() => {
+    if (!adminUnlocked) { setLockCountdown(null); return }
+    const TOTAL = 2 * 60
+    setLockCountdown(TOTAL)
+    const interval = setInterval(() => {
+      setLockCountdown(prev => (prev === null || prev <= 1) ? null : prev - 1)
+    }, 1000)
+    const timer = setTimeout(() => setAdminUnlocked(false), TOTAL * 1000)
+    return () => { clearInterval(interval); clearTimeout(timer) }
+  }, [adminUnlocked]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handlePinSubmit = useCallback(() => {
     if (pinValue === '1099') {
       setAdminUnlocked(true)
       setPinMode(false)
       setPinValue('')
-      // Auto-lock after 2 minutes
-      setTimeout(() => setAdminUnlocked(false), 2 * 60 * 1000)
     } else {
       setPinValue('')
     }
@@ -294,22 +305,50 @@ export function RaceTrackTimeline({ project, onChecklistUpdate }: Props) {
                 JOB CHECKLIST
               </span>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {/* PDF Export */}
+                <a
+                  href={`/api/pdf/job-packet/${project.id}`}
+                  title="Export job packet PDF"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '3px 7px', borderRadius: 5,
+                    fontSize: 9, fontWeight: 700, color: 'var(--text3)',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    textDecoration: 'none', letterSpacing: '0.05em',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--text1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.10)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                >
+                  <FileText size={10} /> PDF
+                </a>
                 {saving && (
                   <span style={{ fontSize: 9, color: 'var(--text3)' }}>Saving…</span>
                 )}
                 {adminUnlocked ? (
-                  <button
-                    onClick={() => setAdminUnlocked(false)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 3,
-                      background: 'rgba(34,192,122,0.15)', color: '#22c07a',
-                      border: '1px solid rgba(34,192,122,0.3)',
-                      borderRadius: 4, padding: '2px 6px', fontSize: 9, fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Shield size={9} /> ADMIN
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {lockCountdown !== null && lockCountdown <= 30 && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700,
+                        color: lockCountdown <= 10 ? '#f25a5a' : '#f59e0b',
+                        animation: lockCountdown <= 10 ? 'pulse 1s ease-in-out infinite' : 'none',
+                      }}>
+                        {lockCountdown}s
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setAdminUnlocked(false)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 3,
+                        background: 'rgba(34,192,122,0.15)', color: '#22c07a',
+                        border: '1px solid rgba(34,192,122,0.3)',
+                        borderRadius: 4, padding: '2px 6px', fontSize: 9, fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Shield size={9} /> ADMIN
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={() => setPinMode(v => !v)}

@@ -400,10 +400,15 @@ export function TopNav({ profile }: { profile: Profile }) {
             <Bell size={17} />
             {unreadCount > 0 && (
               <span style={{
-                position: 'absolute', top: 5, right: 5,
-                width: 7, height: 7, borderRadius: '50%',
-                background: 'var(--red)', border: '1.5px solid var(--surface)',
-              }} />
+                position: 'absolute', top: 3, right: 3,
+                background: 'var(--red)', color: '#fff',
+                borderRadius: 10, fontSize: 9, fontWeight: 800,
+                minWidth: 16, height: 16, padding: '0 4px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1.5px solid var(--bg)', lineHeight: 1,
+              }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             )}
           </button>
 

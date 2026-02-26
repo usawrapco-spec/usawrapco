@@ -8,7 +8,11 @@ import CommHubClient from '@/components/comms/CommHubClient'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: { customerId?: string }
+}) {
   const supabase = createClient()
   const {
     data: { user },
@@ -47,6 +51,15 @@ export default async function InboxPage() {
       .order('name'),
   ])
 
+  // If coming from a job card, pre-select the conversation for that customer
+  let initialConversationId: string | undefined
+  if (searchParams.customerId) {
+    const match = (conversations || []).find(
+      (c) => c.customer_id === searchParams.customerId
+    )
+    if (match) initialConversationId = match.id
+  }
+
   return (
     <div
       style={{
@@ -61,6 +74,7 @@ export default async function InboxPage() {
       <main style={{ flex: 1, overflow: 'hidden' }}>
         <CommHubClient
           profile={profile as Profile}
+          initialConversationId={initialConversationId}
           initialConversations={conversations || []}
           initialTemplates={templates || []}
           initialSmsTemplates={smsTemplates || []}

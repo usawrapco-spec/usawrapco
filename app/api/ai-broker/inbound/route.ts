@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || ''
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || ''
@@ -102,13 +103,25 @@ export async function POST(req: Request) {
 
   const contentType = req.headers.get('content-type') || ''
   if (contentType.includes('application/x-www-form-urlencoded')) {
-    // Twilio webhook
+    // Twilio webhook — verify signature before processing
     const formData = await req.formData()
+    const params = formDataToParams(formData)
+    if (!isTwilioWebhook(req, params)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     inboundFrom = (formData.get('From') as string) || ''
     inboundBody = (formData.get('Body') as string) || ''
     externalId = (formData.get('MessageSid') as string) || ''
     channel = 'sms'
   } else {
+    // JSON calls must include internal API secret or come from an authenticated session
+    const internalSecret = req.headers.get('x-internal-secret')
+    if (!internalSecret || internalSecret !== process.env.INTERNAL_API_SECRET) {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const json = await req.json()
     inboundFrom = json.from || json.phone || json.email || ''
     inboundBody = json.message || json.body || json.content || ''
@@ -393,9 +406,12 @@ RULES:
     if (aiResponse.should_send_quote) {
       fetch(new URL('/api/ai-broker/send-quote', req.url).toString(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': process.env.INTERNAL_API_SECRET || '',
+        },
         body: JSON.stringify({ conversation_id: conversation.id }),
-      }).catch(() => {})
+      }).catch(err => console.error('[VINYL] send-quote trigger failed:', err))
     }
 
     return NextResponse.json({

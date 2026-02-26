@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface SendBackModalProps {
@@ -36,6 +36,8 @@ export default function SendBackModal({ isOpen, onClose, projectId, orgId, userI
   const [detail, setDetail] = useState('')
   const [toStage, setToStage] = useState('')
   const [sending, setSending] = useState(false)
+  const [undoData, setUndoData] = useState<{ sendBackId: string; prevStage: string; countdown: number } | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const supabase = createClient()
 
   if (!isOpen) return null
@@ -50,8 +52,8 @@ export default function SendBackModal({ isOpen, onClose, projectId, orgId, userI
     if (!reason) return
     setSending(true)
 
-    // Insert send-back record
-    await supabase.from('send_backs').insert({
+    // Insert send-back record — capture the ID for potential undo
+    const { data: sbRecord } = await supabase.from('send_backs').insert({
       org_id: orgId,
       project_id: projectId,
       from_stage: fromStage,
@@ -59,7 +61,7 @@ export default function SendBackModal({ isOpen, onClose, projectId, orgId, userI
       reason,
       reason_detail: detail || null,
       sent_by: userId,
-    })
+    }).select('id').single()
 
     // Update project stage
     await supabase.from('projects').update({
@@ -79,10 +81,103 @@ export default function SendBackModal({ isOpen, onClose, projectId, orgId, userI
 
     setSending(false)
     onSendBack(targetStage)
-    onClose()
+
+    // Show undo state — auto-close after 10s
+    const UNDO_TIMEOUT = 10
+    setUndoData({ sendBackId: sbRecord?.id || '', prevStage: fromStage, countdown: UNDO_TIMEOUT })
     setReason('')
     setDetail('')
     setToStage('')
+  }
+
+  const handleUndo = async () => {
+    if (!undoData) return
+    if (undoTimerRef.current) clearInterval(undoTimerRef.current)
+
+    // Revert project stage
+    await supabase.from('projects').update({
+      pipe_stage: undoData.prevStage,
+      updated_at: new Date().toISOString(),
+    }).eq('id', projectId)
+
+    // Revert stage approval
+    await supabase.from('stage_approvals').upsert({
+      org_id: orgId,
+      project_id: projectId,
+      stage: fromStage,
+      status: 'pending',
+      notes: null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'project_id,stage' })
+
+    // Remove the send_back record
+    if (undoData.sendBackId) {
+      await supabase.from('send_backs').delete().eq('id', undoData.sendBackId)
+    }
+
+    // Notify parent of undo
+    onSendBack(undoData.prevStage)
+    setUndoData(null)
+    onClose()
+  }
+
+  // Countdown timer for undo state
+  useEffect(() => {
+    if (!undoData) return
+    undoTimerRef.current = setInterval(() => {
+      setUndoData(prev => {
+        if (!prev) return null
+        if (prev.countdown <= 1) {
+          if (undoTimerRef.current) clearInterval(undoTimerRef.current)
+          // Auto-close
+          setTimeout(() => onClose(), 0)
+          return null
+        }
+        return { ...prev, countdown: prev.countdown - 1 }
+      })
+    }, 1000)
+    return () => { if (undoTimerRef.current) clearInterval(undoTimerRef.current) }
+  }, [undoData?.sendBackId])
+
+  // Undo confirmation state — shown instead of normal modal content
+  if (undoData) {
+    return (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 16, padding: 32, maxWidth: 400, width: '90vw',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text1)' }}>Job Sent Back</div>
+          <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
+            Job moved back to <strong style={{ color: 'var(--text1)' }}>{STAGES.find(s => s.key === targetStage)?.label}</strong>.
+            <br />You have <strong style={{ color: undoData.countdown <= 3 ? '#ef4444' : 'var(--amber)' }}>{undoData.countdown}s</strong> to undo.
+          </div>
+          <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+            <button
+              onClick={handleUndo}
+              style={{
+                flex: 1, padding: '12px 20px', borderRadius: 10, fontWeight: 800,
+                fontSize: 14, cursor: 'pointer', border: '2px solid var(--amber)',
+                background: 'rgba(245,158,11,0.10)', color: 'var(--amber)',
+              }}
+            >
+              Undo
+            </button>
+            <button
+              onClick={() => { if (undoTimerRef.current) clearInterval(undoTimerRef.current); setUndoData(null); onClose() }}
+              style={{
+                flex: 1, padding: '12px 20px', borderRadius: 10, fontWeight: 700,
+                fontSize: 13, cursor: 'pointer', background: 'var(--surface2)',
+                border: '1px solid var(--border)', color: 'var(--text2)',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

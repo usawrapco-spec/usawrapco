@@ -326,20 +326,20 @@ export function MobileNav() {
           <LayoutDashboard size={22} style={{ color: isActive('/dashboard') ? 'var(--accent)' : 'var(--text3)' }} />
         </Link>
 
-        {/* Jobs */}
+        {/* Jobs / Pipeline */}
         <Link
-          href="/projects"
+          href="/pipeline"
           style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
             textDecoration: 'none', minHeight: 44,
           }}
         >
-          <Briefcase size={22} style={{ color: isActive('/projects') ? 'var(--accent)' : 'var(--text3)' }} />
+          <Briefcase size={22} style={{ color: isActive('/pipeline') ? 'var(--accent)' : 'var(--text3)' }} />
         </Link>
 
         {/* +New */}
         <Link
-          href="/projects/new"
+          href="/pipeline?new=true"
           style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
             textDecoration: 'none', minHeight: 44,

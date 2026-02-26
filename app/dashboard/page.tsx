@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     const admin = getSupabaseAdmin()
     const { data: profile } = await admin
         .from('profiles')
-        .select('*')
+        .select('id, name, email, role, org_id, avatar_url, xp_total, xp_level, badge_ids, commission_type, hourly_rate, phone, email_signature')
         .eq('id', user.id)
         .single()
 
@@ -27,11 +27,14 @@ export default async function DashboardPage() {
 
     const orgId = profile.org_id || ORG_ID
 
-    // Load projects with customer join
+    // Load projects — exclude large form_data JSON for list view
     let query = admin
         .from('projects')
         .select(`
-            *,
+            id, title, status, pipe_stage, revenue, profit, gpm,
+            install_date, created_at, updated_at, org_id,
+            agent_id, installer_id, customer_id,
+            vehicle_desc, send_backs,
             agent:agent_id(id, name, email),
             installer:installer_id(id, name, email),
             customer:customer_id(id, name, email)

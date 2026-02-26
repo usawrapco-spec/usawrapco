@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Search, Mail, MessageSquare, Plus, Star, Archive, Inbox, Send as SendIcon, CheckCircle, Phone, Mic } from 'lucide-react'
 import type { Profile } from '@/types'
 import type { Conversation, InboxLabel } from './types'
@@ -52,6 +53,7 @@ export function ConversationList({
   onArchive,
   counts,
 }: Props) {
+  const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null)
   const activeLabel = LABELS.find(l => l.key === filter) ? filter : 'inbox'
   const activeFilter = FILTERS.find(f => f.key === filter) ? filter : null
 
@@ -467,32 +469,61 @@ export function ConversationList({
                   ) : null}
                 </button>
 
-                {/* Archive button (on hover) */}
+                {/* Archive button (on hover) + inline confirm */}
                 {onArchive && !c.is_archived && (
-                  <button
-                    className="star-btn"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onArchive(c.id)
-                    }}
-                    title="Archive"
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      bottom: 10,
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 3,
-                      color: 'var(--text3)',
-                      opacity: 0,
-                      transition: 'opacity 0.1s',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Archive size={12} />
-                  </button>
+                  confirmArchiveId === c.id ? (
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        position: 'absolute', right: 8, bottom: 8,
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        background: 'var(--surface)', border: '1px solid var(--border)',
+                        borderRadius: 7, padding: '5px 8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)', zIndex: 10,
+                      }}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
+                        Archive?
+                      </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onArchive(c.id); setConfirmArchiveId(null) }}
+                        style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: 'var(--amber)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setConfirmArchiveId(null) }}
+                        style={{ fontSize: 10, color: 'var(--text2)', background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="star-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmArchiveId(c.id)
+                      }}
+                      title="Archive"
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        bottom: 10,
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 3,
+                        color: 'var(--text3)',
+                        opacity: 0,
+                        transition: 'opacity 0.1s',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Archive size={12} />
+                    </button>
+                  )
                 )}
               </div>
             )

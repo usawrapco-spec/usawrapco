@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       plant_country: r.PlantCountry || '',
     })
   } catch (e: any) {
+    console.error('[vehicles/decode-vin] GET error:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

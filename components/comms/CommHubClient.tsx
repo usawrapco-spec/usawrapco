@@ -396,7 +396,7 @@ export default function CommHubClient({
   const fetchConversations = useCallback(async () => {
     const { data } = await supabase
       .from('conversations')
-      .select('*')
+      .select('id, org_id, customer_id, project_id, contact_name, contact_email, contact_phone, status, assigned_to, unread_count, last_message_at, last_message_preview, last_message_channel, tags, is_starred, is_archived, labels, contact_role, is_decision_maker, created_at')
       .eq('org_id', orgId)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200)
@@ -404,15 +404,17 @@ export default function CommHubClient({
     setLoading(false)
   }, [supabase, orgId])
 
-  // ── Fetch messages ────────────────────────────────────────────
+  // ── Fetch messages (last 100; user can load more) ─────────────
   const fetchMessages = useCallback(async (convoId: string) => {
     setMessagesLoading(true)
     const { data } = await supabase
       .from('conversation_messages')
       .select('*')
       .eq('conversation_id', convoId)
-      .order('created_at', { ascending: true })
-    if (data) setMessages(data as ConversationMessage[])
+      .order('created_at', { ascending: false })
+      .limit(100)
+    // Reverse so oldest is at top
+    if (data) setMessages((data as ConversationMessage[]).reverse())
     setMessagesLoading(false)
     await supabase.from('conversations').update({ unread_count: 0 }).eq('id', convoId)
     setConversations(prev => prev.map(c => c.id === convoId ? { ...c, unread_count: 0 } : c))
@@ -421,7 +423,7 @@ export default function CommHubClient({
   // ── Fetch templates ───────────────────────────────────────────
   const fetchTemplates = useCallback(async () => {
     if (initialTemplates.length > 0) return
-    const { data } = await supabase.from('email_templates').select('*').eq('org_id', orgId)
+    const { data } = await supabase.from('email_templates').select('id, org_id, name, email_type, subject, body_html').eq('org_id', orgId)
     if (data) setTemplates(data as EmailTemplate[])
   }, [supabase, orgId, initialTemplates.length])
 
@@ -483,7 +485,25 @@ export default function CommHubClient({
             toastTimerRef.current = setTimeout(() => setToast(null), 5500)
           }
         }
-        fetchConversations()
+        // Update only the affected conversation locally — avoids full 200-row refetch on every message
+        setConversations(prev => {
+          const updated = prev.map(c => {
+            if (c.id !== newMsg.conversation_id) return c
+            return {
+              ...c,
+              last_message_at: newMsg.created_at,
+              last_message_preview: newMsg.body?.slice(0, 80) || c.last_message_preview,
+              last_message_channel: newMsg.channel || c.last_message_channel,
+              unread_count: newMsg.conversation_id === selectedId ? 0 : (c.unread_count || 0) + 1,
+            }
+          })
+          // Re-sort by last_message_at desc to maintain list order
+          return [...updated].sort((a, b) => {
+            if (!a.last_message_at) return 1
+            if (!b.last_message_at) return -1
+            return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          })
+        })
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_messages' }, (payload) => {
         const updated = payload.new as ConversationMessage

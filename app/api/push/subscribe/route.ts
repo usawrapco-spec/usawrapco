@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error
     return NextResponse.json({ ok: true })
   } catch (err: any) {
+    console.error('[push/subscribe] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
@@ -58,6 +59,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
+    console.error('[push/subscribe] DELETE error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

@@ -7,9 +7,9 @@ const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
 export async function GET(req: Request) {
   try {
-    // Verify cron secret for Vercel cron jobs
+    // Verify cron secret for Vercel cron jobs — fail-closed (required in all envs)
     const authHeader = req.headers.get('authorization')
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

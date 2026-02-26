@@ -9,7 +9,7 @@ import Link from 'next/link'
 import {
   Briefcase, Printer, Wrench, Search, CheckCircle,
   LayoutGrid, List, X, ChevronRight, Clock, DollarSign, User,
-  Filter, ArrowUpDown,
+  Filter, ArrowUpDown, Plus,
   type LucideIcon,
 } from 'lucide-react'
 // OnboardingLinkPanel moved to Sales dropdown in TopNav
@@ -310,8 +310,77 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
         </div>
       </div>
 
+      {/* ── KANBAN VIEW — welcome empty state (no jobs at all) ──────── */}
+      {viewMode === 'kanban' && projects.length === 0 && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', padding: '80px 24px', textAlign: 'center',
+          background: 'var(--card-bg)', borderRadius: 16,
+          border: '2px dashed var(--card-border)',
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: 20, marginBottom: 20,
+            background: 'rgba(79,127,255,0.08)', border: '2px dashed rgba(79,127,255,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Briefcase size={32} style={{ color: 'var(--accent)', opacity: 0.7 }} />
+          </div>
+          <div style={{
+            fontSize: 22, fontWeight: 900, color: 'var(--text1)', marginBottom: 8,
+            fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em',
+          }}>
+            No Jobs Yet
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 28, maxWidth: 300, lineHeight: 1.55 }}>
+            Create your first job to start tracking it through the pipeline.
+          </div>
+          <Link
+            href="/pipeline?new=true"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '11px 28px', borderRadius: 10,
+              background: 'var(--accent)', color: '#fff', textDecoration: 'none',
+              fontSize: 14, fontWeight: 700, transition: 'box-shadow 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(79,127,255,0.35)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+          >
+            <Plus size={16} /> Create First Job
+          </Link>
+        </div>
+      )}
+
+      {/* ── KANBAN VIEW — filter empty state (jobs exist, none match) ─ */}
+      {viewMode === 'kanban' && projects.length > 0 && filtered.length === 0 && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', padding: '60px 24px', textAlign: 'center',
+          background: 'var(--card-bg)', borderRadius: 16, border: '1px solid var(--card-border)',
+        }}>
+          <Search size={28} style={{ color: 'var(--text3)', marginBottom: 12, opacity: 0.45 }} />
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text2)', marginBottom: 6 }}>
+            No jobs match your filters
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
+            Try adjusting your search or filter criteria
+          </div>
+          <button
+            onClick={() => { setSearchQuery(''); setAgentFilter('all'); setInstallerFilter('all') }}
+            style={{
+              padding: '8px 20px', borderRadius: 8, border: '1px solid var(--card-border)',
+              background: 'var(--surface2)', color: 'var(--text2)', fontSize: 12,
+              fontWeight: 600, cursor: 'pointer', transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--card-border)'}
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
+
       {/* ── KANBAN VIEW ────────────────────────────────────────────── */}
-      {viewMode === 'kanban' && (
+      {viewMode === 'kanban' && filtered.length > 0 && (
         <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 16 }}>
           {STAGES.map(stage => {
             const stageJobs = filtered.filter(p => (p.pipe_stage || 'sales_in') === stage.key)

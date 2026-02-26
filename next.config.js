@@ -3,6 +3,17 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Optimize images from Supabase Storage and other sources
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'uqfqkvslxoucxmxxrobt.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
   // Include /sql directory in the serverless bundle for the migration runner
   outputFileTracingIncludes: {
     '/api/admin/migrate': ['./sql/**/*.sql'],

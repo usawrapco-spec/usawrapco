@@ -1,4 +1,5 @@
 import { execSync } from 'child_process'
+import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
@@ -10,6 +11,10 @@ interface Commit {
 }
 
 export async function GET() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
     // Get git log with full format
     const raw = execSync(

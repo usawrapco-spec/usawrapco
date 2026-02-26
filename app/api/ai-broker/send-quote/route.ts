@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 
+// Allow calls from authenticated users OR internal server-to-server with INTERNAL_API_SECRET
+
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || ''
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || ''
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || ''
@@ -28,6 +30,14 @@ async function sendSMS(to: string, body: string): Promise<string | null> {
 }
 
 export async function POST(req: Request) {
+  // Allow internal server-to-server calls or authenticated user calls
+  const internalSecret = req.headers.get('x-internal-secret')
+  if (!internalSecret || internalSecret !== process.env.INTERNAL_API_SECRET) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const admin = getSupabaseAdmin()
   const { conversation_id } = await req.json()
 
