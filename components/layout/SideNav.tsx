@@ -43,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: DollarSign,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
+      { href: '/sales',        label: 'Sales Hub',    icon: DollarSign },
       { href: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
       { href: '/pipeline',     label: 'Pipeline',     icon: Kanban },
       { href: '/estimates',    label: 'Estimates',    icon: FileText },

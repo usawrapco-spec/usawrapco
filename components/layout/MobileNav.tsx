@@ -94,6 +94,7 @@ const MORE_SECTIONS: MoreSection[] = [
   {
     label: 'Sales',
     items: [
+      { href: '/sales',        label: 'Sales Hub',    icon: DollarSign },
       { href: '/estimates',    label: 'Estimates',    icon: FileText },
       { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
       { href: '/invoices',     label: 'Invoices',     icon: Receipt },
