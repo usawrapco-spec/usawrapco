@@ -4,6 +4,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
+  const { pathname } = request.nextUrl
+  if (
+    pathname === '/login' ||
+    pathname === '/book' ||
+    pathname.startsWith('/api/')
+  ) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,8 +35,7 @@ export async function updateSession(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
-  const publicRoutes = ['/login', '/book', '/api/', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/start', '/design-intake/', '/configure/', '/pay/', '/presentation/', '/condition-report/']
+  const publicRoutes = ['/login', '/book', '/api/', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/start', '/design-intake/', '/configure/', '/pay/', '/presentation/', '/condition-report/', '/onboard/']
   const exactPublicRoutes = ['/roi']
   const isPublic = publicRoutes.some(r => pathname.startsWith(r)) || exactPublicRoutes.includes(pathname)
 
