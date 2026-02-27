@@ -60,6 +60,10 @@ Recent Payroll Runs:
 ${runs.slice(0, 5).map((r: any) => `  ${r.period_start}–${r.period_end}: $${(r.total_gross || 0).toFixed(2)} (${r.status}, ${r.employee_count} employees)`).join('\n') || '  None'}
 `.trim()
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ reply: 'AI Bookkeeper is not configured. Please add ANTHROPIC_API_KEY to your environment variables.' })
+  }
+
   const Anthropic = (await import('@anthropic-ai/sdk')).default
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

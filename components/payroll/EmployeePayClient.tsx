@@ -83,7 +83,7 @@ export default function EmployeePayClient({ profile, runId }: { profile: Profile
     if (emp.pay_type === 'hourly') return `${fmt(emp.hourly_rate)}/hr`
     if (emp.pay_type === 'salary') return `${fmt(emp.salary_amount)}/${emp.salary_period === 'annual' ? 'yr' : 'mo'}`
     if (emp.pay_type === 'commission') return `${emp.commission_rate}% comm.`
-    if (emp.pay_type === 'per_job') return `${fmt(emp.percent_job_rate || 0)}/job`
+    if (emp.pay_type === 'per_job') return `${emp.percent_job_rate || 0}% of rev`
     if (emp.pay_type === 'hybrid') return `${fmt(emp.hourly_rate)}/hr + ${emp.commission_rate}%`
     return '—'
   }

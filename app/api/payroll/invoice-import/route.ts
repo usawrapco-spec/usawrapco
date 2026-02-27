@@ -3,17 +3,41 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
-// Parse a simple CSV string into rows of objects
+// Parse a line of CSV respecting quoted fields (RFC 4180)
+function parseLine(line: string): string[] {
+  const fields: string[] = []
+  let i = 0
+  while (i <= line.length) {
+    if (i === line.length) { fields.push(''); break }
+    if (line[i] === '"') {
+      let field = ''
+      i++
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') { field += '"'; i += 2 }
+        else if (line[i] === '"') { i++; break }
+        else { field += line[i++] }
+      }
+      if (i < line.length && line[i] === ',') i++
+      fields.push(field)
+    } else {
+      const end = line.indexOf(',', i)
+      if (end === -1) { fields.push(line.slice(i).trim()); break }
+      fields.push(line.slice(i, end).trim())
+      i = end + 1
+    }
+  }
+  return fields
+}
+
+// Parse a CSV string into rows of objects
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return []
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"/, '').replace(/"$/, '').toLowerCase())
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase().trim())
   return lines.slice(1).map(line => {
-    const values = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || line.split(',')
+    const values = parseLine(line)
     const obj: Record<string, string> = {}
-    headers.forEach((h, i) => {
-      obj[h] = (values[i] || '').trim().replace(/^"/, '').replace(/"$/, '')
-    })
+    headers.forEach((h, i) => { obj[h] = (values[i] ?? '').trim() })
     return obj
   })
 }
@@ -72,11 +96,13 @@ export async function POST(req: NextRequest) {
 
     let invoiceDate: string | null = null
     if (dateStr) {
-      try { invoiceDate = new Date(dateStr).toISOString() } catch { invoiceDate = null }
+      const d = new Date(dateStr)
+      if (!isNaN(d.getTime())) invoiceDate = d.toISOString()
     }
     let dueDate: string | null = null
     if (dueStr) {
-      try { dueDate = new Date(dueStr).toISOString().split('T')[0] } catch { dueDate = null }
+      const d = new Date(dueStr)
+      if (!isNaN(d.getTime())) dueDate = d.toISOString().split('T')[0]
     }
 
     const statusLower = statusStr.toLowerCase()

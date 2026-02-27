@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Profile } from '@/types'
 import {
   Link2, Link2Off, RefreshCw, Upload, Check, AlertTriangle, Loader2,
@@ -31,6 +32,7 @@ interface SyncResult {
 }
 
 export default function QuickBooksClient({ profile }: { profile: Profile }) {
+  const router = useRouter()
   const [status, setStatus] = useState<QBStatus | null>(null)
   const [loadingStatus, setLoadingStatus] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -59,7 +61,7 @@ export default function QuickBooksClient({ profile }: { profile: Profile }) {
   }, [fetchStatus])
 
   const handleConnect = () => {
-    window.location.href = '/api/payroll/quickbooks/auth'
+    router.push('/api/payroll/quickbooks/auth')
   }
 
   const handleSync = async () => {

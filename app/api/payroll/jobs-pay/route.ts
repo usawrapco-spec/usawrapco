@@ -35,13 +35,17 @@ export async function GET(req: NextRequest) {
 
   // Get pay settings for all installers
   const installerIds = [...new Set((jobs || []).map((j: any) => j.installer_id).filter(Boolean))]
-  const { data: paySettings } = await admin
-    .from('employee_pay_settings')
-    .select('user_id, percent_job_rate, per_job_rate, pay_type')
-    .in('user_id', installerIds.length > 0 ? installerIds : ['00000000-0000-0000-0000-000000000000'])
+  let paySettings: any[] = []
+  if (installerIds.length > 0) {
+    const { data } = await admin
+      .from('employee_pay_settings')
+      .select('user_id, percent_job_rate, per_job_rate, pay_type')
+      .in('user_id', installerIds)
+    paySettings = data || []
+  }
 
   const settingsMap: Record<string, any> = {}
-  for (const s of paySettings || []) settingsMap[s.user_id] = s
+  for (const s of paySettings) settingsMap[s.user_id] = s
 
   // Calculate pay per job
   const enriched = (jobs || []).map((job: any) => {
