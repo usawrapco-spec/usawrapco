@@ -3,25 +3,6 @@ import webpush from 'web-push'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 
-// VAPID is configured lazily inside the handler, NOT at module level.
-// Calling setVapidDetails at module load breaks Next.js build-time page-data
-// collection because the route module is evaluated during the build.
-let vapidInitialized = false
-function ensureVapid(): boolean {
-  if (vapidInitialized) return true
-  const pub  = process.env.VAPID_PUBLIC_KEY?.replace(/=/g, '')
-  const priv = process.env.VAPID_PRIVATE_KEY?.replace(/=/g, '')
-  const mail = process.env.VAPID_EMAIL
-  if (!pub || !priv || !mail) return false
-  try {
-    webpush.setVapidDetails(`mailto:${mail}`, pub, priv)
-  } catch {
-    return false
-  }
-  vapidInitialized = true
-  return true
-}
-
 export interface PushPayload {
   title: string
   body: string
@@ -51,8 +32,16 @@ export async function POST(req: NextRequest) {
     sessionUserId = user.id
   }
 
-  if (!ensureVapid()) {
-    return NextResponse.json({ error: 'Push notifications not configured — set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL in .env.local' }, { status: 503 })
+  // VAPID setup — inside the handler so it never runs at build time
+  try {
+    webpush.setVapidDetails(
+      'mailto:fleet@usawrapco.com',
+      (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '').replace(/=/g, ''),
+      (process.env.VAPID_PRIVATE_KEY ?? '').replace(/=/g, '')
+    )
+  } catch (e) {
+    console.error('VAPID setup failed:', e)
+    return NextResponse.json({ error: 'Push not configured' }, { status: 503 })
   }
 
   try {
