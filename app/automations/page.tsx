@@ -31,11 +31,10 @@ export default async function AutomationsPage() {
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
-  // Fetch recent workflow runs
+  // Fetch recent workflow runs (no org_id filter since col may be null)
   const { data: runs } = await admin
     .from('workflow_runs')
     .select('*')
-    .eq('org_id', orgId)
     .order('created_at', { ascending: false })
     .limit(100)
 

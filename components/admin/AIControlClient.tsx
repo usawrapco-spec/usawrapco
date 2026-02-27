@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MODEL_REGISTRY, DEFAULT_PIPELINE, initializePipelineConfig } from '@/lib/services/ai-pipeline'
 import {
-  Activity, Zap, Clock, CheckCircle, AlertTriangle, Settings,
-  Play, Eye, ToggleLeft, ToggleRight, ChevronDown, X, Star,
-  TrendingUp, DollarSign, Cpu, Key
+  Activity, Zap, Clock, CheckCircle, AlertTriangle,
+  Play, ToggleLeft, ToggleRight, ChevronDown, X, Star,
+  TrendingUp, DollarSign, Cpu
 } from 'lucide-react'
 import type { Profile } from '@/types'
 
@@ -14,19 +13,53 @@ interface Props {
   profile: Profile
 }
 
+interface PipelineConfig {
+  id: string
+  pipeline_step: string
+  step_label: string
+  primary_model: string
+  fallback_model: string | null
+  enabled: boolean
+  cost_per_call: number
+  avg_latency_ms: number
+  success_rate: number
+  total_calls: number
+  org_id?: string
+}
+
+interface UsageLog {
+  id: string
+  pipeline_step: string
+  model_used: string
+  success: boolean
+  latency_ms: number
+  cost: number
+  cost_usd: number
+  created_at: string
+}
+
+const MODEL_OPTIONS = [
+  'claude-sonnet-4-6',
+  'claude-opus-4-6',
+  'flux-1.1-pro-ultra',
+  'flux-1.1-pro',
+  'flux-dev',
+  'flux-schnell',
+  'clarity-upscaler',
+  'real-esrgan',
+]
+
 export default function AIControlClient({ profile }: Props) {
   const supabase = createClient()
 
-  const [pipelineConfigs, setPipelineConfigs] = useState<any[]>([])
-  const [usageLogs, setUsageLogs] = useState<any[]>([])
+  const [pipelineConfigs, setPipelineConfigs] = useState<PipelineConfig[]>([])
+  const [usageLogs, setUsageLogs] = useState<UsageLog[]>([])
   const [todayStats, setTodayStats] = useState({ spend: 0, calls: 0, successRate: 0, avgLatency: 0 })
   const [monthStats, setMonthStats] = useState({ spend: 0, calls: 0 })
-  const [monthlyBudget, setMonthlyBudget] = useState(500)
+  const [monthlyBudget] = useState(500)
   const [selectedStep, setSelectedStep] = useState<string | null>(null)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [selectedModelType, setSelectedModelType] = useState<'primary' | 'fallback'>('primary')
-  const [testModalOpen, setTestModalOpen] = useState(false)
-  const [testStep, setTestStep] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -36,43 +69,55 @@ export default function AIControlClient({ profile }: Props) {
   async function loadData() {
     setLoading(true)
 
-    // Initialize pipeline config if not exists
-    await initializePipelineConfig(profile.org_id)
-
     // Load pipeline configs
     const { data: configs } = await supabase
       .from('ai_pipeline_config')
       .select('*')
-      .eq('org_id', profile.org_id)
-      .order('pipeline_step')
+      .order('created_at', { ascending: true })
 
-    if (configs) setPipelineConfigs(configs)
+    if (configs) {
+      // Map to expected shape, filling defaults
+      const mapped: PipelineConfig[] = configs.map((c: any) => ({
+        id: c.id,
+        pipeline_step: c.pipeline_step || c.action_name || '',
+        step_label: c.step_label || c.action_name || '',
+        primary_model: c.primary_model || 'claude-sonnet-4-6',
+        fallback_model: c.fallback_model || null,
+        enabled: c.enabled ?? true,
+        cost_per_call: c.cost_per_call || 0,
+        avg_latency_ms: c.avg_latency_ms || 0,
+        success_rate: c.success_rate || 100,
+        total_calls: c.total_calls || 0,
+        org_id: c.org_id,
+      }))
+      setPipelineConfigs(mapped)
+    }
 
     // Load usage logs (last 100)
     const { data: logs } = await supabase
       .from('ai_usage_log')
       .select('*')
-      .eq('org_id', profile.org_id)
       .order('created_at', { ascending: false })
       .limit(100)
 
-    if (logs) setUsageLogs(logs)
+    if (logs) setUsageLogs(logs as UsageLog[])
 
     // Calculate stats
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const todayLogs = logs?.filter(l => new Date(l.created_at) >= todayStart) || []
-    const monthLogs = logs?.filter(l => new Date(l.created_at) >= monthStart) || []
+    const allLogs = (logs || []) as any[]
+    const todayLogs = allLogs.filter(l => new Date(l.created_at) >= todayStart)
+    const monthLogs = allLogs.filter(l => new Date(l.created_at) >= monthStart)
 
-    const todaySpend = todayLogs.reduce((s, l) => s + (l.cost || 0), 0)
-    const monthSpend = monthLogs.reduce((s, l) => s + (l.cost || 0), 0)
+    const todaySpend = todayLogs.reduce((s: number, l: any) => s + (l.cost || l.cost_usd || 0), 0)
+    const monthSpend = monthLogs.reduce((s: number, l: any) => s + (l.cost || l.cost_usd || 0), 0)
     const todayCalls = todayLogs.length
     const monthCalls = monthLogs.length
-    const successCount = todayLogs.filter(l => l.success).length
+    const successCount = todayLogs.filter((l: any) => l.success !== false).length
     const avgLatency = todayLogs.length > 0
-      ? todayLogs.reduce((s, l) => s + (l.latency_ms || 0), 0) / todayLogs.length
+      ? todayLogs.reduce((s: number, l: any) => s + (l.latency_ms || 0), 0) / todayLogs.length
       : 0
 
     setTodayStats({
@@ -83,47 +128,36 @@ export default function AIControlClient({ profile }: Props) {
     })
 
     setMonthStats({ spend: monthSpend, calls: monthCalls })
-
     setLoading(false)
-  }
-
-  function getStatusBadge(config: any) {
-    const recentLogs = usageLogs.filter(l => l.pipeline_step === config.pipeline_step).slice(0, 10)
-    if (recentLogs.length === 0) return { status: 'idle', color: '#9299b5', label: 'Idle' }
-    if (!config.enabled) return { status: 'disabled', color: '#5a6080', label: 'Disabled' }
-
-    const failCount = recentLogs.filter(l => !l.success).length
-    const usingFallback = recentLogs[0]?.model_used === config.fallback_model
-
-    if (failCount === 0) return { status: 'active', color: '#22c07a', label: '🟢 Active' }
-    if (usingFallback) return { status: 'degraded', color: '#f59e0b', label: '🟡 Degraded' }
-    if (failCount > 5) return { status: 'down', color: '#f25a5a', label: '🔴 Down' }
-    return { status: 'active', color: '#22c07a', label: '🟢 Active' }
   }
 
   async function updateModel(step: string, modelType: 'primary' | 'fallback', newModel: string) {
     const field = modelType === 'primary' ? 'primary_model' : 'fallback_model'
+    const config = pipelineConfigs.find(c => c.pipeline_step === step)
+    if (!config) return
+
     await supabase
       .from('ai_pipeline_config')
       .update({ [field]: newModel })
-      .eq('org_id', profile.org_id)
-      .eq('pipeline_step', step)
+      .eq('id', config.id)
 
     loadData()
     setShowModelSelector(false)
   }
 
   async function toggleEnabled(step: string, enabled: boolean) {
+    const config = pipelineConfigs.find(c => c.pipeline_step === step)
+    if (!config) return
+
     await supabase
       .from('ai_pipeline_config')
       .update({ enabled })
-      .eq('org_id', profile.org_id)
-      .eq('pipeline_step', step)
+      .eq('id', config.id)
 
-    loadData()
+    setPipelineConfigs(prev => prev.map(c => c.pipeline_step === step ? { ...c, enabled } : c))
   }
 
-  const budgetPercent = (monthStats.spend / monthlyBudget) * 100
+  const budgetPercent = monthlyBudget > 0 ? (monthStats.spend / monthlyBudget) * 100 : 0
 
   if (loading) {
     return (
@@ -158,7 +192,7 @@ export default function AIControlClient({ profile }: Props) {
       <div style={{ background: budgetPercent > 80 ? 'rgba(242,90,90,0.1)' : 'rgba(79,127,255,0.1)', border: `1px solid ${budgetPercent > 80 ? '#f25a5a' : '#4f7fff'}`, borderRadius: 12, padding: 16, marginBottom: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: budgetPercent > 80 ? '#f25a5a' : '#4f7fff' }}>
-            {budgetPercent > 80 ? '⚠️ ' : ''}Monthly Budget: ${monthlyBudget}
+            {budgetPercent > 80 ? 'Budget Alert — ' : ''}Monthly Budget: ${monthlyBudget}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
             ${monthStats.spend.toFixed(2)} / ${monthlyBudget} used
@@ -180,36 +214,38 @@ export default function AIControlClient({ profile }: Props) {
           </p>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th style={thStyle}>Step</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Primary Model</th>
-                <th style={thStyle}>Fallback</th>
-                <th style={thStyle}>Cost/Call</th>
-                <th style={thStyle}>Avg Latency</th>
-                <th style={thStyle}>Success%</th>
-                <th style={thStyle}>Total Calls</th>
-                <th style={thStyle}>Month Cost</th>
-                <th style={thStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pipelineConfigs.map((config) => {
-                const status = getStatusBadge(config)
-                const monthLogs = usageLogs.filter(l => l.pipeline_step === config.pipeline_step && new Date(l.created_at) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-                const monthCost = monthLogs.reduce((s, l) => s + (l.cost || 0), 0)
-
-                return (
+        {pipelineConfigs.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+            <Cpu size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
+            <p style={{ fontSize: 14 }}>No pipeline configurations found</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <th style={thStyle}>Step</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Primary Model</th>
+                  <th style={thStyle}>Fallback</th>
+                  <th style={thStyle}>Cost/Call</th>
+                  <th style={thStyle}>Avg Latency</th>
+                  <th style={thStyle}>Success%</th>
+                  <th style={thStyle}>Total Calls</th>
+                  <th style={thStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pipelineConfigs.map((config) => (
                   <tr key={config.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 600, color: 'var(--text1)', fontSize: 13 }}>{config.step_label}</div>
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{config.pipeline_step}</div>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: status.color }}>{status.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: config.enabled ? '#22c07a' : '#5a6080' }}>
+                        {config.enabled ? 'Active' : 'Disabled'}
+                      </span>
                     </td>
                     <td style={tdStyle}>
                       <button
@@ -235,7 +271,7 @@ export default function AIControlClient({ profile }: Props) {
                     </td>
                     <td style={tdStyle}>
                       <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: 'var(--text1)' }}>
-                        ${config.cost_per_call?.toFixed(4) || '0.0000'}
+                        ${(config.cost_per_call || 0).toFixed(4)}
                       </span>
                     </td>
                     <td style={tdStyle}>
@@ -244,8 +280,8 @@ export default function AIControlClient({ profile }: Props) {
                       </span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: config.success_rate >= 95 ? '#22c07a' : '#f59e0b' }}>
-                        {config.success_rate?.toFixed(0) || 100}%
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: (config.success_rate || 100) >= 95 ? '#22c07a' : '#f59e0b' }}>
+                        {(config.success_rate || 100).toFixed(0)}%
                       </span>
                     </td>
                     <td style={tdStyle}>
@@ -254,34 +290,20 @@ export default function AIControlClient({ profile }: Props) {
                       </span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: 'var(--text1)' }}>
-                        ${monthCost.toFixed(2)}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => { setTestStep(config.pipeline_step); setTestModalOpen(true) }}
-                          style={actionButtonStyle}
-                          title="Test"
-                        >
-                          <Play size={12} />
-                        </button>
-                        <button
-                          onClick={() => toggleEnabled(config.pipeline_step, !config.enabled)}
-                          style={actionButtonStyle}
-                          title={config.enabled ? 'Disable' : 'Enable'}
-                        >
-                          {config.enabled ? <ToggleRight size={14} color="#22c07a" /> : <ToggleLeft size={14} color="#5a6080" />}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => toggleEnabled(config.pipeline_step, !config.enabled)}
+                        style={actionButtonStyle}
+                        title={config.enabled ? 'Disable' : 'Enable'}
+                      >
+                        {config.enabled ? <ToggleRight size={14} color="#22c07a" /> : <ToggleLeft size={14} color="#5a6080" />}
+                      </button>
                     </td>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Usage Analytics */}
@@ -290,50 +312,59 @@ export default function AIControlClient({ profile }: Props) {
           Recent AI Usage
         </h2>
 
-        <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--surface)' }}>
-                <th style={thStyle}>Time</th>
-                <th style={thStyle}>Step</th>
-                <th style={thStyle}>Model</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Latency</th>
-                <th style={thStyle}>Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usageLogs.slice(0, 50).map((log) => (
-                <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                      {new Date(log.created_at).toLocaleTimeString()}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>{log.pipeline_step}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono' }}>{log.model_used}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    {log.success ? (
-                      <span style={{ fontSize: 11, color: '#22c07a' }}>✓ Success</span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: '#f25a5a' }}>✗ Failed</span>
-                    )}
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text2)' }}>{log.latency_ms}ms</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text1)' }}>${log.cost?.toFixed(4) || '0.0000'}</span>
-                  </td>
+        {usageLogs.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
+            <Activity size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
+            <p style={{ fontSize: 14 }}>No usage logs yet</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--surface)' }}>
+                  <th style={thStyle}>Time</th>
+                  <th style={thStyle}>Step / Action</th>
+                  <th style={thStyle}>Model</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Latency</th>
+                  <th style={thStyle}>Cost</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {usageLogs.slice(0, 50).map((log: any) => (
+                  <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                        {new Date(log.created_at).toLocaleTimeString()}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>{log.pipeline_step || log.action || '-'}</span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono' }}>{log.model_used || log.model || '-'}</span>
+                    </td>
+                    <td style={tdStyle}>
+                      {log.success !== false ? (
+                        <span style={{ fontSize: 11, color: '#22c07a' }}>Success</span>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#f25a5a' }}>Failed</span>
+                      )}
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text2)' }}>{log.latency_ms || 0}ms</span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text1)' }}>
+                        ${((log.cost || log.cost_usd || 0)).toFixed(4)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Model Selector Modal */}
@@ -350,53 +381,19 @@ export default function AIControlClient({ profile }: Props) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, maxHeight: '60vh', overflowY: 'auto' }}>
-              {Object.entries(MODEL_REGISTRY)
-                .filter(([_, info]) => {
-                  const config = pipelineConfigs.find(c => c.pipeline_step === selectedStep)
-                  const defaultConfig = DEFAULT_PIPELINE[selectedStep]
-                  if (!config && !defaultConfig) return false
-                  const category = info.category
-                  const stepCategory = category
-                  // Show models matching the step category
-                  if (selectedStep === 'concept_generation') return category === 'image_generation'
-                  if (selectedStep === 'upscaling') return category === 'upscaling'
-                  if (selectedStep === 'depth_mapping') return category === 'depth_mapping'
-                  if (selectedStep === 'brand_analysis') return category === 'brand_analysis'
-                  if (selectedStep === 'background_removal') return category === 'background_removal'
-                  if (selectedStep === 'vectorization') return category === 'vectorization'
-                  return false
-                })
-                .map(([modelKey, modelInfo]) => (
-                  <div key={modelKey} style={{ background: 'var(--surface2)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', marginBottom: 2 }}>{modelKey}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase' }}>{modelInfo.provider}</div>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
-                      Cost: ${modelInfo.costPerImage?.toFixed(4) || modelInfo.costPer1kTokens?.toFixed(4) || '0.0000'}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                      <div>
-                        <div style={{ fontSize: 9, color: 'var(--text3)' }}>Quality</div>
-                        <div style={{ display: 'flex', gap: 1 }}>
-                          {Array(modelInfo.quality).fill(null).map((_, i) => <Star key={i} size={11} color="#f59e0b" fill="#f59e0b" />)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 9, color: 'var(--text3)' }}>Speed</div>
-                        <div style={{ display: 'flex', gap: 1 }}>
-                          {Array(modelInfo.speed).fill(null).map((_, i) => <Zap key={i} size={11} color="#22d3ee" fill="#22d3ee" />)}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => updateModel(selectedStep, selectedModelType, modelKey)}
-                      style={{ width: '100%', padding: '6px 12px', background: '#4f7fff', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      Set as {selectedModelType === 'primary' ? 'Primary' : 'Fallback'}
-                    </button>
+              {MODEL_OPTIONS.map((modelKey) => (
+                <div key={modelKey} style={{ background: 'var(--surface2)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', marginBottom: 2 }}>{modelKey}</div>
                   </div>
-                ))}
+                  <button
+                    onClick={() => updateModel(selectedStep, selectedModelType, modelKey)}
+                    style={{ width: '100%', padding: '6px 12px', background: '#4f7fff', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Set as {selectedModelType === 'primary' ? 'Primary' : 'Fallback'}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -405,7 +402,7 @@ export default function AIControlClient({ profile }: Props) {
   )
 }
 
-function MetricCard({ icon, label, value, color }: any) {
+function MetricCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
