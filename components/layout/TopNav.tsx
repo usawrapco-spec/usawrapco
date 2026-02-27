@@ -270,9 +270,11 @@ export function TopNav({ profile }: { profile: Profile }) {
   const unreadCount = notifications.filter(n => !n.read).length
 
   function isActiveLink(href: string) {
-    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
-    if (href === '/jobs') return pathname === '/jobs' || pathname.startsWith('/jobs/') || pathname.startsWith('/projects/')
-    return pathname === href || pathname.startsWith(href + '/')
+    if (!pathname) return false
+    const p = pathname
+    if (href === '/dashboard') return p === '/dashboard' || p === '/'
+    if (href === '/jobs') return p === '/jobs' || p.startsWith('/jobs/') || p.startsWith('/projects/')
+    return p === href || p.startsWith(href + '/')
   }
 
   return (

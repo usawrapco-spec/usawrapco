@@ -77,7 +77,7 @@ const COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boo
   walk_in:  { base: 0.045, max: 0.075, bonuses: true },
 }
 
-type TabKey = 'items' | 'design' | 'production' | 'install' | 'notes' | 'activity'
+type TabKey = 'sales' | 'items' | 'design' | 'production' | 'install' | 'notes' | 'activity'
 
 // ─── Style Constants ────────────────────────────────────────────────────────────
 
@@ -211,6 +211,12 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
   const [prodMgrId, setProdMgrId] = useState(fd.prodMgrId || '')
   const [projMgrId, setProjMgrId] = useState(fd.projMgrId || '')
   const [leadType, setLeadType] = useState<string>(fd.leadType || 'inbound')
+  const [clientName, setClientName] = useState(fd.client || fd.clientName || '')
+  const [bizName, setBizName] = useState(fd.bizName || '')
+  const [phone, setPhone] = useState(fd.phone || fd.clientPhone || '')
+  const [clientEmail, setClientEmail] = useState(fd.email || fd.clientEmail || '')
+  const [vehicleName, setVehicleName] = useState(fd.vehicle || project.vehicle_desc || '')
+  const [vehicleColor, setVehicleColor] = useState(fd.vehicleColor || '')
   const [loading, setLoading] = useState(true)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
@@ -288,6 +294,14 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
         subtotal,
         taxAmount,
         total,
+        client: clientName,
+        clientName,
+        bizName,
+        phone,
+        email: clientEmail,
+        clientEmail,
+        vehicle: vehicleName,
+        vehicleColor,
       }
       await supabase.from('projects').update({
         title,
@@ -295,6 +309,7 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
         due_date: dueDate || null,
         agent_id: salesRepId || null,
         revenue: total || null,
+        vehicle_desc: vehicleName || null,
         form_data: formData,
         updated_at: new Date().toISOString(),
       }).eq('id', project.id)
@@ -772,6 +787,7 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
         marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
+          { key: 'sales' as TabKey, label: 'Sales' },
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
           { key: 'design' as TabKey, label: 'Design' },
           { key: 'production' as TabKey, label: 'Production' },
@@ -813,6 +829,67 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* TAB CONTENT                                                      */}
       {/* ══════════════════════════════════════════════════════════════════ */}
+
+      {activeTab === 'sales' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 16 }}>
+          <div style={cardStyle}>
+            <div style={sectionPad}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+                Client Information
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <label style={fieldLabelStyle}>Client Name</label>
+                  <input value={clientName} onChange={e => setClientName(e.target.value)} disabled={!canWrite} placeholder="John Smith" style={fieldInputStyle} />
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Business Name</label>
+                  <input value={bizName} onChange={e => setBizName(e.target.value)} disabled={!canWrite} placeholder="Smith Plumbing LLC" style={fieldInputStyle} />
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Phone</label>
+                  <input value={phone} onChange={e => setPhone(e.target.value)} disabled={!canWrite} placeholder="(555) 000-0000" style={fieldInputStyle} />
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Email</label>
+                  <input value={clientEmail} onChange={e => setClientEmail(e.target.value)} disabled={!canWrite} placeholder="client@email.com" style={fieldInputStyle} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={cardStyle}>
+            <div style={sectionPad}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+                Vehicle &amp; Deal
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <label style={fieldLabelStyle}>Vehicle</label>
+                  <input value={vehicleName} onChange={e => setVehicleName(e.target.value)} disabled={!canWrite} placeholder="2024 Ford Transit 350" style={fieldInputStyle} />
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Vehicle Color</label>
+                  <input value={vehicleColor} onChange={e => setVehicleColor(e.target.value)} disabled={!canWrite} placeholder="White" style={fieldInputStyle} />
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Lead Source</label>
+                  <select value={leadType} onChange={e => setLeadType(e.target.value)} disabled={!canWrite} style={fieldSelectStyle}>
+                    <option value="inbound">Inbound (4.5–7.5%)</option>
+                    <option value="outbound">Outbound (7–10%)</option>
+                    <option value="presold">Pre-Sold (5% flat)</option>
+                    <option value="referral">Referral (4.5–7.5%)</option>
+                    <option value="walk_in">Walk-In (4.5–7.5%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={fieldLabelStyle}>Sales Notes</label>
+                  <textarea value={notes} onChange={e => setNotes(e.target.value)} disabled={!canWrite} placeholder="Internal sales notes..." rows={3} style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 64 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'items' && (
         <div>

@@ -25,8 +25,10 @@ export default function PortalShell({
   const base = `/portal/${ctx.token}`
 
   function isActive(href: string) {
-    if (href === '') return pathname === base || pathname === base + '/'
-    return pathname.startsWith(base + href)
+    if (!pathname) return false
+    const p = pathname
+    if (href === '') return p === base || p === base + '/'
+    return p.startsWith(base + href)
   }
 
   const firstName = ctx.customer.name?.split(' ')[0] || 'there'
