@@ -57,6 +57,12 @@ import {
   FileInput,
   Layers,
   CreditCard,
+  Anchor,
+  Fish,
+  MapPin,
+  Navigation,
+  Radio,
+  Compass,
 } from 'lucide-react'
 
 /* ─── Quick create items for the bottom sheet ─────────────────────── */
@@ -170,6 +176,20 @@ const MORE_SECTIONS: MoreSection[] = [
       { href: '/analytics', label: 'Analytics',  icon: BarChart3 },
       { href: '/reports',   label: 'Reports',    icon: BarChart3 },
       { href: '/payroll',   label: 'Payroll',    icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Marine / Fishing',
+    items: [
+      { href: '/fishing',             label: 'Dashboard',  icon: Anchor },
+      { href: '/fishing/catch-log',   label: 'Catch Log',  icon: Fish },
+      { href: '/fishing/spots',       label: 'Spots',      icon: MapPin },
+      { href: '/fishing/tides',       label: 'Tides',      icon: Waves },
+      { href: '/fishing/marinas',     label: 'Marinas',    icon: Navigation },
+      { href: '/fishing/boating',     label: 'Boating',    icon: Compass },
+      { href: '/fishing/vhf',         label: 'VHF',        icon: Radio },
+      { href: '/fishing/regulations', label: 'Regs',       icon: BookOpen },
+      { href: '/fishing/reports',     label: 'Reports',    icon: Fish },
     ],
   },
   {
