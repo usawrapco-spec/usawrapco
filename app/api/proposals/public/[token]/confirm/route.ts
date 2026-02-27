@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     // Fetch proposal + estimate
     const { data: proposal } = await admin
       .from('proposals')
-      .select('*, estimate:estimates(id, org_id, customer_id, sales_rep_id, title, line_items, subtotal, discount, discount_percent, tax_rate, tax_percent, tax_amount, total, notes, contact_id, production_manager_id)')
+      .select('*, estimate:estimates(id, org_id, customer_id, sales_rep_id, title, line_items, subtotal, discount_percent, tax_percent, tax_amount, total, notes)')
       .eq('public_token', params.token)
       .single()
 
@@ -50,14 +50,9 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
           org_id: estimate.org_id || ORG_ID,
           estimate_id: estimate.id,
           customer_id: estimate.customer_id,
-          contact_id: estimate.contact_id || null,
           sales_rep_id: estimate.sales_rep_id,
-          production_manager_id: estimate.production_manager_id || null,
           line_items: estimate.line_items || [],
           subtotal: total_amount || estimate.subtotal || 0,
-          discount: estimate.discount || 0,
-          discount_percent: estimate.discount_percent || 0,
-          tax_rate: estimate.tax_rate || 0,
           tax_percent: estimate.tax_percent || 0,
           tax_amount: estimate.tax_amount || 0,
           total: total_amount || estimate.total || 0,
