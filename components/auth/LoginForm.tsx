@@ -74,8 +74,7 @@ export function LoginForm({ errorMessage }: { errorMessage?: string }) {
       setLoading(false)
       return
     }
-    router.push('/dashboard')
-    router.refresh()
+    router.replace('/dashboard')
   }
 
   // ── Email Sign Up ─────────────────────────────────────────
@@ -108,8 +107,7 @@ export function LoginForm({ errorMessage }: { errorMessage?: string }) {
 
     // If a session was returned immediately, email confirmation is disabled — go straight in
     if (data.session) {
-      router.push('/dashboard')
-      router.refresh()
+      router.replace('/dashboard')
       return
     }
 

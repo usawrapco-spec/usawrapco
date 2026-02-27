@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { isAdminRole } from '@/types'
 
 const HEALTH_URL = 'https://uqfqkvslxoucxmxxrobt.supabase.co/functions/v1/health-check'
 const POLL_INTERVAL = 5 * 60 * 1000   // 5 minutes
@@ -13,8 +15,25 @@ interface HealthResponse {
 }
 
 export default function SystemHealthBanner() {
+  const [isAdmin, setIsAdmin] = useState(false)
   const [issues, setIssues] = useState<string[]>([])
   const [dismissed, setDismissed] = useState(false)
+
+  // Gate: only render for admin/owner
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data && isAdminRole(data.role)) setIsAdmin(true)
+        })
+    })
+  }, [])
 
   const check = useCallback(async () => {
     try {
@@ -59,8 +78,8 @@ export default function SystemHealthBanner() {
     }, DISMISS_DURATION)
   }
 
-  // Don't render if healthy or temporarily dismissed
-  if (issues.length === 0 || dismissed) return null
+  // Don't render for non-admin users, if healthy, or temporarily dismissed
+  if (!isAdmin || issues.length === 0 || dismissed) return null
 
   return (
     <div style={{

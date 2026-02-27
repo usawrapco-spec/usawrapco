@@ -5,10 +5,13 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const { pathname } = request.nextUrl
+
+  // These paths must NEVER be redirected — early return unconditionally
   if (
-    pathname === '/login' ||
-    pathname === '/book' ||
-    pathname.startsWith('/api/')
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/') ||
+    pathname === '/'
   ) {
     return supabaseResponse
   }
@@ -34,7 +37,16 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (err) {
+    // If session verification fails for any reason, allow through without redirect
+    // Prevents redirect loops when Supabase is unreachable or tokens are malformed
+    console.error('[middleware] session check error:', err)
+    return supabaseResponse
+  }
   const publicRoutes = ['/login', '/book', '/api/', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/start', '/design-intake/', '/configure/', '/pay/', '/presentation/', '/condition-report/', '/onboard/']
   const exactPublicRoutes = ['/roi']
   const isPublic = publicRoutes.some(r => pathname.startsWith(r)) || exactPublicRoutes.includes(pathname)
