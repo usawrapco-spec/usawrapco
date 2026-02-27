@@ -464,7 +464,7 @@ export default function PayrollDashboardClient({ profile }: { profile: Profile }
                                           <td style={{ padding: '6px 10px', textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', color: job.gpm >= 73 ? 'var(--green)' : job.gpm >= 65 ? 'var(--amber)' : 'var(--red)' }}>
                                             {job.gpm.toFixed(1)}%
                                           </td>
-                                          <td style={{ padding: '6px 10px', fontSize: 11, color: 'var(--text2)', textTransform: 'capitalize' }}>{job.source.replace(/_/g, ' ')}</td>
+                                          <td style={{ padding: '6px 10px', fontSize: 11, color: 'var(--text2)', textTransform: 'capitalize' }}>{(job.source || '').replace(/_/g, ' ')}</td>
                                           <td style={{ padding: '6px 10px', textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--cyan)' }}>{fmt(job.commission)}</td>
                                         </tr>
                                       ))}
@@ -551,7 +551,7 @@ export default function PayrollDashboardClient({ profile }: { profile: Profile }
                               <div style={{ fontSize: 11, color: 'var(--text3)' }}>{inst.email}</div>
                             </td>
                             <td style={{ padding: 12, fontSize: 12, color: 'var(--text2)', textTransform: 'capitalize' }}>
-                              {inst.role.replace(/_/g, ' ')}
+                              {(inst.role || '').replace(/_/g, ' ')}
                             </td>
                             <td style={{ padding: 12, textAlign: 'right', fontSize: 15, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>
                               {inst.total_jobs}

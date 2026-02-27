@@ -139,12 +139,12 @@ export default function EmployeePayClient({ profile, runId }: { profile: Profile
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#2a2d3a', color: 'var(--text2)', fontWeight: 600 }}>
-                        {emp.role.replace(/_/g, ' ')}
+                        {(emp.role || '').replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       {emp.has_settings ? (
-                        <span style={{ fontSize: 12, color: 'var(--text1)', textTransform: 'capitalize' }}>{emp.pay_type.replace(/_/g, ' ')}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text1)', textTransform: 'capitalize' }}>{(emp.pay_type || '').replace(/_/g, ' ')}</span>
                       ) : (
                         <span style={{ fontSize: 11, color: 'var(--amber)' }}>Not configured</span>
                       )}
@@ -198,7 +198,7 @@ export default function EmployeePayClient({ profile, runId }: { profile: Profile
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text1)' }}>{selected.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{selected.role.replace(/_/g, ' ')} · {selected.worker_type}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{(selected.role || '').replace(/_/g, ' ')} · {selected.worker_type}</div>
                 </div>
               </div>
               {!editing && (

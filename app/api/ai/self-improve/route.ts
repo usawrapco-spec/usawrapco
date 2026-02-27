@@ -30,11 +30,11 @@ export async function POST(req: Request) {
   const totalConversations = conversations.length
   const escalatedCount = conversations.filter((c: any) => c.status === 'escalated').length
   const convertedCount = conversations.filter((c: any) => c.status === 'converted').length
-  const aiMessages = messages.filter((m: any) => m.role === 'ai')
+  const aiMessages = messages.filter((m: any) => m.direction === 'outbound' && (m.metadata as any)?.ai_confidence)
   const avgConfidence = aiMessages.length > 0
-    ? aiMessages.reduce((sum: number, m: any) => sum + (m.ai_confidence || 0), 0) / aiMessages.length
+    ? aiMessages.reduce((sum: number, m: any) => sum + ((m.metadata as any)?.ai_confidence || 0), 0) / aiMessages.length
     : 0
-  const totalCost = aiMessages.reduce((sum: number, m: any) => sum + (m.cost_cents || 0), 0) / 100
+  const totalCost = aiMessages.reduce((sum: number, m: any) => sum + ((m.metadata as any)?.cost_cents || 0), 0) / 100
 
   const report = {
     period: `${oneWeekAgo.slice(0, 10)} to ${new Date().toISOString().slice(0, 10)}`,

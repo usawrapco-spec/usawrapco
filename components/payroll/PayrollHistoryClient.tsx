@@ -246,7 +246,7 @@ export default function PayrollHistoryClient({ profile }: { profile: Profile }) 
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                                     <div>
                                       <span style={{ fontWeight: 600, color: 'var(--text1)', fontSize: 13 }}>{g.name}</span>
-                                      <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6, textTransform: 'capitalize' }}>{g.role.replace(/_/g, ' ')}</span>
+                                      <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6, textTransform: 'capitalize' }}>{(g.role || '').replace(/_/g, ' ')}</span>
                                     </div>
                                     <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)', fontSize: 14 }}>
                                       {fmt(g.total)}

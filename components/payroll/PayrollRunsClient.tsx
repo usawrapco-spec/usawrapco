@@ -427,7 +427,7 @@ export default function PayrollRunsClient({
                         <tr key={emp.user_id} style={{ borderBottom: '1px solid #1a1d27' }}>
                           <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>
                             <div style={{ fontWeight: 600, color: 'var(--text1)', fontSize: 13 }}>{emp.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text2)' }}>{emp.role.replace(/_/g, ' ')}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text2)' }}>{(emp.role || '').replace(/_/g, ' ')}</div>
                           </td>
                           <td style={{ padding: '12px', textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--text1)' }}>{fmtHrs(emp.regularHours)}</td>
                           <td style={{ padding: '12px', textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', color: emp.overtimeHours > 0 ? 'var(--amber)' : 'var(--text3)' }}>{fmtHrs(emp.overtimeHours)}</td>

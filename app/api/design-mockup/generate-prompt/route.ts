@@ -61,7 +61,7 @@ Return ONLY a JSON array of 3 prompt strings. No explanation, no markdown. Just 
 Example: ["prompt 1...", "prompt 2...", "prompt 3..."]`
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       messages: [{ role: 'user', content: userPrompt }],
     })

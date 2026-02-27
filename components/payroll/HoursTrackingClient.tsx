@@ -185,7 +185,7 @@ export default function HoursTrackingClient({ profile }: { profile: Profile }) {
                       </td>
                       <td style={{ padding: 12, fontWeight: 600, color: 'var(--text1)', fontSize: 13 }}>{emp.name}</td>
                       <td style={{ padding: 12, fontSize: 12, color: 'var(--text2)', textTransform: 'capitalize' }}>
-                        {emp.role.replace(/_/g, ' ')}
+                        {(emp.role || '').replace(/_/g, ' ')}
                       </td>
                       <td style={{ padding: 12, textAlign: 'right', fontSize: 15, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text1)' }}>
                         {emp.total_hours.toFixed(1)}h

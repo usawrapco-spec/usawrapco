@@ -561,7 +561,7 @@ export default function ExpensesClient({
                         <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--green)', fontFamily: 'var(--font-mono)' }}>
                           ${exp.amount.toFixed(2)}
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>{exp.payment_method.replace(/_/g, ' ')}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>{(exp.payment_method || '').replace(/_/g, ' ')}</div>
                         {exp.receipt_url && (
                           <a href={exp.receipt_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginTop: 4 }}>
                             <Eye size={12} /> View Receipt
