@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         .from('phone_system')
         .select('auto_sms_on_miss')
         .eq('org_id', ORG_ID)
-        .single()
+        .maybeSingle()
 
       if (config?.auto_sms_on_miss) {
         // Get the call's from_number and check if SMS already sent
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
           .from('call_logs')
           .select('from_number, missed_sms_sent')
           .eq('twilio_call_sid', callSid)
-          .single()
+          .maybeSingle()
 
         if (callLog?.from_number && !callLog.missed_sms_sent) {
           const accountSid = process.env.TWILIO_ACCOUNT_SID

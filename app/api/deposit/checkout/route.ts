@@ -29,8 +29,8 @@ export async function POST(req: Request) {
     } else {
       const { data: newCust } = await admin.from('customers').insert({
         org_id: ORG_ID, name, email, phone: phone || null,
-        status: 'active', source: 'deposit',
-      }).select('id').single()
+        status: 'active', lead_source: 'deposit',
+      }).select('id').maybeSingle()
       customerId = newCust?.id || null
     }
 

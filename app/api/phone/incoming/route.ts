@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       .from('phone_system')
       .select('*')
       .eq('org_id', ORG_ID)
-      .single()
+      .maybeSingle()
 
     const isOpen = checkBusinessHours(config?.business_hours, config?.timezone)
 

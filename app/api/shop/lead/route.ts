@@ -25,8 +25,8 @@ export async function POST(req: Request) {
           email,
           phone: phone || null,
           company: company || null,
-          source: 'online_shop',
-        }).select('id').single()
+          lead_source: 'online_shop',
+        }).select('id').maybeSingle()
         customerId = newCustomer?.id || null
       }
     } catch {}
