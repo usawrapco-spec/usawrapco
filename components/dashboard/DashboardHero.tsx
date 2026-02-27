@@ -290,7 +290,7 @@ export default function DashboardHero({ profile, projects, canSeeFinancials, tod
           precipProb: data.daily.precipitation_probability_max[i],
         })))
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
   }, [])
 
   // ── This week's jobs (Mon–Sun) ─────────────────────────────────

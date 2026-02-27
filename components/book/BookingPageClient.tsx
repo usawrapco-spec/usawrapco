@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-const EDGE_FN_URL = 'https://uqfqkvslxoucxmxxrobt.supabase.co/functions/v1/booking'
 
 const APPOINTMENT_TYPES = [
   { key: 'Estimate', label: 'Estimate', desc: 'Get a quote for your vehicle wrap', icon: FileText },
@@ -38,20 +37,7 @@ function formatDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Fallback time strings (HH:MM) when edge function is unavailable
-const FALLBACK_SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00']
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
-
-// Normalize a slot value to a plain "HH:MM" string for display state.
-// Edge fn returns {start: ISO, end: ISO, label: string}; fallbacks are already "HH:MM".
-function normalizeSlot(s: unknown): string {
-  if (typeof s === 'string') return s.includes('T') ? s.slice(11, 16) : s
-  if (s && typeof s === 'object' && 'start' in s) {
-    const iso = (s as { start: string }).start
-    return iso.includes('T') ? iso.slice(11, 16) : iso
-  }
-  return String(s)
-}
 const MAX_FUTURE_MONTHS = 3
 
 export default function BookingPageClient() {
@@ -84,30 +70,21 @@ export default function BookingPageClient() {
     setSlots([])
     setSelectedTime('')
     setSlotsError('')
-    fetch(`${EDGE_FN_URL}?action=slots&org_id=${ORG_ID}&date=${selectedDate}`, { signal: controller.signal })
+    fetch(`/api/booking/slots?org_id=${ORG_ID}&date=${selectedDate}`, { signal: controller.signal })
       .then(r => {
-        if (r.status === 404) {
-          setSlots(FALLBACK_SLOTS)
-          setLoadingSlots(false)
-          return null
-        }
         if (!r.ok) throw new Error('server')
         return r.json()
       })
       .then(data => {
         if (!data) return
-        const rawSlots: unknown[] = data.slots || (Array.isArray(data) ? data : [])
-        setSlots(rawSlots.map(normalizeSlot))
+        setSlots(data.slots || [])
+        if (data.slots?.length === 0) setSlotsError('')
         setLoadingSlots(false)
       })
       .catch((err) => {
-        if (err?.name === 'AbortError') return // Request was cancelled, ignore
-        if (err instanceof TypeError) {
-          setSlots(FALLBACK_SLOTS)
-        } else {
-          setSlotsError('Unable to load available times. Please try again.')
-          setSlots([])
-        }
+        if (err?.name === 'AbortError') return
+        setSlotsError('Unable to load available times. Please try again.')
+        setSlots([])
         setLoadingSlots(false)
       })
 
@@ -122,15 +99,14 @@ export default function BookingPageClient() {
     setSubmitting(true)
     setError('')
     try {
-      const res = await fetch(`${EDGE_FN_URL}?action=book`, {
+      const res = await fetch('/api/booking/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           org_id: ORG_ID,
           appointment_type: appointmentType,
-          // selectedTime is "HH:MM"; build ISO timestamps the edge function expects
-          start_time: `${selectedDate}T${selectedTime}:00`,
-          end_time: new Date(new Date(`${selectedDate}T${selectedTime}:00`).getTime() + 60 * 60 * 1000).toISOString(),
+          date: selectedDate,
+          time: selectedTime,
           customer_name: form.name,
           customer_email: form.email,
           customer_phone: form.phone,

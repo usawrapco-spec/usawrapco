@@ -66,7 +66,7 @@ export default function OnboardingLinkPanel({ profile, projects }: Props) {
           if (res?.amount) xpToast(res.amount, 'Onboarding link sent', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
     setGenerating(false)
   }

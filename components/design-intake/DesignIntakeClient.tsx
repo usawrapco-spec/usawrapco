@@ -115,7 +115,7 @@ export default function DesignIntakeClient({ token }: { token: string }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
     // Just verify the token is valid by trying a save with no fields
     setLoading(false)
   }, [token])
@@ -125,7 +125,7 @@ export default function DesignIntakeClient({ token }: { token: string }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, ...fields }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
   }, [token])
 
   // Screens: 0=Welcome, 1=Contact, 2=Services, 3=Vehicle(conditional), 4=Brand, 5=Chat, 6=Style, 7=Complete

@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
         org_id: ORG_ID,
         message_body: body,
       }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     return new NextResponse(
       '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',

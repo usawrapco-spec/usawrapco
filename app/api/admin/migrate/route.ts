@@ -118,7 +118,7 @@ async function runStatement(
     await client.query('COMMIT')
     return { ok: true, skipped: false }
   } catch (err: any) {
-    await client.query('ROLLBACK').catch(() => {})
+    await client.query('ROLLBACK').catch((error) => { console.error(error); })
 
     // Idempotent — already exists, safe to skip
     if (IDEMPOTENT_CODES.has(err.code)) {
@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  await pool.end().catch(() => {})
+  await pool.end().catch((error) => { console.error(error); })
 
   const totalErrors = results.reduce((n, r) => n + r.errors.length, 0)
   return NextResponse.json({

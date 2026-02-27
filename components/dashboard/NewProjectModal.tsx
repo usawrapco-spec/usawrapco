@@ -104,7 +104,7 @@ export default function NewProjectModal({ profile, onClose, onCreated }: NewProj
         if (res?.amount) xpToast(res.amount, 'New estimate created', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
     onCreated()
     // Redirect to Order Editor for full estimate configuration
     if (data?.id) {

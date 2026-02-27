@@ -1,198 +1,206 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { Plus, TrendingUp, Phone, QrCode, DollarSign, Award, Loader2 } from 'lucide-react'
-import ROICampaignCard from '@/components/roi/ROICampaignCard'
+import { useState } from 'react'
+import { TrendingUp } from 'lucide-react'
+import PublicROICalculator from '@/components/roi/PublicROICalculator'
+import PublicRouteMapper from '@/components/roi/PublicRouteMapper'
+import PublicLeadCapture from '@/components/roi/PublicLeadCapture'
+import PublicThankYou from '@/components/roi/PublicThankYou'
 
-export default function ROIPage() {
-  const router = useRouter()
-  const [campaigns, setCampaigns] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+type StepNumber = 1 | 2 | 3 | 4
 
-  useEffect(() => {
-    fetchCampaigns()
-  }, [])
+interface FormData {
+  // Calculator
+  industry: string
+  avgJobValue: number
+  numVehicles: number
+  primaryCity: string
+  // Route
+  routeWaypoints: { lat: number; lng: number }[]
+  estimatedDailyImpressions: number
+  milesPerDay: number
+  cityType: 'urban' | 'suburban' | 'rural'
+  // Projections
+  monthlyImpressions: number
+  monthlyLeads: number
+  monthlyRevenue: number
+  annualRevenue: number
+  roiMultiplier: number
+  effectiveCPM: number
+  // Lead capture
+  name: string
+  company: string
+  email: string
+  phone: string
+  vehicleType: string
+  // Result
+  trackingCode: string
+  leadId: string
+}
 
-  const fetchCampaigns = async () => {
-    try {
-      const res = await fetch('/api/roi/campaigns')
-      const data = await res.json()
-      setCampaigns(data.campaigns || [])
-    } catch (err) {
-      console.error('Failed to fetch campaigns:', err)
-    } finally {
-      setLoading(false)
-    }
+const STEP_LABELS = ['Calculate ROI', 'Map Your Route', 'Get Your Code', 'Your Results']
+
+export default function PublicROIPage() {
+  const [step, setStep] = useState<StepNumber>(1)
+  const [formData, setFormData] = useState<FormData>({
+    industry: '',
+    avgJobValue: 0,
+    numVehicles: 1,
+    primaryCity: '',
+    routeWaypoints: [],
+    estimatedDailyImpressions: 0,
+    milesPerDay: 30,
+    cityType: 'suburban',
+    monthlyImpressions: 0,
+    monthlyLeads: 0,
+    monthlyRevenue: 0,
+    annualRevenue: 0,
+    roiMultiplier: 0,
+    effectiveCPM: 0,
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    vehicleType: '',
+    trackingCode: '',
+    leadId: '',
+  })
+
+  const updateFormData = (updates: Partial<FormData>) => {
+    setFormData(prev => ({ ...prev, ...updates }))
   }
 
-  // Aggregate stats
-  const totalCalls = campaigns.reduce((s, c) => s + (c.stats?.calls || 0), 0)
-  const totalScans = campaigns.reduce((s, c) => s + (c.stats?.scans || 0), 0)
-  const totalRevenue = campaigns.reduce((s, c) => s + (c.stats?.revenue || 0), 0)
-  const activeCampaigns = campaigns.filter(c => c.status === 'active')
-  const bestCampaign = campaigns.reduce((best: any, c: any) => {
-    const roi = (c.stats?.revenue || 0) - Number(c.investment_amount || 0)
-    const bestRoi = best ? ((best.stats?.revenue || 0) - Number(best.investment_amount || 0)) : -Infinity
-    return roi > bestRoi ? c : best
-  }, null)
-
   return (
-    <div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <TrendingUp size={24} style={{ color: 'var(--green)' }} />
-            <h1 style={{
-              fontSize: 28,
-              fontWeight: 900,
-              fontFamily: 'Barlow Condensed, sans-serif',
-              color: 'var(--text1)',
-              margin: 0,
-            }}>
-              ROI Engine
-            </h1>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
-            Track every wrap, every dollar
-          </p>
-        </div>
-        <Link
-          href="/roi/new"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '10px 20px',
-            borderRadius: 10,
-            background: 'var(--green)',
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: 700,
-            textDecoration: 'none',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          <Plus size={16} />
-          New Campaign
-        </Link>
-      </div>
-
-      {/* Stats Row */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 14,
-        marginBottom: 24,
+        padding: '24px 20px 0',
+        maxWidth: 800,
+        margin: '0 auto',
       }}>
-        {[
-          {
-            label: 'Active Wraps',
-            value: activeCampaigns.length.toString(),
-            icon: TrendingUp,
-            color: 'var(--accent)',
-          },
-          {
-            label: 'Total Calls',
-            value: totalCalls.toLocaleString(),
-            icon: Phone,
-            color: 'var(--green)',
-          },
-          {
-            label: 'Revenue Attributed',
-            value: `$${totalRevenue.toLocaleString()}`,
-            icon: DollarSign,
-            color: 'var(--amber)',
-          },
-          {
-            label: 'Best Performer',
-            value: bestCampaign?.vehicle_label || '—',
-            icon: Award,
-            color: 'var(--purple)',
-            small: true,
-          },
-        ].map(stat => (
-          <div key={stat.label} style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: '16px 18px',
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <TrendingUp size={24} style={{ color: 'var(--green)' }} />
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 900,
+            fontFamily: 'Barlow Condensed, sans-serif',
+            color: 'var(--text1)',
+            margin: 0,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <stat.icon size={14} style={{ color: stat.color }} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {stat.label}
-              </span>
-            </div>
-            <div style={{
-              fontSize: stat.small ? 16 : 24,
-              fontWeight: 800,
-              fontFamily: 'JetBrains Mono, monospace',
-              color: 'var(--text1)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {stat.value}
-            </div>
-          </div>
-        ))}
+            Wrap ROI Calculator
+          </h1>
+        </div>
+        <p style={{ fontSize: 14, color: 'var(--text2)', margin: '4px 0 20px' }}>
+          See exactly how much revenue a vehicle wrap can generate for your business
+        </p>
+
+        {/* Step Indicator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0,
+          marginBottom: 28,
+          overflow: 'auto',
+        }}>
+          {STEP_LABELS.map((label, i) => {
+            const num = (i + 1) as StepNumber
+            const isActive = step === num
+            const isDone = step > num
+
+            return (
+              <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  background: isActive ? 'rgba(79,127,255,0.1)' : isDone ? 'rgba(34,192,122,0.08)' : 'transparent',
+                }}>
+                  <div style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: isDone ? 'var(--green)' : isActive ? 'var(--accent)' : 'var(--surface2)',
+                    color: isDone || isActive ? '#fff' : 'var(--text3)',
+                  }}>
+                    {isDone ? '\u2713' : num}
+                  </div>
+                  <span style={{
+                    fontSize: 12,
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? 'var(--accent)' : isDone ? 'var(--green)' : 'var(--text3)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {label}
+                  </span>
+                </div>
+                {i < STEP_LABELS.length - 1 && (
+                  <div style={{
+                    width: 24,
+                    height: 1,
+                    background: isDone ? 'var(--green)' : 'var(--border)',
+                    flexShrink: 0,
+                  }} />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Campaign Grid */}
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
-          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)' }} />
-        </div>
-      ) : campaigns.length === 0 ? (
-        <div style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          padding: '60px 24px',
-          textAlign: 'center',
-        }}>
-          <TrendingUp size={40} style={{ color: 'var(--text3)', marginBottom: 12 }} />
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
-            No campaigns yet
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>
-            Create your first wrap campaign to start tracking ROI
-          </div>
-          <Link
-            href="/roi/new"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '10px 20px',
-              borderRadius: 10,
-              background: 'var(--green)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 700,
-              textDecoration: 'none',
-            }}
-          >
-            <Plus size={16} />
-            Create Campaign
-          </Link>
-        </div>
-      ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340, 1fr))',
-          gap: 16,
-        }}>
-          {campaigns.map(campaign => (
-            <ROICampaignCard key={campaign.id} campaign={campaign} />
-          ))}
-        </div>
-      )}
+      {/* Step Content */}
+      <div style={{
+        maxWidth: 800,
+        margin: '0 auto',
+        padding: '0 20px 60px',
+      }}>
+        {step === 1 && (
+          <PublicROICalculator
+            formData={formData}
+            onUpdate={updateFormData}
+            onNext={() => setStep(2)}
+          />
+        )}
+
+        {step === 2 && (
+          <PublicRouteMapper
+            formData={formData}
+            onUpdate={updateFormData}
+            onNext={() => setStep(3)}
+            onBack={() => setStep(1)}
+          />
+        )}
+
+        {step === 3 && (
+          <PublicLeadCapture
+            formData={formData}
+            onUpdate={updateFormData}
+            onNext={() => setStep(4)}
+            onBack={() => setStep(2)}
+          />
+        )}
+
+        {step === 4 && (
+          <PublicThankYou formData={formData} />
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        textAlign: 'center',
+        padding: '20px',
+        borderTop: '1px solid var(--border)',
+        color: 'var(--text3)',
+        fontSize: 12,
+      }}>
+        USA Wrap Co - Vehicle Wraps That Work
+      </div>
     </div>
   )
 }

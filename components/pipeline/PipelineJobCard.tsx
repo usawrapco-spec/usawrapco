@@ -273,7 +273,7 @@ export default function PipelineJobCard({
     e.stopPropagation()
     const phone = fd.clientPhone || fd.phone || (project.customer as any)?.phone
     if (phone) {
-      navigator.clipboard?.writeText(phone).catch(() => {})
+      navigator.clipboard?.writeText(phone).catch((error) => { console.error(error); })
     }
     router.push(`/projects/${project.id}`)
   }
@@ -605,7 +605,7 @@ export default function PipelineJobCard({
           onArchive={handleArchive}
           onPrint={() => { closeAll(); window.print() }}
           onShare={() => {
-            navigator.clipboard?.writeText(`${window.location.origin}/projects/${project.id}`).catch(() => {})
+            navigator.clipboard?.writeText(`${window.location.origin}/projects/${project.id}`).catch((error) => { console.error(error); })
             closeAll()
           }}
         />,

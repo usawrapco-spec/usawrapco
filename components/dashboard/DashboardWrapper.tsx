@@ -40,7 +40,7 @@ export default function DashboardWrapper({ orgId, profileId, role, children }: D
           badgeToast((data as any).newBadges)
         }
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

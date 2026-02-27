@@ -83,7 +83,7 @@ export default function MockupToolClient({ profile }: Props) {
             setBrandProfile((prev: any) => ({ ...prev, aiAnalysis: aiJson.analysis }))
             setDescription(aiJson.analysis.enhanced_prompt)
           }
-        }).catch(() => {})
+        }).catch((error) => { console.error(error); })
       }
     } catch { /* silent */ }
     setScraping(false)

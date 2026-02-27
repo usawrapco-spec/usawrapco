@@ -42,7 +42,7 @@ export default function ConfirmedPage() {
         if (Date.now() < end) requestAnimationFrame(frame)
       }
       frame()
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     // Clear funnel state after a short delay
     const t = setTimeout(() => clearFunnel(), 5000)

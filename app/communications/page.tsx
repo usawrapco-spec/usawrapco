@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
-import TwilioSmsHub from '@/components/communications/TwilioSmsHub'
+import CommunicationsClient from '@/components/communications/CommunicationsClient'
 import type { Profile } from '@/types'
 
 export default async function CommunicationsPage() {
@@ -26,9 +26,7 @@ export default async function CommunicationsPage() {
       height: '100vh', background: 'var(--bg)', overflow: 'hidden',
     }}>
       <TopNav profile={profile as Profile} />
-      <main style={{ flex: 1, overflow: 'hidden' }}>
-        <TwilioSmsHub profile={profile as Profile} />
-      </main>
+      <CommunicationsClient profile={profile as Profile} />
       <MobileNav />
     </div>
   )

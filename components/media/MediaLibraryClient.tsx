@@ -154,7 +154,7 @@ export default function MediaLibraryClient({ profile }: Props) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mediaFileId: insertedData.data.id, imageUrl: publicUrl }),
-          }).catch(() => {})
+          }).catch((error) => { console.error(error); })
         }
       } catch (err) {
         console.error('Upload error:', err)
@@ -174,7 +174,7 @@ export default function MediaLibraryClient({ profile }: Props) {
         if (res?.amount) xpToast(res.amount, 'Media uploaded', res.leveledUp, res.newLevel)
         if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
 
     setUploading(false)
     setUploadProgress(0)

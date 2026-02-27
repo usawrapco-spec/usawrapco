@@ -1,129 +1,266 @@
+/**
+ * POST /api/twilio/inbound-sms
+ * Set Twilio webhook to https://app.usawrapco.com/api/twilio/inbound-sms
+ * Receives inbound SMS, logs to conversation, optionally triggers AI reply.
+ */
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { ORG_ID } from '@/lib/org'
+import { isTwilioWebhook, formDataToParams } from '@/lib/phone/validate'
 
-/**
- * Twilio inbound SMS webhook
- * NO AUTH — called by Twilio. Must return TwiML or 200 quickly.
- */
+const TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+function twimlResponse(xml: string, status = 200) {
+  return new NextResponse(xml, { status, headers: { 'Content-Type': 'text/xml' } })
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const form = await req.formData()
-    const from = (form.get('From') as string) || ''
-    const body = (form.get('Body') as string) || ''
-    const msgSid = (form.get('MessageSid') as string) || ''
-    const numMedia = parseInt((form.get('NumMedia') as string) || '0', 10)
+    const formData = await req.formData()
+    const params = formDataToParams(formData)
+
+    if (!isTwilioWebhook(req, params)) {
+      return twimlResponse(TWIML_EMPTY, 403)
+    }
+
+    const from = formData.get('From') as string
+    const to = formData.get('To') as string
+    const body = (formData.get('Body') as string) || ''
+    const messageSid = formData.get('MessageSid') as string
+    const numMedia = parseInt((formData.get('NumMedia') as string) || '0', 10)
+
+    if (!from) return twimlResponse(TWIML_EMPTY, 400)
 
     const admin = getSupabaseAdmin()
 
-    // Look up customer by phone number
-    const normalizedPhone = from.replace(/[^\d+]/g, '')
-    const { data: customer } = await admin
-      .from('customers')
-      .select('id, name')
-      .or(
-        `phone.eq.${from},phone.eq.${normalizedPhone},phone.eq.+1${normalizedPhone.slice(-10)}`
-      )
-      .eq('org_id', ORG_ID)
-      .limit(1)
-      .maybeSingle()
-
-    // Find or create SMS conversation
-    let { data: convo } = await admin
-      .from('sms_conversations')
-      .select('id, unread_count, ai_enabled')
-      .eq('org_id', ORG_ID)
-      .eq('contact_phone', from)
-      .maybeSingle()
-
-    const now = new Date().toISOString()
-
-    if (!convo) {
-      const { data: created } = await admin
-        .from('sms_conversations')
-        .insert({
-          org_id: ORG_ID,
-          contact_phone: from,
-          contact_name: customer?.name || null,
-          customer_id: customer?.id || null,
-          last_message: body,
-          last_message_at: now,
-          unread_count: 1,
-          ai_enabled: true,
-          status: 'open',
-        })
-        .select('id, unread_count, ai_enabled')
-        .single()
-      convo = created
-    } else {
-      await admin
-        .from('sms_conversations')
-        .update({
-          last_message: body,
-          last_message_at: now,
-          unread_count: (convo.unread_count || 0) + 1,
-          ...(customer?.name ? { contact_name: customer.name } : {}),
-          ...(customer?.id ? { customer_id: customer.id } : {}),
-        })
-        .eq('id', convo.id)
-    }
-
-    if (!convo) {
-      return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
-    }
-
-    // Collect media URLs (MMS)
+    // Collect MMS media URLs
     const mediaUrls: string[] = []
     for (let i = 0; i < numMedia; i++) {
-      const mediaUrl = form.get(`MediaUrl${i}`) as string | null
-      if (mediaUrl) mediaUrls.push(mediaUrl)
+      const url = formData.get(`MediaUrl${i}`) as string
+      if (url) mediaUrls.push(url)
     }
+
+    // Find or create customer by phone
+    const cleanPhone = from.replace(/\D/g, '')
+    let { data: customer } = await admin
+      .from('customers')
+      .select('id, name, phone')
+      .or(`phone.eq.${from},phone.eq.+1${cleanPhone.slice(-10)},phone.eq.${cleanPhone.slice(-10)}`)
+      .eq('org_id', ORG_ID)
+      .limit(1)
+      .single()
+
+    if (!customer) {
+      const { data: newCustomer } = await admin
+        .from('customers')
+        .insert({
+          org_id: ORG_ID,
+          name: `Unknown (${from})`,
+          phone: from,
+          status: 'lead',
+          lead_source: 'inbound_sms',
+        })
+        .select()
+        .single()
+      customer = newCustomer
+    }
+
+    if (!customer) return twimlResponse(TWIML_EMPTY)
+
+    // Find or create conversation
+    let { data: conversation } = await admin
+      .from('conversations')
+      .select('id, unread_count')
+      .eq('org_id', ORG_ID)
+      .eq('customer_id', customer.id)
+      .eq('last_message_channel', 'sms')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!conversation) {
+      const { data: newConvo } = await admin
+        .from('conversations')
+        .insert({
+          org_id: ORG_ID,
+          customer_id: customer.id,
+          contact_name: customer.name || from,
+          contact_phone: from,
+          status: 'open',
+          last_message_at: new Date().toISOString(),
+          last_message_preview: body.substring(0, 100),
+          last_message_channel: 'sms',
+          unread_count: 1,
+        })
+        .select()
+        .single()
+      conversation = newConvo
+    } else {
+      await admin
+        .from('conversations')
+        .update({
+          status: 'open',
+          last_message_at: new Date().toISOString(),
+          last_message_preview: body.substring(0, 100),
+          last_message_channel: 'sms',
+          unread_count: (conversation.unread_count || 0) + 1,
+        })
+        .eq('id', conversation.id)
+    }
+
+    if (!conversation) return twimlResponse(TWIML_EMPTY)
 
     // Insert message
-    await admin.from('sms_messages').insert({
-      conversation_id: convo.id,
+    await admin.from('conversation_messages').insert({
+      conversation_id: conversation.id,
+      channel: 'sms',
       direction: 'inbound',
       body,
-      from_number: from,
-      twilio_sid: msgSid,
-      ai_generated: false,
+      attachments: mediaUrls.length > 0 ? mediaUrls.map(u => ({ url: u, type: 'image' })) : null,
       status: 'received',
+      sender_name: customer.name || from,
+      twilio_sid: messageSid,
+      media_urls: mediaUrls.length > 0 ? mediaUrls : null,
     })
 
-    // Check if global AI is enabled
-    const { data: aiSetting } = await admin
-      .from('app_settings')
-      .select('value')
-      .eq('org_id', ORG_ID)
-      .eq('key', 'ai_sms_enabled')
-      .maybeSingle()
+    // Log to communications table
+    await admin.from('communications').insert({
+      org_id: ORG_ID,
+      channel: 'sms',
+      direction: 'inbound',
+      customer_id: customer.id,
+      from_address: from,
+      to_address: to,
+      body,
+      twilio_message_sid: messageSid,
+      media_urls: mediaUrls.length > 0 ? mediaUrls : null,
+      status: 'received',
+      created_at: new Date().toISOString(),
+    })
 
-    const globalAiOn = aiSetting ? aiSetting.value === 'true' : true
-    const convoAiOn = convo.ai_enabled !== false
+    // Activity log
+    await admin.from('activity_log').insert({
+      org_id: ORG_ID,
+      customer_id: customer.id,
+      actor_type: 'customer',
+      actor_id: customer.id,
+      actor_name: customer.name || from,
+      action: 'inbound_sms',
+      details: body.length > 200 ? body.substring(0, 200) + '...' : body,
+      metadata: { message_sid: messageSid, media_count: numMedia },
+    })
 
-    if (globalAiOn && convoAiOn && body.trim()) {
-      // Fire and forget — AI auto-respond
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.usawrapco.com'
-      fetch(`${siteUrl}/api/ai/auto-respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: convo.id,
-          inboundMessage: body,
-          fromNumber: from,
-          orgId: ORG_ID,
-        }),
-      }).catch(() => {})
+    // Check AI auto-reply config
+    let aiReplyBody: string | null = null
+    const { data: aiConfig } = await admin
+      .from('conversation_ai_config')
+      .select('ai_enabled, system_prompt')
+      .eq('conversation_id', conversation.id)
+      .single()
+
+    if (aiConfig?.ai_enabled) {
+      // Check global AI toggle
+      const { data: globalAi } = await admin
+        .from('ai_settings')
+        .select('enabled')
+        .eq('org_id', ORG_ID)
+        .single()
+
+      if (globalAi?.enabled) {
+        try {
+          const anthropicKey = process.env.ANTHROPIC_API_KEY
+          if (anthropicKey) {
+            const systemPrompt = aiConfig.system_prompt ||
+              'You are a helpful assistant for USA Wrap Co, a vehicle wrap shop. Be concise and professional. Reply in 1-2 sentences.'
+
+            const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 300,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: body }],
+              }),
+            })
+
+            if (aiRes.ok) {
+              const aiData = await aiRes.json()
+              aiReplyBody = aiData.content?.[0]?.text || null
+            }
+          }
+        } catch (err) {
+          console.error('[inbound-sms] AI reply error:', err)
+        }
+
+        // Send AI reply via Twilio
+        if (aiReplyBody) {
+          const twilioSid = process.env.TWILIO_ACCOUNT_SID
+          const twilioAuth = process.env.TWILIO_AUTH_TOKEN
+          const twilioFrom = process.env.TWILIO_PHONE_NUMBER || to
+
+          if (twilioSid && twilioAuth) {
+            const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`
+            const smsParams = new URLSearchParams({ To: from, From: twilioFrom, Body: aiReplyBody })
+
+            const sendRes = await fetch(twilioUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Authorization: `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString('base64')}`,
+              },
+              body: smsParams.toString(),
+            })
+
+            const sendData = await sendRes.json()
+
+            // Log AI reply as outbound message
+            await admin.from('conversation_messages').insert({
+              conversation_id: conversation.id,
+              channel: 'sms',
+              direction: 'outbound',
+              body: aiReplyBody,
+              status: sendRes.ok ? 'sent' : 'failed',
+              sent_by_name: 'AI Assistant',
+              twilio_sid: sendData.sid || null,
+            })
+
+            // Log to ai_message_log
+            await admin.from('ai_message_log').insert({
+              org_id: ORG_ID,
+              conversation_id: conversation.id,
+              direction: 'outbound',
+              body: aiReplyBody,
+              model: 'claude-sonnet-4-20250514',
+              trigger: 'inbound_sms',
+            })
+          }
+        }
+      }
     }
 
-    // Return empty TwiML (no auto-reply via TwiML — we reply via REST API if AI is on)
-    return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
-      headers: { 'Content-Type': 'text/xml' },
-    })
-  } catch (err: any) {
-    console.error('[twilio/inbound-sms] error:', err)
-    return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
-      headers: { 'Content-Type': 'text/xml' },
-    })
+    if (aiReplyBody) {
+      return twimlResponse(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(aiReplyBody)}</Message></Response>`
+      )
+    }
+
+    return twimlResponse(TWIML_EMPTY)
+  } catch (error) {
+    console.error('[inbound-sms] error:', error)
+    return twimlResponse(TWIML_EMPTY, 500)
   }
 }

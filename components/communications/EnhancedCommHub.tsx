@@ -167,7 +167,7 @@ function AudioPlayer({ url }: { url: string }) {
       audioRef.current.pause()
       setPlaying(false)
     } else {
-      audioRef.current.play().catch(() => {})
+      audioRef.current.play().catch((error) => { console.error(error); })
       setPlaying(true)
     }
   }

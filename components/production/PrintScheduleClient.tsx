@@ -152,7 +152,7 @@ export default function PrintScheduleClient({ profile, jobs }: Props) {
           if (res?.amount) xpToast(res.amount, 'Print job completed', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
   }
 

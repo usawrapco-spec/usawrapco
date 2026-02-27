@@ -24,7 +24,7 @@ export default async function SchedulePage() {
     .from('appointments')
     .select('*')
     .eq('org_id', orgId)
-    .order('date', { ascending: true })
+    .order('start_time', { ascending: true })
 
   // Fetch team members for assignment dropdown
   const { data: team } = await admin

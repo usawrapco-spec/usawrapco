@@ -304,7 +304,7 @@ export default function InboxClient({ profile, customers, communications, conver
           })))
         }
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
       .finally(() => setLoadingMsgs(false))
   }, [selectedConvoId, useDemo])
 

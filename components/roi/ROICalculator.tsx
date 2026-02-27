@@ -2,25 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Calculator, DollarSign, TrendingUp, Target, Zap } from 'lucide-react'
-
-const INDUSTRIES: { label: string; ltvMin: number; ltvMax: number; conversionRate: number }[] = [
-  { label: 'Plumber', ltvMin: 600, ltvMax: 1500, conversionRate: 0.012 },
-  { label: 'HVAC', ltvMin: 1200, ltvMax: 2500, conversionRate: 0.010 },
-  { label: 'Roofer', ltvMin: 1500, ltvMax: 3500, conversionRate: 0.008 },
-  { label: 'Electrician', ltvMin: 500, ltvMax: 1300, conversionRate: 0.013 },
-  { label: 'Landscaper', ltvMin: 400, ltvMax: 1100, conversionRate: 0.015 },
-  { label: 'Painter', ltvMin: 800, ltvMax: 1600, conversionRate: 0.011 },
-  { label: 'General Contractor', ltvMin: 2000, ltvMax: 5000, conversionRate: 0.007 },
-  { label: 'Custom', ltvMin: 500, ltvMax: 5000, conversionRate: 0.010 },
-]
-
-const CPM_COMPARISONS = [
-  { channel: 'Vehicle Wrap', cpm: 0.77, color: 'var(--green)' },
-  { channel: 'Billboard', cpm: 3.56, color: 'var(--amber)' },
-  { channel: 'Google Display', cpm: 2.80, color: 'var(--accent)' },
-  { channel: 'Radio', cpm: 13.00, color: 'var(--purple)' },
-  { channel: 'Direct Mail', cpm: 19.00, color: 'var(--red)' },
-]
+import { INDUSTRIES, CPM_COMPARISONS } from '@/lib/roi/constants'
 
 interface ROICalculatorProps {
   onComplete: (data: {

@@ -327,7 +327,7 @@ export default function InstallerPortalClient({
           if (res?.amount) xpToast(res.amount, 'Photo uploaded', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
 
     setUploadingPhoto(false)
@@ -448,7 +448,7 @@ export default function InstallerPortalClient({
         if (xpRes?.amount) xpToast(xpRes.amount, 'Customer signed off', xpRes.leveledUp, xpRes.newLevel)
         if (xpRes?.newBadges?.length) badgeToast(xpRes.newBadges)
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
   }
 
   /* ---------------------------------------------------------------- */
@@ -479,7 +479,7 @@ export default function InstallerPortalClient({
           if (res?.amount) xpToast(res.amount, 'Bid accepted', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
   }
 

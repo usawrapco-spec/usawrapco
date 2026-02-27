@@ -444,7 +444,7 @@ export default function CommHubClient({
     fetch('/api/system/check-env')
       .then(r => r.json())
       .then(data => setEmailConfigured(!!data.resend))
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
     try {
       if (sessionStorage.getItem('email-banner-dismissed')) setBannerDismissed(true)
     } catch {}

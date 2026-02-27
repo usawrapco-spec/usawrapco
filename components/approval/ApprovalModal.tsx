@@ -402,7 +402,7 @@ export default function ApprovalModal({
           if (res?.amount) xpToast(res.amount, STAGE_META[stage].label + ' signed off', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
 
     // Auto-advance tab

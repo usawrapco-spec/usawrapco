@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         }
       }
       poll()
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
   }
 
   return NextResponse.json({ voiceNote: data })

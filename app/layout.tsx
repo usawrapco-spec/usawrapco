@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Providers>
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch((e)=>{console.error(e)})}`
           }}
         />
       </body>

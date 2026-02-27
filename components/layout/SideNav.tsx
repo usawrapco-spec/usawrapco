@@ -16,6 +16,7 @@ import {
   Trophy, Filter, Store, Kanban, Hammer, UserPlus,
   Printer, Map, Factory, BookOpen, MessageCircle, Phone,
   Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain, Anchor, Send,
+  Shield, Compass, Rocket,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -54,15 +55,18 @@ const NAV_SECTIONS: NavSection[] = [
     icon: DollarSign,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/estimates',    label: 'Estimates',    icon: FileText },
+      { href: '/leads',        label: 'Leads',        icon: UserPlus },
       { href: '/proposals',    label: 'Proposals',    icon: Send,          roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/estimates',    label: 'Estimates',    icon: FileText },
       { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
+      { href: '/transactions', label: 'Transactions', icon: Receipt },
       { href: '/invoices',     label: 'Invoices',     icon: Receipt },
-      { href: '/deposit',      label: 'Payments',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/payments',     label: 'Payments',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/deposit',      label: 'Deposits',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
       { href: '/campaigns',    label: 'Campaigns',    icon: Globe,       roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/outreach',     label: 'Outreach',     icon: Zap,         roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/roi',          label: 'ROI Engine',   icon: Target,      roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/roi/dashboard', label: 'ROI Engine',   icon: Target,      roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/funnel',       label: 'Lead Funnel',  icon: Filter,      roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/network',      label: 'Network Map',  icon: Map },
       { href: '/bids',         label: 'Bids',         icon: Hammer,      roles: ['owner', 'admin', 'sales_agent'] },
@@ -93,8 +97,8 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/contacts',     label: 'Contacts',      icon: Users },
       { href: '/comms',        label: 'Comms Hub',     icon: MessageSquare },
       { href: '/ai-comms',     label: 'AI Comms',      icon: Bot,    roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/phone',          label: 'Phone',        icon: Phone,        roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/communications', label: 'SMS & Calls',  icon: MessageCircle, roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/communications', label: 'Communications', icon: MessageCircle },
+      { href: '/phone',          label: 'Phone',          icon: Phone,  roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
@@ -182,12 +186,14 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: 'apps',
-    label: 'APPS',
-    icon: Anchor,
+    id: 'tools',
+    label: 'TOOLS',
+    icon: Compass,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/apps/pnw-navigator', label: 'PNW Navigator', icon: Anchor },
+      { href: '/apps/pnw-navigator', label: 'PNW Navigator', icon: Navigation },
+      { href: '/deckforge',           label: 'Deckforge',     icon: Anchor },
+      { href: '/ventures',            label: 'Ventures',      icon: Rocket },
     ],
   },
   {
@@ -196,6 +202,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Settings,
     roles: ['owner', 'admin'],
     items: [
+      { href: '/admin',         label: 'Admin Hub',     icon: Shield },
       { href: '/ai',            label: 'V.I.N.Y.L.',   icon: Brain,   roles: ['owner'] },
       { href: '/settings',      label: 'Settings',      icon: Settings },
       { href: '/integrations',  label: 'Integrations',  icon: Globe },
@@ -205,6 +212,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/overhead',      label: 'Overhead',      icon: Gauge },
       { href: '/sourcing',      label: 'Sourcing',      icon: ShoppingBag },
       { href: '/agents',        label: 'AI Agents',     icon: Sparkles },
+      { href: '/import-jobs',   label: 'Import Jobs',   icon: FileInput },
     ],
   },
 ]

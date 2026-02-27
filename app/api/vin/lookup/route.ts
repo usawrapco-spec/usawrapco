@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * VIN Lookup API - NHTSA Integration
  * Decodes vehicle VIN using NHTSA vPIC API

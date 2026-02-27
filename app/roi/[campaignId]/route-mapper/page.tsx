@@ -1,30 +1,41 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Map, Loader2 } from 'lucide-react'
 import RouteMapper from '@/components/roi/RouteMapper'
 
 export default function CampaignRouteMapperPage() {
   const params = useParams()
+  const router = useRouter()
   const campaignId = params.campaignId as string
   const [campaign, setCampaign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetch_data() {
-      try {
-        const res = await fetch(`/api/roi/campaigns/${campaignId}`)
-        const data = await res.json()
-        setCampaign(data.campaign)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
+    let cancelled = false
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return
+      if (!user) { router.push('/login'); return }
+      async function fetch_data() {
+        try {
+          const res = await fetch(`/api/roi/campaigns/${campaignId}`)
+          if (cancelled) return
+          const data = await res.json()
+          setCampaign(data.campaign)
+        } catch (err) {
+          console.error(err)
+        } finally {
+          if (!cancelled) setLoading(false)
+        }
       }
-    }
-    fetch_data()
+      fetch_data()
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
 
   if (loading) {

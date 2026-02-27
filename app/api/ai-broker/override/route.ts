@@ -63,7 +63,7 @@ export async function POST(req: Request) {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({ To: convo.phone_number, From: TWILIO_PHONE_NUMBER, Body: message }),
-        }).catch(() => {})
+        }).catch((error) => { console.error(error); })
       }
     } else if (convo.channel === 'email' && convo.email_address) {
       const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || ''
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
             subject: 'USA Wrap Co',
             content: [{ type: 'text/html', value: `<p>${message}</p>` }],
           }),
-        }).catch(() => {})
+        }).catch((error) => { console.error(error); })
       }
     }
 

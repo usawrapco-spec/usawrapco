@@ -25,32 +25,21 @@ import {
 interface Appointment {
   id: string
   org_id: string
+  title?: string
   customer_name: string
   customer_email?: string
   customer_phone?: string
   appointment_type: string
-  date: string | null      // may be null for edge-function bookings that only set start_time
-  time: string | null      // same — derived from start_time when null
-  start_time?: string      // ISO timestamp from edge-function bookings
+  start_time: string
+  end_time: string
+  duration_minutes?: number
+  date: string   // derived from start_time for UI
+  time: string   // derived from start_time for UI
   assigned_to?: string
   assigned_name?: string
   status: 'pending' | 'confirmed' | 'cancelled' | 'no_show'
   notes?: string
   created_at: string
-}
-
-// Derive a YYYY-MM-DD date key from an appointment, falling back to start_time
-function apptDate(a: Appointment): string {
-  if (a.date) return typeof a.date === 'string' ? a.date.slice(0, 10) : String(a.date)
-  if (a.start_time) return a.start_time.slice(0, 10)
-  return ''
-}
-
-// Derive HH:MM time string from an appointment
-function apptTime(a: Appointment): string {
-  if (a.time) return a.time.slice(0, 5)
-  if (a.start_time) return a.start_time.slice(11, 16)
-  return ''
 }
 
 interface TeamMember {
@@ -103,6 +92,24 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7) // 7am to 7pm
 
+// Transform DB row (start_time/end_time) into component format (date/time)
+function transformAppointment(raw: any, teamList?: TeamMember[]): Appointment {
+  const start = raw.start_time ? new Date(raw.start_time) : null
+  return {
+    ...raw,
+    customer_name: raw.customer_name || raw.title || '',
+    appointment_type: raw.appointment_type || 'Estimate',
+    date: start
+      ? `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+      : new Date().toISOString().split('T')[0],
+    time: start
+      ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+      : '09:00',
+    assigned_name: raw.assigned_name || teamList?.find(t => t.id === raw.assigned_to)?.name || undefined,
+    status: raw.status || 'pending',
+  }
+}
+
 interface Props {
   profile: Profile
   initialAppointments: Appointment[]
@@ -111,7 +118,9 @@ interface Props {
 
 export default function SchedulePageClient({ profile, initialAppointments, team }: Props) {
   const [supabase] = useState(() => createClient())
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
+  const [appointments, setAppointments] = useState<Appointment[]>(
+    initialAppointments.map(a => transformAppointment(a, team))
+  )
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showNewModal, setShowNewModal] = useState(false)
@@ -137,20 +146,18 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
   // Today's appointments for sidebar
   const todayAppts = useMemo(() => {
     return filtered
-      .filter(a => apptDate(a) === today)
-      .sort((a, b) => apptTime(a).localeCompare(apptTime(b)))
+      .filter(a => a.date === today)
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   }, [filtered, today])
 
   // Appointments by date lookup (sorted by time within each day)
   const apptsByDate = useMemo(() => {
     const map: Record<string, Appointment[]> = {}
     filtered.forEach(a => {
-      const key = apptDate(a)
-      if (!key) return
-      if (!map[key]) map[key] = []
-      map[key].push(a)
+      if (!map[a.date]) map[a.date] = []
+      map[a.date].push(a)
     })
-    Object.values(map).forEach(arr => arr.sort((a, b) => apptTime(a).localeCompare(apptTime(b))))
+    Object.values(map).forEach(arr => arr.sort((a, b) => (a.time || '').localeCompare(b.time || '')))
     return map
   }, [filtered])
 
@@ -167,10 +174,10 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
       .from('appointments')
       .select('*')
       .eq('org_id', orgId)
-      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
     if (error) { console.error('Failed to load appointments:', error); return }
-    if (data) setAppointments(data)
-  }, [orgId, supabase])
+    if (data) setAppointments(data.map(a => transformAppointment(a, team)))
+  }, [orgId, supabase, team])
 
   const updateStatus = async (id: string, status: Appointment['status']) => {
     const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
@@ -255,7 +262,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
                       cursor: 'pointer',
                     }}
                   >
-                    {apptTime(a)} {a.customer_name}
+                    {a.time?.slice(0, 5)} {a.customer_name}
                   </div>
                 ))}
                 {dayAppts.length > 3 && (
@@ -278,7 +285,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
         {weekDates.map(d => {
           const dateStr = formatDate(d)
-          const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => apptTime(a).localeCompare(apptTime(b)))
+          const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
           const isToday = dateStr === today
           return (
             <div key={dateStr} style={{
@@ -315,7 +322,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontWeight: 600, color: 'var(--text1)' }}>{apptTime(a)}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text1)' }}>{a.time?.slice(0, 5)}</div>
                   <div style={{ color: 'var(--text2)', marginTop: 2 }}>{a.customer_name}</div>
                   <div style={{ color: 'var(--text3)', fontSize: 10 }}>{a.appointment_type}</div>
                 </div>
@@ -330,13 +337,13 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
   // ── Day View ─────────────────────────────────────────
   const renderDayView = () => {
     const dateStr = formatDate(currentDate)
-    const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => apptTime(a).localeCompare(apptTime(b)))
+    const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
 
     return (
       <div style={{ background: 'var(--surface)', borderRadius: 10, overflow: 'hidden' }}>
         {HOURS.map(hour => {
           const hourStr = String(hour).padStart(2, '0')
-          const hourAppts = dayAppts.filter(a => apptTime(a).startsWith(hourStr))
+          const hourAppts = dayAppts.filter(a => a.time?.startsWith(hourStr))
           return (
             <div key={hour} style={{
               display: 'flex',
@@ -564,7 +571,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {apptTime(a)}
+                        {a.time?.slice(0, 5)}
                       </span>
                       <span style={{
                         fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
@@ -653,12 +660,24 @@ function NewAppointmentModal({ orgId, team, supabase, presetDate, presetTime, on
     if (saving) return
     setSaving(true)
     setError('')
-    const assignedMember = team.find(t => t.id === form.assigned_to)
+    const startTime = `${form.date}T${form.time || '09:00'}:00`
+    const startUtc = new Date(startTime + 'Z')
+    const endTime = new Date(startUtc.getTime() + 60 * 60000).toISOString()
+    const title = `${form.appointment_type} - ${form.customer_name}`
     const { error: err } = await supabase.from('appointments').insert({
-      ...form,
       org_id: orgId,
+      title,
+      customer_name: form.customer_name,
+      customer_email: form.customer_email || null,
+      customer_phone: form.customer_phone || null,
+      appointment_type: form.appointment_type,
+      start_time: startTime,
+      end_time: endTime,
+      duration_minutes: 60,
+      assigned_to: form.assigned_to || null,
       status: 'pending',
-      assigned_name: assignedMember?.name || null,
+      notes: form.notes || null,
+      source: 'internal',
     })
     setSaving(false)
     if (err) { setError(err.message); return }
@@ -822,17 +841,21 @@ function AppointmentDetailModal({ appointment, team, supabase, orgId, onClose, o
     if (saving) return
     setSaving(true)
     setError('')
-    const assignedMember = team.find(t => t.id === form.assigned_to)
+    const startTime = `${form.date}T${form.time || '09:00'}:00`
+    const startUtc = new Date(startTime + 'Z')
+    const endTime = new Date(startUtc.getTime() + (form.duration_minutes || 60) * 60000).toISOString()
+    const title = `${form.appointment_type} - ${form.customer_name}`
     const { error: err } = await supabase.from('appointments').update({
+      title,
       customer_name: form.customer_name,
-      customer_email: form.customer_email,
-      customer_phone: form.customer_phone,
+      customer_email: form.customer_email || null,
+      customer_phone: form.customer_phone || null,
       appointment_type: form.appointment_type,
-      date: form.date,
-      time: form.time,
-      assigned_to: form.assigned_to,
-      assigned_name: assignedMember?.name || null,
-      notes: form.notes,
+      start_time: startTime,
+      end_time: endTime,
+      duration_minutes: form.duration_minutes || 60,
+      assigned_to: form.assigned_to || null,
+      notes: form.notes || null,
     }).eq('id', appointment.id)
     setSaving(false)
     if (err) { setError(err.message); return }
@@ -883,8 +906,8 @@ function AppointmentDetailModal({ appointment, team, supabase, orgId, onClose, o
               {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input type="date" value={apptDate(form)} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
-              <input type="time" value={apptTime(form)} onChange={e => setForm(p => ({ ...p, time: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
+              <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
+              <input type="time" value={form.time} onChange={e => setForm(p => ({ ...p, time: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
             </div>
             <select value={form.assigned_to || ''} onChange={e => setForm(p => ({ ...p, assigned_to: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }}>
               <option value="">Unassigned</option>
@@ -922,7 +945,7 @@ function AppointmentDetailModal({ appointment, team, supabase, orgId, onClose, o
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <CalendarIcon size={14} style={{ color: 'var(--text3)' }} />
-              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{apptDate(appointment)} at {apptTime(appointment)}</span>
+              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{appointment.date} at {appointment.time}</span>
             </div>
             {appointment.assigned_name && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

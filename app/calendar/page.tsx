@@ -35,12 +35,20 @@ export default async function CalendarPage() {
   const { data: projects } = await query
 
   // Fetch appointments for the calendar overlay
-  const { data: appointments } = await admin
+  const { data: rawAppts } = await admin
     .from('appointments')
     .select('*')
     .eq('org_id', orgId)
     .neq('status', 'cancelled')
-    .order('date', { ascending: true })
+    .order('start_time', { ascending: true })
+  const appointments = (rawAppts || []).map((a: any) => {
+    const s = a.start_time ? new Date(a.start_time) : null
+    return {
+      ...a,
+      date: s ? `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}` : '',
+      time: s ? `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')}` : '',
+    }
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>

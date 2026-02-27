@@ -1,33 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { VEHICLE_MULTIPLIERS, CITY_DENSITY } from '@/lib/roi/constants'
+import { algorithmicEstimate } from '@/lib/roi/impression-calculator'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
-
-// Vehicle type multipliers for impression calculations
-const VEHICLE_MULTIPLIERS: Record<string, number> = {
-  van: 1.4,
-  truck: 1.3,
-  suv: 1.1,
-  car: 1.0,
-  trailer: 1.6,
-  box_truck: 1.8,
-}
-
-// City traffic density multipliers (fallback when no API)
-const CITY_DENSITY: Record<string, number> = {
-  'new york': 3.2, 'los angeles': 2.8, 'chicago': 2.5, 'houston': 2.3,
-  'phoenix': 2.0, 'philadelphia': 2.2, 'san antonio': 1.8, 'san diego': 2.1,
-  'dallas': 2.3, 'san jose': 2.4, 'austin': 2.1, 'jacksonville': 1.7,
-  'fort worth': 1.9, 'columbus': 1.8, 'charlotte': 1.9, 'san francisco': 2.6,
-  'indianapolis': 1.7, 'seattle': 2.3, 'denver': 2.1, 'nashville': 2.0,
-  'oklahoma city': 1.6, 'el paso': 1.5, 'boston': 2.4, 'portland': 2.0,
-  'las vegas': 2.2, 'memphis': 1.6, 'louisville': 1.6, 'baltimore': 2.0,
-  'milwaukee': 1.7, 'albuquerque': 1.5, 'tucson': 1.5, 'fresno': 1.6,
-  'sacramento': 1.8, 'mesa': 1.7, 'kansas city': 1.7, 'atlanta': 2.4,
-  'omaha': 1.5, 'colorado springs': 1.6, 'raleigh': 1.8, 'long beach': 2.2,
-  'virginia beach': 1.6, 'miami': 2.5, 'oakland': 2.3, 'minneapolis': 2.0,
-  'tampa': 2.0, 'tulsa': 1.5, 'arlington': 1.9, 'new orleans': 1.8,
-}
 
 async function analyzeSegment(lat: number, lng: number, apiKey: string) {
   try {
@@ -51,34 +27,6 @@ async function analyzeSegment(lat: number, lng: number, apiKey: string) {
   } catch {
     return null
   }
-}
-
-function algorithmicEstimate(
-  waypoints: { lat: number; lng: number }[],
-  driveTimeHours: number,
-  peakHourPct: number,
-  vehicleType: string,
-  city?: string,
-) {
-  const baseTrafficPerHour = 800
-  const cityMultiplier = city ? (CITY_DENSITY[city.toLowerCase()] || 1.5) : 1.5
-  const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] || 1.0
-  const peakBoost = 1 + (peakHourPct / 100) * 0.8
-
-  const rawImpressions = baseTrafficPerHour * driveTimeHours * cityMultiplier * vehicleMultiplier * peakBoost
-  const viewRate = 0.45 // ~45% of nearby vehicles notice a wrap
-  const totalImpressions = Math.round(rawImpressions * viewRate)
-
-  const segments = waypoints.map((wp, i) => ({
-    name: `Segment ${i + 1}`,
-    lat: wp.lat,
-    lng: wp.lng,
-    traffic: Math.round(baseTrafficPerHour * cityMultiplier * (0.7 + Math.random() * 0.6)),
-    impressions: Math.round(totalImpressions / Math.max(waypoints.length, 1)),
-    color: peakHourPct > 50 ? '#22c07a' : '#4f7fff',
-  }))
-
-  return { totalImpressions, segments }
 }
 
 export async function POST(req: Request) {

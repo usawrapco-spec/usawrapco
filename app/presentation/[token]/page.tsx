@@ -30,7 +30,7 @@ export default function PublicPresentationPage() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: sessionId.current }),
-        }).catch(() => {})
+        }).catch((error) => { console.error(error); })
       })
       .catch(() => setError('Failed to load presentation'))
       .finally(() => setLoading(false))

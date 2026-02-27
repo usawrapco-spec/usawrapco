@@ -40,7 +40,7 @@ export function usePushNotifications() {
     fetch('/api/push/subscribe')
       .then(r => r.json())
       .then(d => { if (d.vapidPublicKey) setVapidKey(d.vapidPublicKey) })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
   }, [])
 
   const subscribe = useCallback(async (): Promise<boolean> => {

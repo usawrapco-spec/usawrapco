@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Edit3,
   History,
+  Plus,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────
@@ -34,10 +35,12 @@ interface WorkflowRun {
   id: string
   org_id: string
   trigger_id: string
-  trigger_name: string
-  status: 'success' | 'failed' | 'running'
+  trigger_event: string
+  status: 'success' | 'failed' | 'running' | 'pending'
   actions_taken?: any
-  error?: string
+  error_message?: string
+  started_at?: string
+  completed_at?: string
   created_at: string
 }
 
@@ -49,14 +52,66 @@ interface Props {
   initialRuns: WorkflowRun[]
 }
 
+const DEFAULT_TRIGGERS = [
+  {
+    name: 'Job Completed → Request Google Review',
+    description: 'Fires when project status = completed, sends SMS/email with review link',
+    trigger_event: 'project.status.completed',
+    actions: [{ type: 'send_sms', template: 'review_request' }, { type: 'send_email', template: 'review_request' }],
+  },
+  {
+    name: 'Appointment Tomorrow → Send Reminder',
+    description: 'Fires 24hr before appointment, sends SMS to customer',
+    trigger_event: 'appointment.reminder.24h',
+    actions: [{ type: 'send_sms', template: 'appointment_reminder', delay_hours: 0 }],
+  },
+  {
+    name: 'Installer Assigned → Notify Installer',
+    description: 'Fires when installer_id set on project, sends push notification',
+    trigger_event: 'project.installer.assigned',
+    actions: [{ type: 'push_notification', template: 'installer_assigned' }],
+  },
+  {
+    name: 'Quote Sent → Follow Up in 48hr',
+    description: 'Fires when estimate sent, schedules follow-up SMS after 48 hours',
+    trigger_event: 'estimate.sent',
+    actions: [{ type: 'send_sms', template: 'quote_followup', delay_hours: 48 }],
+  },
+]
+
+const TRIGGER_EVENTS = [
+  { value: 'project.status.completed', label: 'Job Completed' },
+  { value: 'appointment.reminder.24h', label: 'Appointment Tomorrow' },
+  { value: 'project.installer.assigned', label: 'Installer Assigned' },
+  { value: 'estimate.sent', label: 'Quote Sent' },
+  { value: 'project.status.changed', label: 'Job Status Changed' },
+  { value: 'payment.received', label: 'Payment Received' },
+  { value: 'customer.created', label: 'New Customer' },
+]
+
+const ACTION_TYPES = [
+  { value: 'send_sms', label: 'Send SMS' },
+  { value: 'send_email', label: 'Send Email' },
+  { value: 'push_notification', label: 'Push Notification' },
+  { value: 'create_task', label: 'Create Task' },
+  { value: 'update_status', label: 'Update Status' },
+]
+
 export default function AutomationsPageClient({ profile, initialTriggers, initialRuns }: Props) {
   const supabase = createClient()
   const [triggers, setTriggers] = useState<WorkflowTrigger[]>(initialTriggers)
   const [runs, setRuns] = useState<WorkflowRun[]>(initialRuns)
   const [tab, setTab] = useState<'triggers' | 'history'>('triggers')
   const [editingTrigger, setEditingTrigger] = useState<WorkflowTrigger | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
 
   const orgId = profile.org_id || ORG_ID
+
+  // Resolve trigger name from trigger_id
+  const getTriggerName = (run: WorkflowRun) => {
+    const t = triggers.find(tr => tr.id === run.trigger_id)
+    return t?.name || run.trigger_event || 'Unknown'
+  }
 
   // Stats
   const stats = useMemo(() => {
@@ -71,7 +126,8 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
     // Most triggered
     const triggerCounts: Record<string, number> = {}
     thisMonth.forEach(r => {
-      triggerCounts[r.trigger_name] = (triggerCounts[r.trigger_name] || 0) + 1
+      const name = triggers.find(t => t.id === r.trigger_id)?.name || r.trigger_event
+      triggerCounts[name] = (triggerCounts[name] || 0) + 1
     })
     const mostTriggered = Object.entries(triggerCounts).sort((a, b) => b[1] - a[1])[0]
 
@@ -81,7 +137,7 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
       mostTriggered: mostTriggered ? mostTriggered[0] : 'None yet',
       mostTriggeredCount: mostTriggered ? mostTriggered[1] : 0,
     }
-  }, [runs])
+  }, [runs, triggers])
 
   const toggleActive = async (trigger: WorkflowTrigger) => {
     const newActive = !trigger.active
@@ -93,6 +149,33 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
       console.error('Failed to toggle trigger:', error)
       setTriggers(prev => prev.map(t => t.id === trigger.id ? { ...t, active: trigger.active } : t))
     }
+  }
+
+  const createTrigger = async (data: { name: string; description: string; trigger_event: string; actions: any }) => {
+    const { data: newTrigger, error } = await supabase
+      .from('workflow_triggers')
+      .insert({ ...data, org_id: orgId, active: true })
+      .select()
+      .single()
+    if (error) {
+      console.error('Failed to create trigger:', error)
+      return
+    }
+    if (newTrigger) setTriggers(prev => [newTrigger, ...prev])
+    setShowCreate(false)
+  }
+
+  const seedDefaults = async () => {
+    const existingEvents = triggers.map(t => t.trigger_event)
+    const toSeed = DEFAULT_TRIGGERS.filter(d => !existingEvents.includes(d.trigger_event))
+    if (toSeed.length === 0) return
+    const rows = toSeed.map(d => ({ ...d, org_id: orgId, active: true }))
+    const { data, error } = await supabase.from('workflow_triggers').insert(rows).select()
+    if (error) {
+      console.error('Failed to seed defaults:', error)
+      return
+    }
+    if (data) setTriggers(prev => [...data, ...prev])
   }
 
   const saveTrigger = async (trigger: WorkflowTrigger) => {
@@ -125,7 +208,7 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text1)', fontFamily: 'Barlow Condensed, sans-serif', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Zap size={20} style={{ color: 'var(--amber)' }} />
@@ -134,6 +217,32 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
           <p style={{ fontSize: 13, color: 'var(--text3)', margin: '4px 0 0' }}>
             Manage workflow triggers and automation rules
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {triggers.length === 0 && (
+            <button
+              onClick={seedDefaults}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 8,
+                background: 'var(--surface)', color: 'var(--amber)',
+                fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', cursor: 'pointer',
+              }}
+            >
+              <Zap size={13} /> Load Defaults
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreate(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 8,
+              background: 'var(--accent)', color: '#fff',
+              fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+            }}
+          >
+            <Plus size={14} /> New Trigger
+          </button>
         </div>
       </div>
 
@@ -297,7 +406,7 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
                 {runs.map(run => (
                   <tr key={run.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{run.trigger_name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{getTriggerName(run)}</span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{
@@ -313,10 +422,12 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
                     <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>
                       {formatTime(run.created_at)}
                     </td>
-                    <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text3)' }}>
-                      {run.actions_taken
-                        ? (typeof run.actions_taken === 'string' ? run.actions_taken : JSON.stringify(run.actions_taken).slice(0, 50))
-                        : '-'
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: run.error_message ? 'var(--red)' : 'var(--text3)' }}>
+                      {run.error_message
+                        ? run.error_message.slice(0, 60)
+                        : run.actions_taken
+                          ? (typeof run.actions_taken === 'string' ? run.actions_taken : JSON.stringify(run.actions_taken).slice(0, 50))
+                          : '-'
                       }
                     </td>
                   </tr>
@@ -333,6 +444,14 @@ export default function AutomationsPageClient({ profile, initialTriggers, initia
           trigger={editingTrigger}
           onClose={() => setEditingTrigger(null)}
           onSave={saveTrigger}
+        />
+      )}
+
+      {/* Create Trigger Modal */}
+      {showCreate && (
+        <CreateTriggerModal
+          onClose={() => setShowCreate(false)}
+          onCreate={createTrigger}
         />
       )}
     </div>
@@ -428,6 +547,140 @@ function EditTriggerModal({ trigger, onClose, onSave }: {
             style={{ padding: '8px 20px', borderRadius: 6, background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}
           >
             Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Create Trigger Modal ──────────────────────────────
+function CreateTriggerModal({ onClose, onCreate }: {
+  onClose: () => void
+  onCreate: (data: { name: string; description: string; trigger_event: string; actions: any }) => void
+}) {
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    trigger_event: TRIGGER_EVENTS[0].value,
+    action_type: ACTION_TYPES[0].value,
+    delay_hours: 0,
+    message_template: '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleCreate = async () => {
+    if (!form.name || !form.trigger_event) return
+    setSaving(true)
+    await onCreate({
+      name: form.name,
+      description: form.description,
+      trigger_event: form.trigger_event,
+      actions: [{
+        type: form.action_type,
+        template: form.message_template || undefined,
+        delay_hours: form.delay_hours || undefined,
+      }],
+    })
+    setSaving(false)
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div style={{
+        position: 'relative', background: 'var(--surface)', borderRadius: 12,
+        padding: 24, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto',
+        border: '1px solid var(--border)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text1)', fontFamily: 'Barlow Condensed, sans-serif', margin: 0 }}>
+            New Automation Trigger
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, display: 'block' }}>Name *</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="e.g. Job Completed → Request Review"
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, display: 'block' }}>Description</label>
+            <textarea
+              value={form.description}
+              onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+              placeholder="What does this automation do?"
+              rows={2}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13, resize: 'vertical' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, display: 'block' }}>Trigger Event *</label>
+            <select
+              value={form.trigger_event}
+              onChange={e => setForm(p => ({ ...p, trigger_event: e.target.value }))}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13, cursor: 'pointer' }}
+            >
+              {TRIGGER_EVENTS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, display: 'block' }}>Action Type</label>
+            <select
+              value={form.action_type}
+              onChange={e => setForm(p => ({ ...p, action_type: e.target.value }))}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13, cursor: 'pointer' }}
+            >
+              {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, display: 'block' }}>Delay (hours)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.delay_hours}
+                onChange={e => setForm(p => ({ ...p, delay_hours: parseInt(e.target.value) || 0 }))}
+                style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, display: 'block' }}>Message Template</label>
+              <input
+                value={form.message_template}
+                onChange={e => setForm(p => ({ ...p, message_template: e.target.value }))}
+                placeholder="template_name"
+                style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text2)', fontSize: 13, border: 'none', cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving || !form.name}
+            style={{
+              padding: '8px 20px', borderRadius: 6,
+              background: 'var(--accent)', color: '#fff',
+              fontSize: 13, fontWeight: 600, border: 'none',
+              cursor: saving ? 'wait' : 'pointer',
+              opacity: !form.name ? 0.5 : 1,
+            }}
+          >
+            {saving ? 'Creating...' : 'Create Trigger'}
           </button>
         </div>
       </div>

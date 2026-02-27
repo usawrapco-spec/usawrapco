@@ -218,7 +218,7 @@ export default function WrapFunnelClient() {
           utm_campaign,
           ref_code,
         }),
-      }).catch(() => {})
+      }).catch((error) => { console.error(error); })
     }
 
     return () => {

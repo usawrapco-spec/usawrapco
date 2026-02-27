@@ -385,7 +385,7 @@ export default function InstallerJobCard({
             distance_from_site_meters: distance,
             verified,
           }),
-        }).catch(() => {})
+        }).catch((error) => { console.error(error); })
       },
       (err) => {
         setGpsError(`GPS error: ${err.message}. Clock-in without GPS verification.`)

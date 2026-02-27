@@ -259,15 +259,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       if (newDate && newDate !== prevInstallDate) {
         supabase.from('appointments').insert({
           org_id: project.org_id,
+          title: `Install Drop-off - ${f.client || project.title || 'Customer'}`,
           customer_name: f.client || project.title || 'Customer',
           appointment_type: 'Install Drop-off',
-          date: newDate,
-          time: '09:00',
+          start_time: `${newDate}T09:00:00`,
+          end_time: `${newDate}T10:00:00`,
+          duration_minutes: 60,
           assigned_to: project.installer_id || null,
-          assigned_name: (project.installer as any)?.name || null,
+          project_id: project.id,
           status: 'pending',
+          source: 'internal',
           notes: `Auto-created from job: ${project.title || f.client || project.id}`,
-        }).then(() => {}, () => {})
+        })
       }
     }
   }
@@ -395,21 +398,21 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, action: 'stage_advanced', details: { from_stage: curStageKey, to_stage: next } }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     // Fire integrations webhook (GHL, Slack)
     fetch('/api/webhooks/stage-change', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, event: 'stage_advanced', from_stage: curStageKey, to_stage: next }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     // Auto-create stage tasks
     fetch('/api/tasks/auto-create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, to_stage: next, project_title: project.title }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     // Award XP for key milestones
     const xpAction = curStageKey === 'install'      ? 'install_completed'
@@ -430,7 +433,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           if (res?.amount) xpToast(res.amount, stageLabel, res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
 
     showToast(`Moved to ${PIPE_STAGES.find(s=>s.key===next)?.label || 'Done'}`)
@@ -455,19 +458,19 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       .then((res: { amount?: number; leveledUp?: boolean; newLevel?: number } | null) => {
         if (res?.amount) xpToast(res.amount, 'Deal closed!', res.leveledUp, res.newLevel)
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
     // Fire integrations webhook
     fetch('/api/webhooks/stage-change', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, event: 'job_closed' }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
     // Log activity
     fetch('/api/activity-log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, action: 'job_closed', details: { notes: f.closeNotes } }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
     showToast('Job Closed & Approved!')
   }
 
@@ -490,14 +493,14 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, action: 'stage_sent_back', details: { from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason } }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     // Fire integrations webhook (Slack)
     fetch('/api/webhooks/stage-change', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project_id: project.id, event: 'send_back', from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
     setSendBackOpen(null); setSendBackReason(''); setSendBackNotes('')
     showToast(`Sent back to ${PIPE_STAGES.find(s=>s.key===prevStage)?.label}`)
   }
@@ -1626,7 +1629,7 @@ function DesignTab({ f, ff, project, profile }: any) {
                     if (res?.amount) xpToast(res.amount, 'Design approved', res.leveledUp, res.newLevel)
                     if (res?.newBadges?.length) badgeToast(res.newBadges)
                   })
-                  .catch(() => {})
+                  .catch((error) => { console.error(error); })
               }
             }}>
               <option value="">Not Started</option>
@@ -1969,7 +1972,7 @@ function ExpensesSection({ f, ff }: { f: any; ff: (k: string, v: any) => void })
         if (res?.amount) xpToast(res.amount, 'Expense logged', res.leveledUp, res.newLevel)
         if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
   }
 
   function removeExpense(i: number) {

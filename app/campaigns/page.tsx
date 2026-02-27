@@ -17,21 +17,24 @@ export default async function CampaignsPage() {
 
   let campaigns: any[] = []
   let prospects: any[] = []
+  let wrapCampaigns: any[] = []
   try {
-    const [campRes, prospRes] = await Promise.all([
+    const [campRes, prospRes, wrapRes] = await Promise.all([
       admin.from('campaigns').select('*').eq('org_id', profile.org_id).order('created_at', { ascending: false }),
       admin.from('prospects').select('id, name, business_name, company, email, industry, status, score')
         .eq('org_id', profile.org_id).order('score', { ascending: false }).limit(500),
+      admin.from('wrap_campaigns').select('*').eq('org_id', profile.org_id).order('created_at', { ascending: false }),
     ])
     campaigns = campRes.data || []
     prospects = prospRes.data || []
+    wrapCampaigns = wrapRes.data || []
   } catch {}
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
-        <CampaignsClient profile={profile as Profile} initialCampaigns={campaigns} prospects={prospects} />
+        <CampaignsClient profile={profile as Profile} initialCampaigns={campaigns} prospects={prospects} wrapCampaigns={wrapCampaigns} />
       </main>
       <div className="md:hidden">
         <MobileNav />

@@ -36,7 +36,7 @@ export default function XPAwarder({ children }: XPAwarderProps) {
           badgeToast((data as any).newBadges)
         }
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

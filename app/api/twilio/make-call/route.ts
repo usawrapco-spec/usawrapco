@@ -1,80 +1,85 @@
+/**
+ * POST /api/twilio/make-call
+ * Initiates an outbound call via Twilio. Requires authenticated user.
+ */
+import { ORG_ID } from '@/lib/org'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { ORG_ID } from '@/lib/org'
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  const accountSid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.usawrapco.com'
+    const { to, from } = await req.json()
+    if (!to) {
+      return NextResponse.json({ error: 'Missing required field: to' }, { status: 400 })
+    }
 
-  if (!accountSid || !authToken || !fromNumber) {
-    return NextResponse.json(
-      { error: 'Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER.' },
-      { status: 503 }
-    )
-  }
+    const twilioSid = process.env.TWILIO_ACCOUNT_SID
+    const twilioAuth = process.env.TWILIO_AUTH_TOKEN
+    const twilioFrom = from || process.env.TWILIO_PHONE_NUMBER
 
-  const body = await req.json()
-  const { to } = body as { to: string }
+    if (!twilioSid || !twilioAuth || !twilioFrom) {
+      return NextResponse.json({ error: 'Twilio not configured' }, { status: 503 })
+    }
 
-  if (!to) {
-    return NextResponse.json({ error: 'Missing required field: to' }, { status: 400 })
-  }
+    const admin = getSupabaseAdmin()
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id, name')
+      .eq('id', user.id)
+      .single()
 
-  // Initiate call via Twilio REST API
-  const twilioRes = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
-    {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
+    const statusCallback = `${appUrl}/api/twilio/call-status`
+
+    // Initiate call via Twilio REST API
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Calls.json`
+    const callParams = new URLSearchParams({
+      To: to,
+      From: twilioFrom,
+      Url: `${appUrl}/api/twilio/inbound-call`, // TwiML for the call
+      StatusCallback: statusCallback,
+      StatusCallbackEvent: 'initiated ringing answered completed',
+    })
+
+    const twilioRes = await fetch(twilioUrl, {
       method: 'POST',
       headers: {
-        Authorization: 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
         'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString('base64')}`,
       },
-      body: new URLSearchParams({
-        To: to,
-        From: fromNumber,
-        Url: `${siteUrl}/api/phone/outbound-twiml`,
-        StatusCallback: `${siteUrl}/api/twilio/call-status`,
-        StatusCallbackEvent: 'completed',
-        StatusCallbackMethod: 'POST',
-      }).toString(),
+      body: callParams.toString(),
+    })
+
+    const twilioData = await twilioRes.json()
+
+    if (!twilioRes.ok) {
+      console.error('[make-call] Twilio error:', twilioData)
+      return NextResponse.json({ error: 'Failed to initiate call' }, { status: 502 })
     }
-  )
 
-  const callData = await twilioRes.json()
-  if (!twilioRes.ok) {
-    return NextResponse.json(
-      { error: callData.message || 'Twilio call failed' },
-      { status: 500 }
-    )
+    // Insert into call_logs
+    await admin.from('call_logs').insert({
+      org_id: ORG_ID,
+      twilio_call_sid: twilioData.sid,
+      direction: 'outbound',
+      from_number: twilioFrom,
+      to_number: to,
+      caller_name: profile?.name || user.email,
+      initiated_by: user.id,
+      status: 'initiated',
+      started_at: new Date().toISOString(),
+    })
+
+    return NextResponse.json({ success: true, call_sid: twilioData.sid })
+  } catch (err: any) {
+    console.error('[make-call] error:', err)
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 })
   }
-
-  // Log to call_logs
-  const admin = getSupabaseAdmin()
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('org_id')
-    .eq('id', user.id)
-    .single()
-
-  const orgId = profile?.org_id || ORG_ID
-
-  await admin.from('call_logs').insert({
-    org_id: orgId,
-    twilio_call_sid: callData.sid,
-    direction: 'outbound',
-    from_number: fromNumber,
-    to_number: to,
-    status: 'initiated',
-    answered_by: user.id,
-    started_at: new Date().toISOString(),
-  })
-
-  return NextResponse.json({ success: true, callSid: callData.sid })
 }

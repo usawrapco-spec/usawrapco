@@ -4,12 +4,14 @@ import DOMPurify from 'dompurify'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
-import { Plus, X, Play, Pause, Mail, BarChart3, Send, MessageSquare, Sparkles } from 'lucide-react'
+import { Plus, X, Play, Pause, Mail, Send, Sparkles, Target } from 'lucide-react'
+import WrapCampaignsList from '@/components/campaigns/WrapCampaignsList'
 
 interface CampaignsClientProps {
   profile: Profile
   initialCampaigns: any[]
   prospects: any[]
+  wrapCampaigns?: any[]
 }
 
 const INDUSTRIES = [
@@ -19,8 +21,9 @@ const INDUSTRIES = [
   'Construction', 'General',
 ]
 
-export default function CampaignsClient({ profile, initialCampaigns, prospects }: CampaignsClientProps) {
+export default function CampaignsClient({ profile, initialCampaigns, prospects, wrapCampaigns = [] }: CampaignsClientProps) {
   const supabase = createClient()
+  const [activeTab, setActiveTab] = useState<'email' | 'wrap'>('email')
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns)
   const [showCreate, setShowCreate] = useState(false)
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null)
@@ -108,24 +111,71 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects }
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Mail size={22} style={{ color: 'var(--accent)' }} />
             CAMPAIGNS
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-            AI-powered email outreach sequences
-          </p>
         </div>
-        <button onClick={() => setShowCreate(true)} style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '10px 20px', borderRadius: 8, border: 'none',
-          background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-        }}>
-          <Plus size={14} /> New Campaign
-        </button>
+        {activeTab === 'email' && (
+          <button onClick={() => setShowCreate(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 20px', borderRadius: 8, border: 'none',
+            background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <Plus size={14} /> New Campaign
+          </button>
+        )}
       </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+        {[
+          { key: 'email' as const, label: 'Email Outreach', icon: Mail, count: campaigns.length },
+          { key: 'wrap' as const, label: 'Wrap Campaigns', icon: Target, count: wrapCampaigns.length },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '10px 20px',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: `2px solid ${activeTab === tab.key ? 'var(--accent)' : 'transparent'}`,
+              color: activeTab === tab.key ? 'var(--accent)' : 'var(--text3)',
+              fontSize: 13,
+              fontWeight: activeTab === tab.key ? 700 : 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: 'JetBrains Mono, monospace',
+              padding: '1px 6px',
+              borderRadius: 8,
+              background: activeTab === tab.key ? 'rgba(79,127,255,0.15)' : 'var(--surface2)',
+              color: activeTab === tab.key ? 'var(--accent)' : 'var(--text3)',
+            }}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Wrap Campaigns Tab */}
+      {activeTab === 'wrap' && (
+        <WrapCampaignsList campaigns={wrapCampaigns} />
+      )}
+
+      {/* Email Campaigns Tab */}
+      {activeTab === 'email' && <>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
@@ -279,6 +329,8 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects }
           </div>
         )}
       </div>
+
+      </>}
 
       {/* Create Campaign Modal */}
       {showCreate && (

@@ -362,7 +362,7 @@ export function DashboardClient({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'deal_lost', sourceType: 'project', sourceId: project.id }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
   }, [updateStatus])
 
   // Bulk selection helpers

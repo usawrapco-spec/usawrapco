@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import ROICalculator from '@/components/roi/ROICalculator'
 import RouteMapper from '@/components/roi/RouteMapper'
 import QRGenerator from '@/components/roi/QRGenerator'
@@ -14,15 +15,34 @@ const STEP_LABELS = ['ROI Calculator', 'Route Mapper', 'Tracking Setup']
 
 export default function NewCampaignPage() {
   const router = useRouter()
+  const [authChecked, setAuthChecked] = useState(false)
   const [step, setStep] = useState<Step>(1)
   const [creating, setCreating] = useState(false)
-
-  // Wizard data
   const [calcData, setCalcData] = useState<any>(null)
   const [impressionEstimate, setImpressionEstimate] = useState<number | undefined>()
   const [campaignId, setCampaignId] = useState('')
   const [campaignSlug, setCampaignSlug] = useState('')
   const [vehicleLabel, setVehicleLabel] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return
+      if (!user) { router.push('/login'); return }
+      setAuthChecked(true)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (!authChecked) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 80 }}>
+        <Loader2 size={28} className="animate-spin" style={{ color: 'var(--accent)' }} />
+      </div>
+    )
+  }
 
   // Step 1 complete
   const handleCalcComplete = async (data: any) => {
@@ -59,7 +79,7 @@ export default function NewCampaignPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <Link
-          href="/roi"
+          href="/roi/dashboard"
           style={{
             display: 'flex',
             alignItems: 'center',

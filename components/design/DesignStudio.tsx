@@ -260,7 +260,7 @@ function NewDesignProjectModal({ profile, teamMembers, projects, onClose, onCrea
           if (res?.amount) xpToast(res.amount, 'Design created', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
 
       onCreated()
     } catch (err) {

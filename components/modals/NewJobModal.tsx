@@ -219,7 +219,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
           if (res?.amount) xpToast(res.amount, 'New job created', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
       onClose();
       // Reset form
       setForm({

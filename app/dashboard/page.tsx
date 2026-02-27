@@ -61,13 +61,22 @@ export default async function DashboardPage() {
 
     // Fetch today's appointments
     const todayStr = new Date().toISOString().split('T')[0]
-    const { data: todayAppointments } = await admin
+    const { data: rawAppointments } = await admin
         .from('appointments')
         .select('*')
         .eq('org_id', orgId)
-        .eq('date', todayStr)
+        .gte('start_time', `${todayStr}T00:00:00`)
+        .lte('start_time', `${todayStr}T23:59:59`)
         .neq('status', 'cancelled')
-        .order('time', { ascending: true })
+        .order('start_time', { ascending: true })
+    const todayAppointments = (rawAppointments || []).map((a: any) => {
+        const s = a.start_time ? new Date(a.start_time) : null
+        return {
+            ...a,
+            date: s ? `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}` : todayStr,
+            time: s ? `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')}` : '',
+        }
+    })
 
     return (
         <XPAwarder>

@@ -78,7 +78,7 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
         if (res?.amount) xpToast(res.amount, 'Maintenance logged', res.leveledUp, res.newLevel)
           if (res?.newBadges?.length) badgeToast(res.newBadges)
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
     setShowAdd(false)
     setForm({ printer_name: PRINTERS[0], maintenance_type: 'scheduled', description: '', print_hours_at_service: '', next_service_hours: '50' })
     setSaving(false)

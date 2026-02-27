@@ -26,11 +26,11 @@ export async function POST(req: Request) {
 
   // Fire appropriate webhook (non-blocking)
   if (event === 'stage_advanced') {
-    onStageAdvanced(orgId, project, from_stage, to_stage, actorName).catch(() => {})
+    onStageAdvanced(orgId, project, from_stage, to_stage, actorName).catch((error) => { console.error(error); })
   } else if (event === 'send_back') {
-    onSendBack(orgId, project, from_stage, to_stage, reason || '', actorName).catch(() => {})
+    onSendBack(orgId, project, from_stage, to_stage, reason || '', actorName).catch((error) => { console.error(error); })
   } else if (event === 'job_closed') {
-    onJobClosed(orgId, project, actorName).catch(() => {})
+    onJobClosed(orgId, project, actorName).catch((error) => { console.error(error); })
   }
 
   return Response.json({ success: true })

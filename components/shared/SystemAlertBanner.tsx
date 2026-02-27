@@ -80,6 +80,22 @@ export default function SystemAlertBanner() {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
+  // Load persisted dismissals from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('system_alerts_dismissed')
+      if (stored) {
+        const parsed: Record<string, number> = JSON.parse(stored)
+        const now = Date.now()
+        // Dismissals expire after 24 hours
+        const valid = Object.entries(parsed)
+          .filter(([, ts]) => now - ts < 86_400_000)
+          .map(([id]) => id)
+        setDismissed(new Set(valid))
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     fetchHealth().then(health => {
       if (health) setAlerts(healthToAlerts(health))
@@ -140,7 +156,17 @@ export default function SystemAlertBanner() {
               </a>
             )}
             <button
-              onClick={() => setDismissed(d => new Set([...d, alert.id]))}
+              onClick={() => {
+                setDismissed(d => {
+                  const next = new Set([...d, alert.id])
+                  try {
+                    const stored = JSON.parse(localStorage.getItem('system_alerts_dismissed') || '{}')
+                    stored[alert.id] = Date.now()
+                    localStorage.setItem('system_alerts_dismissed', JSON.stringify(stored))
+                  } catch {}
+                  return next
+                })
+              }}
               style={{
                 background: 'none',
                 border: 'none',

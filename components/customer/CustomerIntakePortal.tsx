@@ -292,14 +292,14 @@ export default function CustomerIntakePortal({ token }: CustomerIntakePortalProp
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     // Auto-generate brand portfolio in background
     fetch('/api/brand-portfolio/generate-from-intake', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
-    }).catch(() => {})
+    }).catch((error) => { console.error(error); })
 
     setSaving(false)
     setSubmitted(true)

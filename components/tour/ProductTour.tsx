@@ -416,7 +416,7 @@ export function useTour() {
             setWhatsNewOpen(true)
           }
         })
-        .catch(() => {})
+        .catch((error) => { console.error(error); })
     }
     localStorage.setItem(VISIT_KEY, now)
   }, [])

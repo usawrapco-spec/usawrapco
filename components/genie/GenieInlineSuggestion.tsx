@@ -61,7 +61,7 @@ export default function GenieInlineSuggestion({ context, maxSuggestions = 2, com
           setSuggestions(data.suggestions.slice(0, maxSuggestions))
         }
       })
-      .catch(() => {})
+      .catch((error) => { console.error(error); })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeft,
   TrendingUp,
@@ -30,7 +31,7 @@ export default function CampaignPortalPage() {
   const fetchData = async () => {
     try {
       const res = await fetch(`/api/roi/campaigns/${campaignId}`)
-      if (!res.ok) { router.push('/roi'); return }
+      if (!res.ok) { router.push('/roi/dashboard'); return }
       const result = await res.json()
       setData(result)
     } catch (err) {
@@ -40,7 +41,17 @@ export default function CampaignPortalPage() {
     }
   }
 
-  useEffect(() => { fetchData() }, [campaignId])
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return
+      if (!user) { router.push('/login'); return }
+      fetchData()
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaignId])
 
   if (loading) {
     return (
@@ -86,7 +97,7 @@ export default function CampaignPortalPage() {
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <Link href="/roi" style={{
+        <Link href="/roi/dashboard" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 32, height: 32, borderRadius: 8,
           background: 'var(--surface2)', color: 'var(--text2)', textDecoration: 'none',
