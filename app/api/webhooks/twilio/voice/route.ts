@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     // --- Match caller to customer by phone ---
     const { data: customer } = await supabase
       .from('customers')
-      .select('id, name, phone, email, assigned_to')
+      .select('id, name, phone, email')
       .or(`phone.eq.${from},phone.eq.${normalizedFrom},phone.eq.${from.replace('+1', '')}`)
       .eq('org_id', ORG_ID)
       .limit(1)
@@ -80,15 +80,7 @@ export async function POST(req: NextRequest) {
       if (emp) assignedEmployee = emp
     }
 
-    // If no phone assignment, try the customer's assigned sales agent
-    if (!assignedEmployee && customer?.assigned_to) {
-      const { data: emp } = await supabase
-        .from('profiles')
-        .select('id, name, phone')
-        .eq('id', customer.assigned_to)
-        .single()
-      if (emp) assignedEmployee = emp
-    }
+    // (customer table does not have assigned_to; routing uses phone_number assignment above)
 
     // --- Log the call ---
     await supabase.from('calls').insert({
