@@ -47,15 +47,15 @@ export async function POST(req: NextRequest) {
       const cleanPhone = from.replace(/\D/g, '')
       const { data: customer } = await admin
         .from('customers')
-        .select('id, name')
+        .select('id, contact_name')
         .or(`phone.eq.${from},phone.eq.+1${cleanPhone.slice(-10)},phone.eq.${cleanPhone.slice(-10)}`)
         .eq('org_id', ORG_ID)
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (customer) {
         customerId = customer.id
-        customerName = customer.name || callerName
+        customerName = customer.contact_name || callerName
       }
     }
 
@@ -94,7 +94,6 @@ export async function POST(req: NextRequest) {
           location_city: location?.city || null,
           location_state: location?.state || null,
           location_accuracy: location ? 'area_code' : 'unknown',
-          user_agent: req.headers.get('user-agent') || null,
         })
       } catch {}
 

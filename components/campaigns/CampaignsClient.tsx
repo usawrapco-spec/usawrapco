@@ -1,6 +1,6 @@
 'use client'
 
-import DOMPurify from 'dompurify'
+import DOMPurify from 'isomorphic-dompurify'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'

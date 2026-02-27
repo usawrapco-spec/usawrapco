@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-import { VEHICLE_MULTIPLIERS, CITY_DENSITY } from '@/lib/roi/constants'
+import { VEHICLE_MULTIPLIERS } from '@/lib/roi/constants'
 import { algorithmicEstimate } from '@/lib/roi/impression-calculator'
 
 const ORG_ID = 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
@@ -103,6 +103,18 @@ export async function POST(req: Request) {
     const admin = getSupabaseAdmin()
     const { data: profile } = await admin.from('profiles').select('org_id').eq('id', user.id).single()
     const orgId = profile?.org_id || ORG_ID
+
+    // Verify user's org owns this campaign
+    const { data: campaign } = await admin
+      .from('wrap_campaigns')
+      .select('id')
+      .eq('id', campaignId)
+      .eq('org_id', orgId)
+      .maybeSingle()
+
+    if (!campaign) {
+      return Response.json({ error: 'Campaign not found' }, { status: 404 })
+    }
 
     await admin.from('wrap_route_logs').insert({
       campaign_id: campaignId,

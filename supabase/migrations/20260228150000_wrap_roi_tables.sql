@@ -75,24 +75,14 @@ CREATE TABLE IF NOT EXISTS wrap_roi_snapshots (
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── wrap_leads (public ROI calculator leads) ──────────────────────────────────
-CREATE TABLE IF NOT EXISTS wrap_leads (
-  id                          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  org_id                      UUID DEFAULT 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f',
-  name                        TEXT NOT NULL,
-  business_name               TEXT,
-  phone                       TEXT,
-  email                       TEXT,
-  fleet_size                  INTEGER,
-  notes                       TEXT,
-  industry                    TEXT,
-  num_vehicles                INTEGER,
-  wrap_type                   TEXT,
-  estimated_roi               NUMERIC,
-  estimated_annual_impressions BIGINT,
-  source                      TEXT DEFAULT 'roi-calculator',
-  created_at                  TIMESTAMPTZ DEFAULT NOW()
-);
+-- ─── wrap_leads: add extra columns (table created in 20260226120000_roi_public_leads.sql) ─
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS fleet_size INTEGER;
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS wrap_type TEXT;
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS estimated_roi NUMERIC;
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS estimated_annual_impressions BIGINT;
+ALTER TABLE wrap_leads ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'roi-calculator';
 
 -- ─── Indexes ───────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_wrap_campaigns_org ON wrap_campaigns(org_id);

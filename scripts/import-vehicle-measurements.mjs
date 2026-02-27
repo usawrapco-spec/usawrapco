@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const filePath = path.resolve('C:/Users/wallc/Desktop/Make Model Year Side Width Side Hei.txt');
+const filePath = path.resolve(process.argv[2] || 'data/vehicle-measurements.txt');
 const raw = fs.readFileSync(filePath, 'utf-8');
 const lines = raw.split(/\r?\n/);
 

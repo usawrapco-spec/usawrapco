@@ -38,20 +38,24 @@ export default function ROIDashboardPage() {
       setProfile(prof as Profile)
 
       // Fetch campaigns and leads in parallel
-      const [campRes, leadsRes] = await Promise.all([
-        fetch('/api/roi/campaigns'),
-        fetch('/api/roi/leads'),
-      ])
-      if (cancelled) return
+      try {
+        const [campRes, leadsRes] = await Promise.all([
+          fetch('/api/roi/campaigns'),
+          fetch('/api/roi/leads'),
+        ])
+        if (cancelled) return
 
-      if (campRes.ok) {
-        const campData = await campRes.json()
-        setCampaigns(campData.campaigns || [])
-      }
+        if (campRes.ok) {
+          const campData = await campRes.json()
+          setCampaigns(campData.campaigns || [])
+        }
 
-      if (leadsRes.ok) {
-        const leadsData = await leadsRes.json()
-        setLeads(leadsData.leads || [])
+        if (leadsRes.ok) {
+          const leadsData = await leadsRes.json()
+          setLeads(leadsData.leads || [])
+        }
+      } catch (err) {
+        console.error('[ROI Dashboard] fetch error:', err)
       }
 
       setLoading(false)

@@ -53,21 +53,19 @@ export async function POST(req: NextRequest) {
     const cleanPhone = from.replace(/\D/g, '')
     let { data: customer } = await admin
       .from('customers')
-      .select('id, name, phone')
+      .select('id, contact_name, phone')
       .or(`phone.eq.${from},phone.eq.+1${cleanPhone.slice(-10)},phone.eq.${cleanPhone.slice(-10)}`)
       .eq('org_id', ORG_ID)
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (!customer) {
       const { data: newCustomer } = await admin
         .from('customers')
         .insert({
           org_id: ORG_ID,
-          name: `Unknown (${from})`,
+          contact_name: `Unknown (${from})`,
           phone: from,
-          status: 'lead',
-          lead_source: 'inbound_sms',
         })
         .select()
         .single()
@@ -85,7 +83,7 @@ export async function POST(req: NextRequest) {
       .eq('last_message_channel', 'sms')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (!conversation) {
       const { data: newConvo } = await admin
@@ -93,7 +91,7 @@ export async function POST(req: NextRequest) {
         .insert({
           org_id: ORG_ID,
           customer_id: customer.id,
-          contact_name: customer.name || from,
+          contact_name: customer.contact_name || from,
           contact_phone: from,
           status: 'open',
           last_message_at: new Date().toISOString(),
@@ -127,7 +125,7 @@ export async function POST(req: NextRequest) {
       body,
       attachments: mediaUrls.length > 0 ? mediaUrls.map(u => ({ url: u, type: 'image' })) : null,
       status: 'received',
-      sender_name: customer.name || from,
+      sender_name: customer.contact_name || from,
       twilio_sid: messageSid,
       media_urls: mediaUrls.length > 0 ? mediaUrls : null,
     })
@@ -153,7 +151,7 @@ export async function POST(req: NextRequest) {
       customer_id: customer.id,
       actor_type: 'customer',
       actor_id: customer.id,
-      actor_name: customer.name || from,
+      actor_name: customer.contact_name || from,
       action: 'inbound_sms',
       details: body.length > 200 ? body.substring(0, 200) + '...' : body,
       metadata: { message_sid: messageSid, media_count: numMedia },
@@ -165,7 +163,7 @@ export async function POST(req: NextRequest) {
       .from('conversation_ai_config')
       .select('ai_enabled, system_prompt')
       .eq('conversation_id', conversation.id)
-      .single()
+      .maybeSingle()
 
     if (aiConfig?.ai_enabled) {
       // Check global AI toggle
@@ -190,7 +188,7 @@ export async function POST(req: NextRequest) {
                 'anthropic-version': '2023-06-01',
               },
               body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-sonnet-4-6',
                 max_tokens: 300,
                 system: systemPrompt,
                 messages: [{ role: 'user', content: body }],
@@ -244,7 +242,7 @@ export async function POST(req: NextRequest) {
               conversation_id: conversation.id,
               direction: 'outbound',
               body: aiReplyBody,
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-sonnet-4-6',
               trigger: 'inbound_sms',
             })
           }

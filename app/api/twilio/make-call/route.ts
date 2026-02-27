@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const callParams = new URLSearchParams({
       To: to,
       From: twilioFrom,
-      Url: `${appUrl}/api/twilio/inbound-call`, // TwiML for the call
+      Url: `${appUrl}/api/phone/outbound-twiml`, // TwiML for outbound call
       StatusCallback: statusCallback,
       StatusCallbackEvent: 'initiated ringing answered completed',
     })

@@ -32,6 +32,9 @@ export async function POST(req: Request) {
       projectedRoiMultiplier,
     } = body
 
+    if (!name?.trim()) {
+      return Response.json({ error: 'Name is required' }, { status: 400 })
+    }
     if (!email && !phone) {
       return Response.json({ error: 'Email or phone required' }, { status: 400 })
     }

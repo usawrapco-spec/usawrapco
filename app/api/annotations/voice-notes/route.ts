@@ -66,41 +66,43 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Trigger async transcription via Replicate Whisper (fire and forget)
+  // Trigger async transcription via Replicate Whisper
+  // Uses sync wait (up to 60s) since serverless functions can't poll after response
   const replicateToken = process.env.REPLICATE_API_TOKEN
   if (replicateToken && publicUrl) {
-    fetch('https://api.replicate.com/v1/predictions', {
-      method: 'POST',
-      headers: { Authorization: `Token ${replicateToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        version: 'e39e354773466b955265e969568deb7da217804d8e771ea8c9cd0cef6591f8bc',
-        input: { audio: publicUrl, model: 'large-v2', language: 'en', transcription: 'plain text' },
-        webhook: null,
-      }),
-    }).then(async r => {
-      if (!r.ok) return
-      const pred = await r.json()
-      // Poll for result (non-blocking, runs server-side)
-      let attempts = 0
-      const poll = async () => {
-        if (attempts++ > 20) return
-        await new Promise(res => setTimeout(res, 3000))
-        const statusRes = await fetch(`https://api.replicate.com/v1/predictions/${pred.id}`, {
-          headers: { Authorization: `Token ${replicateToken}` },
-        })
-        if (!statusRes.ok) return
-        const status = await statusRes.json()
-        if (status.status === 'succeeded' && status.output?.transcription) {
-          await admin.from('design_voice_notes').update({
-            transcript: status.output.transcription,
-            replicate_job_id: pred.id,
-          }).eq('id', data.id)
-        } else if (status.status === 'processing' || status.status === 'starting') {
-          poll()
+    try {
+      const predRes = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
+        headers: { Authorization: `Token ${replicateToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          version: 'e39e354773466b955265e969568deb7da217804d8e771ea8c9cd0cef6591f8bc',
+          input: { audio: publicUrl, model: 'large-v2', language: 'en', transcription: 'plain text' },
+        }),
+      })
+
+      if (predRes.ok) {
+        const pred = await predRes.json()
+        // Poll synchronously before returning (max ~30s)
+        for (let i = 0; i < 10; i++) {
+          await new Promise(res => setTimeout(res, 3000))
+          const statusRes = await fetch(`https://api.replicate.com/v1/predictions/${pred.id}`, {
+            headers: { Authorization: `Token ${replicateToken}` },
+          })
+          if (!statusRes.ok) break
+          const result = await statusRes.json()
+          if (result.status === 'succeeded' && result.output?.transcription) {
+            await admin.from('design_voice_notes').update({
+              transcript: result.output.transcription,
+              replicate_job_id: pred.id,
+            }).eq('id', data.id)
+            break
+          }
+          if (result.status === 'failed' || result.status === 'canceled') break
         }
       }
-      poll()
-    }).catch((error) => { console.error(error); })
+    } catch (err) {
+      console.error('[voice-notes] transcription error:', err)
+    }
   }
 
   return NextResponse.json({ voiceNote: data })

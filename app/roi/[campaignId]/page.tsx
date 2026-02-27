@@ -26,6 +26,7 @@ export default function CampaignPortalPage() {
   const router = useRouter()
   const campaignId = params.campaignId as string
   const [data, setData] = useState<any>(null)
+  const [orgId, setOrgId] = useState('')
   const [loading, setLoading] = useState(true)
 
   const fetchData = async () => {
@@ -44,9 +45,11 @@ export default function CampaignPortalPage() {
   useEffect(() => {
     let cancelled = false
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (cancelled) return
       if (!user) { router.push('/login'); return }
+      const { data: prof } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
+      if (prof?.org_id) setOrgId(prof.org_id)
       fetchData()
     })
     return () => { cancelled = true }
@@ -240,7 +243,7 @@ export default function CampaignPortalPage() {
         <RouteABComparison campaignId={campaignId} routes={routes} />
 
         {/* Job Logger */}
-        <JobLogger campaignId={campaignId} orgId="" onJobLogged={fetchData} />
+        <JobLogger campaignId={campaignId} orgId={orgId} onJobLogged={fetchData} />
 
         {/* Break-Even Progress */}
         <div style={{

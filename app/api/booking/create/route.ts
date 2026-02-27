@@ -43,17 +43,17 @@ export async function POST(req: Request) {
       return Response.json({ error: 'No more slots available for this date' }, { status: 400 })
     }
 
-    const startTime = `${date}T${time}:00`
-    const startUtc = new Date(startTime + 'Z')
-    const endTime = new Date(startUtc.getTime() + duration * 60000).toISOString()
+    // Store as proper ISO timestamps (assume times are in shop's local timezone)
+    const startIso = new Date(`${date}T${time}:00`).toISOString()
+    const endIso = new Date(new Date(`${date}T${time}:00`).getTime() + duration * 60000).toISOString()
     const title = `${appointment_type} - ${customer_name}`
 
     const { data, error } = await admin.from('appointments').insert({
       org_id: orgId,
       title,
       appointment_type,
-      start_time: startTime,
-      end_time: endTime,
+      start_time: startIso,
+      end_time: endIso,
       duration_minutes: duration,
       customer_name,
       customer_email: customer_email || null,

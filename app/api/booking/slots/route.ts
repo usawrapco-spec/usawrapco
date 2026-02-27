@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     // Filter out slots that conflict with existing appointments
     const availableSlots = allSlots.filter(slot => {
-      const slotStart = new Date(`${date}T${slot}:00Z`)
+      const slotStart = new Date(`${date}T${slot}:00`)
       const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000)
 
       return !(existing || []).some(appt => {
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     // Filter out slots that don't meet minimum notice requirement
     const now = new Date()
     const filteredSlots = availableSlots.filter(slot => {
-      const slotTime = new Date(`${date}T${slot}:00Z`)
+      const slotTime = new Date(`${date}T${slot}:00`)
       return slotTime.getTime() - now.getTime() >= minNotice * 3600000
     })
 

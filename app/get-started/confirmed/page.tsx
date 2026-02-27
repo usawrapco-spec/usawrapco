@@ -147,8 +147,8 @@ export default function ConfirmedPage() {
           style={{ fontSize: 13, color: '#5a6080' }}
         >
           Questions? Call us at{' '}
-          <a href="tel:+12065550100" style={{ color: '#4f7fff', textDecoration: 'none' }}>
-            (206) 555-0100
+          <a href="mailto:info@usawrapco.com" style={{ color: '#4f7fff', textDecoration: 'none' }}>
+            info@usawrapco.com
           </a>
         </motion.div>
       </div>
