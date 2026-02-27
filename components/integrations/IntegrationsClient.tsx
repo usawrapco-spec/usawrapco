@@ -4,8 +4,10 @@ import { useState } from 'react'
 import type { Profile } from '@/types'
 import {
   CheckCircle, XCircle, ExternalLink,
-  RefreshCw,
+  RefreshCw, Link as LinkIcon,
 } from 'lucide-react'
+
+const GUSTO_AUTH_URL = 'https://uqfqkvslxoucxmxxrobt.supabase.co/functions/v1/gusto-auth'
 
 interface Props {
   profile: Profile
@@ -396,6 +398,70 @@ export default function IntegrationsClient({ profile, initialIntegrations }: Pro
           </div>
         </div>
       ))}
+
+      {/* Gusto — OAuth section */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
+            padding: '3px 8px', borderRadius: 20,
+            background: '#22c07a20', color: '#22c07a',
+          }}>Payroll</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: 10,
+                background: '#22c07a20', border: '1px solid #22c07a40',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 900, color: '#22c07a', fontFamily: 'JetBrains Mono, monospace',
+              }}>
+                GUS
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)' }}>Gusto Payroll</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                  <XCircle size={11} style={{ color: 'var(--text3)' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>Not Connected</span>
+                </div>
+              </div>
+            </div>
+            <a
+              href={GUSTO_AUTH_URL}
+              style={{
+                padding: '7px 16px', borderRadius: 7, border: '1px solid var(--border)',
+                background: 'var(--surface2)', color: 'var(--text2)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <LinkIcon size={12} />
+              Connect
+            </a>
+          </div>
+
+          <div style={{ padding: '0 20px 12px', fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
+            Sync payroll runs, employee pay rates, and commission payouts directly with Gusto. Connects via OAuth — no manual API keys needed.
+          </div>
+
+          <div style={{ padding: '0 20px 14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {['Sync payroll runs', 'Commission payout sync', 'Employee pay rates', 'OAuth — no manual keys'].map(f => (
+              <span key={f} style={{
+                fontSize: 10, padding: '3px 8px', borderRadius: 20,
+                background: 'var(--surface2)', color: 'var(--text3)', border: '1px solid var(--border)',
+              }}>
+                {f}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Info bar */}
       <div style={{
