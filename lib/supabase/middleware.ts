@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
-  const publicRoutes = ['/login', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/start', '/design-intake/', '/api/design-intake/save', '/api/design-intake/chat', '/api/design-intake/complete', '/api/onboarding/lead', '/api/onboarding/create-checkout', '/api/vehicles/', '/pay/', '/api/stripe/', '/api/payments/webhook', '/configure/', '/api/phone/incoming', '/api/phone/sms-incoming', '/api/phone/call-complete', '/api/phone/voicemail', '/api/phone/transcription', '/api/phone/status', '/api/phone/menu', '/api/phone/outbound-connect', '/api/phone/recording', '/presentation/', '/api/presentation/public/', '/condition-report/', '/api/condition-reports/public/', '/api/wrap-funnel/', '/api/portal/maintenance', '/api/portal/reorder', '/api/portal/vehicles', '/book', '/api/booking/', '/api/public/']
+  const publicRoutes = ['/login', '/book', '/api/', '/auth/callback', '/intake/', '/proof/', '/signoff/', '/track/', '/ref/', '/affiliate/portal', '/portal/', '/shop', '/brand/', '/proposal/', '/get-started', '/start', '/design-intake/', '/configure/', '/pay/', '/presentation/', '/condition-report/']
   const exactPublicRoutes = ['/roi']
   const isPublic = publicRoutes.some(r => pathname.startsWith(r)) || exactPublicRoutes.includes(pathname)
 
