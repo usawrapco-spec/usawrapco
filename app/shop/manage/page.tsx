@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { ORG_ID } from '@/lib/org'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
