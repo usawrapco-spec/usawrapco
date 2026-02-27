@@ -41,7 +41,7 @@ const TOOLS = [
 export default function DesignStudioPage() {
   const params = useParams()
   const router = useRouter()
-  const jobId = params.job_id as string
+  const jobId = params?.job_id as string
   const [mode, setMode] = useState<Mode>('ai')
   const [aiStep, setAIStep] = useState<AIStep>(1)
   const [activeTool, setActiveTool] = useState('select')

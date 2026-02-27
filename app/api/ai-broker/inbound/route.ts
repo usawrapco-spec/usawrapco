@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { ORG_ID } from '@/lib/org'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'

@@ -202,10 +202,10 @@ export default function WrapFunnelClient() {
   useEffect(() => {
     sessionToken.current = getSessionToken()
 
-    const utm_source = searchParams.get('utm_source') || searchParams.get('source') || ''
-    const utm_medium = searchParams.get('utm_medium') || ''
-    const utm_campaign = searchParams.get('utm_campaign') || ''
-    const ref_code = searchParams.get('ref') || ''
+    const utm_source = searchParams?.get('utm_source') || searchParams?.get('source') || ''
+    const utm_medium = searchParams?.get('utm_medium') || ''
+    const utm_campaign = searchParams?.get('utm_campaign') || ''
+    const ref_code = searchParams?.get('ref') || ''
 
     if (utm_source || utm_medium || utm_campaign || ref_code) {
       fetch('/api/wrap-funnel/save', {

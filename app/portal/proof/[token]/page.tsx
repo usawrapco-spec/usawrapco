@@ -26,7 +26,7 @@ interface Comment {
 
 export default function ProofingPortal() {
   const params = useParams()
-  const token = params.token as string
+  const token = params?.token as string
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [currentAngle, setCurrentAngle] = useState(0)

@@ -230,7 +230,7 @@ export default function PrintLayoutPage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClient()
-  const designId = params.id as string
+  const designId = params?.id as string
 
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)

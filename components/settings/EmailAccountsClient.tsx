@@ -59,8 +59,8 @@ export default function EmailAccountsClient({ profile, emailAccounts: initialAcc
 
   // Handle OAuth redirect params
   useEffect(() => {
-    const success = searchParams.get('success')
-    const error = searchParams.get('error')
+    const success = searchParams?.get('success')
+    const error = searchParams?.get('error')
 
     if (success) {
       setToast({ type: 'success', message: 'Gmail account connected successfully!' })

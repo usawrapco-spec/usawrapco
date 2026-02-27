@@ -7,7 +7,7 @@ import PresentationViewer, { type PresentationSlide, type PresentationBranding }
 
 export default function PublicPresentationPage() {
   const params = useParams()
-  const token = params.token as string
+  const token = params?.token as string
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

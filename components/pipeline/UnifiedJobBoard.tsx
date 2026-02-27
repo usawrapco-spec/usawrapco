@@ -175,7 +175,7 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [showNewJob, setShowNewJob] = useState(searchParams.get('new') === 'true')
+  const [showNewJob, setShowNewJob] = useState(searchParams?.get('new') === 'true')
 
   // Realtime subscription
   useEffect(() => {

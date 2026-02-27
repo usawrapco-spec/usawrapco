@@ -65,7 +65,7 @@ export function TopBar({ profile }: { profile: Profile }) {
   const notifRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const title = PAGE_TITLES[pathname] ||
+  const title = (pathname ? PAGE_TITLES[pathname] : undefined) ||
     (pathname?.startsWith('/projects/') && pathname.endsWith('/edit') ? 'Edit Project' :
      pathname?.startsWith('/projects/') ? 'Job Detail' :
      pathname?.startsWith('/customers/') ? 'Customer Detail' :

@@ -24,7 +24,7 @@ import RouteABComparison from '@/components/roi/RouteABComparison'
 export default function CampaignPortalPage() {
   const params = useParams()
   const router = useRouter()
-  const campaignId = params.campaignId as string
+  const campaignId = params?.campaignId as string
   const [data, setData] = useState<any>(null)
   const [orgId, setOrgId] = useState('')
   const [loading, setLoading] = useState(true)

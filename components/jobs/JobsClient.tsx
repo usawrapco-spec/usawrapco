@@ -292,7 +292,7 @@ export default function JobsClient({ profile, initialJobs }: Props) {
   const searchParams = useSearchParams()
   const usingDemo = initialJobs.length === 0
   const allJobs = usingDemo ? DEMO_JOBS : initialJobs
-  const [showNewJob, setShowNewJob] = useState(searchParams.get('new') === 'true')
+  const [showNewJob, setShowNewJob] = useState(searchParams?.get('new') === 'true')
 
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [search, setSearch]     = useState('')

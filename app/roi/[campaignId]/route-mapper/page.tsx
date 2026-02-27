@@ -10,7 +10,7 @@ import RouteMapper from '@/components/roi/RouteMapper'
 export default function CampaignRouteMapperPage() {
   const params = useParams()
   const router = useRouter()
-  const campaignId = params.campaignId as string
+  const campaignId = params?.campaignId as string
   const [campaign, setCampaign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 

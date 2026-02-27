@@ -160,7 +160,8 @@ function canSeeItem(item: NavItem, role: string): boolean {
   return item.roles.includes(role as UserRole)
 }
 
-function isActiveRoute(pathname: string, href: string): boolean {
+function isActiveRoute(pathname: string | null, href: string): boolean {
+  if (!pathname) return false
   if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
   if (href === '/jobs') return pathname === '/jobs' || pathname.startsWith('/jobs/')
   return pathname === href || pathname.startsWith(href + '/')

@@ -29,7 +29,7 @@ export function DesignStudioLayout({ profile, children, actions }: Props) {
   const [mobileOpen, setMobileOpen]   = useState(false)
 
   const sideW = collapsed ? 64 : 240
-  const title = PAGE_TITLES[pathname] ?? 'Design Studio'
+  const title = (pathname ? PAGE_TITLES[pathname] : undefined) ?? 'Design Studio'
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
