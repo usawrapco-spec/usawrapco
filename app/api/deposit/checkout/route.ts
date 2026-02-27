@@ -57,7 +57,6 @@ export async function POST(req: Request) {
     // Update conversation if linked
     if (conversation_id) {
       await admin.from('conversations').update({
-        lead_stage: 'converted',
         status: 'converted',
         updated_at: new Date().toISOString(),
       }).eq('id', conversation_id)

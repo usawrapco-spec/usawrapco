@@ -59,9 +59,10 @@ export async function POST(req: Request) {
     .eq('org_id', convo.org_id)
     .eq('is_active', true)
 
-  // Calculate quote from vehicle_info + wrap_preferences
-  const vehicleInfo = convo.vehicle_info || {}
-  const prefs = convo.wrap_preferences || {}
+  // Calculate quote from vehicle_info + wrap_preferences (stored in tags jsonb)
+  const convoTags = (convo.tags as any) || {}
+  const vehicleInfo = convoTags.vehicle_info || {}
+  const prefs = convoTags.wrap_preferences || {}
   const vehicleCat = (vehicleInfo as any).category || (vehicleInfo as any).type || 'sedan'
   const wrapType = (prefs as any).wrap_type || 'full_wrap'
 
@@ -95,8 +96,7 @@ export async function POST(req: Request) {
   }
 
   await admin.from('conversations').update({
-    quote_data: quoteData,
-    lead_stage: 'quoting',
+    tags: { ...convoTags, quote_data: quoteData, lead_stage: 'quoting' },
     updated_at: new Date().toISOString(),
   }).eq('id', conversation_id)
 
@@ -105,18 +105,18 @@ export async function POST(req: Request) {
   const quoteMsg = `Here's your quote for a ${wrapType.replace('_', ' ')} on your ${vehicleCat}:\n\nTotal: $${total.toLocaleString()}\nDesign Deposit: $${deposit}\n\nReady to get started? Secure your spot with a $${deposit} design deposit:\n${depositUrl}\n\nQuestions? Just reply here!`
 
   // Send via appropriate channel
-  if (convo.channel === 'sms' && convo.phone_number) {
-    await sendSMS(convo.phone_number, quoteMsg)
+  if (convo.channel === 'sms' && convo.contact_phone) {
+    await sendSMS(convo.contact_phone, quoteMsg)
   }
 
   // Log the quote message
   await admin.from('messages').insert({
+    org_id: convo.org_id,
     conversation_id,
-    role: 'ai',
+    direction: 'outbound',
     content: quoteMsg,
     channel: convo.channel,
-    ai_reasoning: `Auto-generated quote: $${total} for ${wrapType} on ${vehicleCat}`,
-    ai_confidence: 1.0,
+    metadata: { ai_reasoning: `Auto-generated quote: $${total} for ${wrapType} on ${vehicleCat}`, ai_confidence: 1.0 },
   })
 
   return NextResponse.json({ success: true, quote: quoteData })
