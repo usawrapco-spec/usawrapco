@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import {
   Car, Plus, AlertTriangle, Check, Wrench, Calendar, X,
-  Upload, Edit2, Loader2, Truck, User, MapPin
+  Upload, Edit2, Loader2, Truck, User, MapPin, Navigation,
 } from 'lucide-react'
 
 interface Vehicle {
@@ -61,7 +62,7 @@ export default function VehiclesClient({ profile, employees }: { profile: Profil
   const supabase = createClient()
   const isAdmin = profile.role === 'owner' || profile.role === 'admin'
 
-  const [tab, setTab] = useState<'vehicles' | 'maintenance'>('vehicles')
+  const [tab, setTab] = useState<'vehicles' | 'maintenance' | 'map'>('vehicles')
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -197,7 +198,7 @@ export default function VehiclesClient({ profile, employees }: { profile: Profil
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'var(--surface)', borderRadius: 10, padding: 4 }}>
-        {[['vehicles', 'Fleet'], ['maintenance', 'Maintenance Log']].map(([key, label]) => (
+        {[['vehicles', 'Fleet'], ['maintenance', 'Service Log'], ['map', 'Map']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key as any)} style={{
             flex: 1, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
             background: tab === key ? 'var(--accent)' : 'transparent',
@@ -217,10 +218,15 @@ export default function VehiclesClient({ profile, employees }: { profile: Profil
               const regDays = daysUntil(v.registration_expiry)
               const hasAlert = (insuranceDays !== null && insuranceDays <= 60) || (regDays !== null && regDays <= 60)
               return (
-                <div key={v.id} style={{
+                <Link key={v.id} href={`/vehicles/${v.id}`} style={{ textDecoration: 'none' }}>
+                <div style={{
                   background: 'var(--surface)', borderRadius: 12, padding: 20,
-                  border: `1px solid ${hasAlert ? 'var(--amber)44' : '#2a2d3a'}`, position: 'relative'
-                }}>
+                  border: `1px solid ${hasAlert ? 'var(--amber)44' : '#2a2d3a'}`, position: 'relative',
+                  cursor: 'pointer', transition: 'border-color 0.15s',
+                }}
+                  onMouseEnter={e => { if (!hasAlert) (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)60' }}
+                  onMouseLeave={e => { if (!hasAlert) (e.currentTarget as HTMLElement).style.borderColor = '#2a2d3a' }}
+                >
                   {hasAlert && <AlertTriangle size={14} color="var(--amber)" style={{ position: 'absolute', top: 12, right: 12 }} />}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                     <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--accent)22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -256,13 +262,13 @@ export default function VehiclesClient({ profile, employees }: { profile: Profil
                   </div>
                   {isAdmin && (
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => { setMForm(p => ({ ...p, vehicle_id: v.id })); setShowAddMaintenance(true) }} style={{
+                      <button onClick={e => { e.preventDefault(); e.stopPropagation(); setMForm(p => ({ ...p, vehicle_id: v.id })); setShowAddMaintenance(true) }} style={{
                         flex: 1, padding: '7px', borderRadius: 7, border: '1px solid #2a2d3a', cursor: 'pointer',
                         background: 'transparent', color: 'var(--text2)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
                       }}>
                         <Wrench size={12} /> Log Service
                       </button>
-                      <button onClick={() => handleDeactivate(v.id)} style={{
+                      <button onClick={e => { e.preventDefault(); e.stopPropagation(); handleDeactivate(v.id) }} style={{
                         padding: '7px 10px', borderRadius: 7, border: '1px solid var(--red)44', cursor: 'pointer',
                         background: 'transparent', color: 'var(--red)', fontSize: 12
                       }}>
@@ -271,6 +277,7 @@ export default function VehiclesClient({ profile, employees }: { profile: Profil
                     </div>
                   )}
                 </div>
+                </Link>
               )
             })}
             {activeVehicles.length === 0 && (
@@ -328,6 +335,50 @@ export default function VehiclesClient({ profile, employees }: { profile: Profil
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── MAP TAB ────────────────────────────────────────────────────────── */}
+      {tab === 'map' && (
+        <div>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 32, border: '1px solid #2a2d3a', marginBottom: 20, textAlign: 'center' }}>
+            <Navigation size={40} color="var(--text3)" style={{ marginBottom: 12 }} />
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>GPS Integration Required</div>
+            <div style={{ fontSize: 14, color: 'var(--text2)', maxWidth: 400, margin: '0 auto' }}>
+              Connect a telematics system for live vehicle tracking. Below is a summary of all fleet vehicles.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+            {loading ? (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40 }}><Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} /></div>
+            ) : activeVehicles.map(v => (
+              <Link key={v.id} href={`/vehicles/${v.id}`} style={{ textDecoration: 'none' }}>
+                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 18, border: '1px solid #2a2d3a', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--accent)22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Truck size={20} color="var(--accent)" />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text1)', fontSize: 14 }}>{v.year} {v.make} {v.model}</div>
+                      {v.plate && <div style={{ fontSize: 12, color: 'var(--text2)' }}>{v.plate}</div>}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                    <MapPin size={11} /> {v.current_mileage.toLocaleString()} mi odometer
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Last known location: N/A</div>
+                  {v.assigned_employee && (
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <User size={11} /> {v.assigned_employee.name}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+            {!loading && activeVehicles.length === 0 && (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: 'var(--text2)' }}>No vehicles in fleet</div>
+            )}
+          </div>
         </div>
       )}
 

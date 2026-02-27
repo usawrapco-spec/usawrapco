@@ -4618,7 +4618,6 @@ function LineItemCard({
 
 function showToast(msg: string) {
   // Fallback for sub-components - in production this would be a context
-  console.log('[toast]', msg)
 }
 
 // ─── GPM Stat ───────────────────────────────────────────────────────────────

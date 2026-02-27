@@ -272,6 +272,12 @@ export default function EnhancedTimeclockClient({ profile, todayEntries, weekEnt
       setEntries(prev => [data as TimeClockEntry, ...prev])
       setStartNote('')
       setSuccess('Clocked in successfully!')
+      // Award XP for clock-in (fire-and-forget)
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clock_in', sourceType: 'timeclock', sourceId: (data as { id: string }).id }),
+      }).catch(() => {})
     } catch (e: any) {
       setError(e.message || 'Failed to clock in')
     } finally {

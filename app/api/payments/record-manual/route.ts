@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { awardXP } from '@/lib/xp'
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -61,6 +62,11 @@ export async function POST(req: NextRequest) {
     }
 
     await admin.from('invoices').update(updates).eq('id', invoice_id)
+
+    // Award XP when invoice is fully paid
+    if (newBalance <= 0 && invoice.org_id) {
+      awardXP(user.id, invoice.org_id, 'invoice_fully_paid', 50, { invoice_id }).catch(() => {})
+    }
 
     return NextResponse.json({ ok: true, payment, new_balance: newBalance, new_status: updates.status || invoice.status })
   } catch (err: any) {

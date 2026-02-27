@@ -15,7 +15,7 @@ import {
   CheckSquare, Bot, Wrench, Navigation, Waves, Glasses,
   Trophy, Filter, Store, Kanban, Hammer, UserPlus,
   Printer, Map, Factory, BookOpen, MessageCircle, Phone,
-  Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain,
+  Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain, Anchor, Send,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
       { href: '/estimates',    label: 'Estimates',    icon: FileText },
+      { href: '/proposals',    label: 'Proposals',    icon: Send,          roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
       { href: '/invoices',     label: 'Invoices',     icon: Receipt },
       { href: '/deposit',      label: 'Payments',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
@@ -79,6 +80,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/engine',       label: 'Revenue Engine', icon: TrendingUp },
       { href: '/decking',      label: 'Decking',        icon: Waves },
       { href: '/tinting',      label: 'Tinting',        icon: Glasses },
+      { href: '/deckforge',    label: 'DeckForge',      icon: Anchor,  roles: ['owner', 'admin', 'production', 'designer'] },
     ],
   },
   {
@@ -108,7 +110,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/design/proofs',    label: 'Proofs',          icon: CheckSquare },
       { href: '/mockup',           label: 'Mockup Tool',     icon: ImageIcon },
       { href: '/configurator',     label: '3D Configurator', icon: Box },
-      { href: '/media',            label: 'Media Library',   icon: ImageIcon },
+      { href: '/media-library',    label: 'Media Library',   icon: ImageIcon },
     ],
   },
   {
@@ -136,7 +138,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/install/earnings',   label: 'Earnings',         icon: DollarSign },
       { href: '/install/reports',    label: 'Shop Reports',     icon: BarChart3 },
       { href: '/install/chat',       label: 'Installer Chat',   icon: MessageSquare },
-      { href: '/installer-portal',   label: 'Installer Portal', icon: Hammer },
+      { href: '/installer',          label: 'My Portal',        icon: Hammer,      roles: ['owner', 'admin', 'installer'] },
       { href: '/rate-card',          label: 'Rate Card',        icon: Wrench,      roles: ['owner', 'admin', 'installer'] },
     ],
   },
@@ -165,6 +167,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/expenses',     label: 'Expenses',        icon: Receipt },
       { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,       roles: ['owner', 'admin'] },
       { href: '/fleet',        label: 'Fleet Hub',       icon: Truck,       roles: ['owner', 'admin'] },
+      { href: '/maintenance',  label: 'Fleet Service',   icon: Wrench,      roles: ['owner', 'admin'] },
     ],
   },
   {
@@ -176,6 +179,15 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/analytics',        label: 'Analytics',    icon: TrendingUp },
       { href: '/reports',          label: 'Reports',      icon: BarChart3 },
       { href: '/reports/revenue',  label: 'Revenue',      icon: DollarSign, roles: ['owner', 'admin'] },
+    ],
+  },
+  {
+    id: 'apps',
+    label: 'APPS',
+    icon: Anchor,
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    items: [
+      { href: '/apps/pnw-navigator', label: 'PNW Navigator', icon: Anchor },
     ],
   },
   {
@@ -192,7 +204,6 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/payroll',       label: 'Payroll',       icon: DollarSign },
       { href: '/overhead',      label: 'Overhead',      icon: Gauge },
       { href: '/sourcing',      label: 'Sourcing',      icon: ShoppingBag },
-      { href: '/maintenance',   label: 'Maintenance',   icon: Wrench },
       { href: '/agents',        label: 'AI Agents',     icon: Sparkles },
     ],
   },

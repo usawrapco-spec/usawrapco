@@ -7,10 +7,41 @@ import {
   Medal, DollarSign, Wrench,
   Layers, Waves, Glasses, Shield, Anchor,
   Award, BarChart2, Paintbrush, Printer, Users,
+  ChevronDown, ChevronUp, Lock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import { xpToLevel, xpForNextLevel } from '@/lib/commission'
+
+// ─── XP Action Labels ─────────────────────────────────────────────────────────
+
+const ACTION_LABELS: Record<string, string> = {
+  daily_login:                    'Daily login',
+  deal_won:                       'Job closed',
+  job_comment:                    'Job comment',
+  photo_upload:                   'Photo uploaded',
+  media_upload:                   'Media uploaded',
+  customer_created:               'Customer created',
+  estimate_sent:                  'Estimate sent',
+  design_proof_uploaded:          'Design proof sent',
+  invoice_fully_paid:             'Invoice paid in full',
+  invoice_paid:                   'Invoice payment',
+  clock_in:                       'Clock in',
+  streak_bonus_5day:              '5-day streak bonus',
+  create_lead:                    'Lead created',
+  intake_submitted:               'Intake submitted',
+  install_completed:              'Install completed',
+  job_fully_completed:            'Job completed',
+  design_approved_no_revisions:   'Design approved (1st pass)',
+  design_approved_with_revisions: 'Design approved',
+  installer_bid:                  'Installer bid',
+  maintenance_logged:             'Maintenance logged',
+  send_onboarding_link:           'Onboarding link sent',
+  customer_signoff:               'Customer sign-off',
+  print_job_completed:            'Print job completed',
+  production_brief_completed:     'Production brief',
+  log_expense:                    'Expense logged',
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -66,12 +97,32 @@ interface UserBadge {
   badges?: { name: string; icon: string; rarity: string }
 }
 
+interface BadgeDef {
+  id: string
+  name: string
+  description: string | null
+  icon: string | null
+  category: string | null
+  rarity: string
+  xp_value: number
+}
+
+interface XPHistoryRow {
+  amount: number
+  reason: string
+  created_at: string
+  metadata?: Record<string, unknown> | null
+}
+
 interface Props {
   currentProfile: Profile
   members: Member[]
   projects: ProjectRow[]
   shopRecords?: ShopRecord[]
   recentBadges?: UserBadge[]
+  allBadges?: BadgeDef[]
+  myXPHistory?: XPHistoryRow[]
+  xpBreakdown?: Record<string, Record<string, number>>
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -160,6 +211,148 @@ function getRelativeTime(ts: string) {
   const d = Math.floor(h / 24)
   if (d < 7) return `${d}d ago`
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// ─── Rarity color helper ──────────────────────────────────────────────────────
+
+function rarityColor(rarity: string) {
+  if (rarity === 'legendary') return '#f59e0b'
+  if (rarity === 'rare')      return '#8b5cf6'
+  return '#22c07a'
+}
+
+// ─── Badge Grid ───────────────────────────────────────────────────────────────
+
+function BadgeGrid({ allBadges, earnedIds }: { allBadges: BadgeDef[]; earnedIds: string[] }) {
+  const earned = new Set(earnedIds)
+  if (!allBadges.length) return null
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+      {allBadges.map(badge => {
+        const isEarned = earned.has(badge.id)
+        const rc = rarityColor(badge.rarity)
+        return (
+          <div
+            key={badge.id}
+            title={badge.description || badge.name}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              background: isEarned ? `${rc}14` : 'rgba(255,255,255,0.02)',
+              border: `1px solid ${isEarned ? `${rc}44` : 'rgba(255,255,255,0.06)'}`,
+              opacity: isEarned ? 1 : 0.45,
+              transition: 'opacity 0.2s',
+              cursor: 'default',
+            }}
+          >
+            <div style={{ fontSize: 20, marginBottom: 4 }}>
+              {badge.icon || <Lock size={16} />}
+            </div>
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: isEarned ? rc : 'var(--text3)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {badge.name}
+            </div>
+            {!isEarned && (
+              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2, lineHeight: 1.3 }}>
+                <Lock size={9} style={{ display: 'inline', marginRight: 2 }} />
+                {badge.description || 'Locked'}
+              </div>
+            )}
+            {isEarned && (
+              <div style={{ fontSize: 9, fontWeight: 700, color: rc, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                {badge.rarity}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── XP History ───────────────────────────────────────────────────────────────
+
+function XPHistory({ rows }: { rows: XPHistoryRow[] }) {
+  if (!rows.length) {
+    return <div style={{ color: 'var(--text3)', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>No XP activity yet</div>
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {rows.map((row, i) => {
+        const label = ACTION_LABELS[row.reason] || row.reason.replace(/_/g, ' ')
+        const d = new Date(row.created_at)
+        const ago = (() => {
+          const diff = Date.now() - d.getTime()
+          const h = Math.floor(diff / 3600000)
+          if (h < 1) return 'Just now'
+          if (h < 24) return `${h}h ago`
+          const days = Math.floor(h / 24)
+          if (days < 7) return `${days}d ago`
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        })()
+        return (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '7px 10px', borderRadius: 8,
+            background: 'var(--surface2)',
+          }}>
+            <Zap size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)' }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)' }}>
+              +{row.amount}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--text3)', minWidth: 52, textAlign: 'right' }}>{ago}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── My Stats Panel ───────────────────────────────────────────────────────────
+
+function MyStatsPanel({
+  member,
+  allBadges,
+  myXPHistory,
+}: {
+  member: Member
+  allBadges: BadgeDef[]
+  myXPHistory: XPHistoryRow[]
+}) {
+  const [tab, setTab] = useState<'badges' | 'history'>('badges')
+  const earnedIds: string[] = member.badges || []
+  const earnedCount = earnedIds.filter(id => allBadges.some(b => b.id === id)).length
+  const totalBadges = allBadges.length
+
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 14, padding: 20, marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <Award size={16} style={{ color: '#8b5cf6' }} />
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', flex: 1 }}>My Stats</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {(['badges', 'history'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: tab === t ? 'rgba(79,127,255,0.15)' : 'transparent',
+              border: tab === t ? '1px solid var(--accent)' : '1px solid var(--border)',
+              color: tab === t ? 'var(--accent)' : 'var(--text3)',
+              textTransform: 'capitalize',
+            }}>
+              {t === 'badges' ? `Badges (${earnedCount}/${totalBadges})` : 'XP History'}
+            </button>
+          ))}
+        </div>
+      </div>
+      {tab === 'badges'  && <BadgeGrid allBadges={allBadges} earnedIds={earnedIds} />}
+      {tab === 'history' && <XPHistory rows={myXPHistory} />}
+    </div>
+  )
 }
 
 // ─── Sales Leaderboard ────────────────────────────────────────────────────────
@@ -304,11 +497,38 @@ function InstallLeaderboard({ members, projects, currentId }: {
 
 // ─── XP Leaderboard ───────────────────────────────────────────────────────────
 
-function XPLeaderboard({ members, period, currentId }: {
+function XPBreakdownTooltip({ breakdown }: { breakdown: Record<string, number> }) {
+  const sorted = Object.entries(breakdown)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+  if (!sorted.length) return null
+  return (
+    <div style={{
+      position: 'absolute', right: 0, top: '110%', zIndex: 50,
+      background: '#1a1d27', border: '1px solid rgba(79,127,255,0.3)',
+      borderRadius: 10, padding: '10px 14px', minWidth: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        XP Breakdown
+      </div>
+      {sorted.map(([action, amt]) => (
+        <div key={action} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>{ACTION_LABELS[action] || action.replace(/_/g, ' ')}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)' }}>+{amt}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function XPLeaderboard({ members, period, currentId, xpBreakdown = {} }: {
   members: Member[]
   period: string
   currentId: string
+  xpBreakdown?: Record<string, Record<string, number>>
 }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+
   const ranked = useMemo(() =>
     [...members].sort((a, b) => {
       const aVal = period === 'week' ? (a.weekly_xp || 0) : period === 'month' ? (a.monthly_xp || a.xp || 0) : (a.xp || 0)
@@ -324,13 +544,21 @@ function XPLeaderboard({ members, period, currentId }: {
         const xpVal = period === 'week' ? (m.weekly_xp || 0) : period === 'month' ? (m.monthly_xp || m.xp || 0) : (m.xp || 0)
         const lvl = xpToLevel(m.xp || 0)
         const valueColor = i === 0 ? '#f59e0b' : i === 1 ? '#9299b5' : i === 2 ? '#cd7f32' : 'var(--accent)'
+        const userBreakdown = xpBreakdown[m.id] || {}
+        const hasBreakdown = Object.keys(userBreakdown).length > 0
         return (
-          <div key={m.id} style={{
-            display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
-            background: m.id === currentId ? 'rgba(79,127,255,0.07)' : 'var(--surface2)',
-            border: `1px solid ${m.id === currentId ? 'rgba(79,127,255,0.35)' : 'var(--border)'}`,
-            borderRadius: 12,
-          }}>
+          <div
+            key={m.id}
+            onMouseEnter={() => hasBreakdown && setHoveredId(m.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            style={{
+              position: 'relative',
+              display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px',
+              background: m.id === currentId ? 'rgba(79,127,255,0.07)' : 'var(--surface2)',
+              border: `1px solid ${m.id === currentId ? 'rgba(79,127,255,0.35)' : 'var(--border)'}`,
+              borderRadius: 12, cursor: hasBreakdown ? 'pointer' : 'default',
+            }}
+          >
             <div style={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{rankIcon(i)}</div>
             <Avatar name={m.name} email={m.email} idx={i} />
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -345,6 +573,7 @@ function XPLeaderboard({ members, period, currentId }: {
               </div>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>
                 Level {lvl} · {(m.badges || []).length} badge{(m.badges || []).length !== 1 ? 's' : ''}
+                {hasBreakdown && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>hover for breakdown</span>}
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -352,6 +581,9 @@ function XPLeaderboard({ members, period, currentId }: {
                 {xpVal.toLocaleString()} XP
               </div>
             </div>
+            {hoveredId === m.id && hasBreakdown && (
+              <XPBreakdownTooltip breakdown={userBreakdown} />
+            )}
           </div>
         )
       })}
@@ -543,11 +775,13 @@ function RecentAchievements({ badges }: { badges: UserBadge[] }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LeaderboardClient({
-  currentProfile, members, projects, shopRecords = [], recentBadges = []
+  currentProfile, members, projects, shopRecords = [], recentBadges = [],
+  allBadges = [], myXPHistory = [], xpBreakdown = {},
 }: Props) {
   const [dept, setDept] = useState('sales')
   const [period, setPeriod] = useState('month')
   const [division, setDivision] = useState('all')
+  const [showMyStats, setShowMyStats] = useState(false)
   const [liveBadges, setLiveBadges] = useState<UserBadge[]>(recentBadges)
   const supabase = createClient()
 
@@ -666,8 +900,27 @@ export default function LeaderboardClient({
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>Day Streak</div>
               </div>
             )}
+            <button onClick={() => setShowMyStats(s => !s)} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: showMyStats ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
+              border: showMyStats ? '1px solid #8b5cf6' : '1px solid var(--border)',
+              color: showMyStats ? '#8b5cf6' : 'var(--text3)',
+            }}>
+              My Stats
+              {showMyStats ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
           </div>
         </div>
+      )}
+
+      {/* My Stats panel */}
+      {showMyStats && myMember && (
+        <MyStatsPanel
+          member={myMember}
+          allBadges={allBadges}
+          myXPHistory={myXPHistory}
+        />
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
@@ -708,7 +961,7 @@ export default function LeaderboardClient({
             {dept === 'install'    && <InstallLeaderboard  members={members} projects={filteredProjects} currentId={currentProfile.id} />}
             {dept === 'production' && <EmptyState label="Production metrics — coming soon (printer throughput, reprint rate, on-time rate)" />}
             {dept === 'design'     && <EmptyState label="Design metrics — coming soon (proof approval rate, avg revisions, customer satisfaction)" />}
-            {dept === 'xp'         && <XPLeaderboard members={members} period={period} currentId={currentProfile.id} />}
+            {dept === 'xp'         && <XPLeaderboard members={members} period={period} currentId={currentProfile.id} xpBreakdown={xpBreakdown} />}
           </div>
 
           <DivisionBreakdown projects={projects} />

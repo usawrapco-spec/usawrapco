@@ -112,6 +112,12 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
 
     if (!error) {
       setNewMessage('');
+      // Award XP for job comment (fire-and-forget)
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'job_comment', sourceType: 'project', sourceId: projectId }),
+      }).catch(() => {});
     }
     setSending(false);
   };

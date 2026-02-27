@@ -81,7 +81,6 @@ export default function NetworkMapEnhanced({
   const renderGraph = () => {
     // This is a simplified placeholder
     // Full implementation would use d3-force, d3-zoom, d3-drag
-    console.log('Rendering network graph with', nodeData.length, 'nodes')
   }
 
   const getTierColor = (tier: string) => {

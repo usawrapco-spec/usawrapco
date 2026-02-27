@@ -231,6 +231,8 @@ export interface Project {
   install_lng?: number | null
   weather_alerts?: any[]
   last_weather_check?: string | null
+  // Portal
+  portal_token?: string | null
   // Computed / joined fields (not DB columns)
   render_count?: number
   deposit_status?: string | null

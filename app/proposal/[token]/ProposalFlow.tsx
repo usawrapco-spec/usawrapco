@@ -7,7 +7,7 @@ import ReviewStep from './steps/ReviewStep'
 import PaymentStep from './steps/PaymentStep'
 import SuccessStep from './steps/SuccessStep'
 import {
-  ChevronRight, Phone, Mail, User, Car, Clock,
+  ChevronRight, Phone, Mail, User, Car, Clock, X,
 } from 'lucide-react'
 
 const C = {
@@ -39,6 +39,10 @@ export default function ProposalFlow({
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [isDemo, setIsDemo] = useState(false)
+  const [showDeclineModal, setShowDeclineModal] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [declining, setDeclining] = useState(false)
+  const [declined, setDeclined] = useState(false)
 
   const stepIdx = STEP_ORDER.indexOf(step)
   const hasUpsells = upsells.length > 0
@@ -66,6 +70,23 @@ export default function ProposalFlow({
   const vehicleStr = vehicleInfo
     ? [vehicleInfo.year, vehicleInfo.make, vehicleInfo.model].filter(Boolean).join(' ')
     : null
+
+  async function handleDecline() {
+    setDeclining(true)
+    try {
+      await fetch(`/api/proposals/public/${token}/decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: declineReason }),
+      })
+      setDeclined(true)
+      setShowDeclineModal(false)
+    } catch {
+      // silent
+    } finally {
+      setDeclining(false)
+    }
+  }
 
   const goNext = () => {
     const nextIdx = stepIdx + 1
@@ -214,20 +235,85 @@ export default function ProposalFlow({
           )}
 
           {/* CTA */}
-          <button
-            onClick={goNext}
-            style={{
-              width: '100%', padding: '18px', border: 'none', borderRadius: 14,
-              background: `linear-gradient(135deg, ${C.accent}, #d97706)`,
-              color: '#000', fontSize: 17, fontWeight: 800, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.02em',
-              textTransform: 'uppercase',
-            }}
-          >
-            View Your Packages
-            <ChevronRight size={20} />
-          </button>
+          {declined ? (
+            <div style={{ textAlign: 'center', padding: '20px', background: C.surface, borderRadius: 14, border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text1, marginBottom: 6 }}>Proposal Declined</div>
+              <div style={{ fontSize: 13, color: C.text2 }}>Thank you for letting us know. Feel free to reach out if you have any questions.</div>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={goNext}
+                style={{
+                  width: '100%', padding: '18px', border: 'none', borderRadius: 14,
+                  background: `linear-gradient(135deg, ${C.accent}, #d97706)`,
+                  color: '#000', fontSize: 17, fontWeight: 800, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.02em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                View Your Packages
+                <ChevronRight size={20} />
+              </button>
+              <button
+                onClick={() => setShowDeclineModal(true)}
+                style={{
+                  width: '100%', marginTop: 10, padding: '13px', border: `1px solid ${C.border}`,
+                  borderRadius: 14, background: 'transparent', color: C.text3,
+                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                No thanks, decline this proposal
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Decline Modal ────────────────────────────────────── */}
+      {showDeclineModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20,
+        }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px', width: '100%', maxWidth: 420 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: C.text1 }}>Decline Proposal</div>
+              <button onClick={() => setShowDeclineModal(false)} style={{ background: 'none', border: 'none', color: C.text3, cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: 14, color: C.text2, marginBottom: 16, lineHeight: 1.6 }}>
+              We&apos;re sorry to hear that. Would you like to share a reason? (Optional)
+            </p>
+            <textarea
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              placeholder="Price, timing, went with someone else…"
+              rows={3}
+              style={{
+                width: '100%', padding: '10px 14px', background: C.bg,
+                border: `1px solid ${C.border}`, borderRadius: 8, color: C.text1,
+                fontSize: 13, resize: 'vertical', marginBottom: 16, boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowDeclineModal(false)}
+                style={{ flex: 1, padding: '11px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, fontSize: 13, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDecline}
+                disabled={declining}
+                style={{ flex: 1, padding: '11px', background: C.red, border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: declining ? 0.6 : 1 }}
+              >
+                {declining ? 'Declining…' : 'Decline Proposal'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

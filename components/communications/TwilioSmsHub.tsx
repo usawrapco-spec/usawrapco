@@ -265,6 +265,18 @@ export default function TwilioSmsHub({ profile }: { profile: Profile }) {
     return () => { supabase.removeChannel(ch) }
   }, [selectedConvo])
 
+  // Realtime refresh for call_logs (fires when a call is logged or status updated)
+  useEffect(() => {
+    if (tab !== 'calls') return
+    const ch = supabase
+      .channel('call_logs_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'call_logs' }, () => {
+        loadCalls()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [tab, loadCalls])
+
   // ── Select Conversation ────────────────────────────────────────────────────
 
   function selectConvo(c: SmsConversation) {
@@ -277,11 +289,9 @@ export default function TwilioSmsHub({ profile }: { profile: Profile }) {
 
   async function handleSend() {
     if (!sendText.trim() || !selectedConvo || sending) return
-    // Capture before any async ops — selectedConvo could change if user switches threads
     const convo = selectedConvo
-    setSending(true)
     const body = sendText.trim()
-    setSendText('')
+    setSending(true)
 
     try {
       const res = await fetch('/api/twilio/send-sms', {
@@ -290,8 +300,15 @@ export default function TwilioSmsHub({ profile }: { profile: Profile }) {
         body: JSON.stringify({ to: convo.contact_phone, body, conversationId: convo.id }),
       })
       if (res.ok) {
+        setSendText('')
         await loadMessages(convo.id)
+      } else {
+        // Keep text so user can retry
+        const err = await res.json().catch(() => ({}))
+        console.error('SMS send failed:', err?.error || res.status)
       }
+    } catch {
+      // Network error — keep text so user can retry
     } finally {
       setSending(false)
     }

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { sendTransactionalEmail } from '@/lib/email/send'
 import { generateEstimateEmail } from '@/lib/email/templates'
+import { awardXP } from '@/lib/xp'
 
 export async function POST(req: Request) {
   const supabase = createClient()
@@ -90,6 +91,11 @@ export async function POST(req: Request) {
 
   // Mark estimate as sent
   await admin.from('estimates').update({ status: 'sent' }).eq('id', estimate_id)
+
+  // Award XP for sending estimate
+  if (profile?.org_id) {
+    awardXP(user.id, profile.org_id, 'estimate_sent', 15, { estimate_id }).catch(() => {})
+  }
 
   return Response.json({
     success: true,

@@ -6,7 +6,7 @@ import type { Profile } from '@/types'
 import {
   MapPin, Navigation, Plus, Check, X, Clock, Car, Truck,
   ChevronDown, ChevronUp, AlertTriangle, Upload, Eye, Filter,
-  DollarSign, FileText, Loader2, StopCircle
+  DollarSign, FileText, Loader2, StopCircle, Download,
 } from 'lucide-react'
 
 interface MileageLog {
@@ -248,6 +248,32 @@ export default function MileageClient({
     return `${h > 0 ? h + 'h ' : ''}${m}m ${s}s`
   }
 
+  const exportCSV = () => {
+    const IRS_RATE = 0.67
+    const headers = ['Date', 'Driver', 'From', 'To', 'Miles', 'Rate/Mi', 'Amount', 'Purpose', 'Vehicle', 'Entry Type', 'Status']
+    const rows = logs.map(l => [
+      l.date,
+      l.user?.name || '',
+      l.from_address || '',
+      l.to_address || '',
+      l.miles.toFixed(2),
+      l.vehicle_type === 'company' ? '0.00' : l.rate_per_mile.toFixed(4),
+      l.total_amount.toFixed(2),
+      l.purpose || '',
+      l.vehicle_type,
+      l.entry_type,
+      l.status,
+    ])
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mileage-report-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const pendingCount = logs.filter(l => l.status === 'pending').length
 
   const pill = (status: string) => (
@@ -451,8 +477,8 @@ export default function MileageClient({
       {/* ── HISTORY TAB ──────────────────────────────────────────────────── */}
       {tab === 'history' && (
         <div>
-          {/* Filters */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+          {/* Filters + Export */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: 'auto', minWidth: 140 }}>
               <option value="">All Status</option>
               <option value="pending">Pending</option>
@@ -469,6 +495,16 @@ export default function MileageClient({
             <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} style={{ ...inputStyle, width: 'auto' }} />
             <span style={{ color: 'var(--text2)', lineHeight: '38px' }}>to</span>
             <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} style={{ ...inputStyle, width: 'auto' }} />
+            <div style={{ flex: 1 }} />
+            {logs.length > 0 && (
+              <button onClick={exportCSV} style={{
+                padding: '9px 14px', borderRadius: 8, border: '1px solid #2a2d3a', cursor: 'pointer',
+                background: 'transparent', color: 'var(--text2)', fontSize: 13, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <Download size={14} /> Export CSV
+              </button>
+            )}
           </div>
 
           {/* Summary stats */}

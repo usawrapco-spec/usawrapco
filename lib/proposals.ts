@@ -1,18 +1,23 @@
 // ─── Proposal Types & Helpers ────────────────────────────────────────────────
 
-export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'expired'
+export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired'
 
 export interface Proposal {
   id: string
-  estimate_id: string
+  estimate_id: string | null
   org_id: string
   title: string
   message: string | null
+  closing_message: string | null
+  terms_conditions: string | null
+  customer_id: string | null
   expiration_date: string | null
   status: ProposalStatus
   sent_at: string | null
   viewed_at: string | null
   accepted_at: string | null
+  declined_at: string | null
+  decline_reason: string | null
   accepted_package_id: string | null
   customer_signature: string | null
   public_token: string
@@ -84,5 +89,6 @@ export const PROPOSAL_STATUS_CONFIG: Record<ProposalStatus, { label: string; col
   sent:     { label: 'Sent',     color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
   viewed:   { label: 'Viewed',   color: '#4f7fff', bg: 'rgba(79,127,255,0.18)' },
   accepted: { label: 'Accepted', color: '#22c07a', bg: 'rgba(34,192,122,0.18)' },
-  expired:  { label: 'Expired',  color: '#f25a5a', bg: 'rgba(242,90,90,0.18)' },
+  declined: { label: 'Declined', color: '#f25a5a', bg: 'rgba(242,90,90,0.18)' },
+  expired:  { label: 'Expired',  color: '#9299b5', bg: 'rgba(146,153,181,0.18)' },
 }

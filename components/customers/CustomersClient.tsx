@@ -53,6 +53,12 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
       setCustomers(prev => [data as Customer, ...prev])
       setShowAdd(false)
       setForm({ contact_name: '', company_name: '', email: '', phone: '', city: '', state: '', source: 'inbound', notes: '' })
+      // Award XP for creating a customer (fire-and-forget)
+      fetch('/api/xp/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'customer_created', sourceType: 'customer', sourceId: (data as { id: string }).id }),
+      }).catch(() => {})
     }
     setSaving(false)
   }

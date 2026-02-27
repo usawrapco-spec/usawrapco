@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
+import { awardXP } from '@/lib/xp'
 
 export async function POST(req: Request) {
   const supabase = createClient()
@@ -58,6 +59,9 @@ export async function POST(req: Request) {
     console.error('[PROOF] Create error:', error)
     return NextResponse.json({ error: 'Failed to create proof' }, { status: 500 })
   }
+
+  // Award XP for uploading a design proof
+  awardXP(user.id, profile.org_id, 'design_proof_uploaded', 25, { project_id }).catch(() => {})
 
   return NextResponse.json({ proof })
 }

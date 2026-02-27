@@ -1197,7 +1197,6 @@ function ActivityTab({ activities }: { activities: ActivityEntry[] }) {
       activities={activities}
       onAddNote={(note) => {
         // In a real app, this would POST to the API
-        console.log('Activity note added:', note)
       }}
     />
   )

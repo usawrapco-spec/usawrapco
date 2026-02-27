@@ -142,6 +142,33 @@ export async function updateLoginStreak(
       }
     }
 
+    // 5-day milestone bonus (+50 XP every 5 consecutive days)
+    if (newStreak > 0 && newStreak % 5 === 0) {
+      const MILESTONE_BONUS = XP_VALUES.streak_bonus_5day
+      const { data: p2 } = await supabase
+        .from('profiles')
+        .select('xp, monthly_xp, weekly_xp')
+        .eq('id', userId)
+        .single()
+      if (p2) {
+        await supabase.from('profiles').update({
+          xp:         (p2.xp || 0) + MILESTONE_BONUS,
+          monthly_xp: (p2.monthly_xp || 0) + MILESTONE_BONUS,
+          weekly_xp:  (p2.weekly_xp  || 0) + MILESTONE_BONUS,
+        }).eq('id', userId)
+        try {
+          await supabase.from('xp_ledger').insert({
+            user_id: userId,
+            amount:  MILESTONE_BONUS,
+            reason:  'streak_bonus_5day',
+            source_type: 'streak',
+            source_id:   String(newStreak),
+          })
+        } catch {}
+      }
+      return { streak: newStreak, xpAwarded: xpTotal + MILESTONE_BONUS }
+    }
+
     return { streak: newStreak, xpAwarded: xpTotal }
   } catch (err) {
     console.error('[gamification.updateLoginStreak] error:', err)
@@ -238,9 +265,23 @@ export async function checkAndAwardBadges(
     if (topProfile && topProfile.id === userId && (profile.monthly_xp || 0) > 0) addBadge('top_dog')
 
     if (newBadges.length > 0) {
+      // Update JSONB array on profiles (fast lookup)
       await supabase.from('profiles').update({
         badges: existingBadges,
       }).eq('id', userId)
+
+      // Also insert to user_badges table (powers leaderboard feed + badge grid)
+      const inserts = newBadges.map(badgeId => ({
+        user_id:   userId,
+        badge_id:  badgeId,
+        earned_at: new Date().toISOString(),
+      }))
+      try {
+        await supabase.from('user_badges').upsert(inserts, {
+          onConflict: 'user_id,badge_id',
+          ignoreDuplicates: true,
+        })
+      } catch {}
     }
 
     return newBadges

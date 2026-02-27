@@ -128,6 +128,15 @@ export const XP_VALUES = {
   log_expense: 3,
   installer_bid: 5,
   maintenance_logged: 10,
+  // Additional tracked actions
+  job_comment: 5,
+  photo_upload: 10,
+  customer_created: 20,
+  estimate_sent: 15,
+  design_proof_uploaded: 25,
+  invoice_fully_paid: 50,
+  streak_bonus_5day: 50,
+  clock_in: 5,
 } as const
 
 export type XPAction = keyof typeof XP_VALUES

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { awardXP } from '@/lib/xp'
 
 const STORAGE_BUCKET = 'project-files'
 
@@ -9,7 +10,7 @@ export async function POST(req: Request) {
     const projectId = formData.get('project_id') as string | null
     const orgId = formData.get('org_id') as string | null
     const userId = formData.get('uploaded_by') as string | null
-    const category = (formData.get('tag') as string) || 'general'
+    const category = (formData.get('category') as string) || (formData.get('tag') as string) || 'general'
 
     if (!file) {
       return Response.json({ error: 'No file provided' }, { status: 400 })
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     // Generate unique storage path
     const ext = file.name.split('.').pop() || 'bin'
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const folder = projectId ? `projects/${projectId}` : `misc/${orgId || 'unknown'}`
+    const folder = projectId ? `projects/${projectId}` : `media/${orgId || 'unknown'}`
     const storagePath = `${folder}/${filename}`
 
     // Upload to Supabase Storage — project-files bucket (public)
@@ -42,17 +43,22 @@ export async function POST(req: Request) {
       .from(STORAGE_BUCKET)
       .getPublicUrl(storagePath)
 
-    // Create job_images record using correct column names
+    // Insert to media_files (canonical media table)
     const { data: record, error: dbError } = await admin
-      .from('job_images')
+      .from('media_files')
       .insert({
-        project_id: projectId,
         org_id: orgId,
-        user_id: userId,
-        image_url: publicUrl,
-        file_name: file.name,
+        uploaded_by: userId,
+        storage_path: storagePath,
+        public_url: publicUrl,
+        filename: file.name,
+        mime_type: file.type,
         file_size: file.size,
+        source: projectId ? 'project' : 'upload',
         category,
+        tags: [],
+        ai_tags: [],
+        color_tags: [],
       })
       .select()
       .single()
@@ -61,6 +67,11 @@ export async function POST(req: Request) {
       console.error('[media/upload] db error:', dbError)
       // File was uploaded but DB record failed — still return the URL
       return Response.json({ url: publicUrl, storagePath, error: dbError.message })
+    }
+
+    // Award XP for photo upload (fire-and-forget)
+    if (userId && orgId) {
+      awardXP(userId, orgId, 'photo_upload', 10, { project_id: projectId }).catch(() => {})
     }
 
     return Response.json({ url: publicUrl, storagePath, record })
