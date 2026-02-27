@@ -114,7 +114,8 @@ export async function POST(req: NextRequest) {
 
     const invData: any = {
       org_id: orgId,
-      amount,
+      total: amount,
+      subtotal: amount,
       status,
       due_date: dueDate,
     }

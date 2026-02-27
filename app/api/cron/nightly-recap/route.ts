@@ -101,10 +101,10 @@ export async function GET(req: Request) {
 
     const { data: weekEntries } = await admin
       .from('time_clock_entries')
-      .select('user_id, duration_minutes, user:user_id(id, name)')
+      .select('user_id, duration_seconds, user:user_id(id, name)')
       .eq('org_id', ORG_ID)
       .gte('clock_in', `${weekStartStr}T00:00:00`)
-      .not('duration_minutes', 'is', null)
+      .not('duration_seconds', 'is', null)
 
     if (weekEntries && weekEntries.length > 0) {
       const hoursByUser = new Map<string, { name: string; hours: number }>()
@@ -113,7 +113,7 @@ export async function GET(req: Request) {
         if (!hoursByUser.has(userId)) {
           hoursByUser.set(userId, { name: (entry.user as any)?.name || 'Unknown', hours: 0 })
         }
-        hoursByUser.get(userId)!.hours += (entry.duration_minutes || 0) / 60
+        hoursByUser.get(userId)!.hours += (entry.duration_seconds || 0) / 3600
       }
 
       for (const [userId, { name, hours }] of hoursByUser) {

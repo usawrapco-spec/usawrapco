@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const [runsRes, projectsRes, invoicesRes, employeesRes] = await Promise.all([
     admin.from('payroll_runs').select('period_start, period_end, status, total_gross, employee_count').eq('org_id', orgId).gte('period_start', yearStart).order('period_start', { ascending: false }).limit(10),
     admin.from('projects').select('id, title, pipe_stage, revenue, profit, gpm, installer_id, agent_id, created_at').eq('org_id', orgId).gte('created_at', yearStart).limit(100),
-    admin.from('invoices').select('id, amount, status, due_date, created_at').eq('org_id', orgId).gte('created_at', yearStart).limit(100),
+    admin.from('invoices').select('id, total, status, due_date, created_at').eq('org_id', orgId).gte('created_at', yearStart).limit(100),
     admin.from('profiles').select('id, name, role').eq('org_id', orgId).eq('active', true).limit(50),
   ])
 
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
   const totalRevenue = projects.reduce((s: number, p: any) => s + (p.revenue || 0), 0)
   const totalProfit = projects.reduce((s: number, p: any) => s + (p.profit || 0), 0)
   const avgGPM = projects.length ? projects.reduce((s: number, p: any) => s + (p.gpm || 0), 0) / projects.length : 0
-  const paidInvoices = invoices.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + (i.amount || 0), 0)
-  const unpaidInvoices = invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + (i.amount || 0), 0)
+  const paidInvoices = invoices.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + (i.total || 0), 0)
+  const unpaidInvoices = invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + (i.total || 0), 0)
   const activeJobs = projects.filter((p: any) => !['done', 'sales_close'].includes(p.pipe_stage)).length
   const completedJobs = projects.filter((p: any) => ['done', 'sales_close'].includes(p.pipe_stage)).length
 
