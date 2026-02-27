@@ -46,10 +46,10 @@ export async function POST(req: Request) {
     // For each employee with entries, generate a daily summary
     for (const [userId, { user, entries: userEntries }] of byUser) {
       try {
-        const totalMinutes = userEntries.reduce((sum: number, e: any) => {
-          return sum + (e.duration_minutes || 0)
+        const totalSeconds = userEntries.reduce((sum: number, e: any) => {
+          return sum + (e.duration_seconds || 0)
         }, 0)
-        const totalHours = (totalMinutes / 60).toFixed(1)
+        const totalHours = (totalSeconds / 3600).toFixed(1)
 
         // Build entry details for the prompt
         const entryDetails = userEntries.map((e: any) => {
@@ -57,7 +57,8 @@ export async function POST(req: Request) {
           const clockOut = e.clock_out
             ? new Date(e.clock_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
             : 'STILL CLOCKED IN'
-          const dur = e.duration_minutes ? `${Math.floor(e.duration_minutes / 60)}h ${e.duration_minutes % 60}m` : 'N/A'
+          const durMins = Math.round((e.duration_seconds || 0) / 60)
+          const dur = e.duration_seconds ? `${Math.floor(durMins / 60)}h ${durMins % 60}m` : 'N/A'
           const jobName = e.job?.title || 'No job assigned'
           const vehicle = e.job?.vehicle_desc || ''
           const notes = e.project_notes || 'No notes'
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
               job_id: e.job_id,
               job_title: e.job?.title || null,
               entry_type: e.entry_type,
-              duration_minutes: e.duration_minutes,
+              duration_seconds: e.duration_seconds,
               notes: e.project_notes,
             })),
           })
