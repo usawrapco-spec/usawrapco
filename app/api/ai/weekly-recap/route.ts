@@ -73,8 +73,8 @@ export async function POST(req: Request) {
         const empTimeOff = (timeOffRequests || []).filter((r: any) => r.user_id === emp.id)
 
         // Calculate hours
-        const totalMinutes = empEntries.reduce((sum: number, e: any) => sum + (e.duration_minutes || 0), 0)
-        const totalHours = totalMinutes / 60
+        const totalSeconds = empEntries.reduce((sum: number, e: any) => sum + (e.duration_seconds || 0), 0)
+        const totalHours = totalSeconds / 3600
         const regularHours = Math.min(totalHours, 40)
         const overtimeHours = Math.max(0, totalHours - 40)
 
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 
         // PTO usage
         const ptoEntries = empEntries.filter((e: any) => e.entry_type === 'pto')
-        const ptoHours = ptoEntries.reduce((sum: number, e: any) => sum + ((e.duration_minutes || 0) / 60), 0)
+        const ptoHours = ptoEntries.reduce((sum: number, e: any) => sum + ((e.duration_seconds || 0) / 3600), 0)
 
         // Build summary data for AI
         const dailySummaries = empSummaries.map((s: any) =>
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
         const jobBreakdown: Record<string, number> = {}
         for (const e of empEntries) {
           const jobName = e.job?.title || 'Unassigned / Shop Time'
-          jobBreakdown[jobName] = (jobBreakdown[jobName] || 0) + ((e.duration_minutes || 0) / 60)
+          jobBreakdown[jobName] = (jobBreakdown[jobName] || 0) + ((e.duration_seconds || 0) / 3600)
         }
         const jobLines = Object.entries(jobBreakdown)
           .sort(([, a], [, b]) => b - a)
