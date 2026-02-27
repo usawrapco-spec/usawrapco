@@ -745,7 +745,6 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
     supabase.from('tasks').insert({
       id: task.id,
       title: task.title,
-      customer_id: customer.id,
       org_id: customer.org_id,
       status: 'pending',
       created_at: task.created_at,
