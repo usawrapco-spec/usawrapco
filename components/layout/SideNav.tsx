@@ -16,7 +16,7 @@ import {
   Trophy, Filter, Store, Kanban, Hammer, UserPlus,
   Printer, Map, Factory, BookOpen, MessageCircle, Phone,
   Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain, Anchor, Send,
-  Shield, Compass, Rocket, Star,
+  Shield, Compass, Rocket, Star, Fish, MapPin, Radio,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -84,8 +84,11 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/payments',               label: 'Payments',      icon: CreditCard,  roles: ['owner', 'admin'] },
       { href: '/transactions',            label: 'Transactions',  icon: Activity,    roles: ['owner', 'admin'] },
       { href: '/expenses',               label: 'Expenses',      icon: FileText,    roles: ['owner', 'admin'] },
-      { href: '/payroll',                 label: 'Payroll',       icon: DollarSign,  roles: ['owner', 'admin'] },
-      { href: '/settings/commissions',    label: 'Commission',    icon: TrendingUp,  roles: ['owner', 'admin'] },
+      { href: '/payroll',                 label: 'Payroll',         icon: DollarSign,  roles: ['owner', 'admin'] },
+      { href: '/payroll/employees',      label: 'Pay Settings',    icon: Users,       roles: ['owner', 'admin'] },
+      { href: '/payroll/history',        label: 'Payroll History', icon: Clock,       roles: ['owner', 'admin'] },
+      { href: '/payroll/gusto',          label: 'Gusto Export',    icon: FileInput,   roles: ['owner', 'admin'] },
+      { href: '/settings/commissions',    label: 'Commission',      icon: TrendingUp,  roles: ['owner', 'admin'] },
       { href: '/reports',                 label: 'Reports',       icon: BarChart3,   roles: ['owner', 'admin'] },
       { href: '/overhead',                label: 'Overhead',      icon: Briefcase,   roles: ['owner', 'admin'] },
     ],
@@ -110,6 +113,23 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/network',    label: 'Affiliates',    icon: Map },
       { href: '/prospects',  label: 'Outbound CRM',  icon: UserPlus },
       { href: '/campaigns',  label: 'Campaigns',     icon: Globe },
+    ],
+  },
+  {
+    id: 'marine',
+    label: 'MARINE / FISHING',
+    icon: Anchor,
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    items: [
+      { href: '/fishing',             label: 'Dashboard',     icon: Anchor },
+      { href: '/fishing/catch-log',   label: 'Catch Log',     icon: Fish },
+      { href: '/fishing/spots',       label: 'Fishing Spots', icon: MapPin },
+      { href: '/fishing/reports',     label: 'Reports',       icon: FileText },
+      { href: '/fishing/regulations', label: 'Regulations',   icon: BookOpen },
+      { href: '/fishing/tides',       label: 'Tides',         icon: Waves },
+      { href: '/fishing/marinas',     label: 'Marinas',       icon: Navigation },
+      { href: '/fishing/boating',     label: 'Boating Zones', icon: Compass },
+      { href: '/fishing/vhf',         label: 'VHF Channels',  icon: Radio },
     ],
   },
   {
