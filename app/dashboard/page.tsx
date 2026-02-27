@@ -17,13 +17,34 @@ export default async function DashboardPage() {
 
     // Use admin client — bypasses RLS so profile always loads
     const admin = getSupabaseAdmin()
-    const { data: profile } = await admin
-        .from('profiles')
-        .select('id, name, email, role, org_id, avatar_url, xp, level, badges, current_streak, longest_streak, monthly_xp, phone, email_signature, permissions, active, division')
-        .eq('id', user.id)
-        .single()
+    let profile: any = null
+    try {
+        const { data } = await admin
+            .from('profiles')
+            .select('id, name, email, role, org_id, avatar_url, xp, level, badges, current_streak, longest_streak, monthly_xp, phone, email_signature, permissions, active, division')
+            .eq('id', user.id)
+            .single()
+        profile = data
+    } catch (err) {
+        console.error('[dashboard] profile fetch error:', err)
+    }
 
-    if (!profile) redirect('/login')
+    if (!profile) {
+        return (
+            <div style={{ padding: '40px 24px', color: 'var(--text1)' }}>
+                <div style={{
+                    background: 'var(--amber)',
+                    color: '#000',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    maxWidth: '480px',
+                }}>
+                    Profile loading issue — please refresh
+                </div>
+            </div>
+        )
+    }
 
     const orgId = profile.org_id || ORG_ID
 
