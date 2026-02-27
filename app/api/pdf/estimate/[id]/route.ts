@@ -156,9 +156,9 @@ function BillingSection({ estimate }: { estimate: any }) {
     // LEFT — Prepared For
     React.createElement(View, { style: s.billingCol },
       React.createElement(Text, { style: s.sectionLabel }, 'Prepared For'),
-      React.createElement(Text, { style: s.billName }, customer.name || customer.contact_name || 'Customer'),
-      customer.company || customer.company_name
-        ? React.createElement(Text, { style: s.billSub }, customer.company || customer.company_name)
+      React.createElement(Text, { style: s.billName }, customer.name || 'Customer'),
+      customer.business_name || customer.company_name
+        ? React.createElement(Text, { style: s.billSub }, customer.business_name || customer.company_name)
         : null,
       customer.phone && React.createElement(Text, { style: s.billText }, customer.phone),
       customer.email && React.createElement(Text, { style: s.billEmail }, customer.email),
@@ -442,7 +442,7 @@ export async function GET(
 
     const { data: estimate, error } = await admin
       .from('estimates')
-      .select('*, customer:customer_id(id, name, email, phone, company, company_name, address)')
+      .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
       .eq('id', params.id)
       .single()
 

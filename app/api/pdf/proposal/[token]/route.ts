@@ -156,7 +156,7 @@ function CoverPage({ estimate, customer }: { estimate: any; customer: any }) {
       React.createElement(Text, { style: s.coverCustomer },
         customer?.name || customer?.contact_name || 'Valued Customer'
       ),
-      customer?.company && React.createElement(Text, { style: s.coverBusiness }, customer.company),
+      customer?.business_name && React.createElement(Text, { style: s.coverBusiness }, customer.business_name),
       React.createElement(View, { style: s.coverMeta },
         React.createElement(View, { style: s.coverMetaItem },
           React.createElement(Text, { style: s.coverMetaLabel }, 'Proposal #'),
@@ -218,7 +218,7 @@ function ProposalDetailsPage({ estimate, lineItems }: { estimate: any; lineItems
         React.createElement(View, { style: s.billingCol },
           React.createElement(Text, { style: s.sectionLabel }, 'Prepared For'),
           React.createElement(Text, { style: s.billName }, customer.name || customer.contact_name || 'Customer'),
-          customer.company && React.createElement(Text, { style: s.billSub }, customer.company),
+          customer.business_name && React.createElement(Text, { style: s.billSub }, customer.business_name),
           customer.phone && React.createElement(Text, { style: s.billText }, customer.phone),
           customer.email && React.createElement(Text, { style: s.billEmail }, customer.email),
         ),
@@ -499,7 +499,7 @@ export async function GET(
 
     const { data: byId } = await admin
       .from('estimates')
-      .select('*, customer:customer_id(id, name, email, phone, company, company_name, address)')
+      .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
       .eq('id', params.token)
       .single()
 
@@ -509,7 +509,7 @@ export async function GET(
       // fallback: token stored in form_data.proposalToken
       const { data: byToken } = await admin
         .from('estimates')
-        .select('*, customer:customer_id(id, name, email, phone, company, company_name, address)')
+        .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
         .eq('form_data->>proposalToken', params.token)
         .single()
       estimate = byToken

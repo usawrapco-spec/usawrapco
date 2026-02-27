@@ -145,7 +145,7 @@ function SalesOrderPage({ project, customer, lineItems }: any) {
         React.createElement(View, { style: s.infoCellHalf },
           React.createElement(Text, { style: s.infoLabel }, 'Customer'),
           React.createElement(Text, { style: s.infoValue }, customer?.name || customer?.contact_name || '—'),
-          customer?.company && React.createElement(Text, { style: s.infoValueSm }, customer.company),
+          customer?.business_name && React.createElement(Text, { style: s.infoValueSm }, customer.company),
           customer?.phone && React.createElement(Text, { style: s.infoValueSm }, customer.phone),
           customer?.email && React.createElement(Text, { style: { ...s.infoValueSm, color: PDF_COLORS.accent } }, customer.email),
         ),
@@ -546,7 +546,7 @@ export async function GET(
 
     const { data: project, error } = await admin
       .from('projects')
-      .select('*, agent:agent_id(id, name, email), installer:installer_id(id, name), customer:customer_id(id, name, email, phone, company, company_name)')
+      .select('*, agent:agent_id(id, name, email), installer:installer_id(id, name), customer:customer_id(id, name, email, phone, business_name, company_name)')
       .eq('id', params.id)
       .single()
 

@@ -118,11 +118,10 @@ export default function ProspectDiscovery({ onClose }: Props) {
         website: biz.website,
         google_rating: biz.rating,
         status: biz.ai_score >= 70 ? 'hot' : biz.ai_score >= 40 ? 'warm' : 'cold',
-        source: 'google_places',
+        discovered_via: 'google_places',
         score: biz.ai_score,
-        fleet_size: biz.estimated_fleet,
+        estimated_fleet_size: Number(biz.estimated_fleet) || null,
         industry: biz.type,
-        tags: [biz.type],
       }))
 
       await supabase.from('prospects').insert(prospects)

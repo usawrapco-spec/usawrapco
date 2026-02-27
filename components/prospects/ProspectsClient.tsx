@@ -195,14 +195,14 @@ function mapDbToProspect(row: any): Prospect {
     phone: row.phone || '',
     email: row.email || '',
     status: row.status || 'warm',
-    source: row.source || 'other',
-    fleet_size: row.fleet_size != null ? String(row.fleet_size) : '',
-    estimated_revenue: Number(row.estimated_revenue) || 0,
+    source: row.discovered_via || 'Other',
+    fleet_size: row.estimated_fleet_size != null ? String(row.estimated_fleet_size) : '',
+    estimated_revenue: 0,
     notes: row.notes || '',
     agent_id: row.assigned_to || '',
     agent_name: row.assignee?.name || '',
-    last_contact: row.last_contact ? new Date(row.last_contact).toISOString().split('T')[0] : '',
-    follow_up_date: row.follow_up_date || null,
+    last_contact: row.last_contacted_at ? new Date(row.last_contacted_at).toISOString().split('T')[0] : '',
+    follow_up_date: null,
     activities: [],
     created_at: row.created_at || '',
   }
@@ -880,12 +880,11 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId
       phone: form.phone,
       email: form.email,
       status: form.status,
-      source: form.source,
-      fleet_size: Number(form.fleet_size) || null,
-      estimated_revenue: Number(form.estimated_revenue) || 0,
+      discovered_via: form.source,
+      estimated_fleet_size: Number(form.fleet_size) || null,
       notes: form.notes,
       assigned_to: userId,
-      last_contact: today,
+      last_contacted_at: new Date().toISOString(),
     }
 
     const { data, error } = await supabase.from('prospects').insert(dbInsert).select('*, assignee:assigned_to(id, name)').single()
@@ -1111,9 +1110,9 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
     if (!prospect.id.startsWith('local-')) {
       await supabase.from('prospects').update({
         name: updated.name, company: updated.company, phone: updated.phone,
-        email: updated.email, status: updated.status, source: updated.source,
-        fleet_size: updated.fleet_size, estimated_revenue: updated.estimated_revenue,
-        notes: updated.notes, follow_up_date: updated.follow_up_date,
+        email: updated.email, status: updated.status, discovered_via: updated.source,
+        estimated_fleet_size: Number(updated.fleet_size) || null,
+        notes: updated.notes,
       }).eq('id', prospect.id)
     }
     onUpdate(updated)
@@ -1122,9 +1121,6 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
 
   async function handleSaveFollowUp() {
     const updated: Prospect = { ...prospect, follow_up_date: followUp || null }
-    if (!prospect.id.startsWith('local-')) {
-      await supabase.from('prospects').update({ follow_up_date: updated.follow_up_date }).eq('id', prospect.id)
-    }
     onUpdate(updated)
   }
 

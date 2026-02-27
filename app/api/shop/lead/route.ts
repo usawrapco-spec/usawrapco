@@ -24,7 +24,7 @@ export async function POST(req: Request) {
           name,
           email,
           phone: phone || null,
-          company: company || null,
+          business_name: company || null,
           lead_source: 'online_shop',
         }).select('id').maybeSingle()
         customerId = newCustomer?.id || null
@@ -40,9 +40,7 @@ export async function POST(req: Request) {
         email,
         phone: phone || null,
         status: 'hot',
-        source: 'Website',
-        estimated_revenue: estimate || 0,
-        fleet_size: vehicle || 'unknown',
+        discovered_via: 'online_shop',
         notes: [
           `Online Shop Lead`,
           `Vehicle: ${vehicle_year || ''} ${vehicle_make || ''} ${vehicle_model || ''} ${vehicle || ''}`.trim(),
@@ -51,13 +49,7 @@ export async function POST(req: Request) {
           `Est: $${estimate || 'TBD'}`,
           notes || '',
         ].filter(Boolean).join('\n'),
-        activities: [{
-          id: 'shop-1',
-          type: 'note',
-          description: `Submitted online quote request. Estimated $${estimate || 'TBD'}`,
-          date: new Date().toISOString().split('T')[0],
-        }],
-        last_contact: new Date().toISOString().split('T')[0],
+        last_contacted_at: new Date().toISOString(),
       })
     } catch {}
 

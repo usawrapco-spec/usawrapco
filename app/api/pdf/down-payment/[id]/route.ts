@@ -120,7 +120,7 @@ function DownPaymentPDF({ salesOrder, customer }: {
           React.createElement(View, { style: s.billingCol },
             React.createElement(Text, { style: s.sectionLabel }, 'Bill To'),
             React.createElement(Text, { style: s.billName }, customer?.name || 'Customer'),
-            customer?.company && React.createElement(Text, { style: s.billText }, customer.company),
+            customer?.business_name && React.createElement(Text, { style: s.billText }, customer.company),
             customer?.phone && React.createElement(Text, { style: s.billText }, customer.phone),
             customer?.email && React.createElement(Text, { style: s.billEmail }, customer.email),
           ),
@@ -230,7 +230,7 @@ export async function GET(
 
     const { data: salesOrder, error } = await admin
       .from('sales_orders')
-      .select('*, customer:customer_id(id, name, email, phone, company, address)')
+      .select('*, customer:customer_id(id, name, email, phone, business_name, address)')
       .eq('id', params.id)
       .single()
 

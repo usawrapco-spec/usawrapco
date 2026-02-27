@@ -18,7 +18,7 @@ export async function GET(req: Request) {
       install_date, due_date, priority, revenue,
       form_data, actuals, notes,
       agent:agent_id(id, name, email),
-      customer:customer_id(id, name, email, phone, company)
+      customer:customer_id(id, name, email, phone, business_name)
     `)
     .eq('id', projectId)
     .single()

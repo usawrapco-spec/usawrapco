@@ -189,10 +189,10 @@ function InvoicePDF({ invoice, lineItems, payments }: {
         React.createElement(View, { style: s.billingRow },
           React.createElement(View, { style: s.billingCol },
             React.createElement(Text, { style: s.sectionLabel }, 'Bill To'),
-            React.createElement(Text, { style: s.billName }, customer.name || customer.contact_name || 'Customer'),
-            customer.company || customer.company_name
+            React.createElement(Text, { style: s.billName }, customer.name || 'Customer'),
+            customer.business_name || customer.company_name
               ? React.createElement(Text, { style: { ...s.billText, fontWeight: 600 } },
-                  customer.company || customer.company_name)
+                  customer.business_name || customer.company_name)
               : null,
             customer.phone && React.createElement(Text, { style: s.billText }, customer.phone),
             customer.email && React.createElement(Text, { style: s.billEmail }, customer.email),
@@ -349,7 +349,7 @@ export async function GET(
 
     const { data: invoice, error } = await admin
       .from('invoices')
-      .select('*, customer:customer_id(id, name, email, phone, company, company_name)')
+      .select('*, customer:customer_id(id, name, email, phone, business_name, company_name)')
       .eq('id', params.id)
       .single()
 
