@@ -469,7 +469,11 @@ export default function InstallerMobilePortal({
   /* ================================================================ */
 
   const now = new Date()
-  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay())
+  const _dow = now.getDay()
+  const _diffMon = _dow === 0 ? -6 : 1 - _dow
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() + _diffMon)
+  weekStart.setHours(0, 0, 0, 0)
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
   const filteredEarnings = acceptedBids.filter(b => {
