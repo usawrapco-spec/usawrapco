@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const cleanPhone = from.replace(/\D/g, '')
     let { data: customer } = await admin
       .from('customers')
-      .select('id, contact_name, phone')
+      .select('id, name, phone')
       .or(`phone.eq.${from},phone.eq.+1${cleanPhone.slice(-10)},phone.eq.${cleanPhone.slice(-10)}`)
       .eq('org_id', ORG_ID)
       .limit(1)
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         .from('customers')
         .insert({
           org_id: ORG_ID,
-          contact_name: `Unknown (${from})`,
+          name: `Unknown (${from})`,
           phone: from,
         })
         .select()
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
         .insert({
           org_id: ORG_ID,
           customer_id: customer.id,
-          contact_name: customer.contact_name || from,
+          contact_name: customer.name || from,
           contact_phone: from,
           status: 'open',
           last_message_at: new Date().toISOString(),
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       body,
       attachments: mediaUrls.length > 0 ? mediaUrls.map(u => ({ url: u, type: 'image' })) : null,
       status: 'received',
-      sender_name: customer.contact_name || from,
+      sender_name: customer.name || from,
       twilio_sid: messageSid,
       media_urls: mediaUrls.length > 0 ? mediaUrls : null,
     })
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       customer_id: customer.id,
       actor_type: 'customer',
       actor_id: customer.id,
-      actor_name: customer.contact_name || from,
+      actor_name: customer.name || from,
       action: 'inbound_sms',
       details: body.length > 200 ? body.substring(0, 200) + '...' : body,
       metadata: { message_sid: messageSid, media_count: numMedia },

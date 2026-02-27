@@ -20,7 +20,7 @@ interface DropdownPos {
 
 interface Customer {
   id: string
-  contact_name: string
+  name: string
   company_name: string | null
 }
 
@@ -194,9 +194,9 @@ export default function BatchImportClient({ profile }: Props) {
     searchTimeouts.current[rowId] = setTimeout(async () => {
       const { data } = await supabase
         .from('customers')
-        .select('id, contact_name, company_name')
+        .select('id, name, company_name')
         .eq('org_id', profile.org_id)
-        .ilike('contact_name', `%${query}%`)
+        .ilike('name', `%${query}%`)
         .limit(6)
       setCustomerResults(prev => ({ ...prev, [rowId]: data || [] }))
       openDropdown(rowId, inputEl)
@@ -214,9 +214,9 @@ export default function BatchImportClient({ profile }: Props) {
     setRows(prev => prev.map(r =>
       r.id === rowId ? {
         ...r,
-        customerSearch: customer.contact_name,
+        customerSearch: customer.name,
         customerId: customer.id,
-        customerName: customer.contact_name,
+        customerName: customer.name,
         isNewCustomer: false,
       } : r
     ))
@@ -294,7 +294,7 @@ export default function BatchImportClient({ profile }: Props) {
       for (const name of uniqueNewNames) {
         const { data, error } = await supabase
           .from('customers')
-          .insert({ org_id: profile.org_id, contact_name: name })
+          .insert({ org_id: profile.org_id, name: name })
           .select('id')
           .single()
         if (error) {
@@ -744,7 +744,7 @@ export default function BatchImportClient({ profile }: Props) {
                   (e.currentTarget as HTMLElement).style.background = 'transparent'
                 }}
               >
-                {c.contact_name}
+                {c.name}
                 {c.company_name && (
                   <span style={{ color: 'var(--text3)', marginLeft: 8, fontSize: 12 }}>
                     {c.company_name}

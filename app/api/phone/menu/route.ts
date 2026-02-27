@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       .eq('org_id', ORG_ID)
       .eq('dtmf_key', digit)
       .eq('enabled', true)
-      .single()
+      .maybeSingle()
 
     if (!dept) {
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>

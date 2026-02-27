@@ -19,13 +19,13 @@ import { format, formatDistanceToNow } from 'date-fns'
 
 interface Customer {
   id: string
-  contact_name: string
+  name: string
   company_name?: string
   email?: string
   phone?: string
   city?: string
   state?: string
-  source?: string
+  lead_source?: string
   notes?: string
   created_at: string
   org_id?: string
@@ -564,7 +564,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
-    contact_name: customer.contact_name || '',
+    name: customer.name || '',
     company_name: customer.company_name || '',
     email: customer.email || '',
     phone: customer.phone || '',
@@ -576,7 +576,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
 
   // --- New state ---
   const [activeTab, setActiveTab] = useState<TabKey>('activity')
-  const [leadSource, setLeadSource] = useState(customer.source || '')
+  const [leadSource, setLeadSource] = useState(customer.lead_source || '')
   const [tags, setTags] = useState<CustomerTag[]>(() => {
     // Initialize from local-demo or derive from projects
     const derived: CustomerTag[] = []
@@ -613,7 +613,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
   const vehicles = Array.from(new Set(projects.map(p => p.vehicle_desc).filter(Boolean))) as string[]
 
   // Generated tab data
-  const activityEntries = generateDemoActivity(projects, saved.contact_name)
+  const activityEntries = generateDemoActivity(projects, saved.name)
   const documents = generateDemoDocuments(projects)
   const payments = generateDemoPayments(projects)
 
@@ -723,8 +723,8 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
 
   async function updateLeadSource(val: string) {
     setLeadSource(val)
-    setSaved(prev => ({ ...prev, source: val }))
-    await supabase.from('customers').update({ source: val }).eq('id', customer.id).then(() => {}, () => {})
+    setSaved(prev => ({ ...prev, lead_source: val }))
+    await supabase.from('customers').update({ lead_source: val }).eq('id', customer.id).then(() => {}, () => {})
   }
 
   function toggleTag(tag: CustomerTag) {
@@ -865,7 +865,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                 fontSize: 22, fontWeight: 800, color: 'var(--accent)',
                 fontFamily: headingFont,
               }}>
-                {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+                {(saved.name || 'C').charAt(0).toUpperCase()}
               </div>
               {/* Health score badge */}
               <div style={{
@@ -883,13 +883,13 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
               {editing ? (
                 <input
                   className="field"
-                  value={form.contact_name}
-                  onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))}
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}
                 />
               ) : (
                 <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text1)', fontFamily: headingFont }}>
-                  {saved.contact_name}
+                  {saved.name}
                 </div>
               )}
               {editing ? (
@@ -970,7 +970,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text2)' }}>
                   <Phone size={13} style={{ color: 'var(--text3)', flexShrink: 0 }} />
                   <a href={`tel:${saved.phone}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>{saved.phone}</a>
-                  <ClickToCallButton toNumber={saved.phone} toName={saved.contact_name} size="sm" />
+                  <ClickToCallButton toNumber={saved.phone} toName={saved.name} size="sm" />
                 </div>
               )}
               {(saved.city || saved.state) && (
@@ -1088,15 +1088,15 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         </div>
 
         {/* Source badge (existing, only show if no lead source dropdown value) */}
-        {saved.source && !leadSource && (
+        {saved.lead_source && !leadSource && (
           <div style={{ marginTop: 12 }}>
             <span style={{
               display: 'inline-flex', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-              background: `${SOURCE_COLORS[saved.source] || '#5a6080'}18`,
-              color: SOURCE_COLORS[saved.source] || '#5a6080',
+              background: `${SOURCE_COLORS[saved.lead_source] || '#5a6080'}18`,
+              color: SOURCE_COLORS[saved.lead_source] || '#5a6080',
               textTransform: 'capitalize',
             }}>
-              {saved.source.replace('_', ' ')}
+              {saved.lead_source.replace('_', ' ')}
             </span>
           </div>
         )}
@@ -1129,7 +1129,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
       <div style={{ marginBottom: 16 }}>
         <CustomerLoyaltyPanel
           customerId={customer.id}
-          customerName={saved.contact_name || 'Customer'}
+          customerName={saved.name || 'Customer'}
         />
       </div>
 
@@ -1296,10 +1296,10 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                     background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 13, fontWeight: 700, color: 'var(--purple)',
                   }}>
-                    {(saved.contact_name || 'C').charAt(0).toUpperCase()}
+                    {(saved.name || 'C').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{saved.contact_name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{saved.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>Primary Contact {saved.email ? `- ${saved.email}` : ''}</div>
                   </div>
                 </div>

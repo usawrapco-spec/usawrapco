@@ -8,13 +8,13 @@ import type { Profile } from '@/types'
 
 interface Customer {
   id: string
-  contact_name: string
+  name: string
   company_name?: string
   email?: string
   phone?: string
   city?: string
   state?: string
-  source?: string
+  lead_source?: string
   notes?: string
   created_at: string
 }
@@ -30,8 +30,8 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
   const [showAdd, setShowAdd]     = useState(false)
   const [saving, setSaving]       = useState(false)
   const [form, setForm]           = useState({
-    contact_name: '', company_name: '', email: '', phone: '',
-    city: '', state: '', source: 'inbound', notes: '',
+    name: '', company_name: '', email: '', phone: '',
+    city: '', state: '', lead_source: 'inbound', notes: '',
   })
   const supabase = createClient()
   const router = useRouter()
@@ -39,20 +39,20 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
   const filtered = customers.filter(c => {
     const q = search.toLowerCase()
     return !q ||
-      c.contact_name?.toLowerCase().includes(q) ||
+      c.name?.toLowerCase().includes(q) ||
       c.company_name?.toLowerCase().includes(q) ||
       c.email?.toLowerCase().includes(q) ||
       c.phone?.includes(q)
   })
 
   async function save() {
-    if (!form.contact_name.trim()) return
+    if (!form.name.trim()) return
     setSaving(true)
     const { data, error } = await supabase.from('customers').insert({ ...form, org_id: profile.org_id }).select().single()
     if (!error && data) {
       setCustomers(prev => [data as Customer, ...prev])
       setShowAdd(false)
-      setForm({ contact_name: '', company_name: '', email: '', phone: '', city: '', state: '', source: 'inbound', notes: '' })
+      setForm({ name: '', company_name: '', email: '', phone: '', city: '', state: '', lead_source: 'inbound', notes: '' })
       // Award XP for creating a customer (fire-and-forget)
       fetch('/api/xp/award', {
         method: 'POST',
@@ -127,21 +127,21 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{c.contact_name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{c.name}</div>
                   {c.company_name && (
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Building2 size={11} /> {c.company_name}
                     </div>
                   )}
                 </div>
-                {c.source && (
+                {c.lead_source && (
                   <span style={{
                     padding: '2px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700,
-                    background: `${sourceColors[c.source] || '#5a6080'}18`,
-                    color: sourceColors[c.source] || '#5a6080',
+                    background: `${sourceColors[c.lead_source] || '#5a6080'}18`,
+                    color: sourceColors[c.lead_source] || '#5a6080',
                     textTransform: 'capitalize',
                   }}>
-                    {c.source.replace('_', ' ')}
+                    {c.lead_source.replace('_', ' ')}
                   </span>
                 )}
               </div>
@@ -195,7 +195,7 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
-                { key: 'contact_name', label: 'Contact Name *', placeholder: 'Full name' },
+                { key: 'name', label: 'Contact Name *', placeholder: 'Full name' },
                 { key: 'company_name', label: 'Company Name', placeholder: 'Business name (optional)' },
                 { key: 'email', label: 'Email', placeholder: 'email@example.com' },
                 { key: 'phone', label: 'Phone', placeholder: '(555) 000-0000' },
@@ -217,8 +217,8 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Source</label>
                 <select
-                  value={form.source}
-                  onChange={e => setForm(prev => ({ ...prev, source: e.target.value }))}
+                  value={form.lead_source}
+                  onChange={e => setForm(prev => ({ ...prev, lead_source: e.target.value }))}
                   style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, outline: 'none' }}
                 >
                   {['inbound', 'outbound', 'referral', 'walk_in', 'repeat', 'cross_referral'].map(s => (
@@ -235,7 +235,7 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
                 </button>
                 <button
                   onClick={save}
-                  disabled={!form.contact_name.trim() || saving}
+                  disabled={!form.name.trim() || saving}
                   style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
                 >
                   {saving ? 'Saving...' : 'Add Customer'}

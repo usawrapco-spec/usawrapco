@@ -50,13 +50,13 @@ export async function POST(req: NextRequest) {
 
     const { data: customer } = await admin
       .from('customers')
-      .select('id, name, contact_name')
+      .select('id, name')
       .or(`phone.eq.${from},mobile.eq.${from}`)
       .maybeSingle()
 
     if (customer) {
       customerId  = customer.id
-      contactName = customer.contact_name || customer.name || from
+      contactName = customer.name || from
 
       const { data: recentProject } = await admin
         .from('projects')

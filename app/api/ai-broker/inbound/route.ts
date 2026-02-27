@@ -160,7 +160,7 @@ export async function POST(req: Request) {
       else {
         const { data: newCust } = await admin.from('customers').insert({
           org_id: ORG_ID, phone: inboundFrom, name: inboundFrom,
-          status: 'lead', source: 'ai_broker',
+          status: 'lead', lead_source: 'ai_broker',
         }).select('id').single()
         customerId = newCust?.id || null
       }
@@ -171,7 +171,7 @@ export async function POST(req: Request) {
       else {
         const { data: newCust } = await admin.from('customers').insert({
           org_id: ORG_ID, email: inboundFrom, name: inboundFrom,
-          status: 'lead', source: 'ai_broker',
+          status: 'lead', lead_source: 'ai_broker',
         }).select('id').single()
         customerId = newCust?.id || null
       }

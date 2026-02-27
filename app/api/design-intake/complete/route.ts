@@ -38,12 +38,10 @@ export async function POST(req: NextRequest) {
         const { data: newCustomer } = await admin.from('customers').insert({
           org_id: ORG_ID,
           name: session.business_name || session.contact_name || 'New Lead',
-          contact_name: session.contact_name,
           email: session.contact_email,
           phone: session.contact_phone,
           company_name: session.business_name,
-          website: session.website_url,
-          source: 'design_intake',
+          lead_source: 'design_intake',
         }).select('id').single()
         customerId = newCustomer?.id || null
       }

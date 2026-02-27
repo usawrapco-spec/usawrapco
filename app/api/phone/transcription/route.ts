@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     .update({ voicemail_transcript: transcript })
     .eq('twilio_call_sid', callSid)
     .select('*, department:department_id(voicemail_email, name)')
-    .single()
+    .maybeSingle()
 
   const deptEmail = callLog?.department?.voicemail_email || 'fleet@usawrapco.com'
   const deptName = callLog?.department?.name || 'General'

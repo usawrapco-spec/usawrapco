@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     .eq('org_id', ORG_ID)
     .eq('extension', ext)
     .eq('is_available', true)
-    .single()
+    .maybeSingle()
 
   if (!agent || !agent.cell_number) {
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>

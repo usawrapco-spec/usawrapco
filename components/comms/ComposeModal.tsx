@@ -61,7 +61,7 @@ export default function ComposeModal({ onClose, onSent, defaultCustomerId, defau
 
     // If defaultCustomerId, load that customer
     if (defaultCustomerId) {
-      supabase.from('customers').select('id, name, email, phone, contact_name')
+      supabase.from('customers').select('id, name, email, phone')
         .eq('id', defaultCustomerId).single().then(({ data }) => {
           if (data) {
             setSelectedCustomer(data)
@@ -75,8 +75,8 @@ export default function ComposeModal({ onClose, onSent, defaultCustomerId, defau
     if (customerSearch.length < 2) { setCustomers([]); return }
     const t = setTimeout(async () => {
       const { data } = await supabase.from('customers')
-        .select('id, name, email, phone, contact_name')
-        .or(`name.ilike.%${customerSearch}%,contact_name.ilike.%${customerSearch}%,email.ilike.%${customerSearch}%`)
+        .select('id, name, email, phone')
+        .or(`name.ilike.%${customerSearch}%,email.ilike.%${customerSearch}%`)
         .limit(8)
       setCustomers(data || [])
     }, 250)

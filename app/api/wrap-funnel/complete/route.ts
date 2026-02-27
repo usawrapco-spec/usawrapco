@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
           email: session.contact_email,
           phone: session.contact_phone,
           company_name: session.business_name,
-          source: 'Website Intake',
+          lead_source: 'Website Intake',
         }).select('id').single()
         customerId = newCust?.id || null
       }

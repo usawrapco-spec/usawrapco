@@ -137,13 +137,13 @@ export default function CommsClient({ profile }: { profile: Profile }) {
       if (customerIds.length > 0) {
         const { data: customers } = await supabase
           .from('customers')
-          .select('id, name, contact_name, email, phone')
+          .select('id, name, email, phone')
           .in('id', customerIds)
 
         for (const c of (customers || [])) {
           const conv = convMap.get(c.id)
           if (conv) {
-            conv.customer_name = c.contact_name || c.name || c.email || 'Customer'
+            conv.customer_name = c.name || c.email || 'Customer'
             conv.customer_phone = c.phone
             conv.customer_email = c.email
           }

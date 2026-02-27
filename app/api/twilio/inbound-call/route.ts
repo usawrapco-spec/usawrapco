@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       const cleanPhone = from.replace(/\D/g, '')
       const { data: customer } = await admin
         .from('customers')
-        .select('id, contact_name')
+        .select('id, name')
         .or(`phone.eq.${from},phone.eq.+1${cleanPhone.slice(-10)},phone.eq.${cleanPhone.slice(-10)}`)
         .eq('org_id', ORG_ID)
         .limit(1)
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
       if (customer) {
         customerId = customer.id
-        customerName = customer.contact_name || callerName
+        customerName = customer.name || callerName
       }
     }
 

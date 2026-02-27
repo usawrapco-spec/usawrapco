@@ -10,8 +10,11 @@ import {
   Menu, Search, Bell, Plus, ChevronDown, X,
   Briefcase, Users, FileText, ShoppingCart, CheckSquare, UserPlus,
   Clock, LogOut, User, Settings, Download, BellOff,
-  MessageCircle, Palette, UserCheck, Waves, Glasses, CalendarDays,
-  LayoutDashboard, Kanban,
+  MessageCircle, Palette, UserCheck, CalendarDays,
+  DollarSign, BarChart3, Trophy, Factory, Wrench,
+  ClipboardList, Layers, Wand2, ImageIcon, FileBarChart,
+  Hammer, ShoppingBag, Banknote, MessageSquare,
+  Map, Package, BookOpen, Phone, TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -20,30 +23,64 @@ import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { SideNav } from '@/components/layout/SideNav'
 import { QuickPermissionsWidget } from '@/components/ui/QuickPermissionsWidget'
 
-// ── Top bar quick-access items ────────────────────────────────────────────────
-interface TopLink { href: string; label: string; icon: LucideIcon }
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface DropdownItem { href: string; label: string; icon: LucideIcon; description?: string }
 
-const TOP_LINKS: TopLink[] = [
-  { href: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/jobs',        label: 'Jobs',      icon: Briefcase },
-  { href: '/pipeline',    label: 'Pipeline',  icon: Kanban },
-  { href: '/calendar',    label: 'Calendar',  icon: CalendarDays },
-  { href: '/inbox',       label: 'Inbox',     icon: MessageCircle },
-]
-
-// ── Quick Create items ────────────────────────────────────────────────────────
-interface QuickItem { href: string; label: string; icon: LucideIcon; description?: string }
-
-const QUICK_CREATE: QuickItem[] = [
+// ── Nav definitions ───────────────────────────────────────────────────────────
+const QUICK_CREATE: DropdownItem[] = [
   { href: '/estimates/new',      label: 'New Estimate',   icon: FileText,    description: 'Create a quote' },
   { href: '/sales-orders?new=1', label: 'Sales Order',    icon: ShoppingCart, description: 'Convert to order' },
   { href: '/pipeline?new=true',  label: 'New Wrap Job',   icon: Briefcase,   description: 'Start a wrap job' },
-  { href: '/decking',            label: 'Decking Job',    icon: Waves,       description: 'DekWave decking pipeline' },
-  { href: '/tinting',            label: 'Tint Job',       icon: Glasses,     description: 'Tinting pipeline' },
   { href: '/customers?new=true', label: 'New Customer',   icon: Users,       description: 'Add a customer' },
   { href: '/tasks?new=true',     label: 'New Task',       icon: CheckSquare, description: 'Assign a task' },
   { href: '/timeclock',          label: 'Clock In',       icon: Clock,       description: 'Start your shift' },
-  { href: '/schedule?new=true',  label: 'Appointment',    icon: CalendarDays, description: 'Schedule appointment' },
+]
+
+const JOBS_ITEMS: DropdownItem[] = [
+  { href: '/pipeline',    label: 'Pipeline',    icon: Briefcase,    description: 'Kanban job board' },
+  { href: '/jobs',        label: 'All Jobs',    icon: ClipboardList, description: 'Full job list' },
+  { href: '/timeline',    label: 'Timeline',    icon: Clock,        description: 'Visual timeline' },
+  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy,       description: 'Team rankings' },
+]
+
+const PRODUCTION_ITEMS: DropdownItem[] = [
+  { href: '/production',   label: 'Production Board', icon: Factory,  description: 'Production overview' },
+  { href: '/design',       label: 'Design Studio',    icon: Palette,  description: 'Design workspace' },
+  { href: '/mockup',       label: 'Mockup Tool',      icon: Wand2,    description: 'Vehicle mockups' },
+  { href: '/media',        label: 'Media Library',    icon: ImageIcon, description: 'Files & assets' },
+]
+
+const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/media']
+
+const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
+  { id: 'new_estimate',       label: 'New Estimate',            icon: FileText, description: 'Create a new quote' },
+  { id: 'design_intake_link', label: 'Send Design Intake Link', icon: Palette,  description: 'White-glove design intake' },
+]
+
+const SALES_NAV_ITEMS: DropdownItem[] = [
+  { href: '/pipeline',   label: 'Pipeline',   icon: Briefcase },
+  { href: '/customers',  label: 'Customers',  icon: Users },
+  { href: '/prospects',  label: 'Prospects',  icon: UserPlus },
+  { href: '/analytics',  label: 'Analytics',  icon: BarChart3 },
+  { href: '/reports',    label: 'Reports',    icon: FileBarChart },
+]
+
+const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/bids', '/pipeline', '/customers', '/analytics', '/reports']
+
+const INSTALL_ITEMS: DropdownItem[] = [
+  { href: '/installer-portal', label: 'Install Board',  icon: Hammer,        description: 'Manage installs' },
+  { href: '/bids',             label: 'Installer Bids', icon: ClipboardList, description: 'Bid management' },
+  { href: '/calendar',         label: 'Schedule',       icon: CalendarDays,  description: 'Install calendar' },
+]
+
+const INSTALL_PATHS = ['/installer-portal']
+
+const MORE_NAV: DropdownItem[] = [
+  { href: '/payroll',    label: 'Payroll',    icon: DollarSign },
+  { href: '/inventory',  label: 'Inventory',  icon: Package },
+  { href: '/catalog',    label: 'Catalog',    icon: BookOpen },
+  { href: '/overhead',   label: 'Overhead',   icon: TrendingUp },
+  { href: '/settings',   label: 'Settings',   icon: Settings },
 ]
 
 // ── Search result types ───────────────────────────────────────────────────────
@@ -82,7 +119,14 @@ export function TopNav({ profile }: { profile: Profile }) {
   })
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
-  // Dropdowns
+  // Nav dropdowns
+  const [jobsOpen,       setJobsOpen]       = useState(false)
+  const [productionOpen, setProductionOpen] = useState(false)
+  const [salesOpen,      setSalesOpen]      = useState(false)
+  const [installOpen,    setInstallOpen]    = useState(false)
+  const [moreOpen,       setMoreOpen]       = useState(false)
+
+  // Action dropdowns
   const [createOpen,  setCreateOpen]  = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen,   setNotifOpen]   = useState(false)
@@ -105,14 +149,32 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [installPrompt,         setInstallPrompt]         = useState<any>(null)
   const [isInstalled,           setIsInstalled]           = useState(false)
 
-  const createRef  = useRef<HTMLDivElement>(null)
-  const profileRef = useRef<HTMLDivElement>(null)
-  const notifRef   = useRef<HTMLDivElement>(null)
-  const searchRef  = useRef<HTMLInputElement>(null)
+  const jobsRef       = useRef<HTMLDivElement>(null)
+  const productionRef = useRef<HTMLDivElement>(null)
+  const salesRef      = useRef<HTMLDivElement>(null)
+  const installRef    = useRef<HTMLDivElement>(null)
+  const moreRef       = useRef<HTMLDivElement>(null)
+  const createRef     = useRef<HTMLDivElement>(null)
+  const profileRef    = useRef<HTMLDivElement>(null)
+  const notifRef      = useRef<HTMLDivElement>(null)
+  const searchRef     = useRef<HTMLInputElement>(null)
 
   const push = usePushNotifications()
 
   const initial = (profile.name ?? profile.email ?? '?').charAt(0).toUpperCase()
+
+  function closeAll() {
+    setJobsOpen(false); setProductionOpen(false); setSalesOpen(false)
+    setInstallOpen(false); setMoreOpen(false)
+    setCreateOpen(false); setProfileOpen(false); setNotifOpen(false)
+  }
+
+  function isActive(href: string) {
+    if (!pathname) return false
+    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    if (href === '/jobs') return pathname === '/jobs' || pathname.startsWith('/jobs/') || pathname.startsWith('/projects/')
+    return pathname === href || pathname.startsWith(href + '/')
+  }
 
   // ── Sidebar body-padding injection ─────────────────────────────────────────
   useEffect(() => {
@@ -143,16 +205,16 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   useEffect(() => {
     setMobileNavOpen(false)
-    setCreateOpen(false)
-    setProfileOpen(false)
-    setNotifOpen(false)
+    closeAll()
   }, [pathname])
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (createRef.current && !createRef.current.contains(e.target as Node))  setCreateOpen(false)
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false)
-      if (notifRef.current && !notifRef.current.contains(e.target as Node))     setNotifOpen(false)
+      const refs = [jobsRef, productionRef, salesRef, installRef, moreRef, createRef, profileRef, notifRef]
+      const setters = [setJobsOpen, setProductionOpen, setSalesOpen, setInstallOpen, setMoreOpen, setCreateOpen, setProfileOpen, setNotifOpen]
+      refs.forEach((ref, i) => {
+        if (ref.current && !ref.current.contains(e.target as Node)) setters[i](false)
+      })
     }
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
@@ -269,12 +331,37 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
-  function isActiveLink(href: string) {
-    if (!pathname) return false
-    const p = pathname
-    if (href === '/dashboard') return p === '/dashboard' || p === '/'
-    if (href === '/jobs') return p === '/jobs' || p.startsWith('/jobs/') || p.startsWith('/projects/')
-    return p === href || p.startsWith(href + '/')
+  // ── Shared dropdown panel style ──────────────────────────────────────────
+  const dropdownStyle: React.CSSProperties = {
+    position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 200,
+    background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 12, padding: 6, minWidth: 210,
+    boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+  }
+
+  // ── Shared nav button style ───────────────────────────────────────────────
+  function navBtnStyle(active: boolean): React.CSSProperties {
+    return {
+      display: 'flex', alignItems: 'center', gap: 5,
+      padding: '6px 10px', borderRadius: 8, border: 'none',
+      background: active ? 'rgba(79,127,255,0.12)' : 'transparent',
+      color: active ? 'var(--accent)' : 'var(--text2)',
+      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+      whiteSpace: 'nowrap' as const,
+      transition: 'all 0.15s',
+    }
+  }
+
+  function dropItemStyle(active: boolean): React.CSSProperties {
+    return {
+      display: 'flex', alignItems: 'center', gap: 10,
+      width: '100%', padding: '8px 10px', borderRadius: 7,
+      background: active ? 'rgba(79,127,255,0.08)' : 'none',
+      border: 'none', cursor: 'pointer',
+      color: active ? 'var(--accent)' : 'var(--text2)',
+      fontSize: 13, fontWeight: active ? 600 : 500,
+      textAlign: 'left' as const, transition: 'all 0.12s',
+    }
   }
 
   return (
@@ -316,63 +403,262 @@ export function TopNav({ profile }: { profile: Profile }) {
           <Menu size={20} />
         </button>
 
-        {/* ── Horizontal Quick-Access Nav (desktop) ───────────────────── */}
-        <nav className="hidden md:flex" style={{ alignItems: 'center', gap: 2 }}>
-          {TOP_LINKS.map(link => {
-            const Icon = link.icon
-            const active = isActiveLink(link.href)
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 12px',
-                  borderRadius: 8,
-                  textDecoration: 'none',
-                  background: active ? 'rgba(79,127,255,0.12)' : 'transparent',
-                  transition: 'background 0.12s',
-                }}
-              >
-                <Icon size={16} color={active ? 'var(--accent)' : 'var(--text3)'} />
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: active ? 700 : 500,
-                  color: active ? 'var(--accent)' : 'var(--text2)',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {link.label}
-                </span>
-                {link.href === '/inbox' && inboxUnread > 0 && (
-                  <span style={{
-                    minWidth: 16, height: 16, borderRadius: 8,
-                    background: 'var(--red)', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 9, fontWeight: 700, padding: '0 4px',
-                  }}>
-                    {inboxUnread > 99 ? '99+' : inboxUnread}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-
-          <Link
-            href="/pipeline?new=true"
+        {/* ── Green "+ New" button ─────────────────────────────────────────── */}
+        <div ref={createRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => { closeAll(); setCreateOpen(v => !v) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              padding: '6px 14px', borderRadius: 8,
+              padding: '7px 14px', borderRadius: 8,
               background: 'var(--green)', color: '#fff',
-              fontSize: 13, fontWeight: 700, textDecoration: 'none',
+              fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(34,192,122,0.25)',
-              whiteSpace: 'nowrap', marginLeft: 4,
+              whiteSpace: 'nowrap',
             }}
           >
             <Plus size={15} strokeWidth={2.5} />
-            New
+            <span className="hidden sm:inline">New</span>
+            <ChevronDown size={11} style={{ opacity: 0.7, transform: createOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+          {createOpen && (
+            <div style={{ ...dropdownStyle, minWidth: 220 }}>
+              <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Quick Create</div>
+              {QUICK_CREATE.map(item => {
+                const Icon = item.icon
+                return (
+                  <button key={item.href} onClick={() => { setCreateOpen(false); router.push(item.href) }}
+                    style={dropItemStyle(false)}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(34,192,122,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={14} color="var(--green)" />
+                    </div>
+                    <div>
+                      <div style={{ lineHeight: 1.2 }}>{item.label}</div>
+                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Horizontal Dropdown Nav (desktop) ───────────────────────────── */}
+        <nav className="hidden md:flex" style={{ alignItems: 'center', gap: 1, marginLeft: 4 }}>
+
+          {/* Chat / Inbox */}
+          <Link href="/inbox" style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '6px 10px', borderRadius: 8,
+            fontSize: 12, fontWeight: isActive('/inbox') ? 700 : 500,
+            color: isActive('/inbox') ? 'var(--accent)' : 'var(--text2)',
+            background: isActive('/inbox') ? 'rgba(79,127,255,0.12)' : 'transparent',
+            textDecoration: 'none', whiteSpace: 'nowrap', transition: 'all 0.15s',
+          }}>
+            <MessageCircle size={14} />
+            <span className="hidden lg:inline">Chat</span>
+            {inboxUnread > 0 && (
+              <span style={{ minWidth: 16, height: 16, borderRadius: 8, background: 'var(--red)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, padding: '0 4px' }}>
+                {inboxUnread > 99 ? '99+' : inboxUnread}
+              </span>
+            )}
           </Link>
+
+          {/* Jobs dropdown */}
+          <div ref={jobsRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { closeAll(); setJobsOpen(v => !v) }}
+              style={navBtnStyle(jobsOpen || ['/pipeline', '/jobs', '/timeline', '/leaderboard'].some(p => isActive(p)))}
+              onMouseEnter={e => { if (!jobsOpen) e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { if (!jobsOpen) e.currentTarget.style.background = isActive('/pipeline') || isActive('/jobs') ? 'rgba(79,127,255,0.12)' : 'transparent' }}
+            >
+              <Briefcase size={14} />
+              <span className="hidden lg:inline">Jobs</span>
+              <ChevronDown size={11} style={{ opacity: 0.6, transform: jobsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {jobsOpen && (
+              <div style={dropdownStyle}>
+                {JOBS_ITEMS.map(item => {
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+                  return (
+                    <button key={item.href} onClick={() => { setJobsOpen(false); router.push(item.href) }}
+                      style={dropItemStyle(active)}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
+                    >
+                      <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                      <div>
+                        <div>{item.label}</div>
+                        {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Production dropdown */}
+          <div ref={productionRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { closeAll(); setProductionOpen(v => !v) }}
+              style={navBtnStyle(productionOpen || PRODUCTION_PATHS.some(p => isActive(p)))}
+              onMouseEnter={e => { if (!productionOpen) e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { if (!productionOpen) e.currentTarget.style.background = PRODUCTION_PATHS.some(p => isActive(p)) ? 'rgba(79,127,255,0.12)' : 'transparent' }}
+            >
+              <Factory size={14} />
+              <span className="hidden lg:inline">Production</span>
+              <ChevronDown size={11} style={{ opacity: 0.6, transform: productionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {productionOpen && (
+              <div style={dropdownStyle}>
+                {PRODUCTION_ITEMS.map(item => {
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+                  return (
+                    <button key={item.href} onClick={() => { setProductionOpen(false); router.push(item.href) }}
+                      style={dropItemStyle(active)}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
+                    >
+                      <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                      <div>
+                        <div>{item.label}</div>
+                        {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Sales dropdown */}
+          <div ref={salesRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { closeAll(); setSalesOpen(v => !v) }}
+              style={navBtnStyle(salesOpen || SALES_PATHS.some(p => pathname?.startsWith(p)))}
+              onMouseEnter={e => { if (!salesOpen) e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { if (!salesOpen) e.currentTarget.style.background = SALES_PATHS.some(p => pathname?.startsWith(p)) ? 'rgba(79,127,255,0.12)' : 'transparent' }}
+            >
+              <DollarSign size={14} />
+              <span className="hidden lg:inline">Sales</span>
+              <ChevronDown size={11} style={{ opacity: 0.6, transform: salesOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {salesOpen && (
+              <div style={{ ...dropdownStyle, minWidth: 240 }}>
+                <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Actions</div>
+                {SALES_ACTIONS.map(action => {
+                  const Icon = action.icon
+                  return (
+                    <button key={action.id}
+                      onClick={() => {
+                        setSalesOpen(false)
+                        if (action.id === 'new_estimate') router.push('/estimates/new')
+                        else if (action.id === 'design_intake_link') setShowDesignIntakeModal(true)
+                      }}
+                      style={dropItemStyle(false)}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      <div style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(79,127,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={13} color="var(--accent)" />
+                      </div>
+                      <div>
+                        <div style={{ lineHeight: 1.2 }}>{action.label}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>{action.description}</div>
+                      </div>
+                    </button>
+                  )
+                })}
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 6px' }} />
+                <div style={{ padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Navigate</div>
+                {SALES_NAV_ITEMS.map(item => {
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+                  return (
+                    <button key={item.href} onClick={() => { setSalesOpen(false); router.push(item.href) }}
+                      style={dropItemStyle(active)}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = active ? 'rgba(79,127,255,0.08)' : 'none')}
+                    >
+                      <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Install dropdown */}
+          <div ref={installRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { closeAll(); setInstallOpen(v => !v) }}
+              style={navBtnStyle(installOpen || INSTALL_PATHS.some(p => pathname?.startsWith(p)))}
+              onMouseEnter={e => { if (!installOpen) e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { if (!installOpen) e.currentTarget.style.background = INSTALL_PATHS.some(p => pathname?.startsWith(p)) ? 'rgba(79,127,255,0.12)' : 'transparent' }}
+            >
+              <Wrench size={14} />
+              <span className="hidden lg:inline">Install</span>
+              <ChevronDown size={11} style={{ opacity: 0.6, transform: installOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {installOpen && (
+              <div style={dropdownStyle}>
+                {INSTALL_ITEMS.map(item => {
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+                  return (
+                    <button key={item.href} onClick={() => { setInstallOpen(false); router.push(item.href) }}
+                      style={dropItemStyle(active)}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'none' }}
+                    >
+                      <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                      <div>
+                        <div>{item.label}</div>
+                        {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* More dropdown */}
+          <div ref={moreRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { closeAll(); setMoreOpen(v => !v) }}
+              style={navBtnStyle(moreOpen)}
+              onMouseEnter={e => { if (!moreOpen) e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { if (!moreOpen) e.currentTarget.style.background = 'transparent' }}
+            >
+              More
+              <ChevronDown size={11} style={{ opacity: 0.6, transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {moreOpen && (
+              <div style={dropdownStyle}>
+                {MORE_NAV.map(item => {
+                  const Icon = item.icon
+                  const active = isActive(item.href)
+                  return (
+                    <button key={item.href} onClick={() => { setMoreOpen(false); router.push(item.href) }}
+                      style={dropItemStyle(active)}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = active ? 'rgba(79,127,255,0.08)' : 'none')}
+                    >
+                      <Icon size={14} style={{ color: active ? 'var(--accent)' : 'var(--text3)', flexShrink: 0 }} />
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
         <div style={{ flex: 1 }} />
@@ -437,7 +723,7 @@ export function TopNav({ profile }: { profile: Profile }) {
 
         {/* ── Alerts Bell ─────────────────────────────────────────────── */}
         <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button onClick={() => { setNotifOpen(v => !v); setCreateOpen(false); setProfileOpen(false) }}
+          <button onClick={() => { closeAll(); setNotifOpen(v => !v) }}
             style={{
               width: 36, height: 36, borderRadius: 8, position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -505,54 +791,9 @@ export function TopNav({ profile }: { profile: Profile }) {
           )}
         </div>
 
-        {/* ── Quick Actions dropdown ────────────────────────────────────── */}
-        <div ref={createRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button onClick={() => { setCreateOpen(v => !v); setNotifOpen(false); setProfileOpen(false) }} title="Quick Actions"
-            style={{
-              height: 36, padding: '0 10px', borderRadius: 8,
-              display: 'flex', alignItems: 'center', gap: 4,
-              background: createOpen ? 'var(--surface2)' : 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              cursor: 'pointer', color: 'var(--text1)', fontSize: 12, fontWeight: 600,
-            }}>
-            <Plus size={14} />
-            <ChevronDown size={11} style={{ opacity: 0.6, transform: createOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-          {createOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
-              background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 12, padding: 6, minWidth: 220, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-            }}>
-              <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Quick Actions</div>
-              {QUICK_CREATE.map(item => {
-                const Icon = item.icon
-                return (
-                  <button key={item.href} onClick={() => { setCreateOpen(false); router.push(item.href) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8,
-                      background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text1)', fontSize: 13, fontWeight: 500, textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(34,192,122,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Icon size={14} color="var(--green)" />
-                    </div>
-                    <div>
-                      <div style={{ lineHeight: 1.2 }}>{item.label}</div>
-                      {item.description && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.description}</div>}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
         {/* ── User avatar / profile ─────────────────────────────────────── */}
         <div ref={profileRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button onClick={() => { setProfileOpen(v => !v); setCreateOpen(false); setNotifOpen(false) }}
+          <button onClick={() => { closeAll(); setProfileOpen(v => !v) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '4px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',

@@ -22,7 +22,7 @@ export default async function NetworkPage() {
   try {
     const { data } = await admin
       .from('customers')
-      .select('id, name, email, phone, company, status, lifetime_spend, referral_source, created_at, contact_name, company_name')
+      .select('id, name, email, phone, company, status, lifetime_spend, referral_source, created_at, company_name')
       .eq('org_id', orgId)
       .limit(500)
     customers = data || []
