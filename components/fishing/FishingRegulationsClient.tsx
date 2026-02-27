@@ -232,7 +232,6 @@ export function FishingRegulationsClient({ regulations, species }: Props) {
                   {reg.source_url && (
                     <a
                       href={reg.source_url}
-                      target="_blank"
                       rel="noopener noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}
                     >

@@ -13,15 +13,15 @@ interface FishingSpot {
   description: string | null
   difficulty: string | null
   access_type: string | null
-  latitude: number | null
-  longitude: number | null
+  lat: number | null
+  lng: number | null
 }
 
 interface UserWaypoint {
   id: string
   name: string
-  latitude: number | null
-  longitude: number | null
+  lat: number | null
+  lng: number | null
   waypoint_type: string | null
   notes: string | null
   is_private: boolean | null
@@ -47,8 +47,8 @@ type WaypointType = typeof WAYPOINT_TYPES[number]
 
 const EMPTY_WAYPOINT = {
   name: '',
-  latitude: '',
-  longitude: '',
+  lat: '',
+  lng: '',
   waypoint_type: 'fishing' as WaypointType,
   notes: '',
   is_private: false,
@@ -106,8 +106,8 @@ export function FishingSpotsClient({ userId, spots, waypoints: initialWaypoints,
       const payload = {
         user_id: userId,
         name: waypointForm.name,
-        latitude: waypointForm.latitude ? parseFloat(waypointForm.latitude) : null,
-        longitude: waypointForm.longitude ? parseFloat(waypointForm.longitude) : null,
+        lat: waypointForm.lat ? parseFloat(waypointForm.lat) : null,
+        lng: waypointForm.lng ? parseFloat(waypointForm.lng) : null,
         waypoint_type: waypointForm.waypoint_type,
         notes: waypointForm.notes || null,
         is_private: waypointForm.is_private,
@@ -228,11 +228,11 @@ export function FishingSpotsClient({ userId, spots, waypoints: initialWaypoints,
                 <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0, lineHeight: 1.5 }}>{spot.description}</p>
               )}
 
-              {(spot.latitude != null && spot.longitude != null) && (
+              {(spot.lat != null && spot.lng != null) && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Navigation size={11} color="var(--text3)" />
                   <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {spot.latitude.toFixed(4)}, {spot.longitude.toFixed(4)}
+                    {spot.lat.toFixed(4)}, {spot.lng.toFixed(4)}
                   </span>
                 </div>
               )}
@@ -285,9 +285,9 @@ export function FishingSpotsClient({ userId, spots, waypoints: initialWaypoints,
                       </span>
                     )}
                   </div>
-                  {(wp.latitude != null && wp.longitude != null) && (
+                  {(wp.lat != null && wp.lng != null) && (
                     <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {wp.latitude.toFixed(5)}, {wp.longitude.toFixed(5)}
+                      {wp.lat.toFixed(5)}, {wp.lng.toFixed(5)}
                     </span>
                   )}
                   {wp.notes && <p style={{ fontSize: 12, color: 'var(--text2)', margin: '2px 0 0' }}>{wp.notes}</p>}
@@ -375,8 +375,8 @@ export function FishingSpotsClient({ userId, spots, waypoints: initialWaypoints,
                     type="number"
                     step="0.00001"
                     placeholder="47.6062"
-                    value={waypointForm.latitude}
-                    onChange={e => setWaypointForm(f => ({ ...f, latitude: e.target.value }))}
+                    value={waypointForm.lat}
+                    onChange={e => setWaypointForm(f => ({ ...f, lat: e.target.value }))}
                     style={iStyle}
                   />
                 </div>
@@ -386,8 +386,8 @@ export function FishingSpotsClient({ userId, spots, waypoints: initialWaypoints,
                     type="number"
                     step="0.00001"
                     placeholder="-122.3321"
-                    value={waypointForm.longitude}
-                    onChange={e => setWaypointForm(f => ({ ...f, longitude: e.target.value }))}
+                    value={waypointForm.lng}
+                    onChange={e => setWaypointForm(f => ({ ...f, lng: e.target.value }))}
                     style={iStyle}
                   />
                 </div>
