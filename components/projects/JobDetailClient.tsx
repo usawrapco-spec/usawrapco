@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Project, PipeStage, ProjectFinancials } from '@/types'
-import type { DesignProof } from '@/lib/proof-types'
 import JobChat from '@/components/chat/JobChat'
 import JobPhotosTab from '@/components/projects/JobPhotosTab'
 import ProofingPanel from '@/components/projects/ProofingPanel'
@@ -84,6 +83,21 @@ export default function JobDetailClient({
   const [approvals] = useState<StageApproval[]>(initialApprovals)
   const [stageOpen, setStageOpen] = useState(false)
   const [savingField, setSavingField] = useState<string | null>(null)
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const stageDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Bug fix: close stage dropdown when clicking outside
+  useEffect(() => {
+    if (!stageOpen) return
+    const handler = (e: MouseEvent) => {
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(e.target as Node)) {
+        setStageOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [stageOpen])
 
   // Edit state
   const [editTitle, setEditTitle] = useState(project.title)
@@ -107,11 +121,15 @@ export default function JobDetailClient({
     v != null ? `${v.toFixed(1)}%` : '—'
   const fmtDate = (d: string | null | undefined) => {
     if (!d) return '—'
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    // Parse date-only strings (e.g. "2024-01-15") at noon local time to prevent
+    // UTC→local timezone shift causing off-by-one day in negative UTC offsets
+    const parsed = d.includes('T') ? new Date(d) : new Date(d + 'T12:00:00')
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const saveEdits = async () => {
     setSaving(true)
+    setSaveError(null)
     const updates = {
       title: editTitle,
       install_date: editInstallDate || null,
@@ -125,9 +143,11 @@ export default function JobDetailClient({
       .single()
     if (!error && data) {
       setProject(p => ({ ...p, ...updates }))
+      setEditing(false)  // only close on success
+    } else {
+      setSaveError('Save failed — please try again')
     }
     setSaving(false)
-    setEditing(false)
   }
 
   const cancelEdits = () => {
@@ -139,12 +159,33 @@ export default function JobDetailClient({
 
   const updateField = async (field: string, value: string | null) => {
     setSavingField(field)
+    setFieldError(null)
     const { error } = await supabase
       .from('projects')
       .update({ [field]: value })
       .eq('id', project.id)
     if (!error) {
-      setProject(p => ({ ...p, [field]: value }))
+      // Bug fix: for joined fields, also update the joined object so the
+      // Overview "Team" card reflects the new name without a page reload
+      if (field === 'installer_id') {
+        const mate = teammates.find(t => t.id === value)
+        setProject(p => ({
+          ...p,
+          installer_id: value,
+          installer: mate ? { id: mate.id, name: mate.name, email: '' } : undefined,
+        }))
+      } else if (field === 'agent_id') {
+        const mate = teammates.find(t => t.id === value)
+        setProject(p => ({
+          ...p,
+          agent_id: value,
+          agent: mate ? { id: mate.id, name: mate.name, email: '' } : undefined,
+        }))
+      } else {
+        setProject(p => ({ ...p, [field]: value }))
+      }
+    } else {
+      setFieldError(`Failed to update ${field.replace('_', ' ')}`)
     }
     setSavingField(null)
   }
@@ -228,28 +269,33 @@ export default function JobDetailClient({
 
         {/* Edit / Save / Cancel */}
         {editing ? (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={saveEdits}
-              disabled={saving}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px',
-                borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff',
-                cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: saving ? 0.6 : 1,
-              }}
-            >
-              <Check size={14} /> Save
-            </button>
-            <button
-              onClick={cancelEdits}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px',
-                borderRadius: 8, border: '1px solid var(--surface2)', background: 'transparent',
-                color: 'var(--text2)', cursor: 'pointer', fontSize: 13,
-              }}
-            >
-              <X size={14} />
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={saveEdits}
+                disabled={saving}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px',
+                  borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff',
+                  cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: saving ? 0.6 : 1,
+                }}
+              >
+                <Check size={14} /> Save
+              </button>
+              <button
+                onClick={cancelEdits}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px',
+                  borderRadius: 8, border: '1px solid var(--surface2)', background: 'transparent',
+                  color: 'var(--text2)', cursor: 'pointer', fontSize: 13,
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {saveError && (
+              <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>{saveError}</div>
+            )}
           </div>
         ) : (
           <button
@@ -349,7 +395,7 @@ export default function JobDetailClient({
             }}>
               Stage
             </div>
-            <div style={{ position: 'relative' }}>
+            <div ref={stageDropdownRef} style={{ position: 'relative' }}>
               <button
                 onClick={() => setStageOpen(o => !o)}
                 style={{
@@ -493,6 +539,13 @@ export default function JobDetailClient({
               {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
+
+          {/* Field error feedback */}
+          {fieldError && (
+            <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, padding: '4px 8px' }}>
+              {fieldError}
+            </div>
+          )}
 
           {/* Full pipeline link */}
           <Link
@@ -787,7 +840,7 @@ function TimelineTab({
   if (approvals.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text3)' }}>
-        <History size={40} style={{ marginBottom: 12, opacity: 0.3, display: 'block', margin: '0 auto 12px' }} />
+        <History size={40} style={{ opacity: 0.3, display: 'block', margin: '0 auto 12px' }} />
         <div style={{ fontSize: 15, fontWeight: 600 }}>No stage history yet</div>
         <div style={{ fontSize: 13, marginTop: 6 }}>Stage changes will appear here as the job progresses.</div>
       </div>

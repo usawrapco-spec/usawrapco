@@ -74,13 +74,15 @@ export default function ProposalFlow({
   async function handleDecline() {
     setDeclining(true)
     try {
-      await fetch(`/api/proposals/public/${token}/decline`, {
+      const res = await fetch(`/api/proposals/public/${token}/decline`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: declineReason }),
       })
-      setDeclined(true)
-      setShowDeclineModal(false)
+      if (res.ok) {
+        setDeclined(true)
+        setShowDeclineModal(false)
+      }
     } catch {
       // silent
     } finally {

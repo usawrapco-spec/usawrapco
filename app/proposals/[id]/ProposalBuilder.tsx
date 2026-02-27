@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Save, Send, ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp,
   CheckCircle, X, Check, Copy, ExternalLink, User, Calendar,
@@ -303,14 +304,12 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
           <Copy size={12} /> Copy Link
         </button>
 
-        <a
+        <Link
           href={proposalUrl}
-          target="_blank"
-          rel="noreferrer"
           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, textDecoration: 'none' }}
         >
           <ExternalLink size={12} /> Preview
-        </a>
+        </Link>
 
         {/* Save state */}
         {savedAt && !saving && !saveError && (

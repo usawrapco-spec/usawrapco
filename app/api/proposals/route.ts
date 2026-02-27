@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         ? admin.from('customers').select('id, name, email').in('id', customerIds)
         : Promise.resolve({ data: [] }),
       estimateIds.length > 0
-        ? admin.from('estimates').select('id, customer_id, customers:customer_id(name,email)').in('id', estimateIds)
+        ? admin.from('estimates').select('id, customer_id, customer:customer_id(name,email)').in('id', estimateIds)
         : Promise.resolve({ data: [] }),
       admin
         .from('proposal_packages')
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
     const estimateCustomerMap: Record<string, { name: string; email: string }> = {}
     for (const e of (estimatesResult.data || []) as any[]) {
-      if (e.customers) estimateCustomerMap[e.id] = e.customers
+      if (e.customer) estimateCustomerMap[e.id] = e.customer
     }
 
     // Sum prices per proposal

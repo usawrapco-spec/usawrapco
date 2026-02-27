@@ -1,104 +1,134 @@
-# Installer Management System + Media Library Build Report
+# INSTALLER_BUILD.md — Mobile Installer Portal
 
-## Task 1: Navigation Fix
-
-### Changes
-- `app/inbox/page.tsx` — Removed Sidebar import and rendering
-- `app/inbox/[conversationId]/page.tsx` — Removed Sidebar import and rendering
-- `components/layout/TopNav.tsx` — Restructured all dropdown menus
-- `app/proofs/page.tsx` — New page (stub for proofs listing)
-
-### Top Nav Structure (New)
-| Dropdown | Items |
-|----------|-------|
-| Chat | Direct link to /inbox |
-| Jobs | Pipeline, All Jobs, Timeline, Leaderboard |
-| Production | Production Board, Design Studio, Mockup Tool, Proofs |
-| Sales | New Estimate, Send Onboarding Link, Send Design Intake Link, Pipeline, Customers, Analytics, Reports |
-| Install | Install Board, Installer Bids, Schedule, Supply Requests, Earnings, Shop Reports, Installer Chat |
-| More | Payroll, Inventory, Catalog, Network Map, Media Library, Settings |
+## Status: COMPLETE
+Build: Compiled successfully — TypeScript clean. Windows ENOENT is pre-existing non-blocking artifact.
 
 ---
 
-## Task 2: Media Library
+## Pre-Audit Findings
+
+### Existing installer routes
+| Route | Component | Notes |
+|-------|-----------|-------|
+| /install | InstallDashboardClient | Manager view (owner/admin/production only) — KEPT AS IS |
+| /installer-portal | InstallerPortalClient | Old portal (tabs: dashboard, bids, schedule, earnings) |
+| /installer | InstallerMobilePortal (NEW) | New 6-tab mobile-first portal — THIS IS THE BUILD |
+
+### Roles in DB: installer, owner, production, sales_agent, viewer
+
+### Tables confirmed via Supabase MCP
+| Table | Status |
+|-------|--------|
+| install_sessions | Exists — installer_id, project_id, started_at, ended_at, duration_seconds |
+| installer_bids | Exists — installer_id, project_id, status, pay_amount, hours_budget |
+| installer_time_blocks | Exists |
+| time_clock_entries | Exists — user_id, clock_in, clock_out, category, job_id, location_lat/lng |
+| job_comments | Exists — user_id, author_id, body, channel |
+| supply_requests | CREATED via migration 20260302000000_supply_requests.sql |
+
+---
+
+## Files Created / Modified
 
 ### New Files
-- `app/media-library/page.tsx` — Server page for /media-library route
-- `components/media/MediaLibraryPageClient.tsx` — Full DAM interface (~1,150 lines)
-- `app/api/media/ai-tag/route.ts` — Claude vision API for auto-tagging photos
-- `app/api/media/ai-search/route.ts` — Natural language search via Claude
+- components/installer/InstallerMobilePortal.tsx — 6-tab mobile-first portal component
+- supabase/migrations/20260302000000_supply_requests.sql — supply_requests table + RLS
 
-### Features
-- AI Auto-Tag: Claude claude-sonnet-4-6 vision analyzes photos, returns category + tags + description
-- AI Search: Natural language queries parsed by Claude into structured filters
-- Folder sidebar: All Files, Starred, By Project, category folders
-- Grid and List view with lazy-loaded thumbnails
-- Photo detail modal with editable metadata, keyboard navigation
-- Bulk operations: select all, tag, move, delete, download, share
-- Share link generation via share_photo_packs table
-- Drag-and-drop upload with progress indicator
+### Modified Files
+- app/installer/page.tsx — Rebuilt with role guard + 8 parallel data fetches + new component
+- components/layout/SideNav.tsx — /installer-portal link updated to /installer "My Portal"
+- app/deckforge/page.tsx — Fixed pre-existing Profile type cast
+- components/projects/JobDetailClient.tsx — Fixed pre-existing Project+CustomerRow intersection cast
 
 ---
 
-## Task 3: Installer Management System
+## Portal Tabs
 
-### Database Migration
-**File:** `supabase/migrations/20260225_installer_system.sql`
+### HOME
+- Greeting with today's date
+- Active clock-in banner (green) with live elapsed timer + Clock Out button
+- Clock In CTA when not clocked in (routes to Time Clock tab)
+- This Week's Earnings from accepted installer_bids
+- Active job timer widget if running (Pause/Resume/Stop)
+- Today's Jobs list (install_date = today, installer_id = me)
+- Coming Up list (next 7 days)
 
-| Table | Purpose |
-|-------|---------|
-| `installer_assignments` | Multiple installers per job with roles (lead/installer/helper) and split percentages |
-| `supply_requests` | Material/supply requests with urgency levels and approval workflow |
-| `installer_earnings` | Pay tracking per job with period grouping |
-| `shop_reports` | Daily summaries, maintenance, incidents, equipment reports |
-| `installer_schedule` | Calendar events for installer scheduling |
-| `installer_messages` | Team chat and DM messages |
+### MY JOBS
+- Filter: Today / This Week / Completed / All
+- Job cards: title, vehicle, date, address, stage badge
+- Job detail:
+  - Job Timer (Start/Pause/Resume/Stop) writes to install_sessions
+  - Photo Upload (Before/During/After) writes to job_images + project-files storage
+  - Add Note writes to job_comments (channel: install)
+  - Send for QC Approval updates pipe_stage to prod_review
 
-### RLS Policies
-- All tables have RLS enabled
-- Installers can read their own records
-- Owner/admin/production roles can read/write all records
-- Installer messages: org-wide read, sender-only write
+### AVAILABLE JOBS (Bid Board)
+- Projects in install stage with installer_id IS NULL
+- Submit Bid modal: price, hours, availability date
+  - Inserts installer_bids with status=pending
+- My Pending Bids section
 
-### Install Manager Pages (/install/*)
+### EARNINGS
+- Period toggle: This Week / This Month / All Time
+- Total earned (big green number)
+- CSS bar chart (no recharts dependency)
+- Job list: name, date, amount, status
+- Data from installer_bids where status IN (accepted, completed)
 
-| Route | File | Client Component | Description |
-|-------|------|-----------------|-------------|
-| `/install` | `app/install/page.tsx` | `InstallDashboardClient.tsx` (485 lines) | Manager dashboard: stats, active jobs, assign installers, pending bids, supply requests |
-| `/install/bids` | `app/install/bids/page.tsx` | `InstallBidsClient.tsx` (244 lines) | Bid management: tabs, bulk approve, filter by installer |
-| `/install/schedule` | `app/install/schedule/page.tsx` | `InstallScheduleClient.tsx` (374 lines) | Custom calendar with color-coded installers, day detail panel |
-| `/install/supplies` | `app/install/supplies/page.tsx` | `InstallSuppliesClient.tsx` (297 lines) | Supply request management: approve/deny/fulfill workflow |
-| `/install/earnings` | `app/install/earnings/page.tsx` | `InstallEarningsClient.tsx` (345 lines) | Pay period tracker, per-installer cards, CSV export |
-| `/install/reports` | `app/install/reports/page.tsx` | `InstallReportsClient.tsx` (266 lines) | Report submission and review system |
-| `/install/chat` | `app/install/chat/page.tsx` | `InstallChatClient.tsx` (354 lines) | Team chat with real-time Supabase subscriptions |
+### TIME CLOCK
+- Big live timer display
+- Clock In form: category, optional job link, geolocation capture
+- Clock Out button
+- This Week's Hours total
+- Today's entries list
+- Writes to time_clock_entries (user_id, clock_in, clock_out, category, job_id, location_lat/lng)
 
-### Installer Portal (/installer)
-
-| File | Lines | Description |
-|------|-------|-------------|
-| `app/installer/page.tsx` | 26 | Server component with auth |
-| `components/install/InstallerPortalPageClient.tsx` | 2,089 | Full mobile-first portal |
-
-**Portal Tabs:**
-- **Home**: Greeting, today's jobs, earnings widget, quick actions (photos, start job, report, supply request)
-- **Jobs**: Assignment list with status toggle, install timer, before/after photo upload
-- **Earnings**: Period breakdown (week/month/all), per-job amounts with status
-- **Schedule**: Month calendar with dots, tap to see day's jobs
-- **Chat**: #install-team channel with real-time messages
-
-**Modals:** Supply request form, report submission, photo picker, job picker
+### SUPPLY REQUESTS
+- Past requests with urgency badge, status, items, project link
+- New Request bottom-sheet modal:
+  - Link to project
+  - Items table (add rows: name, qty, unit)
+  - Urgency: Normal / Urgent / Emergency
+  - Needed By date
+  - Notes
+  - Inserts to supply_requests table
 
 ---
 
-## Git Commits
+## supply_requests Table (Migration 20260302000000)
 
-1. `cd72a80` — fix: nav cleanup — remove inbox sidebar, add Install dropdown, restructure top nav
-2. `1a63b95` — feat: media library — AI tagging, bulk actions, share packs, folder system
-3. `a78c0ab` — feat: full installer management system and portal
+supply_requests (
+  id uuid PK,
+  org_id uuid,
+  project_id uuid -> projects.id (nullable),
+  requested_by uuid -> profiles.id,
+  status text CHECK (pending | ordered | delivered | cancelled),
+  items jsonb DEFAULT [],
+  urgency text CHECK (normal | urgent | emergency),
+  needed_by date,
+  notes text,
+  approved_by uuid -> profiles.id (nullable),
+  approved_at / fulfilled_at timestamptz
+)
 
-## Total Files Created/Modified
+RLS Policies:
+- SELECT: own rows OR owner/admin/production
+- INSERT: own rows only
+- UPDATE: own pending rows OR owner/admin/production
 
-- **New files:** 28
-- **Modified files:** 3
-- **Total new lines of code:** ~7,700+
-- **Migration SQL:** ~220 lines with full RLS policies
+---
+
+## Role Guard
+/installer allows: owner, admin, installer
+All others redirect to /dashboard.
+
+---
+
+## Style
+- Dark theme via CSS variables throughout
+- All inline styles (no Tailwind classes)
+- Mobile-first sticky 6-tab bottom nav bar
+- Large touch targets (min 44px height)
+- Bold typography: Barlow Condensed headers, JetBrains Mono for numbers/timer
+- Green = active/clocked-in state
+- Bottom tab bar with active accent border-top indicator

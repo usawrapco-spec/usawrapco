@@ -57,12 +57,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const admin = getSupabaseAdmin()
 
     // Update proposal fields
-    const { title, message, expiration_date, deposit_amount } = body
+    const { title, message, closing_message, terms_conditions, expiration_date, deposit_amount, customer_id } = body
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (title !== undefined) updates.title = title
     if (message !== undefined) updates.message = message
+    if (closing_message !== undefined) updates.closing_message = closing_message
+    if (terms_conditions !== undefined) updates.terms_conditions = terms_conditions
     if (expiration_date !== undefined) updates.expiration_date = expiration_date
     if (deposit_amount !== undefined) updates.deposit_amount = deposit_amount
+    if (customer_id !== undefined) updates.customer_id = customer_id
 
     await admin.from('proposals').update(updates).eq('id', params.id)
 
