@@ -10,6 +10,7 @@ import {
   CheckCircle, ExternalLink, ImagePlay,
 } from 'lucide-react'
 import { RaceTrackTimeline } from './RaceTrackTimeline'
+import JobContextMenu from '@/components/shared/JobContextMenu'
 import type { Project } from '@/types'
 
 // ─── Card Field Types (exported for KanbanBoard) ─────────────────────────────
@@ -540,7 +541,7 @@ export default function PipelineJobCard({
             <ActionBtn icon={User}           onClick={handleAssign}       title="Assign Agent"      color="#8b5cf6" />
             <ActionBtn icon={Phone}          onClick={handleCallCustomer} title="Call Customer"     color="var(--green)" />
             <ActionBtn icon={MessageSquare}  onClick={handleMessage}      title="Message Customer"  color="var(--cyan)" />
-            <ActionBtn icon={MoreVertical}   onClick={openMore}           title="More Options" />
+            <JobContextMenu project={project} size={26} />
           </div>
         )}
       </div>

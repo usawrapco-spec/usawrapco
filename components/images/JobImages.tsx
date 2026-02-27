@@ -7,9 +7,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Camera, Palette, FileCheck, Star, Folder, Tag, Trash2, Images, Loader2, Upload,
   Lightbulb, Archive, Link, Check, ChevronDown, Send, ExternalLink, X,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Pencil, Copy,
   type LucideIcon,
 } from 'lucide-react';
+import { usePhotoEditor } from '@/components/photo-editor/PhotoEditorProvider';
+import type { ImageSource } from '@/components/photo-editor/types';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const STORAGE_BUCKET = 'project-files';
@@ -68,6 +70,7 @@ export default function JobImages({
 }: JobImagesProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { openEditor, openCopyTo } = usePhotoEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoryInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -485,6 +488,24 @@ export default function JobImages({
     setDragId(null);
   }, [images]);
 
+  // ── Build image source for photo editor ──
+  const toImageSource = useCallback((img: JobImage): ImageSource => {
+    const storagePrefix = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
+    const storagePath = img.image_url.startsWith(storagePrefix)
+      ? decodeURIComponent(img.image_url.slice(storagePrefix.length))
+      : undefined;
+    return {
+      url: img.image_url,
+      sourceType: 'job_image',
+      sourceId: img.id,
+      projectId,
+      orgId,
+      fileName: img.file_name,
+      storagePath,
+      category: img.category,
+    };
+  }, [projectId, orgId]);
+
   // ── Open lightbox ──
   const openLightbox = useCallback((img: JobImage) => {
     const categoryImages = images.filter((i) => i.category === img.category);
@@ -732,6 +753,20 @@ export default function JobImages({
                       <div className="text-xs text-white/80 truncate mb-1">{img.file_name}</div>
                       <div className="flex gap-1">
                         <button
+                          title="Edit Photo"
+                          onClick={(e) => { e.stopPropagation(); openEditor(toImageSource(img)); }}
+                          className="w-7 h-7 rounded-lg bg-black/50 flex items-center justify-center text-green-400 hover:bg-green-600 hover:text-white transition-colors"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          title="Copy To..."
+                          onClick={(e) => { e.stopPropagation(); openCopyTo(toImageSource(img)); }}
+                          className="w-7 h-7 rounded-lg bg-black/50 flex items-center justify-center text-cyan-400 hover:bg-cyan-600 hover:text-white transition-colors"
+                        >
+                          <Copy size={15} />
+                        </button>
+                        <button
                           title="Open in Design"
                           onClick={(e) => { e.stopPropagation(); openInDesign(); }}
                           className="w-7 h-7 rounded-lg bg-black/50 flex items-center justify-center text-purple-400 hover:bg-purple-600 hover:text-white transition-colors"
@@ -951,13 +986,29 @@ export default function JobImages({
             style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
             onClick={() => setLightboxImage(null)}
           >
-            {/* Close button */}
-            <button
-              onClick={() => setLightboxImage(null)}
-              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/80 transition-colors"
-            >
-              <X size={20} />
-            </button>
+            {/* Top-right actions */}
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              <button
+                title="Edit Photo"
+                onClick={(e) => { e.stopPropagation(); setLightboxImage(null); openEditor(toImageSource(lightboxImage)); }}
+                className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-green-400 hover:text-white hover:bg-green-600/80 transition-colors"
+              >
+                <Pencil size={18} />
+              </button>
+              <button
+                title="Copy To..."
+                onClick={(e) => { e.stopPropagation(); setLightboxImage(null); openCopyTo(toImageSource(lightboxImage)); }}
+                className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-cyan-400 hover:text-white hover:bg-cyan-600/80 transition-colors"
+              >
+                <Copy size={18} />
+              </button>
+              <button
+                onClick={() => setLightboxImage(null)}
+                className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/80 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
             {/* Image info */}
             <div className="absolute top-4 left-4 z-10">

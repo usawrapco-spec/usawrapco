@@ -16,7 +16,7 @@ import {
   Trophy, Filter, Store, Kanban, Hammer, UserPlus,
   Printer, Map, Factory, BookOpen, MessageCircle, Phone,
   Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain, Anchor, Send,
-  Shield, Compass, Rocket,
+  Shield, Compass, Rocket, Star,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -35,184 +35,91 @@ interface NavSection {
   items: NavItem[]
 }
 
-// ── Section definitions ────────────────────────────────────────────────────────
+// ── Section definitions (restructured per spec) ───────────────────────────────
 const NAV_SECTIONS: NavSection[] = [
-  {
-    id: 'core',
-    label: 'CORE',
-    icon: LayoutDashboard,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/dashboard',  label: 'Dashboard',    icon: LayoutDashboard },
-      { href: '/pipeline',   label: 'Pipeline',     icon: Kanban },
-      { href: '/inbox',      label: 'Inbox',        icon: MessageCircle },
-      { href: '/tasks',      label: 'Tasks',        icon: CheckSquare },
-    ],
-  },
   {
     id: 'sales',
     label: 'SALES',
     icon: DollarSign,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/leads',        label: 'Leads',        icon: UserPlus },
-      { href: '/proposals',    label: 'Proposals',    icon: Send,          roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
+      { href: '/pipeline',     label: 'Pipeline',     icon: Kanban },
       { href: '/estimates',    label: 'Estimates',    icon: FileText },
-      { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
-      { href: '/transactions', label: 'Transactions', icon: Receipt },
-      { href: '/invoices',     label: 'Invoices',     icon: Receipt },
-      { href: '/payments',     label: 'Payments',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/deposit',      label: 'Deposits',     icon: CreditCard,  roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
-      { href: '/campaigns',    label: 'Campaigns',    icon: Globe,       roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/outreach',     label: 'Outreach',     icon: Zap,         roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/roi/dashboard', label: 'ROI Engine',   icon: Target,      roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/funnel',       label: 'Lead Funnel',  icon: Filter,      roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/network',      label: 'Network Map',  icon: Map },
-      { href: '/bids',         label: 'Bids',         icon: Hammer,      roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/shop',         label: 'Shop',         icon: Store },
-    ],
-  },
-  {
-    id: 'jobs',
-    label: 'JOBS',
-    icon: Briefcase,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/jobs',         label: 'All Jobs',       icon: ClipboardList },
-      { href: '/timeline',     label: 'Timeline',       icon: Clock },
-      { href: '/engine',       label: 'Revenue Engine', icon: TrendingUp },
-      { href: '/decking',      label: 'Decking',        icon: Waves },
-      { href: '/tinting',      label: 'Tinting',        icon: Glasses },
-      { href: '/deckforge',    label: 'DeckForge',      icon: Anchor,  roles: ['owner', 'admin', 'production', 'designer'] },
-    ],
-  },
-  {
-    id: 'customers',
-    label: 'CUSTOMERS',
-    icon: Users,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/customers',    label: 'All Customers', icon: Users },
-      { href: '/contacts',     label: 'Contacts',      icon: Users },
-      { href: '/comms',        label: 'Comms Hub',     icon: MessageSquare },
-      { href: '/ai-comms',     label: 'AI Comms',      icon: Bot,    roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/communications', label: 'Communications', icon: MessageCircle },
-      { href: '/phone',          label: 'Phone',          icon: Phone,  roles: ['owner', 'admin', 'sales_agent'] },
-    ],
-  },
-  {
-    id: 'design',
-    label: 'DESIGN',
-    icon: Palette,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/design',           label: 'Design Studio',   icon: LayoutGrid },
-      { href: '/design/manage',    label: 'Design Manager',  icon: Kanban,      roles: ['owner', 'admin', 'designer'] },
-      { href: '/design/briefs',    label: 'Briefs',          icon: FileInput },
-      { href: '/design/materials', label: 'Materials',       icon: Layers },
-      { href: '/design/proofs',    label: 'Proofs',          icon: CheckSquare },
-      { href: '/mockup',           label: 'Mockup Tool',     icon: ImageIcon },
-      { href: '/configurator',     label: '3D Configurator', icon: Box },
-      { href: '/media-library',    label: 'Media Library',   icon: ImageIcon },
+      { href: '/proposals',    label: 'Proposals',    icon: Send,          roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/customers',    label: 'Customers',    icon: Users },
+      { href: '/calendar',     label: 'Calendar',     icon: CalendarDays },
     ],
   },
   {
     id: 'production',
     label: 'PRODUCTION',
     icon: Factory,
-    roles: ['owner', 'admin', 'designer', 'production', 'installer'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
     items: [
-      { href: '/production',               label: 'Production Hub',   icon: Factory },
-      { href: '/production/print-schedule', label: 'Print Schedule',  icon: Printer },
-      { href: '/production/printers',       label: 'Printers',        icon: Printer },
-      { href: '/catalog',                   label: 'Material Catalog', icon: BookOpen },
+      { href: '/jobs',                          label: 'Jobs',              icon: ClipboardList },
+      { href: '/production',                    label: 'Production Queue',  icon: Factory },
+      { href: '/install/schedule',              label: 'Install Schedule',  icon: CalendarDays },
+      { href: '/production/print-schedule',     label: 'QC',               icon: CheckSquare },
     ],
   },
   {
-    id: 'install',
-    label: 'INSTALL',
-    icon: Hammer,
-    roles: ['owner', 'admin', 'production', 'installer'],
+    id: 'design',
+    label: 'DESIGN',
+    icon: Palette,
+    roles: ['owner', 'admin', 'designer', 'production'],
     items: [
-      { href: '/install',            label: 'Install Board',    icon: Hammer },
-      { href: '/install/bids',       label: 'Installer Bids',   icon: ClipboardList },
-      { href: '/install/schedule',   label: 'Install Schedule', icon: CalendarDays },
-      { href: '/install/supplies',   label: 'Supply Requests',  icon: ShoppingBag },
-      { href: '/install/earnings',   label: 'Earnings',         icon: DollarSign },
-      { href: '/install/reports',    label: 'Shop Reports',     icon: BarChart3 },
-      { href: '/install/chat',       label: 'Installer Chat',   icon: MessageSquare },
-      { href: '/installer',          label: 'My Portal',        icon: Hammer,      roles: ['owner', 'admin', 'installer'] },
-      { href: '/rate-card',          label: 'Rate Card',        icon: Wrench,      roles: ['owner', 'admin', 'installer'] },
+      { href: '/design',           label: 'Design Studio', icon: LayoutGrid },
+      { href: '/media-library',    label: 'Brand Assets',  icon: ImageIcon },
+      { href: '/mockup',           label: 'Mockups',       icon: Palette },
     ],
   },
   {
-    id: 'inventory',
-    label: 'INVENTORY',
-    icon: Package,
-    roles: ['owner', 'admin', 'production', 'installer'],
+    id: 'finance',
+    label: 'FINANCE',
+    icon: Receipt,
+    roles: ['owner', 'admin', 'sales_agent'],
     items: [
-      { href: '/inventory',          label: 'Vinyl Inventory', icon: Layers },
-      { href: '/inventory/remnants', label: 'Remnants',        icon: Package },
+      { href: '/invoices',                label: 'Invoices',      icon: Receipt },
+      { href: '/payroll',                 label: 'Payroll',       icon: DollarSign,  roles: ['owner', 'admin'] },
+      { href: '/settings/commissions',    label: 'Commission',    icon: TrendingUp,  roles: ['owner', 'admin'] },
+      { href: '/reports',                 label: 'Reports',       icon: BarChart3 },
     ],
   },
   {
     id: 'team',
     label: 'TEAM',
     icon: Users,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
     items: [
-      { href: '/employees',    label: 'Staff',           icon: Users,       roles: ['owner', 'admin'] },
-      { href: '/calendar',     label: 'Calendar',        icon: CalendarDays },
-      { href: '/schedule',     label: 'Schedule',        icon: CalendarDays },
-      { href: '/timeclock',    label: 'Time Clock',      icon: Clock },
-      { href: '/leaderboard',  label: 'Leaderboard',     icon: Trophy },
-      { href: '/mileage',      label: 'Mileage',         icon: Car },
-      { href: '/expenses',     label: 'Expenses',        icon: Receipt },
-      { href: '/vehicles',     label: 'Fleet Vehicles',  icon: Truck,       roles: ['owner', 'admin'] },
-      { href: '/fleet',        label: 'Fleet Hub',       icon: Truck,       roles: ['owner', 'admin'] },
-      { href: '/maintenance',  label: 'Fleet Service',   icon: Wrench,      roles: ['owner', 'admin'] },
+      { href: '/employees',   label: 'Staff',          icon: Users,       roles: ['owner', 'admin'] },
+      { href: '/leaderboard', label: 'Leaderboard',    icon: Trophy },
+      { href: '/timeclock',   label: 'Time Tracking',  icon: Clock },
     ],
   },
   {
-    id: 'analytics',
-    label: 'ANALYTICS',
-    icon: BarChart3,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
+    id: 'marketing',
+    label: 'MARKETING',
+    icon: Globe,
+    roles: ['owner', 'admin', 'sales_agent'],
     items: [
-      { href: '/analytics',        label: 'Analytics',    icon: TrendingUp },
-      { href: '/reports',          label: 'Reports',      icon: BarChart3 },
-      { href: '/reports/revenue',  label: 'Revenue',      icon: DollarSign, roles: ['owner', 'admin'] },
+      { href: '/network',    label: 'Affiliates',    icon: Map },
+      { href: '/prospects',  label: 'Outbound CRM',  icon: UserPlus },
+      { href: '/campaigns',  label: 'Campaigns',     icon: Globe },
     ],
   },
   {
-    id: 'tools',
-    label: 'TOOLS',
-    icon: Compass,
-    roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
-    items: [
-      { href: '/apps/pnw-navigator', label: 'PNW Navigator', icon: Navigation },
-      { href: '/deckforge',           label: 'Deckforge',     icon: Anchor },
-      { href: '/ventures',            label: 'Ventures',      icon: Rocket },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'ADMIN',
+    id: 'settings',
+    label: 'SETTINGS',
     icon: Settings,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/admin',         label: 'Admin Hub',     icon: Shield },
-      { href: '/ai',            label: 'V.I.N.Y.L.',   icon: Brain,   roles: ['owner'] },
-      { href: '/settings',      label: 'Settings',      icon: Settings },
-      { href: '/integrations',  label: 'Integrations',  icon: Globe },
-      { href: '/automations',   label: 'Automations',   icon: Workflow },
-      { href: '/workflow',      label: 'Workflows',     icon: Activity },
-      { href: '/payroll',       label: 'Payroll',       icon: DollarSign },
-      { href: '/overhead',      label: 'Overhead',      icon: Gauge },
-      { href: '/sourcing',      label: 'Sourcing',      icon: ShoppingBag },
-      { href: '/agents',        label: 'AI Agents',     icon: Sparkles },
-      { href: '/import-jobs',   label: 'Import Jobs',   icon: FileInput },
+      { href: '/settings',              label: 'General',          icon: Settings },
+      { href: '/settings/defaults',     label: 'Defaults',         icon: Wrench },
+      { href: '/settings/commissions',  label: 'Commission Rules', icon: DollarSign },
+      { href: '/settings/reviews',      label: 'Review Requests',  icon: Star },
+      { href: '/process',               label: 'Process Guide',    icon: BookOpen },
+      { href: '/integrations',          label: 'Integrations',     icon: Globe },
     ],
   },
 ]
@@ -255,8 +162,8 @@ export function SideNav({
   onMobileClose,
 }: SideNavProps) {
   const pathname = usePathname()
-
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpen)
+  const [hoverExpanded, setHoverExpanded] = useState(false)
 
   useEffect(() => {
     try {
@@ -273,7 +180,9 @@ export function SideNav({
     })
   }
 
-  const W = collapsed ? 64 : 240
+  // Visual width: collapsed=48, expanded=240, hover-expanded=240
+  const isExpanded = !collapsed || hoverExpanded || mobileOpen
+  const W = isExpanded ? 240 : 48
   const ACC = '#4f7fff'
 
   const visibleSections = NAV_SECTIONS.filter(s => canSeeSection(s, profile.role))
@@ -295,6 +204,8 @@ export function SideNav({
       )}
 
       <nav
+        onMouseEnter={() => { if (collapsed && !mobileOpen) setHoverExpanded(true) }}
+        onMouseLeave={() => setHoverExpanded(false)}
         style={{
           position: 'fixed',
           left: 0,
@@ -319,14 +230,14 @@ export function SideNav({
             height: 56,
             display: 'flex',
             alignItems: 'center',
-            padding: collapsed ? '0 0 0 20px' : '0 10px 0 16px',
+            padding: isExpanded ? '0 10px 0 12px' : '0 0 0 14px',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
             flexShrink: 0,
             gap: 8,
           }}
         >
           <Truck size={20} color={ACC} style={{ flexShrink: 0 }} />
-          {!collapsed && (
+          {isExpanded && (
             <Link
               href="/dashboard"
               style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}
@@ -424,17 +335,17 @@ export function SideNav({
               <div key={section.id} style={{ marginBottom: 2 }}>
                 {/* Section header */}
                 <button
-                  onClick={() => !collapsed && toggleSection(section.id)}
-                  title={collapsed ? section.label : undefined}
+                  onClick={() => isExpanded && toggleSection(section.id)}
+                  title={!isExpanded ? section.label : undefined}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     width: '100%',
                     height: 30,
-                    padding: collapsed ? '0 0 0 22px' : '0 10px 0 14px',
+                    padding: isExpanded ? '0 10px 0 14px' : '0 0 0 16px',
                     border: 'none',
                     background: 'transparent',
-                    cursor: collapsed ? 'default' : 'pointer',
+                    cursor: isExpanded ? 'pointer' : 'default',
                     gap: 8,
                   }}
                 >
@@ -443,7 +354,7 @@ export function SideNav({
                     color={anyActive ? ACC : 'var(--text3)'}
                     style={{ flexShrink: 0 }}
                   />
-                  {!collapsed && (
+                  {isExpanded && (
                     <>
                       <span
                         style={{
@@ -468,7 +379,7 @@ export function SideNav({
                 </button>
 
                 {/* Section items */}
-                {(isOpen || collapsed) &&
+                {(isOpen || !isExpanded) &&
                   sectionItems.map(item => {
                     const IIcon = item.icon
                     const active = isActiveRoute(pathname, item.href)
@@ -477,18 +388,18 @@ export function SideNav({
                         key={item.href}
                         href={item.href}
                         onClick={onMobileClose}
-                        title={collapsed ? item.label : undefined}
+                        title={!isExpanded ? item.label : undefined}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           height: 34,
-                          padding: collapsed
-                            ? '0 0 0 20px'
-                            : '0 10px 0 26px',
+                          padding: isExpanded
+                            ? '0 10px 0 26px'
+                            : '0 0 0 16px',
                           gap: 10,
                           textDecoration: 'none',
-                          borderRadius: collapsed ? 0 : '0 6px 6px 0',
-                          marginRight: collapsed ? 0 : 8,
+                          borderRadius: isExpanded ? '0 6px 6px 0' : 0,
+                          marginRight: isExpanded ? 8 : 0,
                           background: active ? `${ACC}18` : 'transparent',
                           borderLeft: active
                             ? `2px solid ${ACC}`
@@ -501,7 +412,7 @@ export function SideNav({
                           color={active ? ACC : 'var(--text2)'}
                           style={{ flexShrink: 0 }}
                         />
-                        {!collapsed && (
+                        {isExpanded && (
                           <span
                             style={{
                               fontSize: 13,
@@ -524,7 +435,7 @@ export function SideNav({
         {/* ── User footer ─────────────────────────────────────────────────── */}
         <div
           style={{
-            padding: collapsed ? '12px 0 12px 16px' : '12px 16px',
+            padding: isExpanded ? '12px 16px' : '12px 0 12px 10px',
             borderTop: '1px solid rgba(255,255,255,0.06)',
             display: 'flex',
             alignItems: 'center',
@@ -558,7 +469,7 @@ export function SideNav({
               (profile.name ?? profile.email ?? '?').charAt(0).toUpperCase()
             )}
           </div>
-          {!collapsed && (
+          {isExpanded && (
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{

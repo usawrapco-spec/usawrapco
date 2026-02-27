@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import ProjectPortalClient from '@/components/portal/ProjectPortalClient'
 import CustomerPortalHome from '@/components/portal/CustomerPortalHome'
+import PortalHomePage from '@/components/portal/PortalHomePage'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,51 @@ export default async function PortalTokenPage({
   const { token } = params
   const supabase = getSupabaseAdmin()
 
-  // ── Try project portal_token first ───────────────────────────────────────
+  // ── Try customer portal_token FIRST (new multi-page portal) ────────────
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id, name, org_id')
+    .eq('portal_token', token)
+    .single()
+
+  if (customer) {
+    // Fetch dashboard data
+    const [activityRes, invoiceRes, proofsRes] = await Promise.all([
+      supabase
+        .from('activity_log')
+        .select('id, action, details, created_at')
+        .eq('customer_id', customer.id)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase
+        .from('invoices')
+        .select('balance')
+        .eq('customer_id', customer.id)
+        .in('status', ['open', 'sent', 'partial', 'overdue']),
+      supabase
+        .from('design_proofs')
+        .select('id, project_id')
+        .eq('customer_status', 'pending')
+        .in('project_id', (
+          await supabase
+            .from('projects')
+            .select('id')
+            .eq('customer_id', customer.id)
+        ).data?.map((p: any) => p.id) || []),
+    ])
+
+    const invoiceBalance = (invoiceRes.data || []).reduce((sum: number, inv: any) => sum + (inv.balance || 0), 0)
+
+    return (
+      <PortalHomePage
+        recentActivity={(activityRes.data || []) as any[]}
+        invoiceBalance={invoiceBalance}
+        proofsPending={(proofsRes.data || []).length}
+      />
+    )
+  }
+
+  // ── Try project portal_token ───────────────────────────────────────────
   const { data: project } = await supabase
     .from('projects')
     .select(

@@ -2,13 +2,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Profile, Project, PipeStage } from '@/types'
+import type { Profile, Project, PipeStage, PipelineType } from '@/types'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Briefcase, Printer, Wrench, Search, CheckCircle,
   LayoutGrid, List, ChevronRight, DollarSign,
   ArrowUpDown, Plus, Factory, Hammer, CheckCircle2,
+  Waves, Shield, Anchor, Car,
   type LucideIcon,
 } from 'lucide-react'
 // OnboardingLinkPanel moved to Sales dropdown in TopNav
@@ -64,6 +65,71 @@ const DEPT_STAGES: Record<DeptView, string[]> = {
   install:    ['install'],
 }
 
+/* ─── Multi-Pipeline Definitions ─────────────────────────────────────────── */
+
+interface PipelineDef {
+  key: PipelineType
+  label: string
+  icon: LucideIcon
+  color: string
+  stages: { key: string; label: string; icon: LucideIcon; color: string }[]
+}
+
+const PIPELINES: PipelineDef[] = [
+  {
+    key: 'wraps',
+    label: 'Wraps',
+    icon: Car,
+    color: '#4f7fff',
+    stages: [
+      { key: 'sales_in',    label: 'Sales Intake',  icon: Briefcase,   color: '#4f7fff' },
+      { key: 'production',  label: 'Design',        icon: Printer,     color: '#8b5cf6' },
+      { key: 'install',     label: 'Production',    icon: Factory,     color: '#22c07a' },
+      { key: 'prod_review', label: 'Install',       icon: Wrench,      color: '#22d3ee' },
+      { key: 'sales_close', label: 'QC',            icon: CheckCircle, color: '#f59e0b' },
+    ],
+  },
+  {
+    key: 'decking',
+    label: 'Decking',
+    icon: Waves,
+    color: '#22d3ee',
+    stages: [
+      { key: 'sales_in',    label: 'Lead',           icon: Briefcase,   color: '#4f7fff' },
+      { key: 'production',  label: 'Estimate Sent',  icon: DollarSign,  color: '#f59e0b' },
+      { key: 'install',     label: 'Site Scan',      icon: Search,      color: '#22d3ee' },
+      { key: 'prod_review', label: 'Manufacturing',  icon: Factory,     color: '#22c07a' },
+      { key: 'sales_close', label: 'Install',        icon: Hammer,      color: '#8b5cf6' },
+    ],
+  },
+  {
+    key: 'ppf',
+    label: 'PPF',
+    icon: Shield,
+    color: '#22c07a',
+    stages: [
+      { key: 'sales_in',    label: 'Lead',       icon: Briefcase,   color: '#4f7fff' },
+      { key: 'production',  label: 'Estimate',   icon: DollarSign,  color: '#f59e0b' },
+      { key: 'install',     label: 'Scheduled',  icon: Wrench,      color: '#22d3ee' },
+      { key: 'prod_review', label: 'Install',    icon: Hammer,      color: '#22c07a' },
+      { key: 'sales_close', label: 'QC',         icon: CheckCircle, color: '#8b5cf6' },
+    ],
+  },
+  {
+    key: 'marine',
+    label: 'Marine',
+    icon: Anchor,
+    color: '#f59e0b',
+    stages: [
+      { key: 'sales_in',    label: 'Lead',       icon: Briefcase,   color: '#4f7fff' },
+      { key: 'production',  label: 'Design',     icon: Printer,     color: '#8b5cf6' },
+      { key: 'install',     label: 'Production', icon: Factory,     color: '#22c07a' },
+      { key: 'prod_review', label: 'Haul Out',   icon: Anchor,      color: '#f59e0b' },
+      { key: 'sales_close', label: 'Install',    icon: Hammer,      color: '#22d3ee' },
+    ],
+  },
+]
+
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 function getDefaultDept(role: string): DeptView {
@@ -97,6 +163,7 @@ const daysOpen = (p: Project) => {
 
 export default function UnifiedJobBoard({ profile, initialProjects, orgId }: UnifiedJobBoardProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects)
+  const [activePipeline, setActivePipeline] = useState<PipelineType>('wraps')
   const [agentFilter, setAgentFilter] = useState('all')
   const [installerFilter, setInstallerFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -132,10 +199,14 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
     return () => { supabase.removeChannel(channel) }
   }, [profile.org_id])
 
-  // Active jobs (exclude done/cancelled)
+  // Active jobs filtered by pipeline type (exclude done/cancelled)
   const activeJobs = useMemo(() =>
-    projects.filter(p => p.pipe_stage !== 'done' && p.status !== 'cancelled'),
-    [projects]
+    projects.filter(p =>
+      p.pipe_stage !== 'done' &&
+      p.status !== 'cancelled' &&
+      (p.pipeline_type || 'wraps') === activePipeline
+    ),
+    [projects, activePipeline]
   )
 
   const filtered = useMemo(() => {
@@ -212,6 +283,45 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
 
   return (
     <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* ── PIPELINE SWITCHER ─────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexShrink: 0, alignItems: 'center' }}>
+        {PIPELINES.map(pl => {
+          const isActive = activePipeline === pl.key
+          const Icon = pl.icon
+          const pipeCount = projects.filter(p => (p.pipeline_type || 'wraps') === pl.key && p.pipe_stage !== 'done' && p.status !== 'cancelled').length
+          return (
+            <button
+              key={pl.key}
+              onClick={() => setActivePipeline(pl.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 10,
+                border: isActive ? `1.5px solid ${pl.color}` : '1.5px solid rgba(255,255,255,0.06)',
+                background: isActive ? `${pl.color}15` : 'transparent',
+                cursor: 'pointer', fontSize: 13, fontWeight: isActive ? 700 : 500,
+                fontFamily: 'Barlow Condensed, sans-serif',
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+                color: isActive ? pl.color : 'var(--text3)',
+                transition: 'all 0.15s',
+              }}
+            >
+              <Icon size={15} />
+              {pl.label}
+              {pipeCount > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace',
+                  background: isActive ? `${pl.color}30` : 'rgba(255,255,255,0.06)',
+                  color: isActive ? pl.color : 'var(--text3)',
+                  padding: '1px 6px', borderRadius: 8,
+                }}>
+                  {pipeCount}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {/* ── GLASS PILL TAB BAR ─────────────────────────────────── */}
       <div className="kanban-tab-scroll" style={{ overflowX: 'auto', marginBottom: 8, flexShrink: 0, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' } as React.CSSProperties}>
         <div style={{

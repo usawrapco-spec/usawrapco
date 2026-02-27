@@ -49,7 +49,7 @@ export default function BookingPageClient() {
   const [slots, setSlots] = useState<string[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [selectedTime, setSelectedTime] = useState('')
-  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', vehicleType: '', serviceInterest: '', notes: '' })
   const [submitting, setSubmitting] = useState(false)
   const [booked, setBooked] = useState(false)
   const [error, setError] = useState('')
@@ -110,6 +110,9 @@ export default function BookingPageClient() {
           customer_name: form.name,
           customer_email: form.email,
           customer_phone: form.phone,
+          company: form.company,
+          vehicle_type: form.vehicleType,
+          service_interest: form.serviceInterest,
           notes: form.notes,
         }),
       })
@@ -454,12 +457,68 @@ export default function BookingPageClient() {
               </div>
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#9299b5', marginBottom: 6 }}>
+                  <User size={13} /> Company (optional)
+                </label>
+                <input
+                  type="text"
+                  value={form.company}
+                  onChange={e => setForm(p => ({ ...p, company: e.target.value }))}
+                  placeholder="Your company name"
+                  style={{
+                    width: '100%', padding: '12px 14px',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 8, color: '#e8eaed', fontSize: 14,
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#9299b5', marginBottom: 6 }}>
+                  <Truck size={13} /> Vehicle Type
+                </label>
+                <input
+                  type="text"
+                  value={form.vehicleType}
+                  onChange={e => setForm(p => ({ ...p, vehicleType: e.target.value }))}
+                  placeholder="e.g. 2024 Ford F-150"
+                  style={{
+                    width: '100%', padding: '12px 14px',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 8, color: '#e8eaed', fontSize: 14,
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#9299b5', marginBottom: 6 }}>
+                  <FileText size={13} /> Service Interested In
+                </label>
+                <select
+                  value={form.serviceInterest}
+                  onChange={e => setForm(p => ({ ...p, serviceInterest: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '12px 14px',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 8, color: '#e8eaed', fontSize: 14,
+                  }}
+                >
+                  <option value="" style={{ background: '#13151c' }}>Select a service...</option>
+                  <option value="full_wrap" style={{ background: '#13151c' }}>Full Vehicle Wrap</option>
+                  <option value="partial_wrap" style={{ background: '#13151c' }}>Partial Wrap</option>
+                  <option value="color_change" style={{ background: '#13151c' }}>Color Change</option>
+                  <option value="commercial" style={{ background: '#13151c' }}>Commercial / Fleet</option>
+                  <option value="ppf" style={{ background: '#13151c' }}>Paint Protection Film</option>
+                  <option value="decking" style={{ background: '#13151c' }}>Decking (DekWave)</option>
+                  <option value="marine" style={{ background: '#13151c' }}>Marine Wrap</option>
+                  <option value="other" style={{ background: '#13151c' }}>Other</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#9299b5', marginBottom: 6 }}>
                   <FileText size={13} /> Notes
                 </label>
                 <textarea
                   value={form.notes}
                   onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                  placeholder="Vehicle details, questions, etc."
+                  placeholder="Any additional details..."
                   rows={3}
                   style={{
                     width: '100%', padding: '12px 14px',
@@ -570,7 +629,7 @@ export default function BookingPageClient() {
                 setAppointmentType('')
                 setSelectedDate('')
                 setSelectedTime('')
-                setForm({ name: '', email: '', phone: '', notes: '' })
+                setForm({ name: '', email: '', phone: '', company: '', vehicleType: '', serviceInterest: '', notes: '' })
                 setBooked(false)
                 setCalMonth(new Date().getMonth())
                 setCalYear(new Date().getFullYear())

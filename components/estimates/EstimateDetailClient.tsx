@@ -22,6 +22,7 @@ import PhotoInspection from '@/components/estimates/PhotoInspection'
 import MockupCreator from '@/components/estimates/MockupCreator'
 import EstimateCalculators from '@/components/estimates/EstimateCalculators'
 import ProposalBuilder from '@/components/estimates/ProposalBuilder'
+import ProposalSlideOver from '@/components/estimates/ProposalSlideOver'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
@@ -505,6 +506,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     return rows
   })()
   const totalComm = commRows.reduce((s, r) => s + r.val, 0)
+
+  // Proposal slide-over
+  const [proposalSlideOpen, setProposalSlideOpen] = useState(false)
 
   // Convert to Job modal state
   const [showConvertModal, setShowConvertModal] = useState(false)
@@ -2288,13 +2292,72 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
       )}
       {activeTab === 'proposal' && (
-        <ProposalBuilder
-          estimateId={estimateId}
-          customerId={est.customer_id}
-          customerEmail={est.customer?.email || null}
-          customerName={est.customer?.name || null}
-          customerPhone={null}
-        />
+        <div>
+          {/* Top action bar */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginBottom: 16, flexWrap: 'wrap', gap: 8,
+          }}>
+            <div style={{
+              fontSize: 14, fontWeight: 700, color: 'var(--text1)',
+              fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>
+              Estimate & Proposal
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {/* send estimate as-is */}}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8,
+                  border: '1px solid var(--border)', background: 'var(--surface2)',
+                  color: 'var(--text2)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}
+              >
+                <Send size={14} /> Send Estimate
+              </button>
+              <button
+                onClick={() => setProposalSlideOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8,
+                  border: 'none', background: 'var(--accent)',
+                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}
+              >
+                <FileText size={14} /> Build Proposal <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Proposal Builder */}
+          <ProposalBuilder
+            estimateId={estimateId}
+            customerId={est.customer_id}
+            customerEmail={est.customer?.email || null}
+            customerName={est.customer?.name || null}
+            customerPhone={null}
+          />
+
+          {/* Slide-over preview */}
+          <ProposalSlideOver
+            open={proposalSlideOpen}
+            onClose={() => setProposalSlideOpen(false)}
+            estimateId={estimateId}
+            customerId={est.customer_id}
+            customerName={est.customer?.name || null}
+            customerEmail={est.customer?.email || null}
+            customerPhone={null}
+            lineItems={lineItemsList.map(li => ({
+              id: li.id, name: li.description || li.product_type || 'Item',
+              salePrice: li.total_price || 0, gpm: 0, type: li.product_type || 'custom',
+            }))}
+            totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
+            totalGPM={0}
+          />
+        </div>
       )}
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />

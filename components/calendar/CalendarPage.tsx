@@ -17,7 +17,12 @@ import {
   XCircle,
   DollarSign,
   CalendarClock,
+  LayoutList,
+  Calendar,
+  Plus,
 } from 'lucide-react'
+
+type CalendarView = 'month' | 'week' | 'day' | 'agenda'
 
 interface CalendarAppointment {
   id: string
@@ -27,6 +32,9 @@ interface CalendarAppointment {
   time: string
   assigned_name?: string
   status: string
+  confirmed?: boolean
+  title?: string
+  notes?: string
 }
 
 interface CalendarPageProps {
@@ -75,9 +83,11 @@ export default function CalendarPage({ profile, projects, appointments = [] }: C
   const supabase = createClient()
 
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [calendarView, setCalendarView] = useState<CalendarView>('month')
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [filterInstaller, setFilterInstaller] = useState('all')
   const [installerBids, setInstallerBids] = useState<InstallerBidRow[]>([])
+  const [showBookingModal, setShowBookingModal] = useState(false)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -175,13 +185,14 @@ export default function CalendarPage({ profile, projects, appointments = [] }: C
     return scheduledProjects.filter(p => p.install_date === selectedDay)
   }, [selectedDay, scheduledProjects])
 
-  // Stage legend
+  // Stage legend with event types
   const stageLegend = [
-    { label: 'Sales', color: '#f59e0b' },
-    { label: 'Production', color: '#4f7fff' },
-    { label: 'Install', color: '#22d3ee' },
-    { label: 'Done', color: '#22c07a' },
-    { label: 'Appointments', color: '#f59e0b', dashed: true },
+    { label: 'Tentative', color: '#5a6080', dashed: true },
+    { label: 'Confirmed', color: '#4f7fff' },
+    { label: 'Install', color: '#22c07a' },
+    { label: 'Deadline', color: '#f25a5a' },
+    { label: 'Appointment', color: '#8b5cf6' },
+    { label: 'Production', color: '#f59e0b' },
   ]
 
   return (
@@ -207,6 +218,46 @@ export default function CalendarPage({ profile, projects, appointments = [] }: C
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* View Toggle */}
+          <div style={{
+            display: 'flex', gap: 2, padding: 3,
+            background: 'var(--surface2)',
+            borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            {([
+              { key: 'month', label: 'Month' },
+              { key: 'week', label: 'Week' },
+              { key: 'day', label: 'Day' },
+              { key: 'agenda', label: 'Agenda' },
+            ] as { key: CalendarView; label: string }[]).map(v => (
+              <button
+                key={v.key}
+                onClick={() => setCalendarView(v.key)}
+                style={{
+                  padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                  background: calendarView === v.key ? 'var(--accent)' : 'transparent',
+                  color: calendarView === v.key ? '#fff' : 'var(--text3)',
+                  fontSize: 11, fontWeight: 600, transition: 'all 0.15s',
+                }}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Book Appointment button */}
+          <button
+            onClick={() => setShowBookingModal(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 8,
+              background: 'var(--green)', color: '#fff',
+              fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer',
+            }}
+          >
+            <Plus size={14} /> Book
+          </button>
+
           {/* Installer Filter */}
           {installers.length > 0 && (
             <div style={{

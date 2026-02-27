@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -9,8 +9,9 @@ import type { Profile } from '@/types'
 import {
   Menu, Search, Bell, Plus, ChevronDown, X,
   Briefcase, Users, FileText, ShoppingCart, CheckSquare, UserPlus,
-  Clock, LogOut, User, Settings, Download, BellOff, BellRing,
+  Clock, LogOut, User, Settings, Download, BellOff,
   MessageCircle, Palette, UserCheck, Waves, Glasses, CalendarDays,
+  LayoutDashboard, Kanban,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -19,19 +20,30 @@ import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { SideNav } from '@/components/layout/SideNav'
 import { QuickPermissionsWidget } from '@/components/ui/QuickPermissionsWidget'
 
+// ── Top bar quick-access items ────────────────────────────────────────────────
+interface TopLink { href: string; label: string; icon: LucideIcon }
+
+const TOP_LINKS: TopLink[] = [
+  { href: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/jobs',        label: 'Jobs',      icon: Briefcase },
+  { href: '/pipeline',    label: 'Pipeline',  icon: Kanban },
+  { href: '/calendar',    label: 'Calendar',  icon: CalendarDays },
+  { href: '/inbox',       label: 'Inbox',     icon: MessageCircle },
+]
+
 // ── Quick Create items ────────────────────────────────────────────────────────
 interface QuickItem { href: string; label: string; icon: LucideIcon; description?: string }
 
 const QUICK_CREATE: QuickItem[] = [
   { href: '/estimates/new',      label: 'New Estimate',   icon: FileText,    description: 'Create a quote' },
-  { href: '/sales-orders?new=1', label: 'Sales Order',    icon: ShoppingCart,description: 'Convert to order' },
+  { href: '/sales-orders?new=1', label: 'Sales Order',    icon: ShoppingCart, description: 'Convert to order' },
   { href: '/pipeline?new=true',  label: 'New Wrap Job',   icon: Briefcase,   description: 'Start a wrap job' },
   { href: '/decking',            label: 'Decking Job',    icon: Waves,       description: 'DekWave decking pipeline' },
   { href: '/tinting',            label: 'Tint Job',       icon: Glasses,     description: 'Tinting pipeline' },
   { href: '/customers?new=true', label: 'New Customer',   icon: Users,       description: 'Add a customer' },
   { href: '/tasks?new=true',     label: 'New Task',       icon: CheckSquare, description: 'Assign a task' },
   { href: '/timeclock',          label: 'Clock In',       icon: Clock,       description: 'Start your shift' },
-  { href: '/schedule?new=true',  label: 'Appointment',    icon: CalendarDays,description: 'Schedule appointment' },
+  { href: '/schedule?new=true',  label: 'Appointment',    icon: CalendarDays, description: 'Schedule appointment' },
 ]
 
 // ── Search result types ───────────────────────────────────────────────────────
@@ -52,7 +64,7 @@ const SEARCH_TYPE_COLOR: Record<string, string> = {
 
 // ── Sidebar widths ────────────────────────────────────────────────────────────
 const SIDEBAR_EXPANDED  = 240
-const SIDEBAR_COLLAPSED = 64
+const SIDEBAR_COLLAPSED = 48
 
 // ── TopNav Component ──────────────────────────────────────────────────────────
 export function TopNav({ profile }: { profile: Profile }) {
@@ -60,12 +72,13 @@ export function TopNav({ profile }: { profile: Profile }) {
   const router   = useRouter()
   const supabase = createClient()
 
-  const { tourOpen, whatsNewOpen, newCommits, startTour, closeTour, closeWhatsNew } = useTour()
+  const { tourOpen, whatsNewOpen, newCommits, closeTour, closeWhatsNew } = useTour()
 
-  // Sidebar state
+  // Sidebar state — default collapsed
   const [sideCollapsed, setSideCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('sidenav-collapsed') === 'true'
+    if (typeof window === 'undefined') return true
+    const stored = localStorage.getItem('sidenav-collapsed')
+    return stored === null ? true : stored === 'true'
   })
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -120,7 +133,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     }
   }, [sideCollapsed])
 
-  // Persist sidebar collapsed state
   function toggleSideCollapse() {
     setSideCollapsed(prev => {
       const next = !prev
@@ -129,7 +141,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     })
   }
 
-  // ── Close on route change ─────────────────────────────────────────────────
   useEffect(() => {
     setMobileNavOpen(false)
     setCreateOpen(false)
@@ -137,7 +148,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     setNotifOpen(false)
   }, [pathname])
 
-  // ── Outside click ─────────────────────────────────────────────────────────
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
       if (createRef.current && !createRef.current.contains(e.target as Node))  setCreateOpen(false)
@@ -148,7 +158,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [])
 
-  // ── Ctrl+K search ────────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -160,7 +169,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  // ── Load notifications ────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/notifications')
       .then(r => r.json())
@@ -168,7 +176,6 @@ export function TopNav({ profile }: { profile: Profile }) {
       .catch(() => setNotifsLoaded(true))
   }, [])
 
-  // ── Load inbox unread count ───────────────────────────────────────────────
   useEffect(() => {
     async function loadUnread() {
       const { count } = await supabase
@@ -182,7 +189,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     loadUnread()
   }, [profile.org_id])
 
-  // ── PWA install prompt ────────────────────────────────────────────────────
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
@@ -198,7 +204,6 @@ export function TopNav({ profile }: { profile: Profile }) {
     }
   }, [])
 
-  // ── Global search ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 2) {
       setSearchResults([])
@@ -264,10 +269,14 @@ export function TopNav({ profile }: { profile: Profile }) {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  function isActiveLink(href: string) {
+    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    if (href === '/jobs') return pathname === '/jobs' || pathname.startsWith('/jobs/') || pathname.startsWith('/projects/')
+    return pathname === href || pathname.startsWith(href + '/')
+  }
+
   return (
     <>
-      {/* ── Fixed Sidebar ─────────────────────────────────────────────── */}
       <SideNav
         profile={profile}
         collapsed={sideCollapsed}
@@ -276,7 +285,6 @@ export function TopNav({ profile }: { profile: Profile }) {
         onMobileClose={() => setMobileNavOpen(false)}
       />
 
-      {/* ── Top Bar (in normal flow) ───────────────────────────────────── */}
       <header
         style={{
           height: 56,
@@ -285,7 +293,7 @@ export function TopNav({ profile }: { profile: Profile }) {
           display: 'flex',
           alignItems: 'center',
           padding: '0 16px',
-          gap: 8,
+          gap: 4,
           flexShrink: 0,
           position: 'sticky',
           top: 0,
@@ -306,27 +314,75 @@ export function TopNav({ profile }: { profile: Profile }) {
           <Menu size={20} />
         </button>
 
-        {/* ── Search ───────────────────────────────────────────────────── */}
-        <div
-          style={{
-            flex: 1,
-            maxWidth: 480,
-            position: 'relative',
-          }}
-        >
-          <div
+        {/* ── Horizontal Quick-Access Nav (desktop) ───────────────────── */}
+        <nav className="hidden md:flex" style={{ alignItems: 'center', gap: 2 }}>
+          {TOP_LINKS.map(link => {
+            const Icon = link.icon
+            const active = isActiveLink(link.href)
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  textDecoration: 'none',
+                  background: active ? 'rgba(79,127,255,0.12)' : 'transparent',
+                  transition: 'background 0.12s',
+                }}
+              >
+                <Icon size={16} color={active ? 'var(--accent)' : 'var(--text3)'} />
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 500,
+                  color: active ? 'var(--accent)' : 'var(--text2)',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {link.label}
+                </span>
+                {link.href === '/inbox' && inboxUnread > 0 && (
+                  <span style={{
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    background: 'var(--red)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 9, fontWeight: 700, padding: '0 4px',
+                  }}>
+                    {inboxUnread > 99 ? '99+' : inboxUnread}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+
+          <Link
+            href="/pipeline?new=true"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'var(--surface2)',
-              border: `1px solid ${searchFocused ? 'rgba(79,127,255,0.5)' : 'rgba(255,255,255,0.06)'}`,
-              borderRadius: 9,
-              padding: '0 12px',
-              height: 36,
-              transition: 'border-color 0.15s',
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 14px', borderRadius: 8,
+              background: 'var(--green)', color: '#fff',
+              fontSize: 13, fontWeight: 700, textDecoration: 'none',
+              boxShadow: '0 2px 8px rgba(34,192,122,0.25)',
+              whiteSpace: 'nowrap', marginLeft: 4,
             }}
           >
+            <Plus size={15} strokeWidth={2.5} />
+            New
+          </Link>
+        </nav>
+
+        <div style={{ flex: 1 }} />
+
+        {/* ── Search ───────────────────────────────────────────────────── */}
+        <div style={{ position: 'relative', maxWidth: 320, width: '100%' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'var(--surface2)',
+            border: `1px solid ${searchFocused ? 'rgba(79,127,255,0.5)' : 'rgba(255,255,255,0.06)'}`,
+            borderRadius: 9, padding: '0 12px', height: 36, transition: 'border-color 0.15s',
+          }}>
             <Search size={14} color={searchFocused ? 'var(--accent)' : 'var(--text3)'} style={{ flexShrink: 0 }} />
             <input
               ref={searchRef}
@@ -335,12 +391,8 @@ export function TopNav({ profile }: { profile: Profile }) {
               onChange={e => setSearchQuery(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setTimeout(() => { setSearchFocused(false); setSearchQuery(''); setSearchResults([]) }, 200)}
-              placeholder="Search jobs, customers, estimates… (⌘K)"
-              style={{
-                flex: 1, background: 'none', border: 'none', outline: 'none',
-                fontSize: 13, color: 'var(--text1)',
-                minWidth: 0,
-              }}
+              placeholder="Search... (Ctrl+K)"
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text1)', minWidth: 0 }}
             />
             {searching && (
               <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.6s linear infinite', flexShrink: 0 }} />
@@ -351,8 +403,6 @@ export function TopNav({ profile }: { profile: Profile }) {
               </button>
             )}
           </div>
-
-          {/* Search results dropdown */}
           {searchFocused && searchResults.length > 0 && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 200,
@@ -363,13 +413,10 @@ export function TopNav({ profile }: { profile: Profile }) {
                 const Icon = SEARCH_TYPE_ICON[r.type]
                 const color = SEARCH_TYPE_COLOR[r.type]
                 return (
-                  <Link
-                    key={r.id}
-                    href={r.href}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
-                    }}
+                  <Link key={r.id} href={r.href} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
+                  }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -386,20 +433,15 @@ export function TopNav({ profile }: { profile: Profile }) {
           )}
         </div>
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* ── Notifications ────────────────────────────────────────────── */}
+        {/* ── Alerts Bell ─────────────────────────────────────────────── */}
         <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            onClick={() => { setNotifOpen(v => !v); setCreateOpen(false); setProfileOpen(false) }}
+          <button onClick={() => { setNotifOpen(v => !v); setCreateOpen(false); setProfileOpen(false) }}
             style={{
               width: 36, height: 36, borderRadius: 8, position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: notifOpen ? 'var(--surface2)' : 'none',
               border: 'none', cursor: 'pointer', color: 'var(--text2)',
-            }}
-          >
+            }}>
             <Bell size={17} />
             {unreadCount > 0 && (
               <span style={{
@@ -414,7 +456,6 @@ export function TopNav({ profile }: { profile: Profile }) {
               </span>
             )}
           </button>
-
           {notifOpen && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
@@ -422,59 +463,39 @@ export function TopNav({ profile }: { profile: Profile }) {
               border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
               boxShadow: '0 16px 48px rgba(0,0,0,0.5)', overflow: 'hidden',
             }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)',
-              }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Bell size={14} color="var(--accent)" />
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>
-                      {unreadCount}
-                    </span>
-                  )}
+                  {unreadCount > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{unreadCount}</span>}
                 </div>
                 {notifications.length > 0 && (
-                  <button onClick={markAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 11 }}>
-                    Mark all read
-                  </button>
+                  <button onClick={markAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 11 }}>Mark all read</button>
                 )}
               </div>
-
               <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                 {!notifsLoaded ? (
-                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Loading…</div>
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Loading...</div>
                 ) : notifications.length === 0 ? (
                   <div style={{ padding: 24, textAlign: 'center' }}>
                     <BellOff size={28} color="var(--text3)" style={{ margin: '0 auto 8px' }} />
                     <p style={{ fontSize: 13, color: 'var(--text3)' }}>All caught up!</p>
                   </div>
-                ) : (
-                  notifications.map((n, i) => (
-                    <div key={i} style={{
-                      padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                      background: n.read ? 'transparent' : 'rgba(79,127,255,0.04)',
-                    }}>
-                      <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: n.read ? 400 : 600 }}>{n.message || n.title || 'New notification'}</div>
-                      {n.created_at && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{relTime(n.created_at)}</div>}
-                    </div>
-                  ))
-                )}
+                ) : notifications.map((n, i) => (
+                  <div key={i} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: n.read ? 'transparent' : 'rgba(79,127,255,0.04)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text1)', fontWeight: n.read ? 400 : 600 }}>{n.message || n.title || 'New notification'}</div>
+                    {n.created_at && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{relTime(n.created_at)}</div>}
+                  </div>
+                ))}
               </div>
-
-              {/* Push notifications toggle */}
               <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: 'var(--text3)' }}>Push notifications</span>
-                <button
-                  onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
-                  style={{
-                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
-                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
-                    background: push.isSubscribed ? 'rgba(34,192,122,0.1)' : 'rgba(79,127,255,0.1)',
-                    color: push.isSubscribed ? 'var(--green)' : 'var(--accent)',
-                  }}
-                >
+                <button onClick={push.isSubscribed ? push.unsubscribe : push.subscribe} style={{
+                  fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
+                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                  background: push.isSubscribed ? 'rgba(34,192,122,0.1)' : 'rgba(79,127,255,0.1)',
+                  color: push.isSubscribed ? 'var(--green)' : 'var(--accent)',
+                }}>
                   {push.isSubscribed ? 'Enabled' : 'Enable'}
                 </button>
               </div>
@@ -482,86 +503,33 @@ export function TopNav({ profile }: { profile: Profile }) {
           )}
         </div>
 
-        {/* ── Inbox icon with unread badge ─────────────────────────────── */}
-        <Link
-          href="/inbox"
-          style={{
-            position: 'relative', flexShrink: 0,
-            width: 36, height: 36, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: pathname.startsWith('/inbox') ? 'rgba(79,127,255,0.12)' : 'none',
-            color: pathname.startsWith('/inbox') ? 'var(--accent)' : 'var(--text2)',
-            textDecoration: 'none',
-          }}
-        >
-          <MessageCircle size={17} />
-          {inboxUnread > 0 && (
-            <span style={{
-              position: 'absolute', top: 4, right: 4,
-              minWidth: 16, height: 16, borderRadius: 8,
-              background: 'var(--accent)', border: '1.5px solid var(--surface)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 9, fontWeight: 700, color: '#fff', padding: '0 3px',
-            }}>
-              {inboxUnread > 99 ? '99+' : inboxUnread}
-            </span>
-          )}
-        </Link>
-
-        {/* ── New Job button (prominent) ────────────────────────────────── */}
-        <Link
-          href="/pipeline?new=true"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-            padding: '7px 14px', borderRadius: 8,
-            background: 'var(--green)', color: '#fff',
-            fontSize: 13, fontWeight: 700, textDecoration: 'none',
-            boxShadow: '0 2px 8px rgba(34,192,122,0.3)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          <span className="hidden sm:inline">New Job</span>
-        </Link>
-
         {/* ── Quick Actions dropdown ────────────────────────────────────── */}
         <div ref={createRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            onClick={() => { setCreateOpen(v => !v); setNotifOpen(false); setProfileOpen(false) }}
-            title="Quick Actions"
+          <button onClick={() => { setCreateOpen(v => !v); setNotifOpen(false); setProfileOpen(false) }} title="Quick Actions"
             style={{
               height: 36, padding: '0 10px', borderRadius: 8,
               display: 'flex', alignItems: 'center', gap: 4,
               background: createOpen ? 'var(--surface2)' : 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.08)',
               cursor: 'pointer', color: 'var(--text1)', fontSize: 12, fontWeight: 600,
-            }}
-          >
+            }}>
             <Plus size={14} />
             <ChevronDown size={11} style={{ opacity: 0.6, transform: createOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
-
           {createOpen && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
               background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 12, padding: 6, minWidth: 220,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              borderRadius: 12, padding: 6, minWidth: 220, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
             }}>
-              <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Quick Actions
-              </div>
+              <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Quick Actions</div>
               {QUICK_CREATE.map(item => {
                 const Icon = item.icon
                 return (
-                  <button
-                    key={item.href}
-                    onClick={() => { setCreateOpen(false); router.push(item.href) }}
+                  <button key={item.href} onClick={() => { setCreateOpen(false); router.push(item.href) }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '8px 10px', borderRadius: 8,
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text1)', fontSize: 13, fontWeight: 500, textAlign: 'left',
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8,
+                      background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text1)', fontSize: 13, fontWeight: 500, textAlign: 'left',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
@@ -582,14 +550,12 @@ export function TopNav({ profile }: { profile: Profile }) {
 
         {/* ── User avatar / profile ─────────────────────────────────────── */}
         <div ref={profileRef} style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            onClick={() => { setProfileOpen(v => !v); setCreateOpen(false); setNotifOpen(false) }}
+          <button onClick={() => { setProfileOpen(v => !v); setCreateOpen(false); setNotifOpen(false) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '4px 8px', borderRadius: 10, border: 'none', cursor: 'pointer',
               background: profileOpen ? 'var(--surface2)' : 'transparent',
-            }}
-          >
+            }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
               background: 'var(--accent)', overflow: 'hidden',
@@ -598,20 +564,10 @@ export function TopNav({ profile }: { profile: Profile }) {
             }}>
               {profile.avatar_url
                 ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : initial
-              }
-            </div>
-            <div className="hidden md:block" style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)', whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {profile.name ?? profile.email}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'capitalize' }}>
-                {profile.role.replace('_', ' ')}
-              </div>
+                : initial}
             </div>
             <ChevronDown size={11} className="hidden md:block" color="var(--text3)" style={{ transform: profileOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
-
           {profileOpen && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
@@ -619,7 +575,6 @@ export function TopNav({ profile }: { profile: Profile }) {
               border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14,
               boxShadow: '0 16px 48px rgba(0,0,0,0.5)', overflow: 'hidden',
             }}>
-              {/* User info */}
               <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{profile.name ?? profile.email}</div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{profile.email}</div>
@@ -627,8 +582,6 @@ export function TopNav({ profile }: { profile: Profile }) {
                   {profile.role.replace('_', ' ')}
                 </div>
               </div>
-
-              {/* Actions */}
               {[
                 { href: '/settings', label: 'Settings', icon: Settings },
                 { href: '/settings/email-accounts', label: 'Email Signature', icon: UserCheck },
@@ -637,22 +590,15 @@ export function TopNav({ profile }: { profile: Profile }) {
               ].map((item: any) => {
                 const Icon = item.icon
                 return (
-                  <button
-                    key={item.href || item.id}
-                    onClick={() => {
-                      setProfileOpen(false)
-                      if (item.id === 'install' && installPrompt) {
-                        installPrompt.prompt()
-                      } else {
-                        router.push(item.href)
-                      }
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '9px 14px', border: 'none',
-                      background: 'none', cursor: 'pointer', color: 'var(--text2)',
-                      fontSize: 13, fontWeight: 500, textAlign: 'left',
-                    }}
+                  <button key={item.href || item.id} onClick={() => {
+                    setProfileOpen(false)
+                    if (item.id === 'install' && installPrompt) installPrompt.prompt()
+                    else router.push(item.href)
+                  }} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px',
+                    border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text2)',
+                    fontSize: 13, fontWeight: 500, textAlign: 'left',
+                  }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
@@ -661,16 +607,12 @@ export function TopNav({ profile }: { profile: Profile }) {
                   </button>
                 )
               })}
-
               <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '2px 0' }} />
-              <button
-                onClick={handleSignOut}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  width: '100%', padding: '9px 14px', border: 'none',
-                  background: 'none', cursor: 'pointer', color: 'var(--red)',
-                  fontSize: 13, fontWeight: 500, textAlign: 'left',
-                }}
+              <button onClick={handleSignOut} style={{
+                display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px',
+                border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)',
+                fontSize: 13, fontWeight: 500, textAlign: 'left',
+              }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(242,90,90,0.06)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
@@ -682,19 +624,9 @@ export function TopNav({ profile }: { profile: Profile }) {
         </div>
       </header>
 
-      {/* ── Design intake modal ───────────────────────────────────────── */}
-      {showDesignIntakeModal && (
-        <DesignIntakeLinkModal
-          profile={profile}
-          onClose={() => setShowDesignIntakeModal(false)}
-        />
-      )}
-
-      {/* ── Product tour ─────────────────────────────────────────────── */}
+      {showDesignIntakeModal && <DesignIntakeLinkModal profile={profile} onClose={() => setShowDesignIntakeModal(false)} />}
       {tourOpen && <ProductTour userName={profile.name ?? ''} open={tourOpen} onClose={closeTour} />}
       {whatsNewOpen && <WhatsNewModal commits={newCommits} onClose={closeWhatsNew} />}
-
-      {/* ── Quick Permissions Widget (admin/owner only, fixed) ──────── */}
       <QuickPermissionsWidget profile={profile} />
     </>
   )

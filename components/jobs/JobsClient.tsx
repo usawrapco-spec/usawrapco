@@ -13,7 +13,7 @@ import { isAdminRole } from '@/types'
 import NewJobModal from '@/components/modals/NewJobModal'
 
 // ─── Demo data ────────────────────────────────────────────────────────────────
-const DEMO_JOBS: Project[] = [
+const DEMO_JOBS = [
   {
     id: 'demo-1', org_id: '', type: 'wrap', title: 'Ford F-150 Matte Black Full Wrap',
     status: 'active', customer_id: null, agent_id: null, installer_id: null,
@@ -105,7 +105,7 @@ const DEMO_JOBS: Project[] = [
     updated_at: '2026-02-20T16:00:00Z',
     agent: { id: 'a1', name: 'Tyler Reid', email: 'tyler@usawrapco.com' },
   },
-]
+] as unknown as Project[]
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 const STAGES: { key: PipeStage; label: string; color: string; bg: string }[] = [

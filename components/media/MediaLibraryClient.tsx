@@ -4,8 +4,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Search, Upload, ImageIcon, Video, FileText, Grid, List, X,
-  Tag, Folder, Copy, Trash2, Download, Check, Filter, ChevronDown,
+  Tag, Folder, Copy, Trash2, Download, Check, Filter, ChevronDown, Pencil,
 } from 'lucide-react'
+import { usePhotoEditor } from '@/components/photo-editor/PhotoEditorProvider'
+import type { ImageSource } from '@/components/photo-editor/types'
 import type { Profile } from '@/types'
 import { isAdminRole } from '@/types'
 import { useToast } from '@/components/shared/Toast'
@@ -52,6 +54,7 @@ function formatBytes(bytes: number) {
 
 export default function MediaLibraryClient({ profile }: Props) {
   const { xpToast, badgeToast } = useToast()
+  const { openEditor, openCopyTo } = usePhotoEditor()
   const [files, setFiles]             = useState<MediaFile[]>([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
@@ -243,6 +246,17 @@ export default function MediaLibraryClient({ profile }: Props) {
       setCopied(url)
       setTimeout(() => setCopied(null), 2000)
     } catch { /* noop */ }
+  }
+
+  function toMediaImageSource(f: MediaFile): ImageSource {
+    return {
+      url: f.public_url,
+      sourceType: 'media_file',
+      sourceId: f.id,
+      fileName: f.filename,
+      storagePath: (f as any).storage_path || '',
+      category: f.folder,
+    }
   }
 
   // Filters
@@ -504,8 +518,37 @@ export default function MediaLibraryClient({ profile }: Props) {
                   </div>
                 )}
                 {isImg ? (
-                  <div style={{ height: 140, overflow: 'hidden', background: 'var(--surface2)' }}>
+                  <div style={{ height: 140, overflow: 'hidden', background: 'var(--surface2)', position: 'relative' }} className="group/card">
                     <img src={f.public_url} alt={f.filename} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {!isMultiMode && (
+                      <div
+                        className="opacity-0 group-hover/card:opacity-100"
+                        style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4, transition: 'opacity 0.15s' }}
+                      >
+                        <button
+                          title="Edit Photo"
+                          onClick={(e) => { e.stopPropagation(); openEditor(toMediaImageSource(f)) }}
+                          style={{
+                            width: 28, height: 28, borderRadius: 6, border: 'none',
+                            background: 'rgba(0,0,0,0.6)', color: '#22c07a', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          title="Copy To..."
+                          onClick={(e) => { e.stopPropagation(); openCopyTo(toMediaImageSource(f)) }}
+                          style={{
+                            width: 28, height: 28, borderRadius: 6, border: 'none',
+                            background: 'rgba(0,0,0,0.6)', color: '#22d3ee', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Copy size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface2)' }}>
@@ -646,6 +689,30 @@ export default function MediaLibraryClient({ profile }: Props) {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {selectedFile.mime_type?.startsWith('image/') && (
+                  <>
+                    <button
+                      onClick={() => { setSelected(null); openEditor(toMediaImageSource(selectedFile)) }}
+                      style={{
+                        padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        background: 'rgba(34,192,122,0.1)', border: '1px solid var(--green)', color: 'var(--green)',
+                      }}
+                    >
+                      <Pencil size={13} /> Edit
+                    </button>
+                    <button
+                      onClick={() => { setSelected(null); openCopyTo(toMediaImageSource(selectedFile)) }}
+                      style={{
+                        padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        background: 'rgba(34,211,238,0.1)', border: '1px solid var(--cyan)', color: 'var(--cyan)',
+                      }}
+                    >
+                      <Copy size={13} /> Copy To
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => copyUrl(selectedFile.public_url)}
                   style={{

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, ImagePlay, Lightbulb, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, ImagePlay, Lightbulb, Calculator, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -25,6 +25,8 @@ import CustomerCommsPanel from '@/components/comms/CustomerCommsPanel'
 import RenderEngine from '@/components/renders/RenderEngine'
 import JobPhotosTab from '@/components/projects/JobPhotosTab'
 import UpsellWidget from '@/components/projects/UpsellWidget'
+import LineItemsEngine from '@/components/estimator/LineItemsEngine'
+import JobContextMenu from '@/components/shared/JobContextMenu'
 
 interface Teammate { id: string; name: string; role: UserRole; email?: string }
 interface ProjectDetailProps { profile: Profile; project: Project; teammates: Teammate[] }
@@ -84,7 +86,7 @@ const v  = (val:any, def=0) => parseFloat(val)||def
 // ── Main Component ───────────────────────────────────────────────
 export function ProjectDetail({ profile, project: initial, teammates }: ProjectDetailProps) {
   const [project, setProject] = useState<Project>(initial)
-  const [tab, setTab] = useState<'chat'|'sales'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'|'time_tracking'|'renders'|'photos'>('chat')
+  const [tab, setTab] = useState<'chat'|'sales'|'quoting'|'design'|'production'|'install'|'qc'|'close'|'expenses'|'purchasing'|'activity'|'time_tracking'|'renders'|'photos'>('chat')
   const [aiRecap, setAiRecap] = useState<any>(null)
   const [aiRecapLoading, setAiRecapLoading] = useState(false)
   const [showAiRecap, setShowAiRecap] = useState(false)
@@ -537,6 +539,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const TABS: {key: typeof tab; label: string; Icon: LucideIcon; stageKey?: string}[] = [
     { key: 'chat',       label: 'Chat',       Icon: MessageSquare },
     { key: 'sales',      label: 'Sales',      Icon: ClipboardList, stageKey: 'sales_in' },
+    { key: 'quoting',     label: 'Quoting',    Icon: Calculator },
     { key: 'design',     label: 'Design',     Icon: Palette },
     { key: 'production', label: 'Production', Icon: Printer, stageKey: 'production' },
     { key: 'install',    label: 'Install',    Icon: Wrench, stageKey: 'install' },
@@ -694,6 +697,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           <button onClick={() => save()} disabled={saving} style={{ background:'var(--accent)', color:'#fff', border:'none', borderRadius:12, padding:'9px 20px', fontWeight:800, fontSize:13, cursor:'pointer', opacity:saving?.6:1, boxShadow:'0 2px 12px rgba(79,127,255,0.25)', transition:'all 0.15s' }}>
             {saving ? 'Saving…' : saved ? <><CheckCircle size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />Saved</> : <><Save size={14} style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />Save</>}
           </button>
+          <JobContextMenu project={project} size={34} />
         </div>
       </div>
       </div>
@@ -915,6 +919,11 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                 estimateId={(project.form_data as any)?.estimateId}
               />
             </div>
+          )}
+
+          {/* ═══ QUOTING TAB ═══ */}
+          {tab === 'quoting' && (
+            <LineItemsEngine projectId={project.id} orgId={project.org_id} />
           )}
 
           {/* ═══ DESIGN TAB ═══ */}
@@ -2411,3 +2420,4 @@ function ConditionReportLauncher({ project, profile }: { project: any; profile: 
 }
 
 export default ProjectDetail
+

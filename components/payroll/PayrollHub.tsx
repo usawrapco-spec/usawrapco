@@ -3,20 +3,21 @@
 import { useState, useEffect } from 'react'
 import type { Profile } from '@/types'
 import {
-  DollarSign, Play, Wrench, Settings, Users, Briefcase,
-  Link2, Brain, Calendar, TrendingUp, Loader2
+  DollarSign, Wrench, Settings, Users, Briefcase,
+  Link2, Brain, Calendar, TrendingUp, Loader2,
+  Clock, FileText, Download,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-const EnhancedPayrollClient = dynamic(() => import('./EnhancedPayrollClient'), { ssr: false })
-const PayrollRunsClient = dynamic(() => import('./PayrollRunsClient'), { ssr: false })
-const InstallerPayClient = dynamic(() => import('./InstallerPayClient'), { ssr: false })
+const PayrollDashboardClient = dynamic(() => import('./PayrollDashboardClient'), { ssr: false })
+const HoursTrackingClient = dynamic(() => import('./HoursTrackingClient'), { ssr: false })
+const PayrollHistoryClient = dynamic(() => import('./PayrollHistoryClient'), { ssr: false })
+const GustoExportClient = dynamic(() => import('./GustoExportClient'), { ssr: false })
 const EmployeePayClient = dynamic(() => import('./EmployeePayClient'), { ssr: false })
-const JobBasedPayClient = dynamic(() => import('./JobBasedPayClient'), { ssr: false })
-const QuickBooksClient = dynamic(() => import('./QuickBooksClient'), { ssr: false })
-const AIBookkeeperClient = dynamic(() => import('./AIBookkeeperClient'), { ssr: false })
+const EnhancedPayrollClient = dynamic(() => import('./EnhancedPayrollClient'), { ssr: false })
+const InstallerPayClient = dynamic(() => import('./InstallerPayClient'), { ssr: false })
 
-type HubTab = 'runs' | 'employees' | 'jobs' | 'installer' | 'quickbooks' | 'bookkeeper' | 'legacy'
+type HubTab = 'dashboard' | 'hours' | 'history' | 'gusto' | 'employees' | 'installer' | 'commissions'
 
 interface Stats {
   currentPeriodTotal: number
@@ -39,7 +40,7 @@ export default function PayrollHub({
   employees: any[]
   projects: any[]
 }) {
-  const [tab, setTab] = useState<HubTab>('runs')
+  const [tab, setTab] = useState<HubTab>('dashboard')
   const [stats, setStats] = useState<Stats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
 
@@ -51,13 +52,13 @@ export default function PayrollHub({
   }, [])
 
   const tabs: { id: HubTab; label: string; icon: typeof DollarSign }[] = [
-    { id: 'runs', label: 'Pay Periods', icon: Calendar },
-    { id: 'employees', label: 'Employees', icon: Users },
-    { id: 'jobs', label: 'Job Pay', icon: Briefcase },
+    { id: 'dashboard', label: 'Dashboard', icon: DollarSign },
+    { id: 'hours', label: 'Hours', icon: Clock },
+    { id: 'history', label: 'History', icon: FileText },
+    { id: 'gusto', label: 'Gusto Export', icon: Download },
+    { id: 'employees', label: 'Employee Settings', icon: Users },
     { id: 'installer', label: 'Installer Calc', icon: Wrench },
-    { id: 'quickbooks', label: 'QuickBooks', icon: Link2 },
-    { id: 'bookkeeper', label: 'AI Bookkeeper', icon: Brain },
-    { id: 'legacy', label: 'Commissions', icon: Settings },
+    { id: 'commissions', label: 'Commissions', icon: TrendingUp },
   ]
 
   const daysUntilPayroll = stats?.nextPayrollDate
@@ -133,13 +134,13 @@ export default function PayrollHub({
       </div>
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
-      {tab === 'runs' && <PayrollRunsClient profile={profile} employees={employees} projects={projects} />}
+      {tab === 'dashboard' && <PayrollDashboardClient profile={profile} />}
+      {tab === 'hours' && <HoursTrackingClient profile={profile} />}
+      {tab === 'history' && <PayrollHistoryClient profile={profile} />}
+      {tab === 'gusto' && <GustoExportClient profile={profile} />}
       {tab === 'employees' && <EmployeePayClient profile={profile} />}
-      {tab === 'jobs' && <JobBasedPayClient profile={profile} />}
       {tab === 'installer' && <InstallerPayClient profile={profile} />}
-      {tab === 'quickbooks' && <QuickBooksClient profile={profile} />}
-      {tab === 'bookkeeper' && <AIBookkeeperClient profile={profile} />}
-      {tab === 'legacy' && <EnhancedPayrollClient profile={profile} employees={employees} projects={projects} />}
+      {tab === 'commissions' && <EnhancedPayrollClient profile={profile} employees={employees} projects={projects} />}
     </div>
   )
 }

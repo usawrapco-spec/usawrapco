@@ -159,6 +159,7 @@ export interface Profile {
 
 // ─── Project ───────────────────────────────────────────────────────────────────
 export type ProjectType = 'wrap' | 'decking' | 'design' | 'ppf'
+export type PipelineType = 'wraps' | 'decking' | 'ppf' | 'marine'
 export type ProjectStatus =
   | 'estimate'
   | 'active'
@@ -210,6 +211,7 @@ export interface Project {
   gpm: number | null
   commission: number | null
   division: 'wraps' | 'decking'
+  pipeline_type: PipelineType
   pipe_stage: PipeStage
   form_data: Record<string, unknown>
   fin_data: ProjectFinancials | null
