@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
@@ -255,7 +256,7 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects }
                       <div style={{
                         fontSize: 12, color: 'var(--text2)', lineHeight: 1.5,
                         maxHeight: 120, overflow: 'hidden',
-                      }} dangerouslySetInnerHTML={{ __html: step.body.slice(0, 300) }} />
+                      }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(step.body.slice(0, 300)) }} />
                     </>
                   ) : (
                     <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>

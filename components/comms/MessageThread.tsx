@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
@@ -243,7 +244,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
                   maxHeight: expanded ? 'none' : 160,
                   overflow: 'hidden',
                 }}
-                dangerouslySetInnerHTML={{ __html: message.body_html }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message.body_html || '') }}
               />
             )}
             {!expanded && (message.body || '').length > 200 && (
