@@ -3,6 +3,8 @@ import { redirect, notFound } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
 import OrderEditor from '@/components/projects/OrderEditor'
+import LineItemsEngine from '@/components/estimator/LineItemsEngine'
+import EditPageTabs from '@/components/estimator/EditPageTabs'
 import type { Profile, Project } from '@/types'
 
 export default async function EditProjectPage({ params }: { params: { id: string } }) {
@@ -38,12 +40,22 @@ export default async function EditProjectPage({ params }: { params: { id: string
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
-          <OrderEditor
-            profile={profile as Profile}
-            project={project as Project}
-            teammates={teammates || []}
-          />
-        </main>
+        <EditPageTabs
+          orderEditor={
+            <OrderEditor
+              profile={profile as Profile}
+              project={project as Project}
+              teammates={teammates || []}
+            />
+          }
+          lineItemsEngine={
+            <LineItemsEngine
+              projectId={params.id}
+              orgId={profile.org_id}
+            />
+          }
+        />
+      </main>
       <div className="md:hidden">
         <MobileNav />
       </div>
