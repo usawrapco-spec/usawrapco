@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     const admin = getSupabaseAdmin()
     const { data: profile } = await admin
         .from('profiles')
-        .select('id, name, email, role, org_id, avatar_url, xp_total, xp_level, badge_ids, commission_type, hourly_rate, phone, email_signature')
+        .select('id, name, email, role, org_id, avatar_url, xp, level, badges, current_streak, longest_streak, monthly_xp, phone, email_signature, permissions, active, division')
         .eq('id', user.id)
         .single()
 
