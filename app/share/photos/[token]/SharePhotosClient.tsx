@@ -134,7 +134,6 @@ export default function SharePhotosClient({ token }: { token: string }) {
               <a
                 href={url}
                 download
-                target="_blank"
                 rel="noopener noreferrer"
                 style={{
                   display: 'inline-flex',

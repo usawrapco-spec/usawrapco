@@ -29,13 +29,28 @@ interface Appointment {
   customer_email?: string
   customer_phone?: string
   appointment_type: string
-  date: string
-  time: string
+  date: string | null      // may be null for edge-function bookings that only set start_time
+  time: string | null      // same — derived from start_time when null
+  start_time?: string      // ISO timestamp from edge-function bookings
   assigned_to?: string
   assigned_name?: string
   status: 'pending' | 'confirmed' | 'cancelled' | 'no_show'
   notes?: string
   created_at: string
+}
+
+// Derive a YYYY-MM-DD date key from an appointment, falling back to start_time
+function apptDate(a: Appointment): string {
+  if (a.date) return typeof a.date === 'string' ? a.date.slice(0, 10) : String(a.date)
+  if (a.start_time) return a.start_time.slice(0, 10)
+  return ''
+}
+
+// Derive HH:MM time string from an appointment
+function apptTime(a: Appointment): string {
+  if (a.time) return a.time.slice(0, 5)
+  if (a.start_time) return a.start_time.slice(11, 16)
+  return ''
 }
 
 interface TeamMember {
@@ -122,18 +137,20 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
   // Today's appointments for sidebar
   const todayAppts = useMemo(() => {
     return filtered
-      .filter(a => a.date === today)
-      .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+      .filter(a => apptDate(a) === today)
+      .sort((a, b) => apptTime(a).localeCompare(apptTime(b)))
   }, [filtered, today])
 
   // Appointments by date lookup (sorted by time within each day)
   const apptsByDate = useMemo(() => {
     const map: Record<string, Appointment[]> = {}
     filtered.forEach(a => {
-      if (!map[a.date]) map[a.date] = []
-      map[a.date].push(a)
+      const key = apptDate(a)
+      if (!key) return
+      if (!map[key]) map[key] = []
+      map[key].push(a)
     })
-    Object.values(map).forEach(arr => arr.sort((a, b) => (a.time || '').localeCompare(b.time || '')))
+    Object.values(map).forEach(arr => arr.sort((a, b) => apptTime(a).localeCompare(apptTime(b))))
     return map
   }, [filtered])
 
@@ -238,7 +255,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
                       cursor: 'pointer',
                     }}
                   >
-                    {a.time?.slice(0, 5)} {a.customer_name}
+                    {apptTime(a)} {a.customer_name}
                   </div>
                 ))}
                 {dayAppts.length > 3 && (
@@ -261,7 +278,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
         {weekDates.map(d => {
           const dateStr = formatDate(d)
-          const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+          const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => apptTime(a).localeCompare(apptTime(b)))
           const isToday = dateStr === today
           return (
             <div key={dateStr} style={{
@@ -298,7 +315,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontWeight: 600, color: 'var(--text1)' }}>{a.time?.slice(0, 5)}</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text1)' }}>{apptTime(a)}</div>
                   <div style={{ color: 'var(--text2)', marginTop: 2 }}>{a.customer_name}</div>
                   <div style={{ color: 'var(--text3)', fontSize: 10 }}>{a.appointment_type}</div>
                 </div>
@@ -313,13 +330,13 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
   // ── Day View ─────────────────────────────────────────
   const renderDayView = () => {
     const dateStr = formatDate(currentDate)
-    const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+    const dayAppts = (apptsByDate[dateStr] || []).sort((a, b) => apptTime(a).localeCompare(apptTime(b)))
 
     return (
       <div style={{ background: 'var(--surface)', borderRadius: 10, overflow: 'hidden' }}>
         {HOURS.map(hour => {
           const hourStr = String(hour).padStart(2, '0')
-          const hourAppts = dayAppts.filter(a => a.time?.startsWith(hourStr))
+          const hourAppts = dayAppts.filter(a => apptTime(a).startsWith(hourStr))
           return (
             <div key={hour} style={{
               display: 'flex',
@@ -547,7 +564,7 @@ export default function SchedulePageClient({ profile, initialAppointments, team 
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {a.time?.slice(0, 5)}
+                        {apptTime(a)}
                       </span>
                       <span style={{
                         fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
@@ -866,8 +883,8 @@ function AppointmentDetailModal({ appointment, team, supabase, orgId, onClose, o
               {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
-              <input type="time" value={form.time} onChange={e => setForm(p => ({ ...p, time: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
+              <input type="date" value={apptDate(form)} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
+              <input type="time" value={apptTime(form)} onChange={e => setForm(p => ({ ...p, time: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }} />
             </div>
             <select value={form.assigned_to || ''} onChange={e => setForm(p => ({ ...p, assigned_to: e.target.value }))} style={{ width: '100%', padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)', fontSize: 13 }}>
               <option value="">Unassigned</option>
@@ -905,7 +922,7 @@ function AppointmentDetailModal({ appointment, team, supabase, orgId, onClose, o
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <CalendarIcon size={14} style={{ color: 'var(--text3)' }} />
-              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{appointment.date} at {appointment.time}</span>
+              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{apptDate(appointment)} at {apptTime(appointment)}</span>
             </div>
             {appointment.assigned_name && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

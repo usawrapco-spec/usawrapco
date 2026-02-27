@@ -38,22 +38,16 @@ export default function VehicleLookupModal({ open, onClose, onSelect }: Props) {
 
   const handlePrint = useCallback(() => {
     if (!measurement) return
-    const printWindow = window.open('', '_blank', 'width=500,height=600')
-    if (!printWindow) return
-    printWindow.document.write(`
-      <html><head><title>Vehicle Measurements</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; color: #222; }
-        h2 { margin: 0 0 4px; }
-        .sub { color: #888; font-size: 13px; margin-bottom: 16px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        td { padding: 6px 12px; border-bottom: 1px solid #ddd; font-size: 14px; }
-        td:last-child { text-align: right; font-weight: bold; font-family: monospace; }
-        .note { font-size: 11px; color: #999; margin-top: 12px; }
-        .dims { font-size: 12px; color: #666; margin-top: 8px; font-family: monospace; }
-      </style></head><body>
+    const PRINT_ID = 'vehicle-print-content'
+    const STYLE_ID = 'vehicle-print-style'
+    document.getElementById(PRINT_ID)?.remove()
+    document.getElementById(STYLE_ID)?.remove()
+
+    const div = document.createElement('div')
+    div.id = PRINT_ID
+    div.innerHTML = `
       <h2>${measurement.make} ${measurement.model}</h2>
-      <div class="sub">${measurement.year_start}${measurement.year_end !== measurement.year_start ? '&ndash;' + measurement.year_end : ''} | ${measurement.body_style || 'N/A'}</div>
+      <div class="sub">${measurement.year_start}${measurement.year_end !== measurement.year_start ? '\u2013' + measurement.year_end : ''} | ${measurement.body_style || 'N/A'}</div>
       <table>
         <tr><td>Full Wrap</td><td>${measurement.full_wrap_sqft} sq ft</td></tr>
         <tr><td>Partial (Sides)</td><td>${measurement.partial_wrap_sqft} sq ft</td></tr>
@@ -64,12 +58,33 @@ export default function VehicleLookupModal({ open, onClose, onSelect }: Props) {
         <tr><td>Trunk/Tailgate</td><td>${measurement.trunk_sqft} sq ft</td></tr>
         <tr><td>Doors</td><td>${measurement.doors_sqft} sq ft</td></tr>
       </table>
-      <div class="dims">Side: ${measurement.side_width}"W x ${measurement.side_height}"H</div>
+      <div class="dims">Side: ${measurement.side_width}"W \xd7 ${measurement.side_height}"H</div>
       <div class="note">* All measurements include 6" total bleed</div>
-      </body></html>
-    `)
-    printWindow.document.close()
-    printWindow.print()
+    `
+    document.body.appendChild(div)
+
+    const style = document.createElement('style')
+    style.id = STYLE_ID
+    style.textContent = `
+      #${PRINT_ID} { display: none; }
+      @media print {
+        body > *:not(#${PRINT_ID}) { display: none !important; }
+        #${PRINT_ID} { display: block !important; font-family: Arial, sans-serif; padding: 20px; color: #222; }
+        #${PRINT_ID} h2 { margin: 0 0 4px; }
+        #${PRINT_ID} .sub { color: #888; font-size: 13px; margin-bottom: 16px; }
+        #${PRINT_ID} table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        #${PRINT_ID} td { padding: 6px 12px; border-bottom: 1px solid #ddd; font-size: 14px; }
+        #${PRINT_ID} td:last-child { text-align: right; font-weight: bold; font-family: monospace; }
+        #${PRINT_ID} .note { font-size: 11px; color: #999; margin-top: 12px; }
+        #${PRINT_ID} .dims { font-size: 12px; color: #666; margin-top: 8px; font-family: monospace; }
+      }
+    `
+    document.head.appendChild(style)
+    window.print()
+    setTimeout(() => {
+      document.getElementById(PRINT_ID)?.remove()
+      document.getElementById(STYLE_ID)?.remove()
+    }, 1000)
   }, [measurement])
 
   if (!open) return null

@@ -38,8 +38,20 @@ function formatDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// Fallback time strings (HH:MM) when edge function is unavailable
 const FALLBACK_SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00']
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+
+// Normalize a slot value to a plain "HH:MM" string for display state.
+// Edge fn returns {start: ISO, end: ISO, label: string}; fallbacks are already "HH:MM".
+function normalizeSlot(s: unknown): string {
+  if (typeof s === 'string') return s.includes('T') ? s.slice(11, 16) : s
+  if (s && typeof s === 'object' && 'start' in s) {
+    const iso = (s as { start: string }).start
+    return iso.includes('T') ? iso.slice(11, 16) : iso
+  }
+  return String(s)
+}
 const MAX_FUTURE_MONTHS = 3
 
 export default function BookingPageClient() {
@@ -84,7 +96,8 @@ export default function BookingPageClient() {
       })
       .then(data => {
         if (!data) return
-        setSlots(data.slots || data || [])
+        const rawSlots: unknown[] = data.slots || (Array.isArray(data) ? data : [])
+        setSlots(rawSlots.map(normalizeSlot))
         setLoadingSlots(false)
       })
       .catch((err) => {
@@ -115,8 +128,9 @@ export default function BookingPageClient() {
         body: JSON.stringify({
           org_id: ORG_ID,
           appointment_type: appointmentType,
-          date: selectedDate,
-          time: selectedTime,
+          // selectedTime is "HH:MM"; build ISO timestamps the edge function expects
+          start_time: `${selectedDate}T${selectedTime}:00`,
+          end_time: new Date(new Date(`${selectedDate}T${selectedTime}:00`).getTime() + 60 * 60 * 1000).toISOString(),
           customer_name: form.name,
           customer_email: form.email,
           customer_phone: form.phone,
