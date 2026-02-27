@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       `
       )
       .eq('status', 'scheduled')
-      .lte('scheduled_for', new Date().toISOString())
+      .lte('scheduled_at', new Date().toISOString())
       .limit(50)
 
     let sent = 0
@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
           await supabase.from('sequence_step_sends').insert({
             enrollment_id: stepSend.enrollment_id,
             step_id: nextStep.id,
-            scheduled_for: nextTime.toISOString(),
+            scheduled_at: nextTime.toISOString(),
             status: 'scheduled',
           })
         } else {
@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
         console.error('Sequence step error:', e)
         await supabase
           .from('sequence_step_sends')
-          .update({ status: 'error', error_message: String(e) })
+          .update({ status: 'error', failed_reason: String(e) })
           .eq('id', stepSend.id)
         errors++
       }
