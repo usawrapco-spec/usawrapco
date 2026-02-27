@@ -109,7 +109,7 @@ export async function GET(request: Request) {
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (invite) {
       // Apply the pre-assigned role from the invite
