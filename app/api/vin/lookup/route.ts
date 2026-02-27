@@ -10,7 +10,6 @@ export const dynamic = 'force-dynamic'
  * NHTSA Results return objects with { Variable: string, Value: string | null, VariableId: number }
  * We use Variable name strings for reliable lookup since VariableId can vary.
  */
-export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
