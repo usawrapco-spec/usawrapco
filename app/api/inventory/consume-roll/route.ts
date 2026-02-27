@@ -25,10 +25,8 @@ export async function POST(req: Request) {
       .from('vinyl_inventory')
       .update({
         status: 'consumed',
-        sqft_available: 0,
-        waste_sqft: (roll.waste_sqft || 0) + (finalWasteSqft || 0),
-        consumed_at: new Date().toISOString(),
-        notes: notes || roll.notes,
+        qty_sqft: 0,
+        notes: notes || roll.notes || null,
       })
       .eq('id', rollId)
       .select()

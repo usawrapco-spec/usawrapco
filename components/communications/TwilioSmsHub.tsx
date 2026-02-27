@@ -93,10 +93,12 @@ function AudioPlayer({ url }: { url: string }) {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
 
-  function toggle() {
+  async function toggle() {
     if (!ref.current) return
     if (playing) { ref.current.pause(); setPlaying(false) }
-    else         { ref.current.play();  setPlaying(true)  }
+    else {
+      try { await ref.current.play(); setPlaying(true) } catch { /* autoplay blocked */ }
+    }
   }
 
   useEffect(() => {

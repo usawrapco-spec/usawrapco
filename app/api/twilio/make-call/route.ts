@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       body: new URLSearchParams({
         To: to,
         From: fromNumber,
-        Url: `${siteUrl}/api/twilio/inbound-call`,
+        Url: `${siteUrl}/api/phone/outbound-twiml`,
         StatusCallback: `${siteUrl}/api/twilio/call-status`,
         StatusCallbackEvent: 'completed',
         StatusCallbackMethod: 'POST',
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     from_number: fromNumber,
     to_number: to,
     status: 'initiated',
-    agent_id: user.id,
+    answered_by: user.id,
     started_at: new Date().toISOString(),
   })
 

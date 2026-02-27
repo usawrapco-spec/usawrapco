@@ -29,7 +29,7 @@ interface VinylRoll {
   cost_per_roll: number
   low_stock_threshold: number
   location: string
-  status: 'in_stock' | 'low' | 'out' | 'on_order' | 'consumed'
+  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'on_order' | 'consumed'
   notes: string
   created_at: string
   updated_at: string
@@ -76,11 +76,11 @@ function colorSwatch(colorName: string): string {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
-  in_stock: 'var(--green)', low: 'var(--amber)', out: 'var(--red)',
+  in_stock: 'var(--green)', low_stock: 'var(--amber)', out_of_stock: 'var(--red)',
   on_order: 'var(--accent)', consumed: 'var(--text3)',
 }
 const STATUS_LABEL: Record<string, string> = {
-  in_stock: 'In Stock', low: 'Low', out: 'Out', on_order: 'On Order', consumed: 'Consumed',
+  in_stock: 'In Stock', low_stock: 'Low', out_of_stock: 'Out', on_order: 'On Order', consumed: 'Consumed',
 }
 const BRANDS = ['3M', 'Avery', 'Oracal', 'Arlon', 'Hexis', 'XPEL', 'Llumar', 'SunTek', 'Other']
 const FINISHES = ['Gloss', 'Matte', 'Satin', 'Metallic', 'Textured', 'Clear', 'Chrome', 'Carbon Fiber', 'Brushed']
@@ -174,7 +174,7 @@ export function InventoryClient({ profile }: InventoryClientProps) {
   }, [usageLog])
 
   const totalValue = rolls.reduce((s, r) => s + (r.qty_sqft * (r.cost_per_sqft || 0)), 0)
-  const lowItems = rolls.filter(r => r.status === 'low' || r.status === 'out')
+  const lowItems = rolls.filter(r => r.status === 'low_stock' || r.status === 'out_of_stock')
 
   const filtered = useMemo(() => {
     let list = [...rolls]
@@ -230,7 +230,7 @@ export function InventoryClient({ profile }: InventoryClientProps) {
     const newSqft = parseFloat(editSqft)
     if (isNaN(newSqft) || newSqft < 0) { setEditingId(null); return }
     const threshold = roll.low_stock_threshold || 0
-    const newStatus = newSqft <= 0 ? 'out' : (threshold > 0 && newSqft <= threshold) ? 'low' : 'in_stock'
+    const newStatus = newSqft <= 0 ? 'out_of_stock' : (threshold > 0 && newSqft <= threshold) ? 'low_stock' : 'in_stock'
     await supabase.from('vinyl_inventory').update({ qty_sqft: newSqft, status: newStatus }).eq('id', roll.id)
     setRolls(prev => prev.map(r => r.id === roll.id ? { ...r, qty_sqft: newSqft, status: newStatus as VinylRoll['status'] } : r))
     setEditingId(null)
@@ -314,7 +314,7 @@ export function InventoryClient({ profile }: InventoryClientProps) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {lowItems.map(r => (
                 <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', background: 'rgba(242,90,90,0.12)', borderRadius: 5 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>{r.brand} {r.color} — {r.status === 'out' ? 'OUT' : 'LOW'}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>{r.brand} {r.color} — {r.status === 'out_of_stock' ? 'OUT' : 'LOW'}</span>
                   <button onClick={() => handleReorder(r)} style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Reorder</button>
                 </span>
               ))}
@@ -352,8 +352,8 @@ export function InventoryClient({ profile }: InventoryClientProps) {
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selStyle}>
               <option value="all">All Status</option>
               <option value="in_stock">In Stock</option>
-              <option value="low">Low</option>
-              <option value="out">Out</option>
+              <option value="low_stock">Low</option>
+              <option value="out_of_stock">Out</option>
               <option value="on_order">On Order</option>
             </select>
             <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)} style={selStyle}>
@@ -725,7 +725,7 @@ function LogUsageModal({ orgId, rolls, profileId, onClose, onSaved }: {
     if (selectedRoll) {
       const newQty = Math.max(0, selectedRoll.qty_sqft - sqft)
       const threshold = selectedRoll.low_stock_threshold || 0
-      const newStatus = newQty <= 0 ? 'out' : (threshold > 0 && newQty <= threshold) ? 'low' : 'in_stock'
+      const newStatus = newQty <= 0 ? 'out_of_stock' : (threshold > 0 && newQty <= threshold) ? 'low_stock' : 'in_stock'
       await supabase.from('vinyl_inventory').update({ qty_sqft: newQty, status: newStatus }).eq('id', form.vinyl_id)
     }
     setSaving(false)

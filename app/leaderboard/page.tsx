@@ -124,7 +124,7 @@ export default async function LeaderboardPage() {
     // Current user's XP history
     admin
       .from('xp_ledger')
-      .select('amount, reason, created_at, metadata')
+      .select('amount, reason, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(25),
@@ -141,6 +141,7 @@ export default async function LeaderboardPage() {
         .from('xp_ledger')
         .select('user_id, reason, amount')
         .in('user_id', memberIds)
+        .limit(5000)
       if (ledger) {
         for (const row of ledger) {
           if (!xpBreakdown[row.user_id]) xpBreakdown[row.user_id] = {}

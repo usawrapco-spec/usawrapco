@@ -120,12 +120,8 @@ export default function PNWNavigatorClient({ profile }: { profile: Profile }) {
     fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch(() => {})
     fetch('/api/pnw-navigator/marinas').then(r => r.json()).then(d => setMarinas(d.marinas || [])).catch(() => {})
     fetch('/api/pnw-navigator/tides?station=seattle').then(r => r.json()).then(d => setTides({ station: d.station || 'Seattle', predictions: d.predictions || [] })).catch(() => {})
-    fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => {
-      setWaypoints(d.waypoints || [])
-      setRoutes(d.routes || [])
-    }).catch(() => {})
-    // VHF from DB
-    fetch('/api/pnw-navigator/spots').then(() => {}).catch(() => {}) // placeholder; vhf loaded separately below
+    fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => setWaypoints(d.waypoints || [])).catch(() => {})
+    fetch('/api/pnw-navigator/routes').then(r => r.json()).then(d => setRoutes(d.routes || [])).catch(() => {})
     loadVhf()
   }, [])
 
@@ -133,8 +129,11 @@ export default function PNWNavigatorClient({ profile }: { profile: Profile }) {
     fetch('/api/pnw-navigator/vhf').then(r => r.json()).then(d => setVhf(d.channels || [])).catch(() => {})
   }, [])
 
-  const refreshCatches  = useCallback(() => fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch(() => {}), [])
-  const refreshWaypoints = useCallback(() => fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => { setWaypoints(d.waypoints || []); setRoutes(d.routes || []) }).catch(() => {}), [])
+  const refreshCatches   = useCallback(() => fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch(() => {}), [])
+  const refreshWaypoints = useCallback(() => {
+    fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => setWaypoints(d.waypoints || [])).catch(() => {})
+    fetch('/api/pnw-navigator/routes').then(r => r.json()).then(d => setRoutes(d.routes || [])).catch(() => {})
+  }, [])
 
   const now = new Date()
   const nextTide = tides.predictions.find(p => new Date(p.time) > now)
@@ -610,16 +609,19 @@ function CatchesTab({ catches, species, onRefresh }: {
   species: FishSpecies[]
   onRefresh: () => void
 }) {
-  const [showAdd, setShowAdd] = useState(false)
-  const [saving,  setSaving]  = useState(false)
+  const [showAdd, setShowAdd]         = useState(false)
+  const [saving,  setSaving]          = useState(false)
+  const [customSpecies, setCustomSpecies] = useState('')
   const [form, setForm] = useState({
     species_name: '', weight_lbs: '', length_inches: '',
     catch_date: new Date().toISOString().split('T')[0],
     location_name: '', bait_lure: '', notes: '', was_released: false,
   })
 
+  const effectiveSpecies = form.species_name === '__other' ? customSpecies : form.species_name
+
   const saveCatch = async () => {
-    if (!form.species_name) return
+    if (!effectiveSpecies) return
     setSaving(true)
     try {
       const r = await fetch('/api/pnw-navigator/catch-log', {
@@ -627,12 +629,14 @@ function CatchesTab({ catches, species, onRefresh }: {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          species_name: effectiveSpecies,
           weight_lbs: parseFloat(form.weight_lbs) || null,
           length_inches: parseFloat(form.length_inches) || null,
         }),
       })
       if (r.ok) {
         setShowAdd(false)
+        setCustomSpecies('')
         setForm({ species_name: '', weight_lbs: '', length_inches: '', catch_date: new Date().toISOString().split('T')[0], location_name: '', bait_lure: '', notes: '', was_released: false })
         onRefresh()
       }
@@ -689,7 +693,7 @@ function CatchesTab({ catches, species, onRefresh }: {
                 <option value="__other">Other (type below)</option>
               </select>
               {form.species_name === '__other' && (
-                <input value={''} onChange={e => setForm(p => ({ ...p, species_name: e.target.value }))} placeholder="Species name…" style={{ ...inputStyle, marginTop: 5 }} />
+                <input value={customSpecies} onChange={e => setCustomSpecies(e.target.value)} placeholder="Species name…" style={{ ...inputStyle, marginTop: 5 }} autoFocus />
               )}
             </div>
             {[
@@ -717,7 +721,7 @@ function CatchesTab({ catches, species, onRefresh }: {
             Catch &amp; Release
           </label>
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button onClick={saveCatch} disabled={saving || !form.species_name || form.species_name === '__other'} style={{ ...primaryBtn, flex: 1 }}>{saving ? 'Saving…' : 'Save Catch'}</button>
+            <button onClick={saveCatch} disabled={saving || !effectiveSpecies} style={{ ...primaryBtn, flex: 1 }}>{saving ? 'Saving…' : 'Save Catch'}</button>
             <button onClick={() => setShowAdd(false)} style={ghostBtn}>Cancel</button>
           </div>
         </div>
@@ -768,7 +772,7 @@ function SpeciesTab({ species, spots }: { species: FishSpecies[]; spots: Fishing
     { id: 'bottomfish', label: 'Bottomfish' }, { id: 'shellfish', label: 'Shellfish' },
     { id: 'freshwater', label: 'Freshwater' }, { id: 'saltwater', label: 'Saltwater' },
   ]
-  const CAT_ICON: Record<string, string> = { salmon: '🐟', bottomfish: '🐠', shellfish: '🦀', freshwater: '🎣', saltwater: '🐋' }
+  const CAT_ABBR: Record<string, string> = { salmon: 'SAL', bottomfish: 'BTM', shellfish: 'SHL', freshwater: 'FW', saltwater: 'SW' }
 
   const filtered = species.filter(s =>
     (cat === 'all' || s.category === cat) &&
@@ -801,7 +805,7 @@ function SpeciesTab({ species, spots }: { species: FishSpecies[]; spots: Fishing
             onMouseLeave={e => (e.currentTarget.style.borderColor = BORDER)}>
             <div style={{ width: 42, height: 42, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
               background: s.category === 'salmon' ? 'rgba(239,68,68,0.12)' : s.category === 'bottomfish' ? 'rgba(139,92,246,0.12)' : s.category === 'shellfish' ? 'rgba(245,158,11,0.12)' : TEAL_DIM2 }}>
-              {CAT_ICON[s.category] || '🐟'}
+              <span style={{ fontSize: 10, fontWeight: 800, color: TEAL, letterSpacing: '0.03em' }}>{CAT_ABBR[s.category] || 'FISH'}</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#e2eaf4' }}>{s.common_name}</div>
@@ -1131,7 +1135,7 @@ function RoutesTab({ routes, waypoints, onRefresh }: {
   const [rtForm, setRtForm] = useState({ name: '', description: '' })
 
   const WP_TYPES = ['custom', 'anchorage', 'fishing_spot', 'hazard', 'fuel', 'marina']
-  const WP_ICON: Record<string, string> = { custom: '📍', anchorage: '⚓', fishing_spot: '🎣', hazard: '⚠️', fuel: '⛽', marina: '🚢' }
+  const WP_ABBR: Record<string, string> = { custom: 'WPT', anchorage: 'ANC', fishing_spot: 'FISH', hazard: 'HAZ', fuel: 'FUEL', marina: 'DOCK' }
 
   const saveWaypoint = async () => {
     if (!wpForm.name || !wpForm.lat || !wpForm.lng) return
@@ -1150,10 +1154,10 @@ function RoutesTab({ routes, waypoints, onRefresh }: {
     if (!rtForm.name) return
     setSavingRt(true)
     try {
-      const r = await fetch('/api/pnw-navigator/waypoints', {
+      const r = await fetch('/api/pnw-navigator/routes', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...rtForm, type: 'route' }),
+        body: JSON.stringify(rtForm),
       })
       if (r.ok) { setShowAddRt(false); setRtForm({ name: '', description: '' }); onRefresh() }
     } finally { setSavingRt(false) }
@@ -1203,7 +1207,7 @@ function RoutesTab({ routes, waypoints, onRefresh }: {
                   <div style={{ gridColumn: '1/-1' }}>
                     <label style={labelStyle}>Type</label>
                     <select value={wpForm.waypoint_type} onChange={e => setWpForm(p => ({ ...p, waypoint_type: e.target.value }))} style={{ ...inputStyle }}>
-                      {WP_TYPES.map(t => <option key={t} value={t}>{WP_ICON[t]} {t.replace('_', ' ')}</option>)}
+                      {WP_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
                     </select>
                   </div>
                   <div style={{ gridColumn: '1/-1' }}>
@@ -1226,8 +1230,8 @@ function RoutesTab({ routes, waypoints, onRefresh }: {
             )}
             {waypoints.map(w => (
               <div key={w.id} style={{ ...cardStyle, marginBottom: 6, display: 'flex', gap: 10, alignItems: 'center' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: TEAL_DIM2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16 }}>
-                  {WP_ICON[w.waypoint_type] || '📍'}
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: TEAL_DIM2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: TEAL, letterSpacing: '0.03em' }}>{WP_ABBR[w.waypoint_type] || 'WPT'}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#e2eaf4' }}>{w.name}</div>

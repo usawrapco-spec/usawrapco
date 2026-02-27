@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ORG_ID } from '@/lib/org'
 import {
   Home, Briefcase, Star, DollarSign, Clock, Package,
-  Play, Square, Pause, Camera, Plus, X, Check,
+  Play, Square, Pause, Camera, Plus, X,
   MapPin, Calendar, ChevronRight, ChevronLeft,
-  AlertCircle, Upload, FileText, Bell, Wrench,
-  TrendingUp, Timer, Hammer, CheckCircle2, Truck,
+  Hammer, CheckCircle2,
 } from 'lucide-react'
 import type { Profile } from '@/types'
 
@@ -23,11 +23,10 @@ interface Props {
   activeEntry: any | null
   availableJobs: any[]
   myBids: any[]
-  todayEntries: any[]
+  weekEntries: any[]
   supplyRequests: any[]
 }
 
-type Tab = 'home' | 'jobs' | 'available' | 'earnings' | 'timeclock' | 'supplies'
 type JobFilter = 'today' | 'week' | 'completed' | 'all'
 type EarningsPeriod = 'week' | 'month' | 'all'
 
@@ -102,6 +101,47 @@ function supplyStatusColor(s: string) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Mini job card — module-level so React identity is stable           */
+/* ------------------------------------------------------------------ */
+
+function MiniJobCard({ job, onTap }: { job: any; onTap: () => void }) {
+  return (
+    <div onClick={onTap} style={{
+      background: 'var(--surface)', border: '1px solid #ffffff10', borderRadius: 12,
+      padding: '14px 16px', marginBottom: 10,
+      cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    }}>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text1)' }}>{job.title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+          {job.vehicle_desc || job.form_data?.vehicle || '—'}
+          {job.install_date && ` · ${fmtDate(job.install_date)}`}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {stageBadge(job.pipe_stage)}
+        <ChevronRight size={16} style={{ color: 'var(--text2)' }} />
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab bar config — module-level (never changes)                      */
+/* ------------------------------------------------------------------ */
+
+type Tab = 'home' | 'jobs' | 'available' | 'earnings' | 'timeclock' | 'supplies'
+
+const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: 'home',      label: 'Home',    icon: Home },
+  { id: 'jobs',      label: 'My Jobs', icon: Briefcase },
+  { id: 'available', label: 'Bid',     icon: Star },
+  { id: 'earnings',  label: 'Pay',     icon: DollarSign },
+  { id: 'timeclock', label: 'Clock',   icon: Clock },
+  { id: 'supplies',  label: 'Supply',  icon: Package },
+]
+
+/* ------------------------------------------------------------------ */
 /*  Main Component                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -113,7 +153,7 @@ export default function InstallerMobilePortal({
   activeEntry,
   availableJobs,
   myBids,
-  todayEntries,
+  weekEntries,
   supplyRequests: initialSupplyReqs,
 }: Props) {
   const supabase = createClient()
@@ -138,7 +178,7 @@ export default function InstallerMobilePortal({
   const [clockCategory, setClockCategory] = useState('install')
   const [clockJobId, setClockJobId] = useState('')
   const [clockLocation, setClockLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [todayClockEntries, setTodayClockEntries] = useState<any[]>(todayEntries)
+  const [todayClockEntries, setTodayClockEntries] = useState<any[]>(weekEntries)
   const [clockingIn, setClockingIn] = useState(false)
 
   /* ---- Photo upload ---- */
@@ -158,6 +198,7 @@ export default function InstallerMobilePortal({
   const [bidAvail, setBidAvail] = useState('')
   const [submittingBid, setSubmittingBid] = useState(false)
   const [bidMsg, setBidMsg] = useState('')
+  const [approvalMsg, setApprovalMsg] = useState('')
 
   /* ---- Supply request form ---- */
   const [showSupplyForm, setShowSupplyForm] = useState(false)
@@ -208,7 +249,7 @@ export default function InstallerMobilePortal({
   const startJobTimer = async (job: any) => {
     const now = Date.now()
     const { data } = await supabase.from('install_sessions').insert({
-      org_id: profile.org_id,
+      org_id: profile.org_id || ORG_ID,
       project_id: job.id,
       installer_id: profile.id,
       started_at: new Date(now).toISOString(),
@@ -260,7 +301,7 @@ export default function InstallerMobilePortal({
     setClockLocation(loc)
 
     const payload: any = {
-      org_id: profile.org_id,
+      org_id: profile.org_id || ORG_ID,
       user_id: profile.id,
       clock_in: new Date().toISOString(),
       category: clockCategory,
@@ -308,7 +349,7 @@ export default function InstallerMobilePortal({
     if (!upErr) {
       const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path)
       await supabase.from('job_images').insert({
-        org_id: profile.org_id,
+        org_id: profile.org_id || ORG_ID,
         project_id: selectedJob.id,
         user_id: profile.id,
         image_url: urlData.publicUrl,
@@ -318,6 +359,9 @@ export default function InstallerMobilePortal({
       })
       setPhotoMsg('Photo uploaded')
       setTimeout(() => setPhotoMsg(''), 3000)
+    } else {
+      setPhotoMsg('Upload failed. Please try again.')
+      setTimeout(() => setPhotoMsg(''), 4000)
     }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -331,7 +375,7 @@ export default function InstallerMobilePortal({
     if (!noteText.trim() || !selectedJob) return
     setSavingNote(true)
     await supabase.from('job_comments').insert({
-      org_id: profile.org_id,
+      org_id: profile.org_id || ORG_ID,
       project_id: selectedJob.id,
       user_id: profile.id,
       author_id: profile.id,
@@ -348,8 +392,8 @@ export default function InstallerMobilePortal({
 
   const sendForApproval = async (job: any) => {
     await supabase.from('projects').update({ pipe_stage: 'prod_review' }).eq('id', job.id)
-    setSelectedJob(null)
-    alert('Job sent for QC review.')
+    setApprovalMsg('Job sent for QC review.')
+    setTimeout(() => { setApprovalMsg(''); setSelectedJob(null) }, 2000)
   }
 
   /* ================================================================ */
@@ -360,7 +404,7 @@ export default function InstallerMobilePortal({
     if (!bidJob || !bidPrice) return
     setSubmittingBid(true)
     const { error } = await supabase.from('installer_bids').insert({
-      org_id: profile.org_id,
+      org_id: profile.org_id || ORG_ID,
       project_id: bidJob.id,
       installer_id: profile.id,
       status: 'pending',
@@ -386,7 +430,7 @@ export default function InstallerMobilePortal({
     if (!validItems.length) return
     setSubmittingSupply(true)
     const { data, error } = await supabase.from('supply_requests').insert({
-      org_id: profile.org_id,
+      org_id: profile.org_id || ORG_ID,
       project_id: supplyProject || null,
       requested_by: profile.id,
       items: validItems,
@@ -444,6 +488,9 @@ export default function InstallerMobilePortal({
   const weeklySeconds = todayClockEntries
     .filter(e => new Date(e.clock_in) >= weekStart)
     .reduce((s: number, e: any) => s + (e.duration_seconds || 0), 0)
+
+  // Today-only entries for the Time Clock tab display
+  const todayEntryList = todayClockEntries.filter(e => e.clock_in?.startsWith(today))
 
   /* ================================================================ */
   /*  Shared styles                                                    */
@@ -716,6 +763,11 @@ export default function InstallerMobilePortal({
             Send for QC Approval
           </button>
         )}
+        {approvalMsg && (
+          <div style={{ color: 'var(--green)', fontSize: 14, textAlign: 'center', padding: '12px 0', fontWeight: 600 }}>
+            {approvalMsg}
+          </div>
+        )}
       </div>
     )
   }
@@ -910,7 +962,7 @@ export default function InstallerMobilePortal({
           {clockEntry ? fmt(clockElapsed) : '00:00:00'}
         </div>
         {clockEntry && (
-          <div style={{ ...sm, marginTop: 6 }}>Since {fmtTime(clockEntry.clock_in)} · {clockEntry.category}</div>
+          <div style={{ ...sm, marginTop: 6 }}>Since {fmtTime(clockEntry.clock_in)} · {clockEntry.category || '—'}</div>
         )}
       </div>
 
@@ -980,20 +1032,20 @@ export default function InstallerMobilePortal({
       {/* Today's entries */}
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Today's Entries ({todayClockEntries.length})
+          Today's Entries ({todayEntryList.length})
         </div>
-        {todayClockEntries.length === 0
+        {todayEntryList.length === 0
           ? <div style={{ ...sm, textAlign: 'center', padding: '16px 0' }}>No entries today</div>
-          : todayClockEntries.map(e => (
+          : todayEntryList.map(e => (
             <div key={e.id} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text1)', textTransform: 'capitalize' }}>{e.category}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text1)', textTransform: 'capitalize' }}>{e.category || '—'}</div>
                   <div style={{ ...sm, marginTop: 2 }}>{fmtTime(e.clock_in)} → {e.clock_out ? fmtTime(e.clock_out) : 'Active'}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>
-                    {fmtDuration(e.duration_seconds || clockElapsed)}
+                    {e.clock_out ? fmtDuration(e.duration_seconds ?? 0) : fmtDuration(clockElapsed)}
                   </div>
                   <div style={{ fontSize: 11, color: e.clock_out ? 'var(--text2)' : 'var(--green)', fontWeight: 600 }}>
                     {e.clock_out ? 'Done' : 'Active'}
@@ -1154,41 +1206,6 @@ export default function InstallerMobilePortal({
       )}
     </div>
   )
-
-  /* ================================================================ */
-  /*  Mini job card (home tab)                                         */
-  /* ================================================================ */
-
-  function MiniJobCard({ job, onTap }: { job: any; onTap: () => void }) {
-    return (
-      <div onClick={onTap} style={{ ...card, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text1)' }}>{job.title}</div>
-          <div style={{ ...sm, marginTop: 2 }}>
-            {job.vehicle_desc || job.form_data?.vehicle || '—'}
-            {job.install_date && ` · ${fmtDate(job.install_date)}`}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {stageBadge(job.pipe_stage)}
-          <ChevronRight size={16} style={{ color: 'var(--text2)' }} />
-        </div>
-      </div>
-    )
-  }
-
-  /* ================================================================ */
-  /*  Bottom tab bar                                                   */
-  /* ================================================================ */
-
-  const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'home',      label: 'Home',     icon: Home },
-    { id: 'jobs',      label: 'My Jobs',  icon: Briefcase },
-    { id: 'available', label: 'Bid',      icon: Star },
-    { id: 'earnings',  label: 'Pay',      icon: DollarSign },
-    { id: 'timeclock', label: 'Clock',    icon: Clock },
-    { id: 'supplies',  label: 'Supply',   icon: Package },
-  ]
 
   /* ================================================================ */
   /*  Render                                                           */

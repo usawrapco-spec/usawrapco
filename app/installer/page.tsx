@@ -22,6 +22,14 @@ export default async function InstallerPage() {
   const orgId = profile.org_id || ORG_ID
   const today = new Date().toISOString().split('T')[0]
   const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
+  // Week start (Monday) for the weekly hours total
+  const nowDate = new Date()
+  const dayOfWeek = nowDate.getDay() // 0=Sun
+  const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const weekStartDate = new Date(nowDate)
+  weekStartDate.setDate(nowDate.getDate() + diffToMon)
+  weekStartDate.setHours(0, 0, 0, 0)
+  const weekStartStr = weekStartDate.toISOString()
 
   const [
     { data: todayJobs },
@@ -30,7 +38,7 @@ export default async function InstallerPage() {
     { data: activeEntry },
     { data: availableJobs },
     { data: myBids },
-    { data: todayEntries },
+    { data: weekEntries },
     { data: supplyRequests },
   ] = await Promise.all([
     // Today's jobs for this installer
@@ -78,11 +86,11 @@ export default async function InstallerPage() {
       .order('created_at', { ascending: false })
       .limit(50),
 
-    // Today's clock entries
+    // This week's clock entries (for weekly hours total + today's display)
     admin.from('time_clock_entries')
       .select('*')
       .eq('user_id', user.id)
-      .gte('clock_in', today + 'T00:00:00')
+      .gte('clock_in', weekStartStr)
       .order('clock_in', { ascending: false }),
 
     // My supply requests
@@ -105,7 +113,7 @@ export default async function InstallerPage() {
           activeEntry={activeEntry || null}
           availableJobs={availableJobs || []}
           myBids={myBids || []}
-          todayEntries={todayEntries || []}
+          weekEntries={weekEntries || []}
           supplyRequests={supplyRequests || []}
         />
       </main>

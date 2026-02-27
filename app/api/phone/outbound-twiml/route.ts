@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       to_number: to,
       status: 'in-progress',
       started_at: new Date().toISOString(),
-      agent_id: userId,
+      answered_by: userId || undefined,
     })
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>

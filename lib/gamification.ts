@@ -92,7 +92,7 @@ export async function updateLoginStreak(
   try {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('current_streak, longest_streak, last_active_date')
+      .select('current_streak, longest_streak, last_active_date, org_id')
       .eq('id', userId)
       .single()
 
@@ -158,9 +158,10 @@ export async function updateLoginStreak(
         }).eq('id', userId)
         try {
           await supabase.from('xp_ledger').insert({
-            user_id: userId,
-            amount:  MILESTONE_BONUS,
-            reason:  'streak_bonus_5day',
+            user_id:    userId,
+            org_id:     profile.org_id || null,
+            amount:     MILESTONE_BONUS,
+            reason:     'streak_bonus_5day',
             source_type: 'streak',
             source_id:   String(newStreak),
           })
@@ -186,7 +187,7 @@ export async function checkAndAwardBadges(
   try {
     const [profileRes, closedRes, imageRes, referralRes, earlyRes, materialRes, topRes, proofRes, briefRes] = await Promise.all([
       supabase.from('profiles').select('xp, level, monthly_xp, current_streak, longest_streak, badges').eq('id', userId).single(),
-      supabase.from('projects').select('id, gpm').eq('agent_id', userId).eq('status', 'closed'),
+      supabase.from('projects').select('id, gpm, revenue, service_division').eq('agent_id', userId).eq('status', 'closed'),
       supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_id', userId),
       // Speed Demon: project closed 2+ days before scheduled install date
@@ -263,6 +264,35 @@ export async function checkAndAwardBadges(
     // Top Dog — highest monthly XP in the org
     const topProfile = (topRes.data || [])[0]
     if (topProfile && topProfile.id === userId && (profile.monthly_xp || 0) > 0) addBadge('top_dog')
+
+    // ── DB-seeded badges ──────────────────────────────────────────────────────
+
+    // First Wrap — at least one closed deal
+    if (closedDeals.length >= 1) addBadge('first_wrap')
+
+    // GPM Hero — any single deal at 73%+ GPM
+    if (closedDeals.some(p => (p.gpm || 0) >= 73)) addBadge('gpm_hero')
+
+    // GPM Legend — any single deal at 90%+ GPM
+    if (closedDeals.some(p => (p.gpm || 0) >= 90)) addBadge('gpm_legend')
+
+    // Fleet King — any deal with revenue >= $10,000
+    if (closedDeals.some(p => (p.revenue || 0) >= 10000)) addBadge('fleet_king')
+
+    // Boat Master — 5+ closed marine deals
+    const marineDeals = closedDeals.filter(p => p.service_division === 'marine')
+    if (marineDeals.length >= 5)  addBadge('boat_master')
+
+    // Boat Wrap King — 10+ closed marine deals
+    if (marineDeals.length >= 10) addBadge('boat_wrap_king')
+
+    // Tint Pro — 20+ closed tinting deals
+    const tintDeals = closedDeals.filter(p => p.service_division === 'tinting')
+    if (tintDeals.length >= 20) addBadge('tint_pro')
+
+    // Deck Lord — 10+ closed decking deals (approx for 500+ sqft installed)
+    const deckDeals = closedDeals.filter(p => p.service_division === 'decking')
+    if (deckDeals.length >= 10) addBadge('deck_lord')
 
     if (newBadges.length > 0) {
       // Update JSONB array on profiles (fast lookup)

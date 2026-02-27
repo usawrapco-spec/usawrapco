@@ -154,6 +154,13 @@ export default function JobChat({ projectId, orgId, currentUserId, currentUserNa
       image_url: urlData.publicUrl,
     });
 
+    // Award XP for photo upload (fire-and-forget)
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'photo_upload', sourceType: 'project', sourceId: projectId }),
+    }).catch(() => {});
+
     setNewMessage('');
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';

@@ -1,90 +1,136 @@
-# Customer Portal Build Report
+# PORTAL_BUILD.md — Customer Portal v6.2
 
-## Overview
-Full customer portal at `/portal` (portal.usawrapco.com) with magic link auth, dashboard home, job timeline tracking, design studio, invoices, referrals, loyalty, and messaging.
+**Date:** 2026-02-28
+**Status:** Build passes (webpack ✓, TypeScript ✓ via tsc --noEmit)
 
-## Phase 1 — Auth
-| File | Purpose |
-|------|---------|
-| `app/portal/login/page.tsx` | Portal login page (server component) |
-| `components/portal/PortalLoginClient.tsx` | Magic link email form, success state |
-| `app/portal/setup/page.tsx` | Post-magic-link password + name setup |
-| `components/portal/PortalSetupClient.tsx` | Password set form, profile name update |
-| `app/portal/layout.tsx` | Portal-specific metadata (title, description) |
-| `lib/supabase/middleware.ts` | Updated: unauthenticated `/portal` redirects to `/portal/login` |
+---
 
-### Auth Flow
-1. Customer visits `/portal` (or `portal.usawrapco.com`)
-2. Middleware redirects to `/portal/login` if no session
-3. Customer enters email, receives magic link via Supabase OTP
-4. Magic link redirects to `/auth/callback?next=/portal/setup`
-5. Setup page prompts for name + password
-6. Password set via `supabase.auth.updateUser()`, profile name updated
-7. Redirect to `/portal` home
-8. Future logins: email/password or magic link
+## AUDIT RESULTS
 
-## Phase 2 — Portal Home
-| Feature | Description |
-|---------|-------------|
-| Welcome header | Greeting with customer name, active project count |
-| Active jobs cards | Top 3 active projects with progress bars, click to detail |
-| Quick links grid | 2x3 grid: My Jobs, Design Studio, Invoices, Referrals, Loyalty, Messages |
-| Pending proofs alert | Amber banner when design proofs await review |
-| Open invoices alert | Green banner showing total balance due |
-| Notification bell | Dropdown with unread count badge, marks read on open |
-| Bottom mobile nav | 5-tab fixed nav: Home, Jobs, Design, Invoices, Messages |
+| Check | Result |
+|-------|--------|
+| Customer-facing routes outside auth | `/portal/`, `/proposal/`, `/intake/`, `/signoff/`, `/proof/`, `/track/` — all properly public in middleware |
+| `/book` page exists | ✓ at `app/book/page.tsx` |
+| Proposals public view | ✓ at `/proposal/[token]` — uses `sales_orders.portal_token` |
+| `customer_vehicles` table | ✓ exists — used by CustomerPortalHome |
+| `customer_notifications` table | ✓ exists — used by CustomerPortalHome |
+| `condition_reports` table | ✓ exists |
+| `portal_token` on projects | ✓ Added via migration (auto-UUID, unique) |
 
-## Phase 3 — My Jobs
-| Feature | Description |
-|---------|-------------|
-| Job list | All jobs with thumbnail, vehicle, wrap type, status badge, progress bar |
-| Job detail | Vehicle info, type, created date, install date |
-| Timeline | 8-stage customer-facing timeline with vertical connector |
-| Timeline stages | Received > Deposit Paid > In Design > Design Approved > In Production > Quality Check > Ready for Pickup > Complete |
-| Current stage | Pulses/glows with CSS animation, "CURRENT" badge |
-| Completed stages | Green checkmarks with connected green line |
-| Future stages | Dimmed with gray line |
-| Photos grid | 3-column grid of job photos (up to 9) |
+---
 
-### Timeline Stage Mapping (internal > customer)
-| Internal `pipe_stage` | Customer Timeline Index |
-|----------------------|------------------------|
-| `sales_in` | Deposit Paid (1) |
-| `production` | In Production (4) |
-| `install` | Quality Check (5) |
-| `prod_review` | Quality Check (5) |
-| `sales_close` | Ready for Pickup (6) |
-| `done` | Complete (7) |
+## WHAT WAS BUILT
 
-## Additional Views
-| View | Description |
-|------|-------------|
-| Design Studio | Proof review with approve/reject + feedback |
-| Invoices | Invoice list with pay now buttons, status badges |
-| Referrals | Referral link display, coming-soon activation |
-| Loyalty | Tier system (Bronze/Silver/Gold) based on project count |
-| Messages | Send messages to team via job_comments |
+### 1. Database Migration
+**File:** `supabase/migrations/20260228200000_portal_token_projects.sql`
+**Applied:** Yes (live on production)
 
-## Routes Created
+- `ALTER TABLE projects ADD COLUMN IF NOT EXISTS portal_token uuid DEFAULT gen_random_uuid() UNIQUE`
+- Back-fills all existing rows with unique UUIDs
+- Creates `portal_messages` table — customer↔team messaging via portal (public RLS)
+- Creates `portal_quote_approvals` table — records quote approvals (public RLS)
+- Creates index `idx_projects_portal_token` for fast lookups
+
+### 2. Portal Route — `/portal/[token]`
+**File:** `app/portal/[token]/page.tsx` (updated — server component)
+
+**Routing logic:**
+1. Tries to find `token` in `projects.portal_token` (admin client query)
+2. If found → renders new `ProjectPortalClient` with full project data
+3. If not found → falls back to existing `CustomerPortalHome` (intake token portal)
+
+**Data loaded in parallel:**
+- Customer info, estimate + line items, design proofs, job photos, invoice, portal messages
+
+### 3. ProjectPortalClient Component
+**File:** `components/portal/ProjectPortalClient.tsx` (NEW)
+
+Focused single-project portal with these sections:
+
+| Section | Details |
+|---------|---------|
+| **Header** | USA Wrap Co logo + phone number |
+| **Progress Tracker** | 7-stage visual pipeline: Estimate → Approved → Design → Proof Review → Print → Install → Complete |
+| **Job Summary** | Service, install date, customer contact |
+| **Quote/Estimate** | Line items, totals, Approve Quote + Request Changes (saves to `portal_quote_approvals`, notifies team) |
+| **Design Proofs** | Proof images with lightbox zoom, Approve + Request Revision per proof (updates `design_proofs.customer_status`) |
+| **Photos** | Before/After/In-Progress grid with lightbox |
+| **Appointment** | Install date, location, Add to Google Calendar link |
+| **Messages** | Threaded chat persisted to `portal_messages` table |
+| **Invoice/Payment** | Total, paid, balance, payment contact info |
+
+All sections are collapsible. Sections only render when data exists.
+
+### 4. Quote Action API
+**File:** `app/api/portal/quote-action/route.ts` (NEW)
+**Route:** `POST /api/portal/quote-action` — public (no auth, token-verified)
+
+- Verifies `portal_token` matches `project_id` before accepting action
+- Saves to `portal_quote_approvals` table
+- Writes internal `job_comments` entry (team notification)
+- Creates `notifications` entry for approved quotes
+- Added to middleware public routes
+
+### 5. Send Portal Link API
+**File:** `app/api/portal/send-link/route.ts` (NEW)
+**Route:** `POST /api/portal/send-link` — authenticated (team use only)
+
+- Sends branded HTML email via Resend to customer's email
+- Includes job title, vehicle, install date, portal URL
+- Logs to `activity_log`
+- Returns `{ ok: true, email }` or descriptive error
+
+### 6. ProjectDetail.tsx Updates
+**File:** `components/projects/ProjectDetail.tsx` (updated)
+
+- `portalToken` state initializes from `initial.portal_token` (project column)
+- Falls back to DB lookup if not hydrated
+- **Share Portal** button: copies `/portal/[portal_token]` to clipboard
+- **Email Portal** button: calls `/api/portal/send-link`, shows "Sent!" confirmation
+- Added `Mail` Lucide icon import
+
+### 7. Type & Bug Fixes
+
+**`types/index.ts`** — Added `portal_token?: string | null` to `Project` interface
+
+**`components/projects/JobDetailClient.tsx`** — Fixed pre-existing TS errors:
+- `!!fd.vehicleColor` → `fd.vehicleColor != null` (unknown not assignable to ReactNode in strict JSX)
+- `!!fd.jobType` → `fd.jobType != null`
+
+---
+
+## PORTAL ACCESS FLOW
+
 ```
-/portal              — Authenticated home (redirects to /portal/login if no session)
-/portal/login        — Magic link login
-/portal/setup        — Password + name setup (post-magic-link)
+Team in ProjectDetail → "Share Portal" → copies link to clipboard
+                      → "Email Portal" → sends Resend email to customer
+
+Customer receives: https://app.usawrapco.com/portal/[UUID]
+  → ProjectPortalClient loads
+  → Can approve quote, approve/revision proofs, send messages
+  → Actions persist to DB, team gets notified
 ```
 
-## Routes Preserved (not touched)
-```
-/portal/demo         — Public demo portal
-/portal/[token]      — Token-gated design review
-/portal/proof/[token] — Token-gated proof review
-/portal/quote/[token] — Token-gated quote approval
-```
+---
 
-## Build Status
-Zero TypeScript errors. Clean `npm run build` pass.
+## BACKWARD COMPATIBILITY
 
-## Custom Domain
-To map `portal.usawrapco.com`:
-1. Add CNAME record: `portal.usawrapco.com` -> `cname.vercel-dns.com`
-2. In Vercel project settings, add `portal.usawrapco.com` as a custom domain
-3. Vercel rewrites can route `portal.usawrapco.com/*` to `/portal/*`
+- `/portal/[intake_token]` — still works, falls back to `CustomerPortalHome`
+- `/portal/quote/[token]` — unchanged, uses `sales_orders.portal_token`
+- All existing intake tokens continue working
+
+---
+
+## FILES CHANGED
+
+| File | Action |
+|------|--------|
+| `supabase/migrations/20260228200000_portal_token_projects.sql` | NEW |
+| `app/portal/[token]/page.tsx` | UPDATED |
+| `components/portal/ProjectPortalClient.tsx` | NEW |
+| `app/api/portal/quote-action/route.ts` | NEW |
+| `app/api/portal/send-link/route.ts` | NEW |
+| `components/projects/ProjectDetail.tsx` | UPDATED |
+| `types/index.ts` | UPDATED |
+| `lib/supabase/middleware.ts` | UPDATED |
+| `components/projects/JobDetailClient.tsx` | FIXED |
