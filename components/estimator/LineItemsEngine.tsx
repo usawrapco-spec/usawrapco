@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Save, Briefcase, FileText, Check, X,
@@ -54,6 +55,7 @@ function createDefaultItem(): LineItemState {
 
 export default function LineItemsEngine({ projectId, orgId }: LineItemsEngineProps) {
   const supabase = createClient()
+  const router = useRouter()
   const [items, setItems] = useState<LineItemState[]>([createDefaultItem()])
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [activeTab, setActiveTab] = useState<'items' | 'proposals'>('items')
@@ -555,9 +557,57 @@ export default function LineItemsEngine({ projectId, orgId }: LineItemsEnginePro
 
             {/* Create Button */}
             <button
-              onClick={() => {
-                // In production, this would create the job(s) via API
-                setShowConvertModal(false)
+              onClick={async () => {
+                // Save estimator data first
+                await handleSave()
+
+                if (convertMode === 'peritem') {
+                  // Create one project per selected item
+                  const selectedItems = items.filter(i => convertSelected.includes(i.id))
+                  for (const item of selectedItems) {
+                    const calc = item._calc || calcLineItem(item)
+                    await supabase.from('projects').insert({
+                      org_id: orgId,
+                      name: item.name || 'New Job',
+                      status: 'sales_in',
+                      revenue: calc.salePrice,
+                      profit: calc.profit,
+                      gpm: Math.round(calc.gpm),
+                      fin_data: {
+                        sales: calc.salePrice, cogs: calc.cogs,
+                        profit: calc.profit, gpm: calc.gpm,
+                        material: calc.matCost, labor: calc.labor,
+                        designFee: calc.design, commission: 0, laborHrs: 0, misc: 0,
+                      },
+                    })
+                  }
+                  setShowConvertModal(false)
+                  router.push('/pipeline')
+                } else {
+                  // Single job OR custom selection — push current project into pipeline
+                  const t = calcTotals(
+                    items
+                      .filter(i => convertSelected.includes(i.id))
+                      .map(i => ({ ...i, _calc: calcLineItem(i), isOptional: false }))
+                  )
+                  await supabase
+                    .from('projects')
+                    .update({
+                      status: 'sales_in',
+                      revenue: t.totalRevenue,
+                      profit: t.totalProfit,
+                      gpm: Math.round(t.blendedGPM),
+                      fin_data: {
+                        sales: t.totalRevenue, cogs: t.totalCogs,
+                        profit: t.totalProfit, gpm: t.blendedGPM,
+                        material: t.totalMaterial, labor: t.totalLabor,
+                        designFee: t.totalDesign, commission: 0, laborHrs: 0, misc: 0,
+                      },
+                    })
+                    .eq('id', projectId)
+                  setShowConvertModal(false)
+                  router.push(`/projects/${projectId}`)
+                }
               }}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

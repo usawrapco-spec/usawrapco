@@ -210,7 +210,9 @@ export function calcLineItem(item: LineItemState): LineItemCalc {
         item.marPasses || 2,
         item.marTransom || false
       )
-      sqft = marine.withWaste + marine.transomSqft
+      // Use netSqft so MATERIAL_BUFFER (12%) applies as the only waste factor.
+      // withWaste already has 20% baked in — using it here would double-count waste.
+      sqft = marine.netSqft + marine.transomSqft
       break
     }
 
@@ -224,7 +226,7 @@ export function calcLineItem(item: LineItemState): LineItemCalc {
   const matCost = Math.round(sqft * item.matRate * MATERIAL_BUFFER)
   const design = item.designFee || 150
 
-  // Sale price logic
+  // Sale price logic (before cab/roof addon — addons are pure revenue, no COGS)
   let salePrice = 0
 
   if (item.manualSale && item.salePrice > 0) {
@@ -242,13 +244,13 @@ export function calcLineItem(item: LineItemState): LineItemCalc {
     salePrice = solveSalePrice(matCost, design, item.installRateMode, item.laborPct, item.laborFlat, item.targetGPM)
   }
 
-  // Add box truck cab addon to revenue
-  salePrice += extraRevenue
-
-  // Labor
+  // Labor calculated on base sale BEFORE cab/roof addon (addon is pure margin)
   const labor = item.installRateMode === 'pct'
     ? Math.round(salePrice * (item.laborPct / 100))
     : item.laborFlat
+
+  // Add box truck cab addon to revenue only (no additional COGS)
+  salePrice += extraRevenue
 
   // COGS & Profit
   const cogs = matCost + labor + design
