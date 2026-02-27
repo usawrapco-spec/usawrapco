@@ -31,7 +31,7 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
       const [{ data: j }, { data: sb }, { data: dt }] = await Promise.all([
         supabase.from('projects').select('*').eq('org_id', profile.org_id).neq('status', 'closed'),
         supabase.from('send_backs').select('*').eq('org_id', profile.org_id).order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*, project:project_id(title)').eq('org_id', profile.org_id).neq('status', 'done').order('due_date', { ascending: true }).limit(50),
+        supabase.from('tasks').select('*, project:project_id(title)').eq('org_id', profile.org_id).neq('status', 'done').order('due_at', { ascending: true }).limit(50),
       ])
       setJobs(j || [])
       setSendBacks(sb || [])
@@ -131,8 +131,8 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
       org_id: profile.org_id,
       title: newTitle.trim(),
       description: newDesc.trim() || null,
-      role: newRole,
-      due_date: newDue || null,
+      type: newRole,
+      due_at: newDue || null,
       priority: newPriority,
       status: 'pending',
       source: 'manual',
@@ -153,7 +153,7 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
   const filteredDbTasks = dbTasks.filter(t => {
     if (filter === 'all') return true
     const roleMap: Record<string, string> = { sales: 'sales_agent', production: 'production', installer: 'installer' }
-    return t.role === roleMap[filter]
+    return t.type === roleMap[filter]
   })
 
   const ROLE_COLOR: Record<string, string> = {

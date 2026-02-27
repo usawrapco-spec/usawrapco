@@ -632,7 +632,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
           title: (t.title as string) || (t.description as string) || '',
           completed: !!(t.completed || t.status === 'done'),
           created_at: t.created_at as string,
-          due_date: t.due_date as string | undefined,
+          due_date: (t.due_at || t.due_date) as string | undefined,
         })))
       } else {
         // Demo tasks
