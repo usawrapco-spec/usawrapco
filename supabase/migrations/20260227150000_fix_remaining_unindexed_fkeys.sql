@@ -238,3 +238,5 @@ CREATE INDEX IF NOT EXISTS idx_wrap_leads_converted_to_campaign_id ON public.wra
 CREATE INDEX IF NOT EXISTS idx_wrap_route_logs_campaign_id ON public.wrap_route_logs(campaign_id);
 
 CREATE INDEX IF NOT EXISTS idx_wrap_tracking_events_campaign_id ON public.wrap_tracking_events(campaign_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_badges_badge_id ON public.user_badges(badge_id);
