@@ -104,11 +104,9 @@ Return JSON:
     // Log this analysis
     await admin.from('activity_log').insert({
       org_id: ORG_ID,
-      actor_type: 'ai',
-      actor_name: 'V.I.N.Y.L. Self-Improve',
       action: 'weekly_analysis',
-      details: JSON.stringify({ report, analysis }),
-      metadata: { type: 'self_improve' },
+      entity_type: 'ai',
+      details: { report, analysis, type: 'self_improve' },
     })
 
     return NextResponse.json({ report, analysis })

@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       entity_type: 'design_project',
       entity_id: design_project_id,
       actor_id: user.id,
-      metadata: { title, duration },
+      details: { title, duration },
     })
   } catch {}
 

@@ -148,13 +148,11 @@ export async function POST(req: NextRequest) {
         .from('activity_log')
         .insert({
           org_id: ORG_ID,
-          customer_id: customer.id,
-          actor_type: 'customer',
           actor_id: customer.id,
-          actor_name: customer.name || from,
           action: 'inbound_sms',
-          details: body.length > 200 ? body.substring(0, 200) + '...' : body,
-          metadata: { message_sid: messageSid, media_count: numMedia },
+          entity_type: 'customer',
+          entity_id: customer.id,
+          details: { message: body.length > 200 ? body.substring(0, 200) + '...' : body, message_sid: messageSid, media_count: numMedia },
         })
     }
 

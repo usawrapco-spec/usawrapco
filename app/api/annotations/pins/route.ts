@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       entity_type: 'design_project',
       entity_id: design_project_id,
       actor_id: user.id,
-      metadata: { layer, pin_number: nextNum, content_preview: content.slice(0, 80) },
+      details: { layer, pin_number: nextNum, content_preview: content.slice(0, 80) },
     })
   } catch {}
 

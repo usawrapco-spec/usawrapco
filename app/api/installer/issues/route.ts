@@ -69,10 +69,11 @@ export async function POST(req: NextRequest) {
     await admin.from('activity_log').insert({
       org_id: ORG_ID,
       project_id: body.project_id,
-      user_id: user.id,
+      actor_id: user.id,
       action: 'critical_issue_flagged',
-      description: `Critical issue: ${body.description.substring(0, 120)}`,
-      created_at: new Date().toISOString(),
+      entity_type: 'project',
+      entity_id: body.project_id,
+      details: { description: body.description.substring(0, 120) },
     }).then(() => {}, () => {})
   }
 

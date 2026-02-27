@@ -87,10 +87,11 @@ export async function POST(req: NextRequest) {
   await admin.from('activity_log').insert({
     org_id: ORG_ID,
     project_id,
-    user_id: user.id,
+    actor_id: user.id,
     action: 'install_complete',
-    description: `Install marked complete. Difficulty: ${difficulty_rating}/5`,
-    created_at: new Date().toISOString(),
+    entity_type: 'project',
+    entity_id: project_id,
+    details: { description: `Install marked complete. Difficulty: ${difficulty_rating}/5` },
   }).then(() => {}, () => {})
 
   return NextResponse.json({ success: true, project_id })

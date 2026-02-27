@@ -134,13 +134,11 @@ export async function POST(req: NextRequest) {
         .from('activity_log')
         .insert({
           org_id: ORG_ID,
-          customer_id: customer.id,
-          actor_type: 'customer',
           actor_id: customer.id,
-          actor_name: customer.name || fromEmail,
           action: 'inbound_email',
-          details: subject,
-          metadata: { message_id: messageId },
+          entity_type: 'customer',
+          entity_id: customer.id,
+          details: { subject, message_id: messageId },
         })
     } catch { /* non-critical */ }
 

@@ -85,27 +85,24 @@ export async function POST(req: NextRequest) {
     // --- Log the call ---
     await supabase.from('calls').insert({
       org_id: ORG_ID,
-      call_sid: callSid,
+      external_id: callSid,
       direction: 'inbound',
       from_number: from,
       to_number: to,
       customer_id: customer?.id || null,
-      assigned_to: assignedEmployee?.id || null,
+      user_id: assignedEmployee?.id || null,
       status: callStatus || 'ringing',
-      started_at: new Date().toISOString(),
     })
 
     // --- Also log to activity_log for timeline ---
     if (customer?.id) {
       await supabase.from('activity_log').insert({
         org_id: ORG_ID,
-        customer_id: customer.id,
-        actor_type: 'customer',
         actor_id: customer.id,
-        actor_name: customer.name || from,
         action: 'inbound_call',
-        details: `Inbound call from ${from}`,
-        metadata: { call_sid: callSid, to_number: to },
+        entity_type: 'customer',
+        entity_id: customer.id,
+        details: { message: `Inbound call from ${from}`, call_sid: callSid, to_number: to },
       })
     }
 

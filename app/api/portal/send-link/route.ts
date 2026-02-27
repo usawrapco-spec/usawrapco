@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       entity_type: 'project',
       entity_id: project_id,
       action: 'portal_link_sent',
-      meta: { customer_email: customer.email },
+      details: { customer_email: customer.email },
     }).then(() => {}) // fire-and-forget
 
     return NextResponse.json({ ok: true, email: customer.email })
