@@ -16,11 +16,13 @@ export default async function ExpensesPage() {
   const { data: profile } = await admin.from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
+  // Admin/owner only
+  if (profile.role !== 'owner' && profile.role !== 'admin') redirect('/dashboard')
+
   const orgId = profile.org_id || ORG_ID
-  const isAdmin = profile.role === 'owner' || profile.role === 'admin'
 
   let employees: any[] = []
-  if (isAdmin) {
+  {
     const { data } = await admin.from('profiles').select('id,name,email,role').eq('org_id', orgId).eq('active', true).order('name')
     employees = data || []
   }

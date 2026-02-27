@@ -17,16 +17,10 @@ export default async function InvoicesLayout({
   const { data: profile } = await getSupabaseAdmin()
     .from('profiles').select('*').eq('id', user.id).single()
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="card max-w-sm text-center">
-          <div className="font-700 text-text1 mb-2">Profile not found</div>
-          <div className="text-sm text-text3">Contact your admin.</div>
-        </div>
-      </div>
-    )
-  }
+  if (!profile) redirect('/login')
+
+  // Admin/owner only
+  if (profile.role !== 'owner' && profile.role !== 'admin') redirect('/dashboard')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
