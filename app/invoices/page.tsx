@@ -20,7 +20,7 @@ export default async function InvoicesPage() {
   try {
     const { data, error } = await admin
       .from('invoices')
-      .select(`*, customer:customer_id(id, name, email), sales_order:sales_order_id(id, so_number)`)
+      .select(`*, customer:customer_id(id, name, email), sales_order:so_id(id, so_number)`)
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(200)

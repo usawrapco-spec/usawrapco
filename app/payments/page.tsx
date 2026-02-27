@@ -27,7 +27,7 @@ export default async function PaymentsPage() {
   try {
     const { data } = await admin
       .from('payments')
-      .select('*, invoices(id, invoice_number, customer_id), projects(id, title)')
+      .select('*, invoices(id, invoice_number, customer_id)')
       .eq('org_id', orgId)
       .order('payment_date', { ascending: false })
       .limit(500)

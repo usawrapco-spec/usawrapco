@@ -251,7 +251,7 @@ export async function POST(req: Request) {
   const maxDiscount = pricing.length > 0 ? Math.max(...pricing.map((p: any) => p.max_discount_pct || 0)) : 10
 
   const conversationHistory = history.map((m: any) =>
-    `[${m.role}] ${m.content}`
+    `[${m.direction === 'inbound' ? 'Customer' : 'VINYL'}] ${m.content}`
   ).join('\n')
 
   const systemPrompt = `You are V.I.N.Y.L., the AI sales assistant for USA Wrap Co in Seattle.
@@ -326,7 +326,7 @@ RULES:
     }
 
     const confidence = aiResponse.confidence ?? 0.7
-    const quoteTotal = conversation.quote_data?.total || 0
+    const quoteTotal = (conversation.tags as any)?.quote_data?.total || 0
 
     // 8. Check escalation BEFORE responding
     const ruleCheck = checkEscalationRules(inboundBody, confidence, quoteTotal, rules)
@@ -394,6 +394,9 @@ RULES:
     }
     if (aiResponse.wrap_preferences && Object.keys(aiResponse.wrap_preferences).length > 0) {
       tagUpdates.wrap_preferences = { ...(existingTags2.wrap_preferences || {}), ...aiResponse.wrap_preferences }
+    }
+    if (aiResponse.quote_data && Object.keys(aiResponse.quote_data).length > 0) {
+      tagUpdates.quote_data = { ...(existingTags2.quote_data || {}), ...aiResponse.quote_data }
     }
 
     await admin.from('conversations').update({
