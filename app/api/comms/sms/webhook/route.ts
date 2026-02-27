@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const { data: customer } = await admin
       .from('customers')
       .select('id, name')
-      .or(`phone.eq.${from},mobile.eq.${from}`)
+      .eq('phone', from)
       .maybeSingle()
 
     if (customer) {

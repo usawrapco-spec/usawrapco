@@ -499,7 +499,7 @@ export async function GET(
 
     const { data: byId } = await admin
       .from('estimates')
-      .select('*, customer:customer_id(id, name, email, phone, company, company_name, contact_name, address)')
+      .select('*, customer:customer_id(id, name, email, phone, company, company_name, address)')
       .eq('id', params.token)
       .single()
 
@@ -509,7 +509,7 @@ export async function GET(
       // fallback: token stored in form_data.proposalToken
       const { data: byToken } = await admin
         .from('estimates')
-        .select('*, customer:customer_id(id, name, email, phone, company, company_name, contact_name, address)')
+        .select('*, customer:customer_id(id, name, email, phone, company, company_name, address)')
         .eq('form_data->>proposalToken', params.token)
         .single()
       estimate = byToken

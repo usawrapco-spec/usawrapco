@@ -349,7 +349,7 @@ export async function GET(
 
     const { data: invoice, error } = await admin
       .from('invoices')
-      .select('*, customer:customer_id(id, name, email, phone, company, company_name, contact_name)')
+      .select('*, customer:customer_id(id, name, email, phone, company, company_name)')
       .eq('id', params.id)
       .single()
 

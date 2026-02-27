@@ -161,7 +161,7 @@ export async function POST(req: Request) {
         const { data: newCust } = await admin.from('customers').insert({
           org_id: ORG_ID, phone: inboundFrom, name: inboundFrom,
           status: 'lead', lead_source: 'ai_broker',
-        }).select('id').single()
+        }).select('id').maybeSingle()
         customerId = newCust?.id || null
       }
     } else if (channel === 'email' && inboundFrom) {
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
         const { data: newCust } = await admin.from('customers').insert({
           org_id: ORG_ID, email: inboundFrom, name: inboundFrom,
           status: 'lead', lead_source: 'ai_broker',
-        }).select('id').single()
+        }).select('id').maybeSingle()
         customerId = newCust?.id || null
       }
     }
@@ -230,7 +230,7 @@ export async function POST(req: Request) {
   if (conversation.customer_id) {
     const { data: cust } = await admin.from('customers')
       .select('name, email, phone, company_name, status')
-      .eq('id', conversation.customer_id).single()
+      .eq('id', conversation.customer_id).maybeSingle()
     if (cust) customerInfo = JSON.stringify(cust)
   }
 

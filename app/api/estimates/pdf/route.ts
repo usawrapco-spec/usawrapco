@@ -51,7 +51,7 @@ interface LineItemRow {
 
 interface CustomerRow {
   id: string
-  contact_name: string
+  name: string
   company_name?: string | null
   email?: string | null
   phone?: string | null
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   // Load estimate + customer
   const { data: est, error: estErr } = await admin
     .from('estimates')
-    .select('*, customer:customer_id(id, contact_name, company_name, email, phone, city, state)')
+    .select('*, customer:customer_id(id, name, company_name, email, phone, city, state)')
     .eq('id', id)
     .single()
 
@@ -569,7 +569,7 @@ export async function GET(req: NextRequest) {
   <div class="info-grid">
     <div class="info-card">
       <div class="info-label">Bill To</div>
-      <div class="info-name">${esc(customer?.contact_name || 'Customer')}</div>
+      <div class="info-name">${esc(customer?.name || 'Customer')}</div>
       <div class="info-detail">
         ${customer?.company_name ? `${esc(customer.company_name)}<br/>` : ''}
         ${customer?.email ? `${esc(customer.email)}<br/>` : ''}

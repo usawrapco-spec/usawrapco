@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       .from('wrap_funnel_sessions')
       .select('*')
       .eq('session_token', session_token)
-      .single()
+      .maybeSingle()
 
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 

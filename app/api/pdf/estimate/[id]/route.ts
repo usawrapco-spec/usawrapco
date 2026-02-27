@@ -442,7 +442,7 @@ export async function GET(
 
     const { data: estimate, error } = await admin
       .from('estimates')
-      .select('*, customer:customer_id(id, name, email, phone, company, company_name, contact_name, address)')
+      .select('*, customer:customer_id(id, name, email, phone, company, company_name, address)')
       .eq('id', params.id)
       .single()
 
