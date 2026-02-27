@@ -57,13 +57,13 @@ export async function POST(req: NextRequest) {
     await admin.from('communication_log').insert({
       org_id: ORG_ID,
       direction: 'inbound',
-      channel: 'sms',
-      from_number: from,
-      to_number: to,
-      message_body: messageBody,
-      external_id: messageSid,
-      has_media: numMedia > 0,
+      type: 'sms',
+      body: messageBody,
       metadata: {
+        from_number: from,
+        to_number: to,
+        external_id: messageSid,
+        has_media: numMedia > 0,
         num_media: numMedia,
         twilio_params: Object.fromEntries(params.entries()),
       },
@@ -85,11 +85,11 @@ export async function POST(req: NextRequest) {
         // Log to conversations table if it exists
         await admin.from('messages').insert({
           org_id: ORG_ID,
-          customer_id: customer.id,
           direction: 'inbound',
           channel: 'sms',
-          body: messageBody,
+          content: messageBody,
           external_id: messageSid,
+          metadata: { customer_id: customer.id },
           created_at: new Date().toISOString(),
         }).select()
       }

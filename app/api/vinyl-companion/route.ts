@@ -68,9 +68,8 @@ Be concise, helpful, and professional. When suggesting actions, provide specific
       const admin = getSupabaseAdmin()
       await admin.from('vinyl_context_log').insert({
         user_id: user.id,
-        page_route: context.page || '',
-        context_data: context,
-        message_count: formattedMessages.length,
+        page_path: context.page || '',
+        page_context: context,
       })
     } catch {
       // Non-fatal

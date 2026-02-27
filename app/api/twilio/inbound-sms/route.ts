@@ -238,10 +238,9 @@ export async function POST(req: NextRequest) {
             await admin.from('ai_message_log').insert({
               org_id: ORG_ID,
               conversation_id: conversation.id,
-              direction: 'outbound',
-              body: aiReplyBody,
-              model: 'claude-sonnet-4-6',
-              trigger: 'inbound_sms',
+              response_text: aiReplyBody,
+              model_used: 'claude-sonnet-4-6',
+              trigger_type: 'inbound_sms',
             })
           }
         }
