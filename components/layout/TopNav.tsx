@@ -277,7 +277,7 @@ export function TopNav({ profile }: { profile: Profile }) {
         const q = searchQuery.toLowerCase()
         const [jobsR, custsR, estR] = await Promise.all([
           supabase.from('projects').select('id, title, customer:customer_id(name)').eq('org_id', profile.org_id).ilike('title', `%${q}%`).limit(5),
-          supabase.from('customers').select('id, name, contact_name, company_name, email').eq('org_id', profile.org_id).or(`name.ilike.%${q}%,contact_name.ilike.%${q}%,company_name.ilike.%${q}%,email.ilike.%${q}%`).limit(5),
+          supabase.from('customers').select('id, name, company_name, email').eq('org_id', profile.org_id).or(`name.ilike.%${q}%,company_name.ilike.%${q}%,email.ilike.%${q}%`).limit(5),
           supabase.from('estimates').select('id, title, customer:customer_id(name)').eq('org_id', profile.org_id).ilike('title', `%${q}%`).limit(5),
         ])
         setSearchResults([
@@ -289,7 +289,7 @@ export function TopNav({ profile }: { profile: Profile }) {
           })),
           ...(custsR.data || []).map((c: any) => ({
             type: 'customer' as const, id: c.id,
-            title: c.contact_name || c.name || c.company_name || c.email || 'Unknown',
+            title: c.name || c.company_name || c.email || 'Unknown',
             subtitle: c.email,
             href: `/customers/${c.id}`,
           })),

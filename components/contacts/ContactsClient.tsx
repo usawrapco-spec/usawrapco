@@ -211,12 +211,12 @@ function mapDbToContact(c: any): Contact {
   const meta = c.metadata || {}
   return {
     id: c.id,
-    name: c.contact_name || c.name || c.company_name || 'Unknown',
+    name: c.name || c.company_name || 'Unknown',
     email: c.email || '',
     phone: c.phone || '',
     company: c.company_name || c.company || '',
     tags: Array.isArray(meta.tags) ? meta.tags : (Array.isArray(c.tags) ? c.tags : []),
-    source: c.referral_source || c.source || 'Other',
+    source: c.referral_source || c.lead_source || 'Other',
     status: meta.status === 'inactive' ? 'inactive' : 'active',
     lastContact: c.updated_at ? new Date(c.updated_at) : new Date(c.created_at || Date.now()),
     lifetimeSpend: Number(c.lifetime_spend) || 0,
