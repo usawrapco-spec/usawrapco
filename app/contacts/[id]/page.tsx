@@ -37,20 +37,6 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
 
   if (!customer) notFound()
 
-  // Fetch activities from activity_log
-  let activities: any[] = []
-  try {
-    const { data } = await admin
-      .from('activity_log')
-      .select('*')
-      .eq('customer_id', params.id)
-      .order('created_at', { ascending: false })
-      .limit(100)
-    activities = data || []
-  } catch {
-    activities = []
-  }
-
   // Fetch jobs (projects where customer_id = id)
   let jobs: any[] = []
   try {
@@ -97,7 +83,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
           <ContactDetailClient
             profile={profile as Profile}
             contact={customer}
-            activities={activities}
+            activities={[]}
             jobs={jobs}
             estimates={estimates}
             invoices={invoices}

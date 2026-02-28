@@ -220,7 +220,7 @@ function mapDbToContact(c: any): Contact {
     status: meta.status === 'inactive' ? 'inactive' : 'active',
     lastContact: c.updated_at ? new Date(c.updated_at) : new Date(c.created_at || Date.now()),
     lifetimeSpend: Number(c.lifetime_spend) || 0,
-    jobCount: Number(meta.total_jobs) || 0,
+    jobCount: Number(c.total_jobs) || 0,
     fleetSize: Number(c.fleet_size) || 0,
     hasEstimate: !!meta.has_estimate,
     estimateAccepted: !!meta.estimate_accepted,
@@ -414,7 +414,7 @@ export default function ContactsClient({ profile, initialContacts }: ContactsCli
           </div>
 
           <button
-            onClick={() => router.push('/contacts/new')}
+            onClick={() => router.push('/customers')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 16px', borderRadius: 8, border: 'none',
