@@ -1025,8 +1025,8 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                                 <div style={{ ...mono, fontSize: 13, fontWeight: 600, color: '#fff' }}>
                                   {fmt(record.total_gross_pay)}
                                 </div>
-                                <div style={{ ...mono, fontSize: 12, color: record.commission > 0 ? '#22c07a' : '#505a6b' }}>
-                                  {record.commission > 0 ? fmt(record.commission) : '--'}
+                                <div style={{ ...mono, fontSize: 12, color: (record.commission_pay || 0) > 0 ? '#22c07a' : '#505a6b' }}>
+                                  {(record.commission_pay || 0) > 0 ? fmt(record.commission_pay) : '--'}
                                 </div>
                                 <div style={{ ...mono, fontSize: 12, color: '#f25a5a' }}>
                                   {fmt(record.deductions)}
@@ -1533,123 +1533,6 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                           }
                         />
 
-                        {/* PTO Accrual */}
-                        <SettingField
-                          label="PTO Accrual (hrs/period)"
-                          icon={<Calendar size={12} color="#8b95a5" />}
-                          isEditing={isEditing}
-                          displayValue={`${setting.pto_accrual_rate} hrs`}
-                          editElement={
-                            <input
-                              type="number"
-                              step="0.5"
-                              value={editForm.pto_accrual_rate ?? setting.pto_accrual_rate}
-                              onChange={e => setEditForm(prev => ({ ...prev, pto_accrual_rate: parseFloat(e.target.value) || 0 }))}
-                              style={inputStyle}
-                            />
-                          }
-                        />
-
-                        {/* Payment Method */}
-                        <SettingField
-                          label="Payment Method"
-                          icon={<CreditCard size={12} color="#8b95a5" />}
-                          isEditing={isEditing}
-                          displayValue={setting.payment_method === 'direct_deposit' ? 'Direct Deposit' : setting.payment_method === 'check' ? 'Check' : setting.payment_method}
-                          editElement={
-                            <select
-                              value={(editForm.payment_method as string) || setting.payment_method}
-                              onChange={e => setEditForm(prev => ({ ...prev, payment_method: e.target.value }))}
-                              style={inputStyle}
-                            >
-                              <option value="direct_deposit">Direct Deposit</option>
-                              <option value="check">Check</option>
-                              <option value="cash">Cash</option>
-                            </select>
-                          }
-                        />
-
-                        {/* Tax Filing Status */}
-                        <SettingField
-                          label="Tax Filing Status"
-                          icon={<FileText size={12} color="#8b95a5" />}
-                          isEditing={isEditing}
-                          displayValue={setting.tax_filing_status === 'single' ? 'Single' : setting.tax_filing_status === 'married' ? 'Married' : setting.tax_filing_status === 'head_of_household' ? 'Head of Household' : setting.tax_filing_status}
-                          editElement={
-                            <select
-                              value={(editForm.tax_filing_status as string) || setting.tax_filing_status}
-                              onChange={e => setEditForm(prev => ({ ...prev, tax_filing_status: e.target.value }))}
-                              style={inputStyle}
-                            >
-                              <option value="single">Single</option>
-                              <option value="married">Married</option>
-                              <option value="head_of_household">Head of Household</option>
-                            </select>
-                          }
-                        />
-
-                        {/* Federal Allowances */}
-                        <SettingField
-                          label="Federal Allowances"
-                          icon={<Shield size={12} color="#8b95a5" />}
-                          isEditing={isEditing}
-                          displayValue={String(setting.federal_allowances)}
-                          editElement={
-                            <input
-                              type="number"
-                              step="1"
-                              min="0"
-                              value={editForm.federal_allowances ?? setting.federal_allowances}
-                              onChange={e => setEditForm(prev => ({ ...prev, federal_allowances: parseInt(e.target.value) || 0 }))}
-                              style={inputStyle}
-                            />
-                          }
-                        />
-
-                        {/* State Allowances */}
-                        <SettingField
-                          label="State Allowances (WA)"
-                          icon={<Shield size={12} color="#8b95a5" />}
-                          isEditing={isEditing}
-                          displayValue={String(setting.state_allowances)}
-                          editElement={
-                            <input
-                              type="number"
-                              step="1"
-                              min="0"
-                              value={editForm.state_allowances ?? setting.state_allowances}
-                              onChange={e => setEditForm(prev => ({ ...prev, state_allowances: parseInt(e.target.value) || 0 }))}
-                              style={inputStyle}
-                            />
-                          }
-                        />
-
-                        {/* Additional Withholding */}
-                        <SettingField
-                          label="Addl. Withholding"
-                          icon={<DollarSign size={12} color="#8b95a5" />}
-                          isEditing={isEditing}
-                          displayValue={setting.additional_withholding > 0 ? fmt(setting.additional_withholding) : '--'}
-                          editElement={
-                            <input
-                              type="number"
-                              step="1"
-                              min="0"
-                              value={editForm.additional_withholding ?? setting.additional_withholding}
-                              onChange={e => setEditForm(prev => ({ ...prev, additional_withholding: parseFloat(e.target.value) || 0 }))}
-                              style={inputStyle}
-                            />
-                          }
-                        />
-
-                        {/* PTO Balance (read-only in edit mode) */}
-                        <SettingField
-                          label="PTO Balance"
-                          icon={<Calendar size={12} color="#22d3ee" />}
-                          isEditing={false}
-                          displayValue={`${setting.pto_balance} hrs`}
-                          displayColor="#22d3ee"
-                        />
                       </div>
                     </div>
                   </div>
