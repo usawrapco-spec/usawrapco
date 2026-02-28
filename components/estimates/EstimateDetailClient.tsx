@@ -434,7 +434,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [areaCalcItemId, setAreaCalcItemId] = useState<string | null>(null)
 
   // Templates
-  const [templates, setTemplates] = useState<{ id: string; name: string; description: string; line_items: unknown[] }[]>([])
+  const [templates, setTemplates] = useState<{ id: string; name: string; description: string; line_items: unknown[]; use_count: number }[]>([])
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
   const templateMenuRef = useRef<HTMLDivElement>(null)
 
@@ -464,7 +464,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     async function loadTemplates() {
       const { data } = await supabase
         .from('estimate_templates')
-        .select('id, name, description, line_items')
+        .select('id, name, description, line_items, use_count')
         .order('use_count', { ascending: false })
         .limit(20)
       if (data) setTemplates(data as typeof templates)
@@ -868,7 +868,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       if (error) throw error
       showToast(`Template "${name}" saved`)
       // Reload templates
-      const { data } = await supabase.from('estimate_templates').select('id, name, description, line_items').order('use_count', { ascending: false }).limit(20)
+      const { data } = await supabase.from('estimate_templates').select('id, name, description, line_items, use_count').order('use_count', { ascending: false }).limit(20)
       if (data) setTemplates(data as typeof templates)
     } catch (err) {
       console.error('Save template error:', err)
@@ -896,7 +896,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     setLineItemsList(items)
     showToast(`Template "${tmpl.name}" loaded`)
     // Increment use count
-    await supabase.rpc('increment_template_use', { template_id: tmpl.id })
+    await supabase.from('estimate_templates').update({ use_count: (tmpl.use_count || 0) + 1 }).eq('id', tmpl.id)
   }
 
   async function handleDelete() {
@@ -2454,8 +2454,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             {/* Line Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
               {lineItemsList.map(li => {
-                const liCogs = (li.cogs ?? 0) * (li.qty ?? 1)
-                const liRev = (li.price ?? 0) * (li.qty ?? 1)
+                const liGPMData = calcGPM(li, leadType)
+                const liCogs = liGPMData.cogs
+                const liRev = li.total_price
                 const liGP = liRev - liCogs
                 const liGPM = liRev > 0 ? (liGP / liRev) * 100 : 0
                 const sel = convertSelected.has(li.id)

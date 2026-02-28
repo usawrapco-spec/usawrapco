@@ -3,716 +3,1549 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DekWave — Puget Sound Navigator</title>
+<title>DekWave Puget Sound Navigator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Jost:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
-  --bg:        #eeeade;
-  --surface:   #f5f1e4;
-  --surface2:  #faf8f0;
-  --navy:      #1a2738;
-  --navy2:     #243348;
-  --navy3:     #2e4260;
-  --brass:     #b58c28;
-  --brass-lt:  #ceaa44;
-  --brass-dk:  #8c6a18;
-  --fog:       #4a7899;
-  --fog-lt:    #6a98ba;
-  --text1:     #1a2738;
-  --text2:     #485868;
-  --text3:     #7a8898;
-  --border:    rgba(26,39,56,0.14);
-  --border-s:  rgba(26,39,56,0.07);
-  --green:     #1e6b3e;
-  --amber:     #b07a10;
-  --red:       #aa2a1a;
-  --panel-w:   260px;
-  --rpanel-w:  242px;
+  --bg:#eeeade; --surface:#f5f1e4; --surface2:#faf8f0;
+  --navy:#1a2738; --navy2:#243348; --navy3:#2e4260;
+  --brass:#b58c28; --brass-lt:#ceaa44; --brass-dk:#8c6a18;
+  --fog:#4a7899; --fog-lt:#6a98ba;
+  --text1:#1a2738; --text2:#485868; --text3:#7a8898;
+  --border:rgba(26,39,56,0.14);
+  --green:#1e6b3e; --amber:#b07a10; --red:#aa2a1a;
 }
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;background:var(--bg);color:var(--text1);font-family:'Jost',sans-serif;font-size:13px;line-height:1.5;overflow:hidden;}
-#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:var(--bg);color:var(--text1);}
 
-/* SCROLLBAR */
-::-webkit-scrollbar{width:4px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:rgba(26,39,56,0.18);border-radius:2px;}
-::-webkit-scrollbar-thumb:hover{background:rgba(181,140,40,0.4);}
+/* LAYOUT */
+#app-root{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+#app-body{display:flex;flex:1;overflow:hidden;min-height:0;}
 
-/* ── HEADER ─────────────────────────────── */
+/* HEADER */
 #header{
-  height:58px;background:var(--navy);border-bottom:2px solid var(--brass-dk);
-  display:flex;align-items:center;padding:0 18px;gap:18px;flex-shrink:0;z-index:1000;
+  height:58px;background:var(--navy);display:flex;align-items:center;
+  flex-shrink:0;border-bottom:2px solid var(--brass);position:relative;z-index:400;
 }
-.brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.brand-mark{
-  width:36px;height:36px;background:var(--brass);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;
-  letter-spacing:.04em;color:var(--navy);
+#brand{display:flex;align-items:center;gap:10px;padding:0 16px;border-right:1px solid rgba(255,255,255,0.1);flex-shrink:0;}
+#logo-circle{
+  width:38px;height:38px;border-radius:50%;border:2px solid var(--brass);
+  background:var(--navy2);display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;color:var(--brass);
+  letter-spacing:1px;flex-shrink:0;
 }
-.brand-name{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:22px;letter-spacing:.12em;color:var(--brass);line-height:1;}
-.brand-sub{font-size:8px;color:rgba(255,255,255,.4);letter-spacing:.22em;text-transform:uppercase;margin-top:1px;}
-.partner-badge{
-  display:flex;align-items:center;gap:9px;padding:6px 12px;
-  border:1px solid rgba(200,169,110,.28);border-radius:2px;
-  background:rgba(200,169,110,.07);flex-shrink:0;
+#brand-text h1{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:3px;line-height:1.1;}
+#brand-text p{font-size:9px;color:var(--brass-lt);letter-spacing:2px;font-weight:400;text-transform:uppercase;}
+#partner-badge{
+  display:flex;align-items:center;gap:7px;padding:0 14px;border-right:1px solid rgba(255,255,255,0.1);
+  flex-shrink:0;cursor:default;
 }
-.partner-badge-icon{font-size:16px;line-height:1;}
-.partner-label{font-size:7.5px;color:var(--brass);letter-spacing:.22em;text-transform:uppercase;}
-.partner-name{font-family:'Cormorant Garamond',serif;font-size:13px;color:rgba(255,255,255,.88);letter-spacing:.04em;}
-.cond-bar{margin-left:auto;display:flex;align-items:center;gap:18px;}
-.cond-item{display:flex;flex-direction:column;align-items:center;gap:1px;}
-.cond-lbl{font-size:7.5px;color:rgba(255,255,255,.38);letter-spacing:.22em;text-transform:uppercase;}
-.cond-val{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--brass);}
-.cond-div{width:1px;height:26px;background:rgba(200,169,110,.2);}
-.gps-row{display:flex;align-items:center;gap:6px;}
-.gps-dot{width:8px;height:8px;background:#4caf50;border-radius:50%;animation:gpsblink 2s ease-in-out infinite;}
-@keyframes gpsblink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(76,175,80,.6);}50%{opacity:.75;box-shadow:0 0 0 5px rgba(76,175,80,0);}}
+#partner-badge svg{color:var(--brass-lt);flex-shrink:0;}
+.pb-text{font-size:9px;color:rgba(255,255,255,0.7);letter-spacing:1.5px;text-transform:uppercase;line-height:1.4;}
+.pb-text strong{display:block;font-size:10px;color:var(--brass-lt);font-weight:600;}
+#conditions-bar{
+  margin-left:auto;display:flex;align-items:center;padding-right:12px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+}
+.cond-item{display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid rgba(255,255,255,0.08);}
+.cond-label{font-size:8px;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;}
+.cond-value{color:var(--brass-lt);font-size:12px;}
+.cond-value.alert{color:#f87171;}
 
-/* ── BODY ────────────────────────────────── */
-#body{display:flex;flex:1;overflow:hidden;min-height:0;}
-
-/* ── PANELS (shared) ─────────────────────── */
-.side-panel{
-  background:var(--surface);display:flex;flex-direction:column;
-  overflow:hidden;flex-shrink:0;z-index:200;
-  transition:width .3s cubic-bezier(.4,0,.2,1);min-width:0;
+/* WEATHER BANNER */
+#weather-banner{
+  flex-shrink:0;padding:6px 16px;font-size:12px;font-weight:600;letter-spacing:0.5px;
+  display:none;align-items:center;gap:8px;z-index:300;
 }
-.side-panel.collapsed{width:0!important;}
+#weather-banner svg{flex-shrink:0;}
+.banner-amber{background:var(--amber);color:#fff;}
+.banner-orange{background:#c05010;color:#fff;}
+.banner-red{background:var(--red);color:#fff;}
+.banner-darkred{background:#5a0a0a;color:#fca5a5;}
 
+/* PANEL STRIPS */
+.panel-strip{
+  width:20px;background:var(--navy2);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;z-index:200;transition:background 0.2s;
+  border:none;outline:none;padding:0;
+}
+.panel-strip:hover{background:var(--navy3);}
+.panel-strip svg{color:var(--brass);transition:transform 0.3s;}
+.panel-strip.left-strip svg{transform:rotate(0deg);}
+.panel-strip.left-strip.collapsed svg{transform:rotate(180deg);}
+.panel-strip.right-strip svg{transform:rotate(180deg);}
+.panel-strip.right-strip.collapsed svg{transform:rotate(0deg);}
+
+/* LEFT PANEL */
 #left-panel{
-  width:var(--panel-w);border-right:1px solid var(--border);
-  overflow-y:auto;overflow-x:hidden;
+  width:268px;background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;flex-shrink:0;transition:width 0.3s ease,opacity 0.3s;
+  display:flex;flex-direction:column;
 }
-#left-panel>*{min-width:var(--panel-w);}
-#left-panel.collapsed{border-right:none;}
-
-#right-panel{width:var(--rpanel-w);border-left:1px solid var(--border);}
-#right-panel>*{min-width:var(--rpanel-w);}
-#right-panel.collapsed{border-left:none;}
-
-/* Panel sections */
-.ps{padding:13px 15px;border-bottom:1px solid var(--border-s);}
-.ps-title{font-size:7.5px;color:var(--brass-dk);letter-spacing:.24em;text-transform:uppercase;margin-bottom:10px;}
+#left-panel.collapsed{width:0;overflow:hidden;opacity:0;}
+.panel-section{border-bottom:1px solid var(--border);padding:12px 14px;}
+.panel-section:last-child{border-bottom:none;}
+.section-title{
+  font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.section-title svg{color:var(--brass);}
 
 /* Chart mode buttons */
-.chart-btns{display:flex;flex-direction:column;gap:3px;}
+.chart-btns{display:flex;gap:6px;flex-wrap:wrap;}
 .chart-btn{
-  display:flex;align-items:center;gap:9px;background:none;border:1px solid transparent;
-  color:var(--text2);padding:7px 10px;border-radius:2px;cursor:pointer;
-  font-family:'Jost',sans-serif;font-size:12px;text-align:left;
-  transition:all .18s;width:100%;
+  padding:5px 10px;font-size:11px;font-family:'Jost',sans-serif;font-weight:500;
+  border:1px solid var(--border);border-radius:4px;background:var(--surface2);
+  color:var(--text2);cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;
 }
-.chart-btn:hover{background:rgba(26,39,56,.05);color:var(--text1);}
-.chart-btn.active{background:var(--navy);border-color:var(--navy2);color:var(--brass);}
-.chart-btn-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.chart-btn:hover{border-color:var(--brass);color:var(--brass);}
+.chart-btn.active{background:var(--navy);color:var(--brass-lt);border-color:var(--brass);}
 
-/* Overlay toggles */
-.ov-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-s);}
-.ov-row:last-child{border-bottom:none;}
-.ov-lbl{font-size:11.5px;color:var(--text2);}
-.tog{position:relative;width:34px;height:19px;cursor:pointer;flex-shrink:0;}
-.tog input{opacity:0;width:0;height:0;position:absolute;}
-.tog-track{position:absolute;inset:0;background:rgba(26,39,56,.1);border:1px solid rgba(26,39,56,.2);border-radius:10px;transition:.25s;}
-.tog-thumb{position:absolute;top:2px;left:2px;width:13px;height:13px;background:var(--text3);border-radius:50%;transition:.25s;}
-.tog input:checked~.tog-track{background:rgba(26,39,56,.15);border-color:var(--navy);}
-.tog input:checked~.tog-track .tog-thumb{transform:translateX(15px);background:var(--navy);}
+/* Toggles */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;}
+.toggle-label{font-size:12px;color:var(--text2);}
+.toggle{
+  width:36px;height:20px;border-radius:10px;background:var(--text3);
+  position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;
+  border:none;outline:none;
+}
+.toggle.on{background:var(--brass);}
+.toggle::after{
+  content:'';position:absolute;width:16px;height:16px;border-radius:50%;
+  background:#fff;top:2px;left:2px;transition:left 0.2s;
+}
+.toggle.on::after{left:18px;}
 
-/* Readout grid */
-.readout-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.r-cell{background:var(--surface2);border:1px solid var(--border-s);border-radius:2px;padding:8px 9px;}
-.r-lbl{font-size:7.5px;color:var(--text3);letter-spacing:.16em;text-transform:uppercase;margin-bottom:3px;}
-.r-val{font-family:'Share Tech Mono',monospace;font-size:17px;color:var(--navy2);line-height:1;}
-.r-unit{font-size:9px;color:var(--text3);}
-
-/* Status list */
-.st-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-s);}
-.st-row:last-child{border-bottom:none;}
-.st-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.st-dot.g{background:var(--green);}
-.st-dot.a{background:var(--amber);}
-.st-lbl{font-size:11px;color:var(--text2);flex:1;}
-.st-val{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--fog);}
-
-/* Tide */
-.tide-cell{background:var(--surface2);border:1px solid var(--border-s);border-radius:2px;padding:9px;margin-bottom:8px;}
-.tide-note{font-size:9.5px;color:var(--text3);line-height:1.55;font-style:italic;}
+/* Weather grid */
+.weather-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.weather-item{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+.w-label{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.w-value{font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--text1);}
+.w-unit{font-size:10px;color:var(--text3);margin-left:2px;}
 
 /* Fishing conditions */
-.fc-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-s);}
-.fc-row:last-child{border-bottom:none;}
-.fc-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.fc-lbl{font-size:11px;color:var(--text2);flex:1;}
-.fc-val{font-family:'Share Tech Mono',monospace;font-size:10px;}
-.fc-val.good{color:var(--green);}
-.fc-val.fair{color:var(--amber);}
-.fc-val.poor{color:var(--red);}
-
-/* Season chips */
-.season-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
-.s-chip{background:var(--surface2);border:1px solid var(--border-s);border-radius:2px;padding:6px 8px;}
-.s-chip.on{border-color:rgba(30,107,62,.3);background:rgba(30,107,62,.06);}
-.s-chip-name{font-size:10px;color:var(--navy);font-weight:500;margin-bottom:1px;}
-.s-chip.on .s-chip-name{color:var(--green);}
-.s-chip-info{font-size:9px;color:var(--text3);}
-
-/* Fishing spot quick-list */
-.spot-row{
-  display:flex;align-items:center;gap:8px;padding:7px 0;
-  border-bottom:1px solid var(--border-s);cursor:pointer;transition:background .15s;
+.fish-cond-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);}
+.fish-cond-row:last-child{border-bottom:none;}
+.fc-label{font-size:11px;color:var(--text3);}
+.fc-value{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text1);}
+.outlook-badge{
+  display:inline-block;padding:4px 10px;border-radius:12px;font-size:10px;
+  font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-top:8px;
 }
-.spot-row:last-child{border-bottom:none;}
-.spot-row:hover{background:rgba(26,39,56,.04);margin:0 -15px;padding-left:15px;padding-right:15px;}
-.spot-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.spot-name{font-size:11px;color:var(--text1);flex:1;}
-.spot-species{font-size:9.5px;color:var(--text3);}
+.ob-excellent{background:#1e6b3e;color:#a7f3d0;}
+.ob-good{background:#2d5a3d;color:#6ee7b7;}
+.ob-fair{background:#78350f;color:#fcd34d;}
+.ob-poor{background:#7f1d1d;color:#fca5a5;}
 
-/* ── PANEL TOGGLE TABS ───────────────────── */
-.panel-tab{
-  width:16px;background:var(--surface);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
-  z-index:300;transition:background .18s;user-select:none;
+/* Solunar */
+.solunar-list{display:flex;flex-direction:column;gap:4px;}
+.solunar-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 8px;border-radius:4px;background:var(--surface2);border:1px solid var(--border);
 }
-.panel-tab:hover{background:var(--navy);}
-.panel-tab:hover .tab-chevron{color:var(--brass);}
-.ltab{border-right:1px solid var(--border);}
-.rtab{border-left:1px solid var(--border);}
-.tab-chevron{
-  font-family:'Share Tech Mono',monospace;font-size:11px;
-  color:var(--brass-dk);line-height:1;
-  writing-mode:vertical-rl;text-orientation:mixed;
-  padding:6px 0;
-}
+.sol-type{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text3);}
+.sol-type.major{color:var(--brass);}
+.sol-time{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text1);}
+.sol-stars{font-size:11px;color:var(--brass);}
 
-/* ── MAP ─────────────────────────────────── */
-#map-wrap{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0;}
+/* Species season grid */
+.species-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.species-pill{
+  padding:4px 8px;border-radius:4px;font-size:10px;font-weight:500;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text2);
+  display:flex;align-items:center;gap:5px;
+}
+.species-pill.in-season{background:var(--green);color:#d1fae5;border-color:var(--green);}
+.species-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* Quick spots */
+.spot-list{display:flex;flex-direction:column;gap:3px;}
+.spot-link{
+  padding:6px 8px;border-radius:4px;font-size:11px;color:var(--text2);
+  cursor:pointer;display:flex;align-items:center;gap:7px;transition:all 0.15s;
+  border:1px solid transparent;background:transparent;font-family:'Jost',sans-serif;
+  text-align:left;width:100%;
+}
+.spot-link:hover{background:var(--surface2);border-color:var(--border);color:var(--brass);}
+.spot-link svg{color:var(--text3);flex-shrink:0;}
+
+/* Status */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.status-item{font-size:10px;color:var(--text3);}
+.status-item span{font-family:'Share Tech Mono',monospace;color:var(--text2);display:block;font-size:11px;}
+
+/* MAP */
+#map-wrapper{flex:1;position:relative;min-width:0;}
 #map{position:absolute;inset:0;}
 
 /* HUD */
-#hud{
-  position:absolute;bottom:22px;left:50%;transform:translateX(-50%);
-  background:rgba(26,39,56,.9);backdrop-filter:blur(14px);
-  border:1px solid rgba(200,169,110,.22);border-radius:2px;
-  padding:8px 20px;display:flex;align-items:center;gap:20px;
-  z-index:800;pointer-events:none;
+#map-hud{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;
+  background:rgba(26,39,56,0.88);backdrop-filter:blur(4px);
+  border:1px solid var(--brass);border-radius:20px;
+  padding:6px 16px;display:flex;align-items:center;gap:16px;pointer-events:none;
 }
-.hud-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
-.hud-lbl{font-size:7px;color:rgba(255,255,255,.35);letter-spacing:.22em;text-transform:uppercase;}
-.hud-val{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--brass);white-space:nowrap;}
-.hud-div{width:1px;height:26px;background:rgba(200,169,110,.2);}
+.hud-item{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--brass-lt);}
+.hud-sep{width:1px;height:14px;background:rgba(181,140,40,0.3);}
 
-/* ── RIGHT PANEL ─────────────────────────── */
-.rp-head{padding:13px 15px 11px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.rp-head-sub{font-size:10.5px;color:var(--text3);margin-top:2px;}
-.poi-list{overflow-y:auto;flex:1;}
-.poi-item{padding:10px 14px;border-bottom:1px solid var(--border-s);cursor:pointer;transition:background .16s;}
-.poi-item:hover{background:rgba(26,39,56,.04);}
-.poi-item.partner{border-left:2px solid var(--brass);padding-left:12px;}
-.poi-cat{font-size:8px;color:var(--brass-dk);letter-spacing:.2em;text-transform:uppercase;margin-bottom:2px;}
-.poi-name{font-family:'Cormorant Garamond',serif;font-size:14.5px;color:var(--navy);line-height:1.15;margin-bottom:1px;}
-.poi-sub{font-size:9.5px;color:var(--text3);}
+/* RIGHT PANEL */
+#right-panel{
+  width:280px;background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+  transition:width 0.3s ease,opacity 0.3s;
+}
+#right-panel.collapsed{width:0;overflow:hidden;opacity:0;}
+#right-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--navy);flex-shrink:0;}
+.rtab{
+  flex:1;padding:9px 4px;font-size:9px;font-weight:600;letter-spacing:1.2px;
+  text-transform:uppercase;text-align:center;cursor:pointer;color:rgba(255,255,255,0.45);
+  border-bottom:2px solid transparent;transition:all 0.2s;
+  background:none;border-top:none;border-left:none;border-right:none;
+  font-family:'Jost',sans-serif;
+}
+.rtab:hover{color:rgba(255,255,255,0.75);}
+.rtab.active{color:var(--brass-lt);border-bottom-color:var(--brass);}
+#right-content{flex:1;overflow-y:auto;}
+.rpanel{display:none;padding:12px 14px;flex-direction:column;gap:10px;}
+.rpanel.active{display:flex;}
 
-/* ── LEAFLET OVERRIDES ───────────────────── */
-.leaflet-container{background:var(--bg)!important;font-family:'Jost',sans-serif!important;}
+/* POI list */
+.poi-item{
+  display:flex;align-items:flex-start;gap:9px;padding:8px 10px;
+  border-radius:6px;background:var(--surface2);border:1px solid var(--border);
+  cursor:pointer;transition:border-color 0.15s;
+}
+.poi-item:hover{border-color:var(--brass);}
+.poi-icon{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;font-size:14px;
+}
+.poi-info h4{font-size:12px;font-weight:600;color:var(--text1);line-height:1.3;}
+.poi-info p{font-size:10px;color:var(--text3);margin-top:1px;}
+.poi-cat{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+
+/* Fish guide */
+.fish-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.fish-card{
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:10px;cursor:pointer;transition:all 0.2s;text-align:center;
+}
+.fish-card:hover{border-color:var(--brass);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+.fish-emoji{font-size:24px;margin-bottom:4px;}
+.fish-name{font-size:11px;font-weight:600;color:var(--text1);line-height:1.3;}
+.fish-sub{font-size:9px;color:var(--text3);}
+
+/* Trip reports */
+.trip-form{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.trip-form h4{font-size:12px;font-weight:600;color:var(--text1);margin-bottom:10px;}
+.form-row{margin-bottom:8px;}
+.form-row label{font-size:10px;color:var(--text3);display:block;margin-bottom:3px;letter-spacing:0.5px;}
+.form-row input,.form-row select,.form-row textarea{
+  width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;
+  background:var(--surface);color:var(--text1);font-family:'Jost',sans-serif;font-size:12px;
+  outline:none;transition:border-color 0.2s;
+}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--brass);}
+.form-row textarea{resize:vertical;min-height:60px;}
+.species-checks{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.species-check{
+  display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);
+  padding:2px 6px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;user-select:none;
+}
+.species-check.checked{background:var(--navy);color:var(--brass-lt);border-color:var(--brass);}
+.submit-btn{
+  width:100%;padding:8px;background:var(--navy);color:var(--brass-lt);
+  border:1px solid var(--brass);border-radius:4px;font-family:'Jost',sans-serif;
+  font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.5px;
+  transition:all 0.2s;margin-top:8px;
+}
+.submit-btn:hover{background:var(--navy3);}
+.report-item{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:10px;font-size:11px;
+}
+.report-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+.report-user{font-weight:600;color:var(--text1);}
+.report-date{font-size:10px;color:var(--text3);}
+.report-spot{font-size:10px;color:var(--fog);margin-bottom:4px;}
+.report-stars{color:var(--brass);font-size:12px;}
+.report-notes{font-size:10px;color:var(--text2);margin-top:4px;font-style:italic;}
+.no-reports{text-align:center;padding:20px;color:var(--text3);font-size:12px;font-style:italic;}
+
+/* Sailing panel */
+.sail-section{margin-bottom:12px;}
+.sail-section h4{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+.sail-condition{padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);margin-bottom:8px;}
+.sail-rating{font-size:14px;font-weight:700;color:var(--text1);}
+.sail-rating.excellent{color:var(--green);}
+.sail-rating.good{color:var(--fog);}
+.sail-rating.fair{color:var(--amber);}
+.sail-rating.poor{color:var(--red);}
+.anchorage-item{
+  padding:6px 8px;border-radius:4px;background:var(--surface2);
+  border-left:3px solid var(--fog);margin-bottom:4px;font-size:11px;
+}
+.anchorage-item strong{color:var(--text1);display:block;margin-bottom:1px;}
+.anchorage-item span{color:var(--text3);font-size:10px;}
+.clearance-item{
+  display:flex;justify-content:space-between;padding:5px 0;
+  border-bottom:1px solid var(--border);font-size:11px;
+}
+.clearance-item:last-child{border-bottom:none;}
+
+/* POPUP STYLES */
 .leaflet-popup-content-wrapper{
-  background:var(--surface2)!important;border:1px solid var(--border)!important;
-  border-radius:2px!important;box-shadow:0 8px 32px rgba(26,39,56,.18)!important;
-  color:var(--text1)!important;font-family:'Jost',sans-serif!important;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:0;overflow:hidden;
+  border-top:3px solid var(--brass);
 }
-.leaflet-popup-tip{background:var(--surface2)!important;box-shadow:none!important;}
-.leaflet-popup-content{margin:0!important;}
-.leaflet-popup-close-button{color:var(--text3)!important;font-size:18px!important;right:8px!important;top:8px!important;padding:0!important;}
-.leaflet-popup-close-button:hover{color:var(--navy)!important;background:none!important;}
-.leaflet-control-zoom{border:1px solid var(--border)!important;border-radius:2px!important;overflow:hidden;box-shadow:0 2px 8px rgba(26,39,56,.12)!important;}
-.leaflet-control-zoom a{background:var(--surface2)!important;color:var(--navy)!important;border-bottom:1px solid var(--border)!important;font-size:16px!important;font-weight:300!important;line-height:26px!important;width:26px!important;height:26px!important;}
-.leaflet-control-zoom a:last-child{border-bottom:none!important;}
-.leaflet-control-zoom a:hover{background:var(--navy)!important;color:var(--brass)!important;}
-.leaflet-control-attribution{background:rgba(240,236,224,.92)!important;color:var(--text3)!important;font-family:'Share Tech Mono',monospace!important;font-size:8px!important;}
-.leaflet-control-attribution a{color:var(--brass-dk)!important;}
-.leaflet-control-scale-line{background:rgba(240,236,224,.92)!important;border:1px solid rgba(26,39,56,.18)!important;border-top:none!important;color:var(--navy2)!important;font-family:'Share Tech Mono',monospace!important;font-size:9px!important;}
-
-/* ── POPUP CONTENT ───────────────────────── */
-.pw{padding:15px 17px 13px;min-width:238px;max-width:306px;}
-.pw-partner{display:inline-flex;align-items:center;gap:5px;background:rgba(181,140,40,.1);border:1px solid rgba(181,140,40,.35);border-radius:2px;padding:3px 9px;font-size:8.5px;color:var(--brass-dk);letter-spacing:.1em;margin-bottom:8px;}
-.pw-cat{font-size:8px;color:var(--brass-dk);letter-spacing:.22em;text-transform:uppercase;margin-bottom:5px;}
-.pw-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);line-height:1.08;margin-bottom:3px;}
-.pw-sub{font-size:11px;color:var(--fog);font-style:italic;margin-bottom:10px;}
-.pw-div{height:1px;background:var(--border);margin-bottom:10px;}
-.pw-body{font-size:11.5px;color:var(--text2);line-height:1.6;margin-bottom:10px;}
-.pw-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;}
-.pw-chip{padding:2px 8px;border:1px solid var(--border);border-radius:2px;font-size:9px;color:var(--text2);background:var(--surface);letter-spacing:.04em;}
-.pw-tip{border-left:2px solid var(--brass);padding:7px 10px;background:rgba(181,140,40,.06);border-radius:0 2px 2px 0;}
-.pw-tip-lbl{font-family:'Cormorant Garamond',serif;font-size:9px;color:var(--brass-dk);letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px;}
-.pw-tip-body{font-size:11px;color:var(--text2);font-style:italic;line-height:1.55;}
-
-/* ── MARKERS ─────────────────────────────── */
-.poi-icon{width:32px;height:32px;background:var(--surface2);border:1.5px solid var(--brass);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;box-shadow:0 2px 8px rgba(26,39,56,.22);cursor:pointer;}
-.poi-icon.partner{width:38px;height:38px;background:var(--navy);border-color:var(--brass);font-size:17px;box-shadow:0 3px 14px rgba(26,39,56,.35);}
-.vessel-wrap{position:relative;width:42px;height:42px;}
-.v-ring{position:absolute;inset:0;border:2px solid var(--brass);border-radius:50%;animation:vpulse 2.8s ease-out infinite;opacity:0;}
-.v-ring:nth-child(2){animation-delay:1.1s;}
-@keyframes vpulse{0%{transform:scale(.4);opacity:.7;}100%{transform:scale(2.1);opacity:0;}}
-.v-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;background:var(--navy);border:2px solid var(--brass);border-radius:50%;box-shadow:0 0 8px rgba(181,140,40,.5);z-index:1;}
-.fg-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--navy2);text-align:center;line-height:1.4;white-space:nowrap;pointer-events:none;text-shadow:0 1px 3px rgba(255,255,255,.9);}
-.fg-sub{font-size:8px;color:var(--fog);}
-.wpt-dot{width:10px;height:10px;background:var(--brass);border:1.5px solid var(--navy);border-radius:50%;box-shadow:0 1px 4px rgba(26,39,56,.3);}
-
-/* ── MOBILE ──────────────────────────────── */
-@media(max-width:800px){
-  #left-panel,#right-panel,.ltab,.rtab{display:none;}
-  .cond-bar,.partner-badge{display:none;}
+.leaflet-popup-content{margin:0;min-width:220px;max-width:280px;}
+.leaflet-popup-tip{background:var(--surface2);}
+.popup-header{background:var(--navy);padding:10px 14px;}
+.popup-cat{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--brass-lt);margin-bottom:2px;}
+.popup-title{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:700;color:#fff;}
+.popup-body{padding:10px 14px;}
+.popup-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px;}
+.popup-stats{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.popup-stat{
+  font-size:10px;padding:2px 7px;background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;color:var(--text2);
+  font-family:'Share Tech Mono',monospace;
 }
+.popup-tip{
+  background:rgba(181,140,40,0.08);border:1px solid rgba(181,140,40,0.3);
+  border-radius:5px;padding:8px 10px;font-size:10px;color:var(--text2);line-height:1.4;
+}
+.popup-tip::before{
+  content:'TIP';font-size:8px;font-weight:800;letter-spacing:1.5px;color:var(--brass);
+  display:block;margin-bottom:3px;
+}
+
+/* MODAL */
+#modal-backdrop{
+  position:fixed;inset:0;background:rgba(26,39,56,0.72);backdrop-filter:blur(3px);
+  z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;
+}
+#modal-backdrop.open{display:flex;}
+#modal-card{
+  background:var(--surface2);border-radius:12px;max-width:640px;width:100%;
+  max-height:88vh;overflow-y:auto;border:1px solid var(--border);
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+#modal-header{
+  position:sticky;top:0;background:var(--navy);padding:16px 20px;
+  border-bottom:2px solid var(--brass);display:flex;justify-content:space-between;
+  align-items:flex-start;z-index:1;
+}
+#modal-header h2{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:#fff;}
+#modal-header p{font-size:11px;color:var(--brass-lt);margin-top:2px;font-style:italic;}
+#modal-close{
+  background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);
+  font-size:24px;line-height:1;padding:0 4px;transition:color 0.2s;font-family:'Jost',sans-serif;
+}
+#modal-close:hover{color:#fff;}
+#modal-body{padding:20px;}
+.modal-section{margin-bottom:16px;}
+.modal-section h4{
+  font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--brass);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);
+}
+.modal-section p{font-size:13px;color:var(--text2);line-height:1.6;}
+.lures-list{display:flex;flex-wrap:wrap;gap:5px;}
+.lure-pill{
+  font-size:11px;padding:3px 9px;background:var(--navy);color:var(--brass-lt);
+  border-radius:12px;border:1px solid var(--brass-dk);
+}
+.modal-tip{
+  background:rgba(181,140,40,0.1);border:1px solid rgba(181,140,40,0.35);
+  border-radius:6px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.5;margin-top:12px;
+}
+.modal-tip strong{color:var(--brass);display:block;margin-bottom:4px;font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+.conservation-badge{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;
+  font-size:11px;font-weight:600;margin-bottom:12px;
+}
+.cb-warn{background:#78350f;color:#fcd34d;border:1px solid #92400e;}
+.cb-ok{background:#1e3a2e;color:#6ee7b7;border:1px solid #065f46;}
+
+/* STAR RATING */
+.star-row{display:flex;gap:4px;margin-top:4px;}
+.star-btn{background:none;border:none;cursor:pointer;font-size:20px;color:var(--border);transition:color 0.15s;padding:0;}
+.star-btn.lit{color:var(--brass);}
+
+/* GROUND TOOLTIP */
+.ground-tooltip{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 10px;font-size:11px;color:var(--text1);font-family:'Jost',sans-serif;
+  box-shadow:0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(26,39,56,0.2);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(26,39,56,0.35);}
+
+/* LEAFLET OVERRIDES */
+.leaflet-control-attribution{font-size:9px;background:rgba(245,241,228,0.8)!important;}
+.leaflet-control-zoom a{background:var(--navy)!important;color:var(--brass-lt)!important;border:1px solid var(--brass-dk)!important;}
+.leaflet-control-zoom a:hover{background:var(--navy3)!important;}
 </style>
 </head>
 <body>
-<div id="app">
+<div id="app-root">
 
 <!-- HEADER -->
-<header id="header">
-  <div class="brand">
-    <div class="brand-mark">DW</div>
-    <div>
-      <div class="brand-name">DEKWAVE</div>
-      <div class="brand-sub">Marine EVA Deck Systems</div>
+<div id="header">
+  <div id="brand">
+    <div id="logo-circle">DW</div>
+    <div id="brand-text">
+      <h1>D&#917;KWAVE</h1>
+      <p>Puget Sound Navigator</p>
     </div>
   </div>
-  <div class="partner-badge">
-    <span class="partner-badge-icon">⚓</span>
-    <div>
-      <div class="partner-label">Proud Partner</div>
-      <div class="partner-name">Gig Harbor Marina &amp; Boatyard</div>
-    </div>
-  </div>
-  <div class="cond-bar">
-    <div class="cond-item"><div class="cond-lbl">Wind</div><div class="cond-val">SW 12kts</div></div>
-    <div class="cond-div"></div>
-    <div class="cond-item"><div class="cond-lbl">Tide</div><div class="cond-val" id="hdr-tide">—</div></div>
-    <div class="cond-div"></div>
-    <div class="cond-item"><div class="cond-lbl">Water</div><div class="cond-val">51.3°F</div></div>
-    <div class="cond-div"></div>
-    <div class="cond-item"><div class="cond-lbl">GPS</div><div class="gps-row"><div class="gps-dot"></div><span class="cond-val" style="font-size:11px">LOCK</span></div></div>
-    <div class="cond-div"></div>
-    <div class="cond-item"><div class="cond-lbl">Moon</div><div class="cond-val" id="hdr-moon" style="font-size:18px;line-height:1">🌕</div></div>
-  </div>
-</header>
 
-<!-- BODY -->
-<div id="body">
+  <div id="partner-badge">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      <path d="M12 4v-.5M12 12.5v.5M8 8H7.5M16.5 8H16M9.76 5.76l-.35-.35M14.59 10.59l-.35-.35M14.24 5.76l.35-.35M9.41 10.59l.35-.35"/>
+    </svg>
+    <div class="pb-text">
+      <strong>Gig Harbor Marina &amp; Boatyard</strong>
+      Partner Location
+    </div>
+  </div>
+
+  <div id="conditions-bar">
+    <div class="cond-item">
+      <div class="cond-label">Tide</div>
+      <div class="cond-value" id="hdr-tide">--.-ft</div>
+    </div>
+    <div class="cond-item">
+      <div class="cond-label">Wind</div>
+      <div class="cond-value" id="hdr-wind">--kt</div>
+    </div>
+    <div class="cond-item">
+      <div class="cond-label">Temp</div>
+      <div class="cond-value" id="hdr-temp">--&deg;F</div>
+    </div>
+    <div class="cond-item">
+      <div class="cond-label">Moon</div>
+      <div class="cond-value" id="hdr-moon">--</div>
+    </div>
+    <div class="cond-item">
+      <div class="cond-label">Position</div>
+      <div class="cond-value" id="hdr-coords" style="font-size:10px;">47&deg;17.7N</div>
+    </div>
+  </div>
+</div>
+
+<!-- WEATHER BANNER -->
+<div id="weather-banner">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+  <span id="banner-text">SMALL CRAFT ADVISORY</span>
+</div>
+
+<!-- APP BODY -->
+<div id="app-body">
 
   <!-- LEFT PANEL -->
-  <aside id="left-panel" class="side-panel">
+  <div id="left-panel">
 
-    <div class="ps">
-      <div class="ps-title">Chart Mode</div>
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3l4 4 4-4 4 4 4-4v18l-4-4-4 4-4-4-4 4z"/></svg>
+        Chart Mode
+      </div>
       <div class="chart-btns">
-        <button class="chart-btn active" onclick="setMode('carto',this)"><span class="chart-btn-icon">🗺</span> Nautical Street</button>
-        <button class="chart-btn" onclick="setMode('satellite',this)"><span class="chart-btn-icon">🛰</span> Satellite + Labels</button>
-        <button class="chart-btn" onclick="setMode('noaa',this)"><span class="chart-btn-icon">📡</span> NOAA Chart</button>
+        <button class="chart-btn active" id="btn-nautical" onclick="setChart('nautical')">Nautical</button>
+        <button class="chart-btn" id="btn-satellite" onclick="setChart('satellite')">Satellite</button>
+        <button class="chart-btn" id="btn-noaa" onclick="setChart('noaa')">NOAA Chart</button>
       </div>
     </div>
 
-    <div class="ps">
-      <div class="ps-title">Overlays</div>
-      <div class="ov-row"><span class="ov-lbl">SeaMark Nav Aids</span><label class="tog"><input type="checkbox" checked onchange="toggleOv('sea',this.checked)"><div class="tog-track"><div class="tog-thumb"></div></div></label></div>
-      <div class="ov-row"><span class="ov-lbl">NOAA Chart Overlay</span><label class="tog"><input type="checkbox" onchange="toggleOv('noaaov',this.checked)"><div class="tog-track"><div class="tog-thumb"></div></div></label></div>
-      <div class="ov-row"><span class="ov-lbl">Fishing Grounds</span><label class="tog"><input type="checkbox" checked onchange="toggleOv('fish',this.checked)"><div class="tog-track"><div class="tog-thumb"></div></div></label></div>
-      <div class="ov-row"><span class="ov-lbl">Points of Interest</span><label class="tog"><input type="checkbox" checked onchange="toggleOv('pois',this.checked)"><div class="tog-track"><div class="tog-thumb"></div></div></label></div>
-      <div class="ov-row"><span class="ov-lbl">Waypoints</span><label class="tog"><input type="checkbox" checked onchange="toggleOv('wpts',this.checked)"><div class="tog-track"><div class="tog-thumb"></div></div></label></div>
-    </div>
-
-    <div class="ps">
-      <div class="ps-title">Fishing Conditions · Now</div>
-      <div class="fc-row"><span class="fc-icon">🌊</span><span class="fc-lbl">Tide Phase</span><span class="fc-val" id="fc-tide">—</span></div>
-      <div class="fc-row"><span class="fc-icon">🌙</span><span class="fc-lbl">Moon Phase</span><span class="fc-val" id="fc-moon">—</span></div>
-      <div class="fc-row"><span class="fc-icon">🎣</span><span class="fc-lbl">Fishing Outlook</span><span class="fc-val" id="fc-out">—</span></div>
-      <div class="fc-row"><span class="fc-icon">💨</span><span class="fc-lbl">Wind / Sea State</span><span class="fc-val fair">FAIR</span></div>
-    </div>
-
-    <div class="ps">
-      <div class="ps-title">In-Season Now · Puget Sound</div>
-      <div class="season-grid" id="season-grid"></div>
-    </div>
-
-    <div class="ps">
-      <div class="ps-title">Hot Spots — Quick Nav</div>
-      <div id="spot-list"></div>
-    </div>
-
-    <div class="ps">
-      <div class="ps-title">Vessel — Reel Deal</div>
-      <div class="readout-grid">
-        <div class="r-cell"><div class="r-lbl">SOG</div><div class="r-val">0.0 <span class="r-unit">kts</span></div></div>
-        <div class="r-cell"><div class="r-lbl">COG</div><div class="r-val">---<span class="r-unit">°</span></div></div>
-        <div class="r-cell"><div class="r-lbl">Depth</div><div class="r-val">42 <span class="r-unit">ft</span></div></div>
-        <div class="r-cell"><div class="r-lbl">Water</div><div class="r-val">51.3<span class="r-unit">°F</span></div></div>
-        <div class="r-cell"><div class="r-lbl">Fuel</div><div class="r-val">78 <span class="r-unit">%</span></div></div>
-        <div class="r-cell"><div class="r-lbl">Trip</div><div class="r-val">0.0 <span class="r-unit">nm</span></div></div>
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        Overlays
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Seamarks (OpenSeaMap)</span>
+        <button class="toggle" id="tog-seamarks" onclick="toggleOverlay('seamarks',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Depth (GEBCO)</span>
+        <button class="toggle" id="tog-depth" onclick="toggleOverlay('depth',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Vessels (AIS)</span>
+        <button class="toggle on" id="tog-vessels" onclick="toggleOverlay('vessels',this)"></button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Fishing Grounds</span>
+        <button class="toggle on" id="tog-grounds" onclick="toggleOverlay('grounds',this)"></button>
       </div>
     </div>
 
-    <div class="ps">
-      <div class="ps-title">System Status</div>
-      <div class="st-row"><div class="st-dot g"></div><span class="st-lbl">GPS / GNSS</span><span class="st-val">3D FIX</span></div>
-      <div class="st-row"><div class="st-dot g"></div><span class="st-lbl">Chart Data</span><span class="st-val">CURRENT</span></div>
-      <div class="st-row"><div class="st-dot a"></div><span class="st-lbl">AIS (Simulated)</span><span class="st-val">NO HW</span></div>
-      <div class="st-row"><div class="st-dot g"></div><span class="st-lbl">VHF Radio</span><span class="st-val">CH 16</span></div>
-      <div class="st-row"><div class="st-dot g"></div><span class="st-lbl">NOAA Weather</span><span class="st-val">WX3</span></div>
-    </div>
-
-    <div class="ps">
-      <div class="ps-title">Tide · Tacoma Narrows</div>
-      <div class="tide-cell">
-        <div class="r-lbl">Current Level</div>
-        <div class="r-val" id="tide-panel">—</div>
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        Live Weather
+        <span id="weather-updating" style="font-size:9px;color:var(--text3);margin-left:auto;font-weight:400;letter-spacing:0;">Fetching...</span>
       </div>
-      <div class="tide-note">Simulated M2+S2 model. For navigation always consult official NOAA tide tables at tidesandcurrents.noaa.gov.</div>
+      <div class="weather-grid">
+        <div class="weather-item">
+          <div class="w-label">Wind</div>
+          <div class="w-value"><span id="wx-wind">--</span><span class="w-unit">kt</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;" id="wx-wind-dir">--</div>
+        </div>
+        <div class="weather-item">
+          <div class="w-label">Temperature</div>
+          <div class="w-value"><span id="wx-temp">--</span><span class="w-unit">&deg;F</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="w-label">Visibility</div>
+          <div class="w-value"><span id="wx-vis">--</span><span class="w-unit">mi</span></div>
+        </div>
+        <div class="weather-item">
+          <div class="w-label">Condition</div>
+          <div class="w-value" style="font-size:11px;" id="wx-cond">--</div>
+        </div>
+      </div>
     </div>
 
-  </aside>
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12a10 10 0 1 0 20 0 10 10 0 0 0-20 0"/><path d="M12 8v4l3 3"/></svg>
+        Fishing Conditions
+      </div>
+      <div class="fish-cond-row"><span class="fc-label">Tide Height</span><span class="fc-value" id="fc-tide">--</span></div>
+      <div class="fish-cond-row"><span class="fc-label">Tide Rate</span><span class="fc-value" id="fc-tide-rate">--</span></div>
+      <div class="fish-cond-row"><span class="fc-label">Tide Direction</span><span class="fc-value" id="fc-tide-dir">--</span></div>
+      <div class="fish-cond-row"><span class="fc-label">Moon Phase</span><span class="fc-value" id="fc-moon">--</span></div>
+      <div class="fish-cond-row"><span class="fc-label">Fish Rating</span><span class="fc-value" id="fc-rating">--</span></div>
+      <div id="fc-outlook-wrap" style="padding-top:8px;"></div>
+    </div>
 
-  <!-- LEFT TAB -->
-  <div class="panel-tab ltab" id="ltab" onclick="toggleLeft()" title="Toggle chart panel">
-    <span class="tab-chevron" id="ltab-ch">‹</span>
-  </div>
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Best Times Today (Solunar)
+      </div>
+      <div class="solunar-list" id="solunar-list"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg>
+        In Season Now
+      </div>
+      <div class="species-grid" id="season-grid"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Quick Spots
+      </div>
+      <div class="spot-list" id="spot-list"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        Status
+      </div>
+      <div class="status-grid">
+        <div class="status-item">Latitude<span id="st-lat">47.2950 N</span></div>
+        <div class="status-item">Longitude<span id="st-lon">122.5250 W</span></div>
+        <div class="status-item">Zoom<span id="st-zoom">11</span></div>
+        <div class="status-item">Updated<span id="st-updated">--:--</span></div>
+      </div>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- LEFT STRIP -->
+  <button class="panel-strip left-strip" id="left-strip" onclick="toggleLeft()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
 
   <!-- MAP -->
-  <div id="map-wrap">
+  <div id="map-wrapper">
     <div id="map"></div>
-    <div id="hud">
-      <div class="hud-item"><div class="hud-lbl">Latitude</div><div class="hud-val" id="hud-lat">47° 17.700' N</div></div>
-      <div class="hud-div"></div>
-      <div class="hud-item"><div class="hud-lbl">Longitude</div><div class="hud-val" id="hud-lon">122° 31.500' W</div></div>
-      <div class="hud-div"></div>
-      <div class="hud-item"><div class="hud-lbl">Zoom</div><div class="hud-val" id="hud-zoom">11</div></div>
-      <div class="hud-div"></div>
-      <div class="hud-item"><div class="hud-lbl">Mode</div><div class="hud-val" id="hud-mode">CARTO</div></div>
+    <div id="map-hud">
+      <span class="hud-item" id="hud-coords">47&deg;17.7'N 122&deg;31.5'W</span>
+      <div class="hud-sep"></div>
+      <span class="hud-item" id="hud-zoom">Z11</span>
+      <div class="hud-sep"></div>
+      <span class="hud-item" id="hud-mode">NAUTICAL</span>
     </div>
   </div>
 
-  <!-- RIGHT TAB -->
-  <div class="panel-tab rtab" id="rtab" onclick="toggleRight()" title="Toggle POI panel">
-    <span class="tab-chevron" id="rtab-ch">›</span>
-  </div>
+  <!-- RIGHT STRIP -->
+  <button class="panel-strip right-strip" id="right-strip" onclick="toggleRight()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
 
   <!-- RIGHT PANEL -->
-  <aside id="right-panel" class="side-panel">
-    <div class="rp-head">
-      <div class="ps-title" style="margin-bottom:2px">Points of Interest</div>
-      <div class="rp-head-sub">Click to fly to location</div>
+  <div id="right-panel">
+    <div id="right-tabs">
+      <button class="rtab active" onclick="setRTab(0,this)">POIs</button>
+      <button class="rtab" onclick="setRTab(1,this)">Fish</button>
+      <button class="rtab" onclick="setRTab(2,this)">Reports</button>
+      <button class="rtab" onclick="setRTab(3,this)">Sailing</button>
     </div>
-    <div class="poi-list" id="poi-list"></div>
-  </aside>
+    <div id="right-content">
 
-</div><!-- #body -->
-</div><!-- #app -->
+      <!-- POIs -->
+      <div class="rpanel active" id="rtab-0"></div>
+
+      <!-- Fish Guide -->
+      <div class="rpanel" id="rtab-1">
+        <div style="font-size:10px;color:var(--text3);font-style:italic;padding:2px 0;">Click a card for full encyclopedia entry</div>
+        <div class="fish-grid" id="fish-grid"></div>
+      </div>
+
+      <!-- Trip Reports -->
+      <div class="rpanel" id="rtab-2">
+        <div class="trip-form">
+          <h4>Submit Trip Report</h4>
+          <div class="form-row">
+            <label>Your Name / Handle</label>
+            <input type="text" id="tr-name" placeholder="Captain Anonymous">
+          </div>
+          <div class="form-row">
+            <label>Spot</label>
+            <select id="tr-spot">
+              <option value="">Select a spot...</option>
+              <option>Gig Harbor Marina</option>
+              <option>Point Defiance Kelp Beds</option>
+              <option>Tacoma Narrows</option>
+              <option>Fox Island West</option>
+              <option>Carr Inlet</option>
+              <option>Henderson Bay</option>
+              <option>Wollochet Bay</option>
+              <option>Dalco Passage</option>
+              <option>Quartermaster Harbor</option>
+              <option>McNeil Island Shoals</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Species Caught</label>
+            <div class="species-checks" id="sp-checks"></div>
+          </div>
+          <div class="form-row">
+            <label>Conditions Rating</label>
+            <div class="star-row" id="star-row">
+              <button class="star-btn" onclick="setStar(1)">&#9733;</button>
+              <button class="star-btn" onclick="setStar(2)">&#9733;</button>
+              <button class="star-btn" onclick="setStar(3)">&#9733;</button>
+              <button class="star-btn" onclick="setStar(4)">&#9733;</button>
+              <button class="star-btn" onclick="setStar(5)">&#9733;</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Notes</label>
+            <textarea id="tr-notes" placeholder="What were conditions like? Any tips?"></textarea>
+          </div>
+          <button class="submit-btn" onclick="submitReport()">Submit Report</button>
+        </div>
+        <div id="reports-list"></div>
+      </div>
+
+      <!-- Sailing -->
+      <div class="rpanel" id="rtab-3">
+        <div class="sail-section">
+          <h4>Wind &amp; Sailing Conditions</h4>
+          <div class="sail-condition">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">Current Wind</div>
+            <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:4px;" id="sail-wind-display">-- kts --</div>
+            <div class="sail-rating" id="sail-rating">--</div>
+          </div>
+        </div>
+        <div class="sail-section">
+          <h4>Anchorages</h4>
+          <div class="anchorage-item"><strong>Henderson Bay</strong><span>Depth: 20-35ft | Mud holding | Excellent protection | Overnight suitable</span></div>
+          <div class="anchorage-item"><strong>Wollochet Bay</strong><span>Depth: 15-25ft | Mud holding | Good protection | Quiet anchorage</span></div>
+          <div class="anchorage-item"><strong>Quartermaster Harbor</strong><span>Depth: 5-30ft (outer) | Mud holding | Excellent protection</span></div>
+          <div class="anchorage-item"><strong>Penrose Point</strong><span>Depth: 15-40ft | Sand/mud | Fair protection | State park</span></div>
+        </div>
+        <div class="sail-section">
+          <h4>Bridge Clearances</h4>
+          <div class="clearance-item"><span>Tacoma Narrows Bridge (main)</span><strong style="font-family:'Share Tech Mono',monospace;">187 ft</strong></div>
+          <div class="clearance-item"><span>Narrows Bridge 2</span><strong style="font-family:'Share Tech Mono',monospace;">187 ft</strong></div>
+          <div class="clearance-item"><span>Purdy Bridge</span><strong style="font-family:'Share Tech Mono',monospace;">40 ft fixed</strong></div>
+        </div>
+        <div class="sail-section">
+          <h4>Marina Facilities</h4>
+          <div style="font-size:11px;color:var(--text2);line-height:1.8;">
+            <div><strong style="color:var(--text1);">Gig Harbor Marina &amp; Boatyard</strong><br>Fuel &bull; Pump-out &bull; Showers &bull; Laundry &bull; Haul-out &bull; Guest Moorage</div>
+            <div style="margin-top:6px;"><strong style="color:var(--text1);">Arabella's Landing</strong><br>Fuel &bull; Guest Moorage &bull; Restaurant nearby</div>
+            <div style="margin-top:6px;"><strong style="color:var(--text1);">Jerisich Dock</strong><br>Day moorage &bull; Downtown Gig Harbor access</div>
+          </div>
+        </div>
+        <div style="background:rgba(170,42,26,0.08);border:1px solid rgba(170,42,26,0.3);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--text2);">
+          <strong style="color:var(--red);display:block;margin-bottom:4px;font-size:10px;letter-spacing:1px;text-transform:uppercase;">Tidal Current Warning</strong>
+          Tacoma Narrows max current 5 kts. Plan transit at slack water. Avoid during max ebb — current runs SSW at 4-5 kts.
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /right-panel -->
+
+</div><!-- /app-body -->
+</div><!-- /app-root -->
+
+<!-- FISH ENCYCLOPEDIA MODAL -->
+<div id="modal-backdrop" onclick="closeModalBackdrop(event)">
+  <div id="modal-card">
+    <div id="modal-header">
+      <div>
+        <h2 id="modal-title">Species</h2>
+        <p id="modal-subtitle">Scientific name</p>
+      </div>
+      <button id="modal-close" onclick="closeModalDirect()">&times;</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
 
 <script>
-/* ── UTILITY ─────────────────────────────── */
-function toDM(d,isLat){
-  const dir=isLat?(d>=0?'N':'S'):(d>=0?'E':'W');
-  const a=Math.abs(d),deg=Math.floor(a),min=((a-deg)*60).toFixed(3).padStart(6,'0');
-  return deg+'\u00b0 '+min+'\u2019 '+dir;
-}
+'use strict';
 
-/* ── MAP ─────────────────────────────────── */
-const map=L.map('map',{center:[47.295,-122.525],zoom:11,zoomControl:false});
-L.control.zoom({position:'bottomright'}).addTo(map);
-L.control.scale({position:'bottomleft',imperial:true,metric:false,maxWidth:110}).addTo(map);
+// ── DATA ──────────────────────────────────────────────────────────────────────
 
-/* ── TILE LAYERS ─────────────────────────── */
-const tiles={
-  carto: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    {maxZoom:19,attribution:'&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',subdomains:'abcd'}),
+var POIS = [
+  { id:'gig', lat:47.336, lon:-122.578, cat:'Marina / Partner', catColor:'#4a7899',
+    title:'Gig Harbor Marina & Boatyard',
+    desc:'Full-service marina and DekWave partner location. Guest moorage, haul-out facility, fuel dock, pump-out, showers, and laundry. Year-round services available.',
+    stats:['Fuel: Diesel & Gas','Guest Moorage','Haul-out to 80ft'],
+    tip:'Call ahead for guest slip availability: (253) 858-7721' },
+  { id:'ptd', lat:47.305, lon:-122.543, cat:'Fishing Ground', catColor:'#1e6b3e',
+    title:'Point Defiance Kelp Beds',
+    desc:'Famous kelp forests attract coho salmon, lingcod, and rockfish year-round. Best Aug-Oct at tidal changes. Structure creates upwelling concentrating baitfish.',
+    stats:['Depth: 20-45ft','Coho · Lingcod · Rockfish','Best: Aug-Oct'],
+    tip:'Fish the tide transitions — 30 min before/after slack produces most strikes' },
+  { id:'narrows', lat:47.268, lon:-122.555, cat:'Navigation', catColor:'#485868',
+    title:'Tacoma Narrows Bridge',
+    desc:'Major navigation landmark with strong tidal currents up to 5 knots through the narrows. Cable bridge clearance 187ft. Two parallel spans.',
+    stats:['Clearance: 187ft','Max current: 5 kts','Two spans parallel'],
+    tip:'Transit at slack water. Avoid during max ebb — current runs SSW at 4-5 kts' },
+  { id:'fox', lat:47.258, lon:-122.605, cat:'Fishing Ground', catColor:'#1e6b3e',
+    title:'Fox Island West',
+    desc:'Excellent Pacific halibut bottom fishing on deep sandy flats. Spot shrimp pots productive in 100-120ft. One of Puget Sound\'s most consistent halibut areas.',
+    stats:['Depth: 80-180ft','Halibut · Spot Shrimp','Sand/gravel bottom'],
+    tip:'Drop shrimp pots in 100-120ft near the sandy flats. Check WDFW regs for season' },
+  { id:'carr', lat:47.235, lon:-122.640, cat:'Crabbing', catColor:'#7c3aed',
+    title:'Carr Inlet Crab Flats',
+    desc:'Prime Dungeness crab habitat with sandy mud bottom and eelgrass edges. Consistent producer throughout the season.',
+    stats:['Depth: 30-80ft','Dungeness Crab','Sandy/mud bottom'],
+    tip:'Set rings during incoming tide. Sandy areas near eelgrass edges are most productive' },
+  { id:'henderson', lat:47.360, lon:-122.650, cat:'Anchorage', catColor:'#b58c28',
+    title:'Henderson Bay Anchorage',
+    desc:'Well-protected overnight anchorage with excellent holding in mud bottom. Good cell phone coverage. Away from main ferry traffic.',
+    stats:['Depth: 20-35ft','Mud holding: Excellent','Overnight suitable'],
+    tip:'Anchor in the northern end away from the ferry wake. Good cell coverage' },
+  { id:'wollochet', lat:47.320, lon:-122.600, cat:'Nature / Anchorage', catColor:'#b58c28',
+    title:'Wollochet Bay',
+    desc:'Peaceful anchorage in a quiet bay with osprey nesting and active eelgrass restoration. Small beach accessible by dinghy at low tide.',
+    stats:['Depth: 15-25ft','Mud holding: Good','Osprey habitat'],
+    tip:'Quiet overnight stop. Dinghy ashore to the small beach at low tide' },
+  { id:'dalco', lat:47.330, lon:-122.495, cat:'Navigation / Fishing', catColor:'#4a7899',
+    title:'Dalco Passage',
+    desc:'Deep water channel between Vashon Island and Point Defiance. Major Chinook salmon migration corridor. Heavy commercial and recreational vessel traffic.',
+    stats:['Depth: 100-300ft','Chinook Salmon','High-traffic channel'],
+    tip:'Troll at 50-80ft depth along the channel edges during morning flood tide' },
+  { id:'qm', lat:47.370, lon:-122.460, cat:'Anchorage / Crabbing', catColor:'#7c3aed',
+    title:'Quartermaster Harbor',
+    desc:'Large protected bay on Vashon Island\'s southeast shore. Inner harbor shallow — anchor in outer section. Excellent Dungeness crabbing.',
+    stats:['Depth: 5-30ft outer','Dungeness Crab','Excellent protection'],
+    tip:'Inner harbor has 5-10ft depths — anchor in outer section. Crab rings work great here' },
+  { id:'mcneil', lat:47.220, lon:-122.678, cat:'Fishing Ground', catColor:'#1e6b3e',
+    title:'McNeil Island Shoals',
+    desc:'Halibut and lingcod on rocky structure and mixed bottom. Depth 60-120ft. Note: restricted area nearby — stay east of buoy markers.',
+    stats:['Depth: 60-120ft','Halibut · Lingcod','Restricted area nearby'],
+    tip:'Fish the 80-100ft contour on the south side. Jig with 6oz white leadhead + grub' },
+];
+
+var FISHING_GROUNDS = [
+  { name:'Tacoma Narrows Salmon Run', center:[47.268,-122.555], radius:1200, color:'#4a7899', species:'Chinook & Coho', depth:'50-120ft', season:'Jul-Oct' },
+  { name:'Point Defiance Kelp Complex', center:[47.305,-122.543], radius:900, color:'#1e6b3e', species:'Lingcod, Rockfish, Coho', depth:'20-60ft', season:'Year-round' },
+  { name:'Fox Island Halibut Flats', center:[47.258,-122.605], radius:1100, color:'#b07a10', species:'Pacific Halibut, Lingcod', depth:'80-200ft', season:'May-Sep' },
+  { name:'Carr Inlet Crab Zone', center:[47.235,-122.640], radius:1400, color:'#7c3aed', species:'Dungeness Crab, Spot Shrimp', depth:'30-100ft', season:'Year-round (check regs)' },
+  { name:'Vashon Chinook Corridor', center:[47.330,-122.495], radius:1000, color:'#aa2a1a', species:'Chinook Salmon', depth:'40-100ft', season:'Jun-Sep' },
+];
+
+var QUICK_SPOTS = [
+  { label:'Gig Harbor Marina', lat:47.336, lon:-122.578 },
+  { label:'Point Defiance Kelp', lat:47.305, lon:-122.543 },
+  { label:'Tacoma Narrows Bridge', lat:47.268, lon:-122.555 },
+  { label:'Fox Island West', lat:47.258, lon:-122.605 },
+  { label:'Carr Inlet Crab Flats', lat:47.235, lon:-122.640 },
+  { label:'Henderson Bay Anchorage', lat:47.360, lon:-122.650 },
+  { label:'Dalco Passage', lat:47.330, lon:-122.495 },
+  { label:'Quartermaster Harbor', lat:47.370, lon:-122.460 },
+  { label:'McNeil Island Shoals', lat:47.220, lon:-122.678 },
+];
+
+var SEASON_DATA = [
+  { name:'Chinook Salmon', months:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { name:'Coho Salmon', months:[8,9,10] },
+  { name:'Lingcod', months:[1,2,3,8,9,10,11,12] },
+  { name:'Dungeness Crab', months:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { name:'Pacific Halibut', months:[5,6,7,8,9] },
+  { name:'Spot Shrimp', months:[5] },
+  { name:'Rockfish', months:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { name:'Octopus', months:[1,2,3,4,5,6,7,8,9,10,11,12] },
+];
+
+var SPECIES_CARDS = [
+  { name:'Chinook Salmon', sub:'King Salmon', emoji:'🐟', sci:'Oncorhynchus tshawytscha',
+    conservation:'WARN', consText:'WDFW regulated, some runs ESA-listed. Check regs before keeping.',
+    bio:'Largest Pacific salmon, 10-135 lbs. Anadromous — born in freshwater, matures in ocean, returns to spawn. Lifespan 3-7 years.',
+    habitat:'Deep open water 50-150ft, channel edges, below thermocline. Puget Sound year-round resident population.',
+    behavior:'School near baitfish (herring, anchovies). Rise to surface at dawn/dusk. Respond to tidal currents.',
+    lures:['Apex 4.5" chrome/green','Blue Fox Spinner #4-6 silver','Cut-plug herring 3-4"','Coyote Spoon silver/blue','Mag Lip 3.0 UV purple/chart'],
+    techniques:'Mooching with cut-plug herring at 50-80ft, trolling with downrigger at thermocline, jigging with large swimbaits at dawn.',
+    bestTimes:'Morning 2hrs after sunrise, evening 1hr before sunset. Major solunar periods. Incoming tide in narrows.',
+    funFacts:'Can smell their birth stream from hundreds of miles away. The "June hog" run produces fish 80+ lbs. Most valuable commercial salmon species.',
+    localTips:'Dalco Passage and Tacoma Narrows are top local spots. Use 20-25 lb monofilament with a 15lb fluorocarbon leader.' },
+  { name:'Coho Salmon', sub:'Silver Salmon', emoji:'🐠', sci:'Oncorhynchus kisutch',
+    conservation:'OK', consText:'Most runs healthy. Wild/hatchery rules apply — check fin clip regulations.',
+    bio:'8-40 lbs, aggressive surface feeders. The acrobat of salmon — famous for spectacular jumps. 3-year lifecycle.',
+    habitat:'Upper water column, near kelp edges and structure. 0-40ft depth range.',
+    behavior:'Aggressive, will chase fast-moving lures. Travel in schools. Active on overcast days.',
+    lures:['Buzz Bomb 2oz chrome/green','Coho Killer spoon red/white','Pink Pixie spoon 3/4oz','Clouser Minnow chartreuse/white','Hoochie UV pink + flasher'],
+    techniques:'Jigging buzz bombs at surface, trolling flasher+hoochie combo, fly fishing from kayak or skiff.',
+    bestTimes:'August through October. Overcast mornings. Slack water at kelp edges.',
+    funFacts:'Will hit a lure that lands 10ft away. Known to follow boats out of curiosity. The "silver bullet" of salmon fishing.',
+    localTips:'Point Defiance kelp beds are legendary for Coho Aug-Oct. Fish the tide rips at 15-25ft.' },
+  { name:'Lingcod', sub:'Greenling Species', emoji:'🐡', sci:'Ophiodon elongatus',
+    conservation:'WARN', consText:'Rebuilding stock — check size limits (22" minimum). Release larger fish encouraged.',
+    bio:'Not actually a cod — a greenling species. 5-80+ lbs. Green-tinged flesh turns white when cooked. Can live 20+ years.',
+    habitat:'Rocky structure, kelp edges, canyon walls. 30-300ft depth. Territorial — returns to same rocks.',
+    behavior:'Ambush predator. Will grab a rockfish you\'re reeling up. Aggressive during spawning (Jan-Mar).',
+    lures:['Live Target Smelt 5-7"','Gulp! Swimshad white/pearl 6"','Lead jigs 4-6oz + squid','Octopus jig (real chunks)','Storm Swimbait chartreuse'],
+    techniques:'Drop straight to bottom, jig up 2-3ft and hold. Let it sit — lingcod often strike on the pause. Use wire leader for big fish.',
+    bestTimes:'Winter spawning season (Jan-Mar) — aggressive and shallow. Early morning rocky structure at all tides.',
+    funFacts:'One of the best eating fish in Puget Sound. A 60lb lingcod can swallow a full-sized rockfish. Blue-green flesh color from biliverdin pigment.',
+    localTips:'Point Defiance wall and McNeil Island shoals hold the biggest fish. Drop to 80-120ft and work rocky edges.' },
+  { name:'Dungeness Crab', sub:'Pacific Crab', emoji:'🦀', sci:'Metacarcinus magister',
+    conservation:'WARN', consText:'Male-only harvest, 6.25" minimum shell width. Season closures strictly enforced.',
+    bio:'Can reach 10" shell width, 4 lbs. Lifespan 8-13 years. Molt annually — soft-shell crabs are vulnerable.',
+    habitat:'Sandy/gravelly mud bottom near eelgrass. 10-300ft depth. Puget Sound has excellent habitat.',
+    behavior:'Scavengers and predators. Active at night. Move seasonally to deeper water in winter.',
+    lures:['Star traps (most efficient)','Ring nets with bait bag','Commercial two-funnel traps'],
+    techniques:'Set traps in 30-80ft on sandy bottom. Soak 1-4 hours. Check during incoming tide when crabs are most active.',
+    bestTimes:'Summer through fall. Incoming tide. Early morning retrieval.',
+    funFacts:'Dungeness crabs are cannibalistic — keep traps checked. They navigate using magnetic fields. Named after Dungeness, Washington.',
+    localTips:'Carr Inlet and Quartermaster Harbor are prime spots. Use fresh tuna belly if you can get it — outperforms everything.' },
+  { name:'Pacific Halibut', sub:'Giant Flatfish', emoji:'🐟', sci:'Hippoglossus stenolepis',
+    conservation:'WARN', consText:'IPHC-regulated season with specific open dates and bag limits. Always verify current year regs.',
+    bio:'World\'s largest flatfish — up to 8ft, 500 lbs (record). Females grow much larger than males. Can live 55 years.',
+    habitat:'Sandy/gravel bottom, 40-900ft. Young fish in shallower water. Adults in 200-600ft.',
+    behavior:'Ambush predators lying on the bottom. Highly migratory — winter in Alaska, return to Puget Sound in spring.',
+    lures:['Halibut Candy large swimbaits','Diamond jigs 8-16oz chrome','Circle hooks + herring/squid','Smiling Mike rigs with scent','Large Apex + herring strip'],
+    techniques:'Bottom fishing with 8-16oz weight in 80-200ft. Fish the tide change. Drift fishing with live herring.',
+    bestTimes:'May through September. Incoming tide on sandy flats. Overcast days.',
+    funFacts:'Both eyes migrate to one side as they develop. Largest ever caught was 482 lbs. Liver historically used as lamp oil.',
+    localTips:'Fox Island deep flats (80-200ft) are the best local spot. Season dates change yearly — verify with IPHC before targeting.' },
+  { name:'Spot Shrimp', sub:'Giant Pacific Shrimp', emoji:'🦐', sci:'Pandalus platyceros',
+    conservation:'WARN', consText:'Limited Puget Sound fishery — check WDFW for open areas and seasons. Some areas permanently closed.',
+    bio:'Up to 9" long — largest shrimp on the Pacific coast. Protandric hermaphrodites — start as males, become females. 4-5 year lifespan.',
+    habitat:'Rocky crevices and soft mud at 100-250ft depth. Like hard-soft bottom transitions.',
+    behavior:'Nocturnal scavengers. Aggregate during spawning season. Carried by deep currents.',
+    lures:['Cylindrical pots 3/4" mesh','Star traps with mesh bag','Commercial funnel-entry pots'],
+    techniques:'Drop pots to 100-200ft on rocky/mud transition. Soak 1-3 hours. Use underwater lights for night fishing.',
+    bestTimes:'Early May when season opens. Dawn retrieval. Deeper water produces larger females.',
+    funFacts:'The sweetest, most prized shrimp in the Pacific Northwest. They change sex once in their lifetime. Absolutely worth the effort.',
+    localTips:'Fox Island west side in 120-150ft has produced consistently. Get on the water by 5am on opening day.' },
+  { name:'Giant Pacific Octopus', sub:'World\'s Largest Octopus', emoji:'🐙', sci:'Enteroctopus dofleini',
+    conservation:'OK', consText:'No size limit but highly intelligent — consider catch-and-release. Some areas protected.',
+    bio:'World\'s largest octopus — up to 14ft arm span, 150 lbs. Lifespan only 3-5 years. Three hearts, blue blood.',
+    habitat:'Rocky dens, kelp holdfasts, any crevice from intertidal to 2500ft. Common in 30-100ft.',
+    behavior:'Highly intelligent — can recognize individual humans. Use tools, solve puzzles. Solitary. Active at night.',
+    lures:['Poling with octopus/crab jig','Baited trap at den entrance','Spot diving (popular in Puget Sound)'],
+    techniques:'Identify den by shell midden at entrance. Lower bait slowly, be patient. Night diving with lights is most effective.',
+    bestTimes:'Any time. Night is best. Winter when they\'re most active.',
+    funFacts:'Change color and texture in milliseconds. Each arm has its own neural cluster. Female guards eggs 6 months without eating, then dies.',
+    localTips:'Point Defiance and Fox Island are known GPO territory. Divers report regular sightings. Take a photo and leave it be.' },
+  { name:'Rockfish', sub:'Copper / Quillback / Black', emoji:'🐡', sci:'Sebastes spp.',
+    conservation:'WARN', consText:'Strict regulations — many species ESA-listed. Check before keeping ANY rockfish. Always descend released fish.',
+    bio:'Extremely long-lived — copper rockfish 55 years, quillback 95 years. Slow to mature. Viviparous (live birth).',
+    habitat:'Rocky structure, kelp forests, canyon walls. 20-600ft. Spend entire life in a small home range.',
+    behavior:'Territorial, return to same rocks daily. School aggressively when found. Rise in water column at dusk.',
+    lures:['Gulp! Swimming Mullet white/chart','Drop-shot + tube jigs','Small leadhead 1/2-1oz + grub','Squid strips on hooks','Small Buzz Bombs'],
+    techniques:'Drop to rocky structure, jig slowly. Often bite on the fall. Use lightest weight possible.',
+    bestTimes:'Dawn and dusk. Any tide. Year-round but summer provides best variety.',
+    funFacts:'A 95-year-old quillback was alive during WWII. Swim bladder expands when brought up — always use a descender to release at depth.',
+    localTips:'Point Defiance wall has abundant rockfish but check current regs carefully. Descender device is required — it saves the fish.' },
+];
+
+var VESSELS_INIT = [
+  { id:'v1', name:'Tacoma', type:'ferry', lat:47.28, lon:-122.51, heading:45, speed:14 },
+  { id:'v2', name:'Ketron Island', type:'ferry', lat:47.31, lon:-122.48, heading:225, speed:12 },
+  { id:'v3', name:'Defiance', type:'ferry', lat:47.26, lon:-122.54, heading:90, speed:11 },
+  { id:'v4', name:'F/V Lucky Strike', type:'fishing', lat:47.30, lon:-122.56, heading:180, speed:5 },
+  { id:'v5', name:'F/V Pacific Dawn', type:'fishing', lat:47.25, lon:-122.60, heading:270, speed:3 },
+  { id:'v6', name:'F/V Reel Deal', type:'fishing', lat:47.336, lon:-122.578, heading:0, speed:0 },
+  { id:'v7', name:'S/V Wind Dancer', type:'sail', lat:47.29, lon:-122.52, heading:135, speed:4 },
+  { id:'v8', name:'Gig Harbor Princess', type:'pleasure', lat:47.34, lon:-122.57, heading:270, speed:8 },
+];
+
+// ── MAP SETUP ─────────────────────────────────────────────────────────────────
+
+var map = L.map('map', {
+  center: [47.295, -122.525],
+  zoom: 11,
+  zoomControl: false
+});
+
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+L.control.scale({ imperial: true, metric: false }).addTo(map);
+
+var layers = {
+  nautical: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    subdomains: 'abcd', maxZoom: 20
+  }),
   satellite: L.layerGroup([
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {maxZoom:19,attribution:'&copy; Esri'}),
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-      {maxZoom:19,attribution:'',opacity:.85})
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri', maxZoom: 18
+    }),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '', maxZoom: 18, opacity: 0.8
+    })
   ]),
-  noaa: L.tileLayer('https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png',
-    {maxZoom:16,attribution:'&copy; NOAA',errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'})
+  noaa: L.tileLayer('https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png', {
+    attribution: '&copy; NOAA', maxZoom: 16, opacity: 0.9
+  })
 };
-const overlays={
-  sea:    L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; OpenSeaMap',errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}),
-  noaaov: L.tileLayer('https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png',{maxZoom:16,attribution:'',opacity:.45,errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'})
+
+var overlays = {
+  seamarks: L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenSeaMap', maxZoom: 18, opacity: 0.85
+  }),
+  depth: L.tileLayer('https://tiles.openseamap.org/depth/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenSeaMap', maxZoom: 14, opacity: 0.55
+  })
 };
-const fishingGroup=L.layerGroup(),poiGroup=L.layerGroup(),wptGroup=L.layerGroup();
 
-let activeBase='carto';
-tiles.carto.addTo(map);
-overlays.sea.addTo(map);
+layers.nautical.addTo(map);
+var currentMode = 'nautical';
+var vesselLayerGroup = L.layerGroup().addTo(map);
+var groundLayerGroup = L.layerGroup().addTo(map);
 
-const modeLabel={carto:'CARTO',satellite:'SAT',noaa:'NOAA'};
+// ── CHART MODE ────────────────────────────────────────────────────────────────
 
-function setMode(mode,btn){
-  const seaOn=map.hasLayer(overlays.sea),noaaOn=map.hasLayer(overlays.noaaov);
-  if(seaOn)   map.removeLayer(overlays.sea);
-  if(noaaOn)  map.removeLayer(overlays.noaaov);
-  map.removeLayer(tiles[activeBase]);
-  tiles[mode].addTo(map);
-  activeBase=mode;
-  if(noaaOn) overlays.noaaov.addTo(map);
-  if(seaOn)  overlays.sea.addTo(map);
-  document.getElementById('hud-mode').textContent=modeLabel[mode];
-  document.querySelectorAll('.chart-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-function toggleOv(k,on){
-  const m={sea:overlays.sea,noaaov:overlays.noaaov,fish:fishingGroup,pois:poiGroup,wpts:wptGroup};
-  on?m[k].addTo(map):map.removeLayer(m[k]);
-}
-
-/* ── PANEL COLLAPSE ──────────────────────── */
-let leftOpen=true,rightOpen=true;
-function toggleLeft(){
-  leftOpen=!leftOpen;
-  document.getElementById('left-panel').classList.toggle('collapsed',!leftOpen);
-  document.getElementById('ltab-ch').textContent=leftOpen?'‹':'›';
-  setTimeout(()=>map.invalidateSize({animate:false}),320);
-}
-function toggleRight(){
-  rightOpen=!rightOpen;
-  document.getElementById('right-panel').classList.toggle('collapsed',!rightOpen);
-  document.getElementById('rtab-ch').textContent=rightOpen?'›':'‹';
-  setTimeout(()=>map.invalidateSize({animate:false}),320);
-}
-
-/* ── HUD ─────────────────────────────────── */
-map.on('mousemove',e=>{
-  document.getElementById('hud-lat').textContent=toDM(e.latlng.lat,true);
-  document.getElementById('hud-lon').textContent=toDM(e.latlng.lng,false);
-});
-map.on('zoomend',()=>document.getElementById('hud-zoom').textContent=map.getZoom());
-
-/* ── POI DATA ────────────────────────────── */
-const POIS=[
-  {lat:47.2676,lng:-122.5506,icon:'🐙',partner:false,
-   cat:'Marine Life · Protected Habitat',name:'The King Octopus',
-   sub:'Tacoma Narrows · Giant Pacific Octopus Habitat',
-   body:'The Giant Pacific Octopus (<em>Enteroctopus dofleini</em>) — world\'s largest — inhabits Galloping Gertie\'s wreckage at 200\u202fft. Nutrient-rich tidal upwellings fuel growth to 100+\u202flbs. Voted one of the 11 Wonders of Tacoma.',
-   chips:['100+ lbs documented','24 ft arm span','200 ft depth','Protected'],
-   tip:'Titlow Beach to the south is the premier shore dive. Giant Pacific Octopus are protected throughout Puget Sound — observe from distance only.',
-   panelCat:'🐙 Marine Life'},
-  {lat:47.265,lng:-122.552,icon:'⚓',partner:false,
-   cat:'Historic Wreck · NRHP 1992',name:'Galloping Gertie Reef',
-   sub:'Tacoma Narrows Bridge · Collapsed Nov 7, 1940',
-   body:'The original Tacoma Narrows Bridge rests at 200\u202fft — one of the world\'s most dramatic artificial reefs. Extreme tidal currents hit 8+ mph. Advanced technical diving only.',
-   chips:['200 ft depth','Artificial reef','8 mph current','Advanced only'],
-   tip:'Slack window: 15–20 minutes only. Float line + SMB mandatory. Verify slack with NOAA current tables.',
-   panelCat:'⚓ Historic Wreck'},
-  {lat:47.3305,lng:-122.5848,icon:'⚓',partner:true,
-   cat:'DekWave Partner · Full-Service Marina',name:'Gig Harbor Marina & Boatyard',
-   sub:'142 Slips · Full Haul-Out · VHF Ch 09',
-   body:'Full-service marina offering haul-out, engine service, and complete refits. DekWave EVA deck installations performed on-site. Diesel, gas, pumpout, 30/50A shore power.',
-   chips:['142 slips','VHF Ch 09','Full haul-out','DekWave Install','Diesel & Gas'],
-   tip:'Tides Tavern has a private dock — best lingcod fish & chips on Puget Sound since 1973.',
-   panelCat:'⚓ DekWave Partner'},
-  {lat:47.3155,lng:-122.5438,icon:'🌲',partner:false,
-   cat:'Fishing · Shore Access · Kelp',name:'Point Defiance',
-   sub:'Kelp Forest · Coho Corridor · Shore Pier',
-   body:'Kelp forest holds coho August–October and serves as orca travel corridor. Structure 15–35\u202fft over rock. Shore pier access at Point Defiance Park.',
-   chips:['Kelp 15–35ft','Coho Aug–Oct','Orca corridor','Shore pier'],
-   tip:'Buzz bomb or Stingsilda spoon. Count to 25–30\u202fft, work the outer kelp edge at first light. Fish the tide change.',
-   panelCat:'🌲 Fishing'},
-  {lat:47.355,lng:-122.487,icon:'🐟',partner:false,
-   cat:'Fishing · Structure · Bottom',name:'Dalco Passage Wall',
-   sub:'Lingcod & Rockfish · 60–200ft Wall',
-   body:'Wall drops 60–200+ feet. Prime lingcod and rockfish year-round, copper and quillback in the shallows. Tidal exchange runs hard — slack water only.',
-   chips:['Lingcod year-round','60–200ft','Slack only','3oz lead head'],
-   tip:'Never fight this current. Strike hard at bottom — lingcod head straight for structure. Short leader, 40\u202flb fluorocarbon.',
-   panelCat:'🐟 Fishing'},
-  {lat:47.2448,lng:-122.5265,icon:'🤿',partner:false,
-   cat:'Diving · Protected Marine Area',name:'Titlow Beach',
-   sub:'World-Class Shore Dive · 7 Known Octopus Dens',
-   body:'Seven known Giant Pacific Octopus dens in the protected marine area. Visibility 20–45\u202fft. Structure from 15–60\u202fft. One of the finest shore dives in the PNW.',
-   chips:['7 GPO dens','20–45ft vis','Protected','Shore entry'],
-   tip:'Incoming tide, first light. Hands completely off — GPO will abandon dens for days if disturbed.',
-   panelCat:'🤿 Diving'},
-  {lat:47.533,lng:-122.488,icon:'⛵',partner:false,
-   cat:'Anchorage · State Marine Park',name:'Blake Island Marine Park',
-   sub:'Boat Access Only · Orca Travel Corridor',
-   body:'Old-growth forest, natural beach, and excellent anchorage. State mooring buoys on eastern cove. Regular J, K, L pod transit corridor.',
-   chips:['Boat access only','Orca corridor','Mooring buoys','Old-growth'],
-   tip:'East cove, anchor 20–35\u202fft over sand/mud. South wind builds fast — scope well.',
-   panelCat:'⛵ Anchorage'},
-  {lat:47.2676,lng:-122.5495,icon:'🌉',partner:false,
-   cat:'Navigation Hazard · Bridge Clearance',name:'Tacoma Narrows Bridge',
-   sub:'187ft MHW Clearance · Max 7-Knot Current',
-   body:'187\u202fft clearance at MHW — verify with tide tables. Max 7\u202fknots. Flood NE; ebb SW. Slack: 15–20 minutes.',
-   chips:['187ft MHW','Max 7 kts','Slack 15–20 min','Flood NE/Ebb SW'],
-   tip:'Never transit on full current. Time within 1 hour of slack. Salmon fishing the rip lines can be exceptional.',
-   panelCat:'🌉 Navigation'},
-  {lat:47.245,lng:-122.607,icon:'🦀',partner:false,
-   cat:'Crabbing · Bottomfishing',name:'Fox Island Flats',
-   sub:'Dungeness Crab · Pacific Halibut Spring',
-   body:'Sand and eelgrass flats hold Dungeness 40–70\u202fft. Pacific halibut through spring. Manageable current compared to the Narrows.',
-   chips:['Dungeness 40–70ft','Halibut spring','Eelgrass bottom','Verify WDFW'],
-   tip:'Fresh tuna or butter clams. Overnight soak outproduces short soaks. Always verify WDFW Dungeness seasons — they shift annually.',
-   panelCat:'🦀 Crabbing'},
-  {lat:47.38,lng:-122.70,icon:'🦐',partner:false,
-   cat:'Shrimping · Deep Water',name:'Henderson Bay',
-   sub:'Spot Shrimp · 250–400ft Deep',
-   body:'Prime spot shrimp grounds. May opener: 2–4 days only. Limit 80/person. Sheltered from most wind directions.',
-   chips:['250–400ft','80/person','May opener','Cook live'],
-   tip:'Lower at first light, retrieve by mid-morning. Cook live same evening — quality drops fast.',
-   panelCat:'🦐 Shrimping'}
-];
-
-/* ── FISHING GROUNDS ─────────────────────── */
-const FISHING=[
-  {lat:47.268,lng:-122.541,name:'Narrows Drift',species:'Chinook',depth:'50–80ft',season:'Jul–Oct',tech:'Hot Shot / Dodger rig',color:'#8c6a18'},
-  {lat:47.316,lng:-122.542,name:'Defiance Kelp',species:'Coho Salmon',depth:'15–35ft',season:'Aug–Oct',tech:'Buzz bomb',color:'#4a7899'},
-  {lat:47.355,lng:-122.487,name:'Dalco Wall',species:'Lingcod',depth:'60–200ft',season:'Year-round',tech:'3oz lead head',color:'#8c6a18'},
-  {lat:47.245,lng:-122.608,name:'Fox Island',species:'Dungeness Crab',depth:'40–70ft',season:'Seasonal',tech:'Crab pot',color:'#4a7899'},
-  {lat:47.278,lng:-122.435,name:'Commencement Bay',species:'King Salmon',depth:'40–80ft',season:'Jul–Oct',tech:'Mooching rig',color:'#8c6a18'}
-];
-
-/* ── WAYPOINTS ───────────────────────────── */
-const WPTS=[
-  {lat:47.310,lng:-122.560,name:'WPT 001',note:'Favorite anchor — sand, good holding'},
-  {lat:47.290,lng:-122.510,name:'WPT 002',note:'Morning bite location — tide rip here'},
-  {lat:47.350,lng:-122.540,name:'WPT 003',note:'Good crabbing depth — 65ft mud'}
-];
-
-/* ── SEASON CARDS ────────────────────────── */
-const mo=new Date().getMonth();
-const SEASONS=[
-  {name:'Chinook',months:[6,7,8,9],icon:'🐟',info:'Jul–Oct · 50–80ft'},
-  {name:'Coho',months:[7,8,9],icon:'🐠',info:'Aug–Oct · Kelp edge'},
-  {name:'Lingcod',months:[0,1,2,3,4,5,6,7,8,9,10,11],icon:'🦈',info:'Year-round · Wall'},
-  {name:'Halibut',months:[3,4,5],icon:'🫓',info:'Apr–Jun · Deep flats'},
-  {name:'Dungeness',months:[10,11,0,1,2,3],icon:'🦀',info:'Nov–Apr · Seasonal'},
-  {name:'Spot Shrimp',months:[4],icon:'🦐',info:'May only · 250–400ft'}
-];
-const sgEl=document.getElementById('season-grid');
-SEASONS.forEach(s=>{
-  const on=s.months.includes(mo);
-  const el=document.createElement('div');
-  el.className='s-chip'+(on?' on':'');
-  el.innerHTML=`<div class="s-chip-name">${s.icon} ${s.name}</div><div class="s-chip-info">${s.info}</div>`;
-  sgEl.appendChild(el);
-});
-
-/* ── FISHING SPOT QUICK-NAV ──────────────── */
-const spotColors={'Chinook':'#8c6a18','Coho Salmon':'#4a7899','Lingcod':'#1e6b3e','Dungeness Crab':'#4a7899','King Salmon':'#8c6a18'};
-const slEl=document.getElementById('spot-list');
-FISHING.forEach(f=>{
-  const el=document.createElement('div');
-  el.className='spot-row';
-  el.innerHTML=`<div class="spot-dot" style="background:${spotColors[f.species]||'#8c6a18'}"></div><div><div class="spot-name">${f.name}</div><div class="spot-species">${f.species} · ${f.season}</div></div>`;
-  el.addEventListener('click',()=>{
-    map.setView([f.lat,f.lng],13,{animate:true,duration:1});
+function setChart(mode) {
+  Object.values(layers).forEach(function(l){ if (map.hasLayer(l)) map.removeLayer(l); });
+  layers[mode].addTo(map);
+  currentMode = mode;
+  ['nautical','satellite','noaa'].forEach(function(m){
+    document.getElementById('btn-' + m).classList.toggle('active', m === mode);
   });
-  slEl.appendChild(el);
-});
-
-/* ── BUILD POI MARKERS ───────────────────── */
-function mkPopup(p){
-  const badge=p.partner?'<div class="pw-partner">⚓ DekWave Certified Partner</div>':'';
-  const chips=p.chips.map(c=>`<span class="pw-chip">${c}</span>`).join('');
-  return `<div class="pw">${badge}<div class="pw-cat">${p.cat}</div><div class="pw-title">${p.name}</div><div class="pw-sub">${p.sub}</div><div class="pw-div"></div><div class="pw-body">${p.body}</div><div class="pw-chips">${chips}</div><div class="pw-tip"><div class="pw-tip-lbl">Local Knowledge</div><div class="pw-tip-body">${p.tip}</div></div></div>`;
+  document.getElementById('hud-mode').textContent = mode.toUpperCase();
+  if (map.hasLayer(overlays.seamarks)) overlays.seamarks.bringToFront();
+  if (map.hasLayer(overlays.depth)) overlays.depth.bringToFront();
 }
 
-const poiMk=[];
-POIS.forEach(p=>{
-  const sz=p.partner?[38,38]:[32,32],an=p.partner?[19,19]:[16,16],pa=p.partner?[0,-22]:[0,-18];
-  const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html:`<div class="poi-icon${p.partner?' partner':''}">${p.icon}</div>`,className:'',iconSize:sz,iconAnchor:an,popupAnchor:pa})})
-    .bindPopup(mkPopup(p),{maxWidth:320,className:'custom-popup'});
-  poiMk.push({m,p});
-  poiGroup.addLayer(m);
-});
-poiGroup.addTo(map);
+// ── OVERLAYS ──────────────────────────────────────────────────────────────────
 
-/* ── FISHING GROUND CIRCLES ──────────────── */
-FISHING.forEach(f=>{
-  const c=L.circle([f.lat,f.lng],{radius:820,color:f.color,weight:1.8,opacity:.6,dashArray:'7,5',fillColor:f.color,fillOpacity:.07})
-    .bindPopup(`<div class="pw" style="min-width:200px"><div class="pw-cat">Fishing Ground</div><div class="pw-title">${f.name}</div><div class="pw-div"></div><div class="pw-chips"><span class="pw-chip">${f.species}</span><span class="pw-chip">${f.depth}</span><span class="pw-chip">${f.season}</span></div><div class="pw-tip"><div class="pw-tip-lbl">Technique</div><div class="pw-tip-body">${f.tech}</div></div></div>`,{maxWidth:260,className:'custom-popup'});
-  fishingGroup.addLayer(c);
-  fishingGroup.addLayer(L.marker([f.lat,f.lng],{icon:L.divIcon({html:`<div class="fg-label">${f.name}<br><span class="fg-sub">${f.species}</span></div>`,className:'',iconSize:[110,26],iconAnchor:[55,13]}),interactive:false}));
-});
-fishingGroup.addTo(map);
+function toggleOverlay(name, btn) {
+  btn.classList.toggle('on');
+  var on = btn.classList.contains('on');
+  if (name === 'seamarks') {
+    if (on) overlays.seamarks.addTo(map); else map.removeLayer(overlays.seamarks);
+  } else if (name === 'depth') {
+    if (on) overlays.depth.addTo(map); else map.removeLayer(overlays.depth);
+  } else if (name === 'vessels') {
+    if (on) vesselLayerGroup.addTo(map); else map.removeLayer(vesselLayerGroup);
+  } else if (name === 'grounds') {
+    if (on) groundLayerGroup.addTo(map); else map.removeLayer(groundLayerGroup);
+  }
+}
 
-/* ── VESSEL ──────────────────────────────── */
-L.marker([47.3305,-122.5848],{
-  icon:L.divIcon({html:'<div class="vessel-wrap"><div class="v-ring"></div><div class="v-ring"></div><div class="v-dot"></div></div>',className:'',iconSize:[42,42],iconAnchor:[21,21],popupAnchor:[0,-24]}),
-  zIndexOffset:500
-}).bindPopup(`<div class="pw" style="min-width:200px"><div class="pw-cat">Your Vessel</div><div class="pw-title">Reel Deal</div><div class="pw-sub">Moored at Gig Harbor Marina &amp; Boatyard</div><div class="pw-div"></div><div class="pw-chips"><span class="pw-chip">SOG: 0.0 kts</span><span class="pw-chip">Depth: 42ft</span><span class="pw-chip">Fuel: 78%</span></div><div class="pw-tip"><div class="pw-tip-lbl">Notice</div><div class="pw-tip-body">Vessel position simulated at marina berth. Real-time AIS requires dedicated hardware.</div></div></div>`,{maxWidth:290,className:'custom-popup'}).addTo(map);
+// ── FISHING GROUNDS ───────────────────────────────────────────────────────────
 
-/* ── WAYPOINTS ───────────────────────────── */
-WPTS.forEach(w=>{
-  L.marker([w.lat,w.lng],{icon:L.divIcon({html:'<div class="wpt-dot"></div>',className:'',iconSize:[10,10],iconAnchor:[5,5],popupAnchor:[0,-8]})})
-    .bindPopup(`<div class="pw" style="min-width:180px"><div class="pw-cat">Waypoint</div><div class="pw-title">${w.name}</div><div class="pw-div"></div><div class="pw-body">${w.note}</div><div class="pw-chips"><span class="pw-chip">${toDM(w.lat,true)}</span><span class="pw-chip">${toDM(w.lng,false)}</span></div></div>`,{maxWidth:260,className:'custom-popup'})
-    .addTo(wptGroup);
-});
-wptGroup.addTo(map);
-
-/* ── RIGHT PANEL LIST ────────────────────── */
-const poiListEl=document.getElementById('poi-list');
-POIS.forEach((p,i)=>{
-  const el=document.createElement('div');
-  el.className='poi-item'+(p.partner?' partner':'');
-  el.innerHTML=`<div class="poi-cat">${p.panelCat}</div><div class="poi-name">${p.name}</div><div class="poi-sub">${p.sub}</div>`;
-  el.addEventListener('click',()=>{
-    map.setView([p.lat,p.lng],13,{animate:true,duration:1.1});
-    setTimeout(()=>poiMk[i].m.openPopup(),1200);
+function drawFishingGrounds() {
+  groundLayerGroup.clearLayers();
+  FISHING_GROUNDS.forEach(function(g) {
+    var c = L.circle(g.center, {
+      radius: g.radius, color: g.color, fillColor: g.color,
+      fillOpacity: 0.08, weight: 2, dashArray: '8 6', opacity: 0.7
+    });
+    c.bindTooltip(
+      '<div class="ground-tooltip"><strong>' + g.name + '</strong><br>' + g.species + '<br>' + g.depth + ' &bull; ' + g.season + '</div>',
+      { sticky: true }
+    );
+    c.addTo(groundLayerGroup);
   });
-  poiListEl.appendChild(el);
+}
+drawFishingGrounds();
+
+// ── POI MARKERS ───────────────────────────────────────────────────────────────
+
+var poiMarkers = {};
+
+function buildPopup(p) {
+  return '<div class="popup-header">' +
+    '<div class="popup-cat" style="color:' + (p.catColor || 'var(--brass-lt)') + ';">' + p.cat + '</div>' +
+    '<div class="popup-title">' + p.title + '</div>' +
+    '</div><div class="popup-body">' +
+    '<p class="popup-desc">' + p.desc + '</p>' +
+    '<div class="popup-stats">' + p.stats.map(function(s){ return '<span class="popup-stat">' + s + '</span>'; }).join('') + '</div>' +
+    '<div class="popup-tip">' + p.tip + '</div>' +
+    '</div>';
+}
+
+POIS.forEach(function(p) {
+  var marker = L.circleMarker([p.lat, p.lon], {
+    radius: 8, fillColor: p.catColor || '#b58c28',
+    color: '#fff', weight: 2, fillOpacity: 0.88
+  });
+  marker.bindPopup(buildPopup(p), { maxWidth: 300 });
+  marker.addTo(map);
+  poiMarkers[p.id] = marker;
 });
 
-/* ── MOON PHASE ──────────────────────────── */
-function moonPhase(){
-  const d=new Date();
-  const jd=367*d.getFullYear()-Math.floor(7*(d.getFullYear()+Math.floor((d.getMonth()+10)/12))/4)+Math.floor(275*d.getMonth()/9)+d.getDate()+1721013.5+d.getUTCHours()/24;
-  let f=((jd-2451550.1)/29.530588)%1;if(f<0)f+=1;
-  if(f<.0625) return{e:'🌑',n:'New Moon',g:'GOOD'};
-  if(f<.1875) return{e:'🌒',n:'Waxing Crescent',g:'FAIR'};
-  if(f<.3125) return{e:'🌓',n:'First Quarter',g:'GOOD'};
-  if(f<.4375) return{e:'🌔',n:'Waxing Gibbous',g:'FAIR'};
-  if(f<.5625) return{e:'🌕',n:'Full Moon',g:'BEST'};
-  if(f<.6875) return{e:'🌖',n:'Waning Gibbous',g:'GOOD'};
-  if(f<.8125) return{e:'🌗',n:'Last Quarter',g:'GOOD'};
-  if(f<.9375) return{e:'🌘',n:'Waning Crescent',g:'FAIR'};
-  return{e:'🌑',n:'New Moon',g:'GOOD'};
+// ── POI RIGHT PANEL ───────────────────────────────────────────────────────────
+
+var catMeta = {
+  'Marina / Partner': { bg:'#4a7899', icon:'⚓' },
+  'Fishing Ground': { bg:'#1e6b3e', icon:'&#9965;' },
+  'Navigation': { bg:'#485868', icon:'&#9876;' },
+  'Crabbing': { bg:'#7c3aed', icon:'&#9958;' },
+  'Anchorage': { bg:'#b58c28', icon:'&#9875;' },
+  'Nature / Anchorage': { bg:'#2d6a4f', icon:'&#9734;' },
+  'Navigation / Fishing': { bg:'#4a7899', icon:'&#9826;' },
+  'Anchorage / Crabbing': { bg:'#7c3aed', icon:'&#9875;' },
+};
+
+function buildPoiPanel() {
+  var container = document.getElementById('rtab-0');
+  container.innerHTML = POIS.map(function(p) {
+    var cm = catMeta[p.cat] || { bg:'#b58c28', icon:'&#9679;' };
+    return '<div class="poi-item" onclick="flyToPoi(\'' + p.id + '\')">' +
+      '<div class="poi-icon" style="background:' + cm.bg + '22;border:1px solid ' + cm.bg + '44;">' + cm.icon + '</div>' +
+      '<div class="poi-info">' +
+      '<div class="poi-cat" style="color:' + cm.bg + ';">' + p.cat + '</div>' +
+      '<h4>' + p.title + '</h4>' +
+      '<p>' + p.stats[0] + '</p>' +
+      '</div></div>';
+  }).join('');
 }
 
-/* ── TIDE + CONDITIONS ───────────────────── */
-function update(){
-  const h0=new Date().getHours()+new Date().getMinutes()/60;
-  const M2=2*Math.PI/12.42,S2=2*Math.PI/12.00;
-  const tide =7.0+5.2*Math.cos(M2*h0+1.1)+1.8*Math.cos(S2*h0+0.8);
-  const tide2=7.0+5.2*Math.cos(M2*(h0+.08)+1.1)+1.8*Math.cos(S2*(h0+.08)+0.8);
-  const rising=tide2>tide,ht=tide.toFixed(1);
-  const arrow=rising?'↑':'↓',trend=rising?'Flooding':'Ebbing';
-  const rate=Math.abs(tide2-tide)/.08;
-  document.getElementById('hdr-tide').textContent=arrow+' '+ht+'ft';
-  document.getElementById('tide-panel').innerHTML=ht+' <span class="r-unit">ft — '+trend+'</span>';
-
-  let tideCls,tideLabel;
-  if(rate<.3){tideCls='good';tideLabel='SLACK';}
-  else if(rate<.7){tideCls='good';tideLabel='SLOW';}
-  else if(rate<1.2){tideCls='fair';tideLabel='MOD';}
-  else{tideCls='poor';tideLabel='FAST';}
-
-  const moon=moonPhase();
-  document.getElementById('hdr-moon').textContent=moon.e;
-  const fcTide=document.getElementById('fc-tide');
-  fcTide.textContent=tideLabel;fcTide.className='fc-val '+tideCls;
-  const fcMoon=document.getElementById('fc-moon');
-  fcMoon.textContent=moon.n;fcMoon.className='fc-val '+(moon.g==='POOR'?'poor':moon.g==='FAIR'?'fair':'good');
-  const outlook=(moon.g==='BEST'&&tideCls!=='poor')?'EXCELLENT':(tideCls==='good'&&moon.g!=='FAIR')?'GOOD':(tideCls==='fair'||moon.g==='FAIR')?'FAIR':'POOR';
-  const fcOut=document.getElementById('fc-out');
-  fcOut.textContent=outlook;fcOut.className='fc-val '+(outlook==='EXCELLENT'||outlook==='GOOD'?'good':outlook==='FAIR'?'fair':'poor');
+function flyToPoi(id) {
+  var p = POIS.find(function(x){ return x.id === id; });
+  if (!p) return;
+  map.flyTo([p.lat, p.lon], 13, { duration: 1.2 });
+  setTimeout(function(){
+    if (poiMarkers[id]) poiMarkers[id].openPopup();
+  }, 1300);
 }
-update();setInterval(update,60000);
 
-/* ── INIT HUD ────────────────────────────── */
-document.getElementById('hud-lat').textContent=toDM(47.295,true);
-document.getElementById('hud-lon').textContent=toDM(-122.525,false);
+buildPoiPanel();
+
+// ── QUICK SPOTS ───────────────────────────────────────────────────────────────
+
+function buildQuickSpots() {
+  var container = document.getElementById('spot-list');
+  container.innerHTML = QUICK_SPOTS.map(function(s) {
+    return '<button class="spot-link" onclick="map.flyTo([' + s.lat + ',' + s.lon + '],13,{duration:1})">' +
+      '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' +
+      s.label + '</button>';
+  }).join('');
+}
+buildQuickSpots();
+
+// ── VESSEL TRACKING ───────────────────────────────────────────────────────────
+
+var vessels = VESSELS_INIT.map(function(v){ return Object.assign({}, v); });
+var vesselColors = { ferry:'#1a2738', fishing:'#1e6b3e', sail:'#b58c28', pleasure:'#4a7899' };
+var vesselSizes = { ferry:14, fishing:10, sail:9, pleasure:9 };
+
+function makeVesselIcon(vessel) {
+  var color = vesselColors[vessel.type] || '#1a2738';
+  var sz = vesselSizes[vessel.type] || 10;
+  var rot = vessel.heading;
+  var html = '<div style="position:relative;width:' + (sz*2) + 'px;height:' + (sz*2+16) + 'px;">' +
+    '<svg width="' + (sz*2) + '" height="' + (sz*2) + '" viewBox="0 0 ' + (sz*2) + ' ' + (sz*2) + '" ' +
+    'style="transform:rotate(' + rot + 'deg);transform-origin:' + sz + 'px ' + sz + 'px;">' +
+    '<polygon points="' + sz + ',2 ' + (sz*2-3) + ',' + (sz*2-3) + ' ' + sz + ',' + (sz*2-7) + ' 3,' + (sz*2-3) + '" ' +
+    'fill="' + color + '" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/></svg>' +
+    '<div style="position:absolute;left:50%;transform:translateX(-50%);top:' + (sz*2+2) + 'px;' +
+    'font-family:\'Share Tech Mono\',monospace;font-size:8px;white-space:nowrap;' +
+    'background:rgba(245,241,228,0.92);color:#1a2738;padding:1px 3px;border-radius:2px;line-height:1.3;">' +
+    vessel.name + '</div></div>';
+  return L.divIcon({ html: html, className: '', iconAnchor: [sz, sz], iconSize: [sz*2, sz*2+16] });
+}
+
+function buildVesselPopup(v) {
+  return '<div class="popup-header"><div class="popup-cat">' + v.type.toUpperCase() + '</div>' +
+    '<div class="popup-title">' + v.name + '</div></div>' +
+    '<div class="popup-body"><div class="popup-stats">' +
+    '<span class="popup-stat">HDG: ' + Math.round(v.heading) + '&deg;</span>' +
+    '<span class="popup-stat">SPD: ' + v.speed + ' kts</span>' +
+    '<span class="popup-stat">' + v.lat.toFixed(4) + 'N ' + Math.abs(v.lon).toFixed(4) + 'W</span>' +
+    '</div><div class="popup-tip">Updated: ' + new Date().toLocaleTimeString() + '</div></div>';
+}
+
+function renderVessels() {
+  vesselLayerGroup.clearLayers();
+  vessels.forEach(function(v) {
+    var m = L.marker([v.lat, v.lon], { icon: makeVesselIcon(v) });
+    m.bindPopup(buildVesselPopup(v), { maxWidth: 260 });
+    m.addTo(vesselLayerGroup);
+  });
+}
+
+function updateVesselPositions() {
+  var NM_PER_DEG = 60;
+  vessels.forEach(function(v) {
+    if (v.speed === 0) return;
+    v.heading = ((v.heading + (Math.random() - 0.5) * 10) + 360) % 360;
+    var dist = (v.speed / 3600) * 30;
+    var headRad = v.heading * Math.PI / 180;
+    v.lat += (dist / NM_PER_DEG) * Math.cos(headRad);
+    v.lon += (dist / (NM_PER_DEG * Math.cos(v.lat * Math.PI / 180))) * Math.sin(headRad);
+    if (v.lat < 47.15 || v.lat > 47.45) { v.heading = (540 - v.heading) % 360; v.lat = Math.max(47.15, Math.min(47.45, v.lat)); }
+    if (v.lon < -122.75 || v.lon > -122.35) { v.heading = (360 - v.heading) % 360; v.lon = Math.max(-122.75, Math.min(-122.35, v.lon)); }
+  });
+  renderVessels();
+}
+
+// Try WSF API first
+fetch('https://www.wsdot.wa.gov/Ferries/API/Vessels/rest/vessellocations')
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (Array.isArray(data) && data.length) {
+      data.slice(0, 3).forEach(function(d, i) {
+        if (vessels[i]) {
+          if (d.Latitude) vessels[i].lat = d.Latitude;
+          if (d.Longitude) vessels[i].lon = d.Longitude;
+          if (d.Heading) vessels[i].heading = d.Heading;
+          if (d.Speed) vessels[i].speed = d.Speed;
+        }
+      });
+    }
+    renderVessels();
+  })
+  .catch(function(){ renderVessels(); });
+
+setInterval(updateVesselPositions, 30000);
+
+// ── TIDE SIMULATION ───────────────────────────────────────────────────────────
+
+function getTide(date) {
+  var t = date || new Date();
+  var h = t.getHours() + t.getMinutes() / 60 + t.getSeconds() / 3600;
+  var M2 = 12.42, S2 = 12.0;
+  var M2w = 2 * Math.PI / M2, S2w = 2 * Math.PI / S2;
+  var M2ph = 120 * Math.PI / 180, S2ph = 150 * Math.PI / 180;
+  return 3.8 * Math.cos(M2w * h - M2ph) + 1.2 * Math.cos(S2w * h - S2ph);
+}
+
+function getTideInfo() {
+  var now = new Date();
+  var h = getTide(now);
+  var h1 = getTide(new Date(now.getTime() + 60000));
+  var rate = (h1 - h) * 60;
+  var dir = rate > 0.05 ? 'Rising' : rate < -0.05 ? 'Falling' : 'Slack';
+  return { height: h.toFixed(1), rate: Math.abs(rate).toFixed(2), dir: dir };
+}
+
+// ── MOON PHASE & SOLUNAR ──────────────────────────────────────────────────────
+
+function getMoonPhase(date) {
+  var d = date || new Date();
+  var known = new Date('2000-01-06T18:14:00Z');
+  var synodic = 29.53058867;
+  var phase = ((d - known) / 86400000 % synodic + synodic) % synodic;
+  var pct = phase / synodic;
+  if (pct < 0.033) return { name:'New Moon', emoji:'&#127761;', rating:4 };
+  if (pct < 0.133) return { name:'Waxing Crescent', emoji:'&#127762;', rating:3 };
+  if (pct < 0.183) return { name:'First Quarter', emoji:'&#127763;', rating:3 };
+  if (pct < 0.283) return { name:'Waxing Gibbous', emoji:'&#127764;', rating:2 };
+  if (pct < 0.333) return { name:'Full Moon', emoji:'&#127765;', rating:4 };
+  if (pct < 0.433) return { name:'Waning Gibbous', emoji:'&#127766;', rating:3 };
+  if (pct < 0.483) return { name:'Last Quarter', emoji:'&#127767;', rating:3 };
+  return { name:'Waning Crescent', emoji:'&#127768;', rating:2 };
+}
+
+function fmtH(h) {
+  h = ((h % 24) + 24) % 24;
+  var hh = Math.floor(h);
+  var mm = Math.round((h - hh) * 60);
+  if (mm === 60) { hh++; mm = 0; hh %= 24; }
+  return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+}
+
+function getSolunar() {
+  var d = new Date();
+  var known = new Date('2000-01-06T18:14:00Z');
+  var synodic = 29.53058867;
+  var phase = ((d - known) / 86400000 % synodic + synodic) % synodic;
+  var pct = phase / synodic;
+  var transitHour = (pct * 24.84) % 24;
+  var antiHour = (transitHour + 12.42) % 24;
+  var riseHour = ((transitHour - 6.21) + 24) % 24;
+  var setHour = (transitHour + 6.21) % 24;
+
+  function rng(h, dur) { return fmtH(h - dur/2) + '\u2013' + fmtH(h + dur/2); }
+  return [
+    { type:'MAJOR', range: rng(transitHour, 2), stars:'&#9733;&#9733;&#9733;', h: transitHour },
+    { type:'MINOR', range: rng(riseHour, 1), stars:'&#9733;&#9733;', h: riseHour },
+    { type:'MAJOR', range: rng(antiHour, 2), stars:'&#9733;&#9733;&#9733;', h: antiHour },
+    { type:'MINOR', range: rng(setHour, 1), stars:'&#9733;&#9733;', h: setHour },
+  ].sort(function(a,b){ return a.h - b.h; });
+}
+
+function updateSolunar() {
+  var periods = getSolunar();
+  var container = document.getElementById('solunar-list');
+  container.innerHTML = periods.map(function(p) {
+    return '<div class="solunar-item">' +
+      '<span class="sol-type' + (p.type === 'MAJOR' ? ' major' : '') + '">' + p.type + '</span>' +
+      '<span class="sol-time">' + p.range + '</span>' +
+      '<span class="sol-stars">' + p.stars + '</span></div>';
+  }).join('');
+}
+updateSolunar();
+
+// ── FISHING CONDITIONS ────────────────────────────────────────────────────────
+
+function updateFishingConditions() {
+  var tide = getTideInfo();
+  var moon = getMoonPhase();
+  document.getElementById('fc-tide').textContent = tide.height + ' ft';
+  document.getElementById('fc-tide-rate').textContent = tide.rate + ' ft/hr';
+  document.getElementById('fc-tide-dir').textContent = tide.dir;
+  document.getElementById('fc-moon').innerHTML = moon.name;
+  document.getElementById('hdr-tide').textContent = tide.height + 'ft';
+  var tideScore = tide.dir !== 'Slack' ? 2 : 1;
+  var moonScore = moon.rating;
+  var total = tideScore + moonScore;
+  var outlook, badge;
+  if (total >= 6) { outlook = 'EXCELLENT'; badge = 'ob-excellent'; }
+  else if (total >= 5) { outlook = 'GOOD'; badge = 'ob-good'; }
+  else if (total >= 4) { outlook = 'FAIR'; badge = 'ob-fair'; }
+  else { outlook = 'POOR'; badge = 'ob-poor'; }
+  var stars = '';
+  for (var i = 0; i < moonScore; i++) stars += '&#9733;';
+  for (var j = moonScore; j < 5; j++) stars += '&#9734;';
+  document.getElementById('fc-rating').innerHTML = stars;
+  document.getElementById('fc-outlook-wrap').innerHTML = '<span class="outlook-badge ' + badge + '">' + outlook + '</span>';
+}
+updateFishingConditions();
+setInterval(updateFishingConditions, 60000);
+
+// ── MOON HEADER ───────────────────────────────────────────────────────────────
+
+function updateMoonHeader() {
+  var moon = getMoonPhase();
+  document.getElementById('hdr-moon').innerHTML = moon.emoji;
+}
+updateMoonHeader();
+
+// ── IN SEASON NOW ─────────────────────────────────────────────────────────────
+
+function buildSeasonGrid() {
+  var month = new Date().getMonth() + 1;
+  var container = document.getElementById('season-grid');
+  container.innerHTML = SEASON_DATA.map(function(s) {
+    var inSeason = s.months.indexOf(month) !== -1;
+    return '<div class="species-pill' + (inSeason ? ' in-season' : '') + '">' +
+      '<div class="species-dot" style="background:' + (inSeason ? '#6ee7b7' : 'var(--border)') + '"></div>' +
+      s.name + '</div>';
+  }).join('');
+}
+buildSeasonGrid();
+
+// ── WEATHER FETCH ─────────────────────────────────────────────────────────────
+
+var WX_CODES = {
+  0:'Clear',1:'Mainly Clear',2:'Partly Cloudy',3:'Overcast',
+  45:'Foggy',48:'Rime Fog',51:'Light Drizzle',53:'Drizzle',55:'Heavy Drizzle',
+  61:'Light Rain',63:'Rain',65:'Heavy Rain',71:'Light Snow',73:'Snow',
+  80:'Rain Showers',95:'Thunderstorm',99:'Severe T-Storm'
+};
+
+function degToCompass(deg) {
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function updateWeatherBanner(wind) {
+  var banner = document.getElementById('weather-banner');
+  var txt = document.getElementById('banner-text');
+  banner.style.display = 'none';
+  banner.className = '';
+  var cls = '', msg = '';
+  if (wind >= 48) { cls = 'banner-darkred'; msg = 'STORM WARNING — Wind ' + wind + ' kts'; }
+  else if (wind >= 34) { cls = 'banner-red'; msg = 'GALE WARNING — Wind ' + wind + ' kts'; }
+  else if (wind >= 21) { cls = 'banner-orange'; msg = 'SMALL CRAFT ADVISORY — Wind ' + wind + ' kts'; }
+  else if (wind >= 15) { cls = 'banner-amber'; msg = 'SMALL CRAFT ADVISORY — Wind ' + wind + ' kts'; }
+  if (cls) {
+    banner.className = cls;
+    txt.textContent = msg;
+    banner.style.display = 'flex';
+    banner.style.padding = '6px 16px';
+    banner.style.fontSize = '12px';
+    banner.style.fontWeight = '600';
+    banner.style.alignItems = 'center';
+    banner.style.gap = '8px';
+  }
+}
+
+function updateSailingPanel(wind, dir) {
+  var ratingText, ratingClass;
+  if (wind < 2) { ratingText = 'Poor (calm)'; ratingClass = 'poor'; }
+  else if (wind < 5) { ratingText = 'Fair (light air)'; ratingClass = 'fair'; }
+  else if (wind < 10) { ratingText = 'Good (light breeze)'; ratingClass = 'good'; }
+  else if (wind < 20) { ratingText = 'Excellent (sailing breeze)'; ratingClass = 'excellent'; }
+  else if (wind < 25) { ratingText = 'Good (fresh breeze)'; ratingClass = 'good'; }
+  else if (wind < 30) { ratingText = 'Fair (strong breeze)'; ratingClass = 'fair'; }
+  else { ratingText = 'Poor (too strong)'; ratingClass = 'poor'; }
+  document.getElementById('sail-wind-display').textContent = wind + ' kts ' + degToCompass(dir);
+  var r = document.getElementById('sail-rating');
+  r.textContent = ratingText;
+  r.className = 'sail-rating ' + ratingClass;
+}
+
+function applyWeather(w) {
+  var wind = Math.round(w.wind_speed_10m || 0);
+  var windDir = w.wind_direction_10m || 0;
+  var temp = Math.round(w.temperature_2m || 52);
+  var vis = ((w.visibility || 16000) / 1609.34).toFixed(1);
+  var cond = WX_CODES[w.weather_code] || 'Variable';
+  document.getElementById('wx-wind').textContent = wind;
+  document.getElementById('wx-wind-dir').textContent = degToCompass(windDir);
+  document.getElementById('wx-temp').textContent = temp;
+  document.getElementById('wx-vis').textContent = vis;
+  document.getElementById('wx-cond').textContent = cond;
+  document.getElementById('hdr-wind').textContent = wind + 'kt';
+  document.getElementById('hdr-temp').textContent = temp + '\u00b0F';
+  document.getElementById('hdr-wind').className = wind >= 21 ? 'cond-value alert' : 'cond-value';
+  document.getElementById('weather-updating').textContent = 'Live';
+  document.getElementById('st-updated').textContent = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  updateWeatherBanner(wind);
+  updateSailingPanel(wind, windDir);
+}
+
+function fetchWeather() {
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=47.295&longitude=-122.525&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,visibility&wind_speed_unit=kn&temperature_unit=fahrenheit')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data && data.current) applyWeather(data.current);
+    })
+    .catch(function(){
+      document.getElementById('wx-wind').textContent = '12';
+      document.getElementById('wx-wind-dir').textContent = 'SW';
+      document.getElementById('wx-temp').textContent = '52';
+      document.getElementById('wx-vis').textContent = '10.0';
+      document.getElementById('wx-cond').textContent = 'Overcast';
+      document.getElementById('hdr-wind').textContent = '12kt';
+      document.getElementById('hdr-temp').textContent = '52\u00b0F';
+      document.getElementById('weather-updating').textContent = 'Offline';
+      updateSailingPanel(12, 225);
+    });
+}
+fetchWeather();
+setInterval(fetchWeather, 900000);
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+
+function decToDM(dec, isLat) {
+  var abs = Math.abs(dec);
+  var d = Math.floor(abs);
+  var m = ((abs - d) * 60).toFixed(3);
+  var dir = isLat ? (dec >= 0 ? 'N' : 'S') : (dec >= 0 ? 'E' : 'W');
+  return d + '\u00b0' + m + "'" + dir;
+}
+
+function updateHud() {
+  var c = map.getCenter();
+  var z = map.getZoom();
+  document.getElementById('hud-coords').textContent = decToDM(c.lat, true) + ' ' + decToDM(c.lng, false);
+  document.getElementById('hud-zoom').textContent = 'Z' + z;
+  document.getElementById('st-lat').textContent = c.lat.toFixed(4) + ' N';
+  document.getElementById('st-lon').textContent = Math.abs(c.lng).toFixed(4) + ' W';
+  document.getElementById('st-zoom').textContent = z;
+  document.getElementById('hdr-coords').textContent = decToDM(c.lat, true);
+}
+
+map.on('moveend', updateHud);
+map.on('zoomend', updateHud);
+updateHud();
+
+// ── PANEL TOGGLES ─────────────────────────────────────────────────────────────
+
+function toggleLeft() {
+  document.getElementById('left-panel').classList.toggle('collapsed');
+  document.getElementById('left-strip').classList.toggle('collapsed');
+  setTimeout(function(){ map.invalidateSize({ animate: false }); }, 320);
+}
+
+function toggleRight() {
+  document.getElementById('right-panel').classList.toggle('collapsed');
+  document.getElementById('right-strip').classList.toggle('collapsed');
+  setTimeout(function(){ map.invalidateSize({ animate: false }); }, 320);
+}
+
+// ── RIGHT PANEL TABS ──────────────────────────────────────────────────────────
+
+function setRTab(idx) {
+  document.querySelectorAll('.rtab').forEach(function(t, i){ t.classList.toggle('active', i === idx); });
+  document.querySelectorAll('.rpanel').forEach(function(p, i){ p.classList.toggle('active', i === idx); });
+}
+
+// ── FISH ENCYCLOPEDIA ─────────────────────────────────────────────────────────
+
+function buildFishGrid() {
+  var grid = document.getElementById('fish-grid');
+  grid.innerHTML = SPECIES_CARDS.map(function(s, i) {
+    return '<div class="fish-card" onclick="openFishModal(' + i + ')">' +
+      '<div class="fish-emoji">' + s.emoji + '</div>' +
+      '<div class="fish-name">' + s.name + '</div>' +
+      '<div class="fish-sub">' + s.sub + '</div></div>';
+  }).join('');
+}
+
+function openFishModal(idx) {
+  var s = SPECIES_CARDS[idx];
+  document.getElementById('modal-title').textContent = s.name;
+  document.getElementById('modal-subtitle').textContent = s.sci;
+  var cbClass = s.conservation === 'WARN' ? 'cb-warn' : 'cb-ok';
+  var cbIcon = s.conservation === 'WARN' ? '&#9888;' : '&#10003;';
+  var body = '<div class="conservation-badge ' + cbClass + '">' + cbIcon + ' ' + s.consText + '</div>' +
+    '<div class="modal-section"><h4>Biology</h4><p>' + s.bio + '</p></div>' +
+    '<div class="modal-section"><h4>Habitat</h4><p>' + s.habitat + '</p></div>' +
+    '<div class="modal-section"><h4>Behavior</h4><p>' + s.behavior + '</p></div>' +
+    '<div class="modal-section"><h4>Best Lures &amp; Rigs</h4><div class="lures-list">' +
+    s.lures.map(function(l){ return '<span class="lure-pill">' + l + '</span>'; }).join('') +
+    '</div></div>' +
+    '<div class="modal-section"><h4>Techniques</h4><p>' + s.techniques + '</p></div>' +
+    '<div class="modal-section"><h4>Best Times</h4><p>' + s.bestTimes + '</p></div>' +
+    '<div class="modal-section"><h4>Fun Facts</h4><p>' + s.funFacts + '</p></div>' +
+    '<div class="modal-tip"><strong>Local Tips</strong>' + s.localTips + '</div>';
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+
+function closeModalBackdrop(e) {
+  if (e.target === document.getElementById('modal-backdrop')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+}
+
+buildFishGrid();
+
+// ── TRIP REPORTS ──────────────────────────────────────────────────────────────
+
+var REPORT_KEY = 'dekwave_reports_v1';
+var starRating = 0;
+
+function buildSpeciesChecks() {
+  var container = document.getElementById('sp-checks');
+  var sps = ['Chinook','Coho','Lingcod','Dungeness Crab','Halibut','Spot Shrimp','Rockfish','Octopus'];
+  container.innerHTML = sps.map(function(s) {
+    return '<div class="species-check" onclick="toggleSpeciesCheck(this)">' + s + '</div>';
+  }).join('');
+}
+
+function toggleSpeciesCheck(el) {
+  el.classList.toggle('checked');
+}
+
+function setStar(v) {
+  starRating = v;
+  document.querySelectorAll('.star-btn').forEach(function(btn, i){ btn.classList.toggle('lit', i < v); });
+}
+
+function getReports() {
+  try { return JSON.parse(localStorage.getItem(REPORT_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveReports(reports) {
+  localStorage.setItem(REPORT_KEY, JSON.stringify(reports.slice(0, 50)));
+}
+
+function escHtml(str) {
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+
+function renderReports() {
+  var reports = getReports();
+  var container = document.getElementById('reports-list');
+  if (!reports.length) {
+    container.innerHTML = '<div class="no-reports">No reports yet. Be the first to submit!</div>';
+    return;
+  }
+  container.innerHTML = reports.map(function(r) {
+    var stars = '';
+    for (var i = 0; i < r.rating; i++) stars += '&#9733;';
+    for (var j = r.rating; j < 5; j++) stars += '&#9734;';
+    return '<div class="report-item">' +
+      '<div class="report-header"><span class="report-user">' + escHtml(r.user) + '</span><span class="report-date">' + r.date + '</span></div>' +
+      '<div class="report-spot">' + escHtml(r.spot) + '</div>' +
+      '<div class="report-stars">' + stars + '</div>' +
+      (r.species && r.species.length ? '<div style="font-size:10px;color:var(--fog);margin-top:3px;">' + r.species.join(', ') + '</div>' : '') +
+      (r.notes ? '<div class="report-notes">"' + escHtml(r.notes) + '"</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function submitReport() {
+  var user = (document.getElementById('tr-name').value || '').trim() || 'Anonymous';
+  var spot = document.getElementById('tr-spot').value;
+  var notes = (document.getElementById('tr-notes').value || '').trim();
+  var species = Array.from(document.querySelectorAll('.species-check.checked')).map(function(el){ return el.textContent; });
+  if (!spot) { alert('Please select a spot.'); return; }
+  if (!starRating) { alert('Please rate the conditions.'); return; }
+  var report = {
+    user: user, spot: spot, notes: notes, species: species, rating: starRating,
+    date: new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
+  };
+  var reports = getReports();
+  reports.unshift(report);
+  saveReports(reports);
+  document.getElementById('tr-name').value = '';
+  document.getElementById('tr-spot').value = '';
+  document.getElementById('tr-notes').value = '';
+  document.querySelectorAll('.species-check').forEach(function(el){ el.classList.remove('checked'); });
+  setStar(0);
+  renderReports();
+}
+
+buildSpeciesChecks();
+renderReports();
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+window.addEventListener('load', function() {
+  setTimeout(function(){ map.invalidateSize({ animate: false }); }, 150);
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModalDirect();
+});
+
 </script>
 </body>
 </html>
