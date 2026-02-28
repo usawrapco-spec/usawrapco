@@ -29,12 +29,11 @@ export default async function PortalTokenLayout({
       .eq('customer_id', customer.id)
       .order('created_at', { ascending: false })
 
-    // Fetch org name
-    const { data: org } = await supabase
-      .from('orgs')
-      .select('name')
-      .eq('id', customer.org_id)
-      .single()
+    // Fetch org name and fleet vehicles count
+    const [orgRes, fleetRes] = await Promise.all([
+      supabase.from('orgs').select('name').eq('id', customer.org_id).single(),
+      supabase.from('fleet_vehicles').select('id', { count: 'exact', head: true }).eq('customer_id', customer.id).not('name', 'is', null),
+    ])
 
     const ctx: PortalContextValue = {
       customer: {
@@ -46,8 +45,9 @@ export default async function PortalTokenLayout({
         company_name: customer.company_name,
       },
       token,
-      orgName: org?.name || 'USA Wrap Co',
+      orgName: orgRes.data?.name || 'USA Wrap Co',
       projects: projects || [],
+      hasFleet: (fleetRes.count ?? 0) > 0,
     }
 
     return (

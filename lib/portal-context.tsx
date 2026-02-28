@@ -28,6 +28,7 @@ export interface PortalContextValue {
   token: string
   orgName: string
   projects: PortalProject[]
+  hasFleet?: boolean
 }
 
 const PortalCtx = createContext<PortalContextValue | null>(null)

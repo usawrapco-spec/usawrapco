@@ -141,6 +141,15 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    id: 'fleet',
+    label: 'FLEET',
+    icon: Map,
+    roles: ['owner', 'admin', 'sales_agent'],
+    items: [
+      { href: '/fleet-map', label: 'Fleet Live Map', icon: Map, roles: ['owner', 'admin', 'sales_agent'] },
+    ],
+  },
+  {
     id: 'sourcing',
     label: 'SOURCING',
     icon: Search,

@@ -2,17 +2,19 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Briefcase, Palette, MessageSquare, Receipt } from 'lucide-react'
+import { Home, Briefcase, Palette, MessageSquare, Receipt, Map } from 'lucide-react'
 import { C } from '@/lib/portal-theme'
 import { PortalProvider, type PortalContextValue } from '@/lib/portal-context'
 
-const NAV_ITEMS = [
+const BASE_NAV = [
   { key: 'home',     label: 'Home',     icon: Home,          href: '' },
   { key: 'jobs',     label: 'My Jobs',  icon: Briefcase,     href: '/jobs' },
   { key: 'design',   label: 'Design',   icon: Palette,       href: '/design' },
   { key: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' },
   { key: 'invoices', label: 'Pay',      icon: Receipt,       href: '/invoices' },
 ] as const
+
+const FLEET_NAV = { key: 'fleet', label: 'Fleet', icon: Map, href: '/fleet' } as const
 
 export default function PortalShell({
   ctx,
@@ -32,6 +34,7 @@ export default function PortalShell({
   }
 
   const firstName = ctx.customer.name?.split(' ')[0] || 'there'
+  const navItems = ctx.hasFleet ? [...BASE_NAV, FLEET_NAV] : [...BASE_NAV]
 
   return (
     <PortalProvider value={ctx}>
@@ -69,7 +72,7 @@ export default function PortalShell({
           padding: '8px 0 env(safe-area-inset-bottom, 8px)',
           zIndex: 50,
         }}>
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = isActive(item.href)
             const Icon = item.icon
             return (
