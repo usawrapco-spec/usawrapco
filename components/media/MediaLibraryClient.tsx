@@ -86,7 +86,11 @@ export default function MediaLibraryClient({ profile }: Props) {
         .limit(500)
 
       if (!error && data) {
-        setFiles(data as MediaFile[])
+        setFiles(data.map((d: Record<string, unknown>) => ({
+          ...d,
+          filename: (d.file_name as string) || '',
+          public_url: (d.file_url as string) || '',
+        })) as MediaFile[])
       } else {
         const { data: oldData } = await supabase
           .from('job_images')

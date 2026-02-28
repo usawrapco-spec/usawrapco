@@ -142,9 +142,9 @@ export default function MediaLibraryPageClient({ profile }: Props) {
     setFiles((data || []).map((r: Record<string, unknown>) => ({
       id: r.id as string,
       org_id: r.org_id as string | null,
-      filename: r.filename as string | null,
-      public_url: r.public_url as string | null,
-      storage_path: r.storage_path as string | null,
+      filename: r.file_name as string | null,
+      public_url: r.file_url as string | null,
+      storage_path: null,
       mime_type: r.mime_type as string | null,
       file_size: (r.file_size as number) || 0,
       uploaded_by: r.uploaded_by as string | null,

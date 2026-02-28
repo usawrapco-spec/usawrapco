@@ -4,11 +4,10 @@ import { notFound } from 'next/navigation'
 
 interface MediaFileRow {
   id: string
-  filename: string | null
-  public_url: string | null
+  file_name: string | null
+  file_url: string | null
   mime_type: string | null
   file_size: number | null
-  category: string | null
   ai_description: string | null
   tags: string[] | null
 }
@@ -65,7 +64,7 @@ export default async function SharePackPage({ params }: { params: { pack_id: str
   if (ids.length > 0) {
     const { data: mediaFiles } = await admin
       .from('media_files')
-      .select('id, filename, public_url, mime_type, file_size, category, ai_description, tags')
+      .select('id, file_name, file_url, mime_type, file_size, ai_description, tags')
       .in('id', ids)
     files = (mediaFiles ?? []) as MediaFileRow[]
   }
@@ -74,11 +73,10 @@ export default async function SharePackPage({ params }: { params: { pack_id: str
   if (files.length === 0 && typedPack.photo_urls.length > 0) {
     files = typedPack.photo_urls.map((url, i) => ({
       id: String(i),
-      filename: null,
-      public_url: url,
+      file_name: null,
+      file_url: url,
       mime_type: 'image/jpeg',
       file_size: null,
-      category: null,
       ai_description: null,
       tags: null,
     }))
@@ -128,7 +126,7 @@ export default async function SharePackPage({ params }: { params: { pack_id: str
                 {imageFiles.map((f, i) => (
                   <a
                     key={f.id}
-                    href={f.public_url ?? '#'}
+                    href={f.file_url ?? '#'}
                     rel="noopener noreferrer"
                     style={{
                       background: '#13151c',
@@ -141,17 +139,17 @@ export default async function SharePackPage({ params }: { params: { pack_id: str
                     <div style={{ position: 'relative', paddingTop: '66%', background: '#1a1d27' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={f.public_url ?? ''}
-                        alt={f.filename ?? `Photo ${i + 1}`}
+                        src={f.file_url ?? ''}
+                        alt={f.file_name ?? `Photo ${i + 1}`}
                         loading="lazy"
                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>
-                    {(f.filename || f.ai_description || (f.tags && f.tags.length > 0)) && (
+                    {(f.file_name || f.ai_description || (f.tags && f.tags.length > 0)) && (
                       <div style={{ padding: '10px 12px' }}>
-                        {f.filename && (
+                        {f.file_name && (
                           <div style={{ fontSize: 12, fontWeight: 600, color: '#e8eaed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
-                            {f.filename}
+                            {f.file_name}
                           </div>
                         )}
                         {f.ai_description && (
@@ -179,7 +177,7 @@ export default async function SharePackPage({ params }: { params: { pack_id: str
                   {otherFiles.map(f => (
                     <a
                       key={f.id}
-                      href={f.public_url ?? '#'}
+                      href={f.file_url ?? '#'}
                       rel="noopener noreferrer"
                       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: '#13151c', border: '1px solid #1a1d27', borderRadius: 10, color: 'inherit', textDecoration: 'none' }}
                     >
@@ -188,7 +186,7 @@ export default async function SharePackPage({ params }: { params: { pack_id: str
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eaed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {f.filename ?? 'File'}
+                          {f.file_name ?? 'File'}
                         </div>
                         <div style={{ fontSize: 10, color: '#5a6080', marginTop: 2, fontFamily: '"JetBrains Mono", monospace' }}>
                           {f.mime_type} {f.file_size ? '· ' + fmt(f.file_size) : ''}
