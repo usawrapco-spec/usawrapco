@@ -75,6 +75,9 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
 
   const [status, setStatus] = useState<InvoiceStatus>(inv.status)
   const [amountPaid, setAmountPaid] = useState(inv.amount_paid)
+  const [vehicleYear, setVehicleYear] = useState<string>((inv.form_data?.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>((inv.form_data?.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>((inv.form_data?.vehicleModel as string) || '')
   const [paymentInput, setPaymentInput] = useState('')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -162,6 +165,13 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     } else {
       showToast(`Demo: Payment of ${fmtCurrency(amount)} recorded`)
     }
+  }
+
+  async function handleSaveVehicle(year: string, make: string, model: string) {
+    if (!canWrite || isDemo) return
+    await supabase.from('invoices').update({
+      form_data: { ...inv.form_data, vehicleYear: year || undefined, vehicleMake: make || undefined, vehicleModel: model || undefined },
+    }).eq('id', invoiceId)
   }
 
   function handleExportPdf() {
@@ -341,6 +351,40 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                     {inv.customer.email}
                   </span>
                 )}
+              </div>
+              <div>
+                <label className="field-label">Year</label>
+                <input
+                  value={vehicleYear}
+                  onChange={e => setVehicleYear(e.target.value)}
+                  onBlur={e => handleSaveVehicle(e.target.value, vehicleMake, vehicleModel)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="2024"
+                  maxLength={4}
+                />
+              </div>
+              <div>
+                <label className="field-label">Make</label>
+                <input
+                  value={vehicleMake}
+                  onChange={e => setVehicleMake(e.target.value)}
+                  onBlur={e => handleSaveVehicle(vehicleYear, e.target.value, vehicleModel)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="Ford"
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="field-label">Model</label>
+                <input
+                  value={vehicleModel}
+                  onChange={e => setVehicleModel(e.target.value)}
+                  onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="Transit 350"
+                />
               </div>
               <div>
                 <label className="field-label">Invoice Date</label>
