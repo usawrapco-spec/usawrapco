@@ -230,7 +230,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
       const { data, error } = await supabase.from('invoices').insert({
         org_id: so.org_id || profile.org_id,
         title: so.title,
-        sales_order_id: isDemo ? null : orderId,
+        so_id: isDemo ? null : orderId,
         customer_id: so.customer_id,
         status: 'draft',
         subtotal, discount, tax_rate: taxRate, tax_amount: taxAmount, total,
@@ -243,6 +243,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
       if (data) {
         if (lineItemsList.length > 0 && !isDemo) {
           const invItems = lineItemsList.map(li => ({
+            org_id: so.org_id || profile.org_id,
             parent_type: 'invoice' as const,
             parent_id: data.id,
             product_type: li.product_type,
