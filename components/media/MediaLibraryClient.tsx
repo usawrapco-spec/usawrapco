@@ -136,9 +136,8 @@ export default function MediaLibraryClient({ profile }: Props) {
 
         const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path)
 
-        const folder = folderFilter !== 'all' ? folderFilter : 'internal'
-
-        await supabase.from('media_files').insert({
+        const { data: insertedData } = await supabase.from('media_files').insert({
+          org_id: profile.org_id,
           bucket: BUCKET,
           file_url: publicUrl,
           file_name: file.name,
@@ -147,18 +146,14 @@ export default function MediaLibraryClient({ profile }: Props) {
           uploaded_by: profile.id,
           tags: [],
           ai_tags: [],
-        })
+        }).select('id').single()
 
         // AI auto-tag in background
-        const insertedData = await supabase.from('media_files')
-          .select('id')
-          .eq('storage_path', path)
-          .single()
-        if (insertedData.data?.id && file.type?.startsWith('image/')) {
+        if (insertedData?.id && file.type?.startsWith('image/')) {
           fetch('/api/ai/auto-tag', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mediaFileId: insertedData.data.id, imageUrl: publicUrl }),
+            body: JSON.stringify({ mediaFileId: insertedData.id, imageUrl: publicUrl }),
           }).catch((error) => { console.error(error); })
         }
       } catch (err) {
