@@ -63,7 +63,7 @@ function checkEscalationRules(
   rules: any[]
 ): { shouldEscalate: boolean; reason: string } {
   for (const rule of rules) {
-    if (!rule.is_active) continue
+    if (!rule.active) continue
     switch (rule.rule_type) {
       case 'keyword': {
         const keywords: string[] = rule.rule_config?.keywords || []
@@ -244,11 +244,11 @@ export async function POST(req: Request) {
   }, {} as Record<string, string[]>)
 
   const pricingTable = pricing.map((p: any) =>
-    `${p.vehicle_category} / ${p.wrap_type}: $${p.base_price} base, $${p.price_per_sqft}/sqft, max ${p.max_discount_pct}% discount`
+    `${p.name || p.rule_type}: ${p.value != null ? `$${p.value}` : ''} (applies to: ${p.applies_to || 'all'})`
   ).join('\n')
 
   const maxDeal = rules.find((r: any) => r.rule_type === 'dollar_threshold')?.rule_config?.max_amount || 10000
-  const maxDiscount = pricing.length > 0 ? Math.max(...pricing.map((p: any) => p.max_discount_pct || 0)) : 10
+  const maxDiscount = 10
 
   const conversationHistory = history.map((m: any) =>
     `[${m.direction === 'inbound' ? 'Customer' : 'VINYL'}] ${m.content}`

@@ -68,8 +68,8 @@ export async function POST(req: Request) {
 
   // Find matching pricing rule
   const rule = (pricingRules || []).find((r: any) =>
-    r.vehicle_category.toLowerCase() === vehicleCat.toLowerCase() &&
-    r.wrap_type.toLowerCase() === wrapType.toLowerCase()
+    r.vehicle_category?.toLowerCase() === vehicleCat.toLowerCase() &&
+    r.wrap_type?.toLowerCase() === wrapType.toLowerCase()
   )
 
   let basePrice = rule?.base_price || 3500 // Default full wrap price

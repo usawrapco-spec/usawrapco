@@ -189,7 +189,7 @@ export default function RevenueEngineMap({ profile }: EngineMapProps) {
     const orgId = profile.org_id
 
     const [prospectsRes, projectsRes] = await Promise.all([
-      supabase.from('prospects').select('id, status, score, business_name, company, name, email, estimated_revenue, created_at')
+      supabase.from('prospects').select('id, status, score, business_name, company, name, email, estimated_fleet_size, created_at')
         .eq('org_id', orgId).order('created_at', { ascending: false }).limit(500),
       supabase.from('projects').select('id, title, status, pipe_stage, revenue, profit, form_data, customer:customer_id(name), agent:agent_id(name), created_at, updated_at')
         .eq('org_id', orgId).order('created_at', { ascending: false }).limit(500),
@@ -199,7 +199,7 @@ export default function RevenueEngineMap({ profile }: EngineMapProps) {
     const projects = projectsRes.data || []
 
     const data: Record<string, StageData> = {}
-    const sumRev = (arr: any[]) => arr.reduce((s, p) => s + (p.revenue || p.estimated_revenue || 0), 0)
+    const sumRev = (arr: any[]) => arr.reduce((s, p) => s + (p.revenue || p.estimated_fleet_size || 0), 0)
     const avgDaysCalc = (arr: any[]) => {
       if (arr.length === 0) return 0
       const now = Date.now()
@@ -531,12 +531,12 @@ export default function RevenueEngineMap({ profile }: EngineMapProps) {
                           ${r.revenue.toLocaleString()}
                         </span>
                       )}
-                      {r.estimated_revenue != null && r.estimated_revenue > 0 && (
+                      {r.estimated_fleet_size != null && r.estimated_fleet_size > 0 && (
                         <span style={{
                           color: 'var(--cyan)',
                           fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
                         }}>
-                          ~${r.estimated_revenue.toLocaleString()}
+                          ~${r.estimated_fleet_size.toLocaleString()}
                         </span>
                       )}
                       {r.status && (

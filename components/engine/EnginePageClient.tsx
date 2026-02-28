@@ -143,7 +143,7 @@ const WF_TEMPLATES: Omit<Workflow, 'id' | 'created_at'>[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────
 function sumRev(arr: any[]): number {
-  return arr.reduce((s, p) => s + (p.revenue || p.estimated_revenue || 0), 0)
+  return arr.reduce((s, p) => s + (p.revenue || p.estimated_fleet_size || 0), 0)
 }
 
 function avgDaysCalc(arr: any[]): number {
@@ -336,7 +336,7 @@ function StageDrawer({ data, onClose, onNavigate }: {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 5, fontSize: 11, alignItems: 'center' }}>
                 {r.revenue > 0 && <span style={{ color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>{fmtMoney(r.revenue)}</span>}
-                {r.estimated_revenue > 0 && <span style={{ color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>~{fmtMoney(r.estimated_revenue)}</span>}
+                {r.estimated_fleet_size > 0 && <span style={{ color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>~{fmtMoney(r.estimated_fleet_size)}</span>}
                 {r.score != null && <span style={{ color: r.score >= 60 ? 'var(--green)' : 'var(--amber)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>Score: {r.score}</span>}
                 {r.status && (
                   <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: `${data.color}18`, color: data.color, textTransform: 'uppercase' }}>
@@ -909,9 +909,9 @@ function InsightsTab({ projects, prospects, stageData, onNavigate }: {
                       </span>
                     )}
                   </div>
-                  {p.estimated_revenue > 0 && (
+                  {p.estimated_fleet_size > 0 && (
                     <div style={{ fontSize: 11, color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, marginTop: 2 }}>
-                      ~{fmtMoney(p.estimated_revenue)}
+                      ~{fmtMoney(p.estimated_fleet_size)}
                     </div>
                   )}
                 </div>
@@ -1017,7 +1017,7 @@ export default function EnginePageClient({
   const loadProspects = useCallback(async () => {
     const { data } = await supabase
       .from('prospects')
-      .select('id, status, score, business_name, company, name, email, phone, estimated_revenue, created_at, updated_at')
+      .select('id, status, score, business_name, company, name, email, phone, estimated_fleet_size, created_at, updated_at')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(500)

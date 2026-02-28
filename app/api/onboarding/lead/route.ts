@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         total_price: body.total_price || null,
         design_notes: body.design_notes || null,
         logo_url: body.logo_url || null,
-        referral_source: body.referral_source || null,
+        source: body.referral_source || body.source || null,
         status: 'new',
       })
       .select()
