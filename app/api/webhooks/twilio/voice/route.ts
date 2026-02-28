@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     // --- Find assigned employee for this number ---
     // phone_numbers table does not have an assigned_to column yet; routing falls back to voicemail
-    const assignedEmployee: { id: string; name: string; phone: string | null } | null = null
+    const assignedEmployee = null as { id: string; name: string; phone: string | null } | null
 
     // --- Log the call ---
     await supabase.from('calls').insert({
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       from_number: from,
       to_number: to,
       customer_id: customer?.id || null,
-      user_id: (assignedEmployee as { id: string } | null)?.id || null,
+      user_id: assignedEmployee?.id || null,
       status: callStatus || 'ringing',
     })
 
