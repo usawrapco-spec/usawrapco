@@ -22,9 +22,10 @@ interface Customer {
 interface Props {
   profile: Profile
   initialCustomers: Customer[]
+  vehicleMap?: Record<string, string>
 }
 
-export default function CustomersClient({ profile, initialCustomers }: Props) {
+export default function CustomersClient({ profile, initialCustomers, vehicleMap = {} }: Props) {
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
   const [search, setSearch]       = useState('')
   const [showAdd, setShowAdd]     = useState(false)
@@ -145,6 +146,11 @@ export default function CustomersClient({ profile, initialCustomers }: Props) {
                   </span>
                 )}
               </div>
+              {vehicleMap[c.id] && (
+                <div style={{ fontSize: 11, color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace', marginBottom: 6 }}>
+                  {vehicleMap[c.id]}
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {c.email && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)' }}>

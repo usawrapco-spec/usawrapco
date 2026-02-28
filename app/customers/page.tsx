@@ -27,6 +27,24 @@ export default async function CustomersPage() {
     .order('created_at', { ascending: false })
     .limit(200)
 
+  // Most recent vehicle per customer from projects (ordered by updated_at desc)
+  const { data: recentProjects } = await admin
+    .from('projects')
+    .select('customer_id, vehicle_desc, form_data')
+    .eq('org_id', orgId)
+    .not('customer_id', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1000)
+
+  const vehicleMap: Record<string, string> = {}
+  for (const p of recentProjects || []) {
+    if (p.customer_id && !vehicleMap[p.customer_id]) {
+      const fd = (p.form_data as any) || {}
+      const v = p.vehicle_desc || [fd.vehicleYear, fd.vehicleMake, fd.vehicleModel].filter(Boolean).join(' ') || ''
+      if (v) vehicleMap[p.customer_id] = v
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
@@ -34,6 +52,7 @@ export default async function CustomersPage() {
           <CustomersClient
             profile={profile as Profile}
             initialCustomers={customers || []}
+            vehicleMap={vehicleMap}
           />
         </main>
       <div className="md:hidden">
