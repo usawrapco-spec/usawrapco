@@ -10,9 +10,9 @@ type Tab = 'job' | 'customer' | 'media'
 
 interface ProjectRow {
   id: string
-  name: string
-  customer_name?: string
-  stage?: string
+  title: string
+  pipe_stage?: string
+  customer?: { name: string } | null
 }
 
 interface CustomerRow {
@@ -55,11 +55,11 @@ export default function CopyToModal() {
   useEffect(() => {
     supabase
       .from('projects')
-      .select('id, name, customer_name, stage')
+      .select('id, title, pipe_stage, customer:customer_id(name)')
       .order('created_at', { ascending: false })
       .limit(200)
       .then(({ data }) => {
-        if (data) setProjects(data as ProjectRow[])
+        if (data) setProjects(data as unknown as ProjectRow[])
       })
   }, [])
 
@@ -81,14 +81,14 @@ export default function CopyToModal() {
     if (!expandedCustomer) return
     supabase
       .from('projects')
-      .select('id, name, stage')
+      .select('id, title, pipe_stage')
       .eq('customer_id', expandedCustomer)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (data) {
           setCustomers((prev) =>
             prev.map((c) =>
-              c.id === expandedCustomer ? { ...c, projects: data as ProjectRow[] } : c
+              c.id === expandedCustomer ? { ...c, projects: data as unknown as ProjectRow[] } : c
             )
           )
         }
@@ -97,7 +97,7 @@ export default function CopyToModal() {
 
   const filteredProjects = projects.filter((p) => {
     const q = search.toLowerCase()
-    return !q || p.name?.toLowerCase().includes(q) || p.customer_name?.toLowerCase().includes(q)
+    return !q || p.title?.toLowerCase().includes(q) || p.customer?.name?.toLowerCase().includes(q)
   })
 
   const filteredCustomers = customers.filter((c) => {
@@ -329,15 +329,15 @@ export default function CopyToModal() {
                     <Briefcase size={14} style={{ color: '#5a6080', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.name}
+                        {p.title}
                       </div>
-                      {p.customer_name && (
-                        <div style={{ fontSize: 11, color: '#5a6080' }}>{p.customer_name}</div>
+                      {p.customer?.name && (
+                        <div style={{ fontSize: 11, color: '#5a6080' }}>{p.customer.name}</div>
                       )}
                     </div>
-                    {p.stage && (
+                    {p.pipe_stage && (
                       <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#1a1d27', color: '#9299b5' }}>
-                        {p.stage}
+                        {p.pipe_stage}
                       </span>
                     )}
                   </button>
@@ -424,10 +424,10 @@ export default function CopyToModal() {
                           }}
                         >
                           <Briefcase size={12} style={{ color: '#5a6080' }} />
-                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                          {p.stage && (
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                          {p.pipe_stage && (
                             <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#1a1d27', color: '#9299b5' }}>
-                              {p.stage}
+                              {p.pipe_stage}
                             </span>
                           )}
                         </button>

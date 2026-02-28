@@ -95,11 +95,6 @@ export default function PaymentClient({
     }
   }
 
-  function handleCheckRate() {
-    const url = wisetackUrl || 'https://wisetack.com'
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
-
   // ── Payment successful ───────────────────────────────────────────────────────
   if (isSuccess) {
     return (
@@ -397,8 +392,8 @@ export default function PaymentClient({
               )}
 
               {/* Check My Rate button */}
-              <button
-                onClick={handleCheckRate}
+              <a
+                href={wisetackUrl || 'https://wisetack.com'}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', gap: 8,
@@ -406,12 +401,13 @@ export default function PaymentClient({
                   background: 'var(--accent)', color: '#fff',
                   fontSize: 15, fontWeight: 800, cursor: 'pointer',
                   fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.02em',
+                  textDecoration: 'none', boxSizing: 'border-box',
                 }}
               >
                 <Calendar size={16} />
                 Check My Rate — No Credit Impact
                 <ArrowRight size={14} />
-              </button>
+              </a>
 
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 6,

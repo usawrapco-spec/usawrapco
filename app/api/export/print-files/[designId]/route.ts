@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { designId: s
     // Fetch design
     const { data: design, error: designErr } = await supabase
       .from('design_projects')
-      .select('*, linked_project:project_id(id, title, vehicle_desc, customer_name)')
+      .select('*, linked_project:project_id(id, title, vehicle_desc)')
       .eq('id', designId)
       .single()
 

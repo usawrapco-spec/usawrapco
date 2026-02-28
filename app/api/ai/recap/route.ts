@@ -70,12 +70,12 @@ export async function POST(req: NextRequest) {
     // Fetch owner training instructions
     const { data: instructions } = await admin
       .from('ai_settings')
-      .select('value')
+      .select('setting_value')
       .eq('org_id', orgId)
-      .eq('key', 'vinyl_instruction')
+      .eq('setting_key', 'vinyl_instruction')
       .order('created_at', { ascending: true })
 
-    const customInstructions = instructions?.map(r => r.value) || []
+    const customInstructions = instructions?.map(r => r.setting_value) || []
 
     // Last 24 hours
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
