@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdmin()
     const { data, error } = await admin
       .from('ai_settings')
-      .insert({ org_id: orgId, key: 'vinyl_instruction', value: instruction.trim() })
+      .insert({ org_id: orgId, setting_key: 'vinyl_instruction', setting_value: instruction.trim() })
       .select()
       .single()
 

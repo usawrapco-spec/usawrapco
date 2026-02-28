@@ -78,17 +78,6 @@ export async function POST(req: NextRequest) {
         file_url: vectorFileUrl,
         file_type: 'vector',
         uploaded_by: user.id,
-        metadata: {
-          source: 'ai-print-pipeline',
-          upscaled_from: imageUrl,
-          upscale_model: upscaleResult.model,
-          vector_model: vectorizeResult.model,
-          print_ready: true,
-          dimensions: {
-            width: targetWidth || 8192,
-            height: targetHeight || 8192,
-          },
-        },
       })
 
       if (saveError) {
