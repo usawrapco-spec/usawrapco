@@ -28,13 +28,7 @@ export async function POST(req: NextRequest) {
     const proofToken = project.proof_token || project.id
     const proofLink = `${appUrl}/proof/${proofToken}`
     const customer = project.customers
-    const vehicle = [
-      project.vehicle_year,
-      project.vehicle_make,
-      project.vehicle_model,
-    ]
-      .filter(Boolean)
-      .join(' ')
+    const vehicle = (project as any).vehicle_desc || ''
     const firstName = customer?.name?.split(' ')[0] || 'there'
 
     // Mark mockups as sent
