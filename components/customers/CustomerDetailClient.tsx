@@ -882,25 +882,25 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         setCustomerNotes(data.map((n: Record<string, unknown>) => ({
           id: n.id as string,
           content: (n.content as string) || (n.message as string) || '',
-          author: (n.author_name as string) || profile.display_name || 'Team',
+          author: (n.author_name as string) || profile.name || 'Team',
           created_at: n.created_at as string,
         })))
       } else {
         const now = new Date()
         setCustomerNotes([
-          { id: 'demo-n1', content: 'Customer prefers matte finishes over gloss. Has a fleet of 8 delivery vans that may need wrapping over the next 6 months.', author: profile.display_name || 'Sales Team', created_at: new Date(now.getTime() - 2 * 86400000).toISOString() },
+          { id: 'demo-n1', content: 'Customer prefers matte finishes over gloss. Has a fleet of 8 delivery vans that may need wrapping over the next 6 months.', author: profile.name || 'Sales Team', created_at: new Date(now.getTime() - 2 * 86400000).toISOString() },
           { id: 'demo-n2', content: 'Mentioned interest in storefront signage as well. Refer to signage dept when ready.', author: 'Admin', created_at: new Date(now.getTime() - 10 * 86400000).toISOString() },
         ])
       }
     } catch {
       const now = new Date()
       setCustomerNotes([
-        { id: 'demo-n1', content: 'Customer prefers matte finishes over gloss. Has a fleet of 8 delivery vans that may need wrapping over the next 6 months.', author: profile.display_name || 'Sales Team', created_at: new Date(now.getTime() - 2 * 86400000).toISOString() },
+        { id: 'demo-n1', content: 'Customer prefers matte finishes over gloss. Has a fleet of 8 delivery vans that may need wrapping over the next 6 months.', author: profile.name || 'Sales Team', created_at: new Date(now.getTime() - 2 * 86400000).toISOString() },
         { id: 'demo-n2', content: 'Mentioned interest in storefront signage as well. Refer to signage dept when ready.', author: 'Admin', created_at: new Date(now.getTime() - 10 * 86400000).toISOString() },
       ])
     }
     setLoadedNotes(true)
-  }, [customer.id, loadedNotes, profile.display_name, supabase])
+  }, [customer.id, loadedNotes, profile.name, supabase])
 
   // --- Load appointments ---
   const loadAppointments = useCallback(async () => {
@@ -988,7 +988,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
     const note: CustomerNote = {
       id: tempId,
       content: newNoteContent.trim(),
-      author: profile.display_name || 'You',
+      author: profile.name || 'You',
       created_at: new Date().toISOString(),
     }
     setCustomerNotes(prev => [note, ...prev])
