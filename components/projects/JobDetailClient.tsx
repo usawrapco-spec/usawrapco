@@ -287,18 +287,19 @@ export default function JobDetailClient({
     setSavingField(null)
   }
 
-  const updateArrayField = async (ids: string[], singleField: string) => {
-    await supabase.from('projects').update({ [singleField]: ids[0] || null }).eq('id', project.id)
+  const updateArrayField = async (arrayField: string, ids: string[], singleField?: string) => {
+    const updates: Record<string, any> = { [arrayField]: ids }
+    if (singleField) updates[singleField] = ids[0] || null
+    await supabase.from('projects').update(updates).eq('id', project.id)
   }
 
   const saveVehicle = async () => {
-    const parts = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean)
-    const vehicleDesc = parts.length > 0 ? parts.join(' ') : (project.vehicle_desc || null)
-    const updatedFormData = { ...fd, vehicle_year: vehicleYear || null, vehicle_make: vehicleMake || null, vehicle_model: vehicleModel || null, vehicle_vin: vehicleVin || null }
     await supabase.from('projects').update({
-      vehicle_desc: vehicleDesc,
+      vehicle_year: vehicleYear || null,
+      vehicle_make: vehicleMake || null,
+      vehicle_model: vehicleModel || null,
+      vehicle_vin: vehicleVin || null,
       vehicle_color: vehicleColor || null,
-      form_data: updatedFormData,
     }).eq('id', project.id)
   }
 
@@ -746,28 +747,28 @@ export default function JobDetailClient({
             roleColor="#22c07a"
             options={agents}
             selectedIds={salesRepIds}
-            onSave={(ids) => { setSalesRepIds(ids); updateArrayField(ids, 'agent_id') }}
+            onSave={(ids) => { setSalesRepIds(ids); updateArrayField('sales_rep_ids', ids, 'agent_id') }}
           />
           <TeamMultiSelect
             label="Installer"
             roleColor="#22d3ee"
             options={installers}
             selectedIds={installerIds}
-            onSave={(ids) => { setInstallerIds(ids); updateArrayField(ids, 'installer_id') }}
+            onSave={(ids) => { setInstallerIds(ids); updateArrayField('installer_ids', ids, 'installer_id') }}
           />
           <TeamMultiSelect
             label="Designer"
             roleColor="#8b5cf6"
             options={designers}
             selectedIds={designerIds}
-            onSave={(ids) => { setDesignerIds(ids); updateArrayField(ids, 'designer_id') }}
+            onSave={(ids) => { setDesignerIds(ids); updateArrayField('designer_ids', ids, 'designer_id') }}
           />
           <TeamMultiSelect
             label="Prod Mgr"
             roleColor="#f59e0b"
             options={managers}
             selectedIds={productionMgrIds}
-            onSave={(ids) => { setProductionMgrIds(ids); updateArrayField(ids, 'production_manager_id') }}
+            onSave={(ids) => { setProductionMgrIds(ids); updateArrayField('production_manager_ids', ids, 'production_manager_id') }}
           />
         </div>
 
