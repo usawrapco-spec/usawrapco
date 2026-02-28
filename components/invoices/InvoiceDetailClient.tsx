@@ -7,6 +7,7 @@ import {
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
   ExternalLink, Ban, Link2, Copy, Check,
 } from 'lucide-react'
+import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import type { Profile, Invoice, InvoiceStatus, LineItem, Payment } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
@@ -677,6 +678,14 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               </div>
             </div>
           )}
+
+          {/* Related Documents */}
+          <RelatedDocsPanel
+            projectId={inv.project_id}
+            customerId={inv.customer_id}
+            currentDocId={invoiceId}
+            currentDocType="invoice"
+          />
         </div>
       </div>
 

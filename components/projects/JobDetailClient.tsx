@@ -8,6 +8,7 @@ import {
   User, Calendar, DollarSign, TrendingUp, Percent, Award,
   Building2, Car, Flag, Wrench, UserCheck,
   MessageSquare, Camera, FileImage, History,
+  Users, Palette, Receipt, ShoppingCart, CreditCard, FileText, Pencil,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Project, PipeStage, ProjectFinancials } from '@/types'
@@ -114,6 +115,42 @@ export default function JobDetailClient({
   const agents = teammates.filter(t =>
     ['sales_agent', 'admin', 'owner'].includes(t.role)
   )
+  const designers = teammates.filter(t => ['designer', 'admin', 'owner'].includes(t.role))
+
+  // Team slot dropdown state
+  const [teamDropdown, setTeamDropdown] = useState<string | null>(null)
+  const teamDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Related docs counts
+  const [relatedDocs, setRelatedDocs] = useState({ estimates: 0, salesOrders: 0, invoices: 0, payments: 0 })
+
+  useEffect(() => {
+    if (!teamDropdown) return
+    const handler = (e: MouseEvent) => {
+      if (teamDropdownRef.current && !teamDropdownRef.current.contains(e.target as Node)) {
+        setTeamDropdown(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [teamDropdown])
+
+  useEffect(() => {
+    const pid = project.id
+    Promise.all([
+      supabase.from('estimates').select('id', { count: 'exact', head: true }).eq('project_id', pid),
+      supabase.from('sales_orders').select('id', { count: 'exact', head: true }).eq('project_id', pid),
+      supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('project_id', pid),
+      supabase.from('payments').select('id', { count: 'exact', head: true }).eq('project_id', pid),
+    ]).then(([e, s, i, p]) => {
+      setRelatedDocs({
+        estimates: e.count ?? 0,
+        salesOrders: s.count ?? 0,
+        invoices: i.count ?? 0,
+        payments: p.count ?? 0,
+      })
+    })
+  }, [project.id])
 
   const fmt$ = (v: number | null | undefined) =>
     v != null ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'
@@ -181,6 +218,10 @@ export default function JobDetailClient({
           agent_id: value,
           agent: mate ? { id: mate.id, name: mate.name, email: '' } : undefined,
         }))
+      } else if (field === 'designer_id') {
+        setProject(p => ({ ...p, designer_id: value as string | null }))
+      } else if (field === 'production_manager_id') {
+        setProject(p => ({ ...p, production_manager_id: value as string | null }))
       } else {
         setProject(p => ({ ...p, [field]: value }))
       }
@@ -309,6 +350,124 @@ export default function JobDetailClient({
             <Edit2 size={14} /> Edit
           </button>
         )}
+      </div>
+
+      {/* ── Job Team Panel ─────────────────────────────────────────────────── */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--surface2)',
+        borderRadius: 12, padding: '14px 20px', marginBottom: 16,
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 800, color: 'var(--text3)',
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14,
+          fontFamily: 'Barlow Condensed, sans-serif',
+        }}>
+          <Users size={13} /> Job Team
+        </div>
+
+        {/* 4-slot row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 10,
+          overflowX: 'auto',
+        }}>
+          {/* CUSTOMER slot */}
+          <div style={{
+            background: 'var(--bg)', border: '1px solid var(--surface2)',
+            borderRadius: 10, padding: '10px 12px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Customer</div>
+            {customer ? (
+              <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: '#4f7fff', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800, flexShrink: 0,
+                  }}>
+                    {(customer.name || '?')[0].toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.name}</div>
+                    {customer.company_name && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.company_name}</div>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No customer</div>
+            )}
+          </div>
+
+          {/* SALES AGENT slot */}
+          <TeamSlot
+            label="Sales Agent"
+            fieldKey="agent_id"
+            currentId={(project as any).agent_id}
+            currentName={(project as any).agent?.name}
+            options={agents}
+            avatarColor="#22c07a"
+            teamDropdown={teamDropdown}
+            setTeamDropdown={setTeamDropdown}
+            dropdownRef={teamDropdownRef}
+            onSelect={(id) => { setTeamDropdown(null); updateField('agent_id', id) }}
+          />
+
+          {/* INSTALLER slot */}
+          <TeamSlot
+            label="Installer"
+            fieldKey="installer_id"
+            currentId={(project as any).installer_id}
+            currentName={(project as any).installer?.name}
+            options={installers}
+            avatarColor="#22d3ee"
+            teamDropdown={teamDropdown}
+            setTeamDropdown={setTeamDropdown}
+            dropdownRef={teamDropdownRef}
+            onSelect={(id) => { setTeamDropdown(null); updateField('installer_id', id) }}
+          />
+
+          {/* DESIGNER slot */}
+          <TeamSlot
+            label="Designer"
+            fieldKey="designer_id"
+            currentId={(project as any).designer_id}
+            currentName={designers.find(d => d.id === (project as any).designer_id)?.name}
+            options={designers}
+            avatarColor="#8b5cf6"
+            teamDropdown={teamDropdown}
+            setTeamDropdown={setTeamDropdown}
+            dropdownRef={teamDropdownRef}
+            onSelect={(id) => { setTeamDropdown(null); updateField('designer_id', id) }}
+          />
+        </div>
+
+        {/* Related Documents chips */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 4 }}>Docs:</span>
+          {[
+            { label: 'Estimates', count: relatedDocs.estimates, icon: <FileText size={11} />, color: '#4f7fff', tab: 'sales' },
+            { label: 'Sales Orders', count: relatedDocs.salesOrders, icon: <ShoppingCart size={11} />, color: '#22c07a', tab: 'sales' },
+            { label: 'Invoices', count: relatedDocs.invoices, icon: <Receipt size={11} />, color: '#f59e0b', tab: 'close' },
+            { label: 'Payments', count: relatedDocs.payments, icon: <CreditCard size={11} />, color: '#8b5cf6', tab: 'close' },
+          ].map(d => (
+            <span
+              key={d.label}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 20,
+                background: `${d.color}18`, border: `1px solid ${d.color}40`,
+                color: d.color, fontSize: 11, fontWeight: 700,
+              }}
+            >
+              {d.icon} {d.count} {d.label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* ── Body: tabs + sidebar ───────────────────────────────────────────── */}
@@ -891,6 +1050,110 @@ function TimelineTab({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Team Slot ─────────────────────────────────────────────────────────────────
+interface TeamSlotProps {
+  label: string
+  fieldKey: string
+  currentId: string | null | undefined
+  currentName: string | null | undefined
+  options: Pick<Profile, 'id' | 'name' | 'role'>[]
+  avatarColor: string
+  teamDropdown: string | null
+  setTeamDropdown: (v: string | null) => void
+  dropdownRef: React.RefObject<HTMLDivElement>
+  onSelect: (id: string | null) => void
+}
+
+function TeamSlot({ label, fieldKey, currentId, currentName, options, avatarColor, teamDropdown, setTeamDropdown, dropdownRef, onSelect }: TeamSlotProps) {
+  const isOpen = teamDropdown === fieldKey
+  return (
+    <div
+      ref={isOpen ? dropdownRef : undefined}
+      style={{
+        background: 'var(--bg)', border: '1px solid var(--surface2)',
+        borderRadius: 10, padding: '10px 12px', position: 'relative', cursor: 'pointer',
+      }}
+      onClick={() => setTeamDropdown(isOpen ? null : fieldKey)}
+    >
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+        {label}
+      </div>
+      {currentId && currentName ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: avatarColor, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 800, flexShrink: 0,
+          }}>
+            {(currentName || '?')[0].toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentName}</div>
+          </div>
+          <Pencil size={12} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            border: '2px dashed var(--surface2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <User size={14} style={{ color: 'var(--text3)' }} />
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Assign {label}</div>
+        </div>
+      )}
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 100, minWidth: 180,
+          marginTop: 4, background: 'var(--surface)',
+          border: '1px solid var(--surface2)', borderRadius: 8,
+          overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onSelect(null) }}
+            style={{
+              width: '100%', padding: '9px 12px', border: 'none',
+              background: !currentId ? 'var(--surface2)' : 'transparent',
+              color: 'var(--text3)', cursor: 'pointer', fontSize: 12, textAlign: 'left',
+              fontStyle: 'italic',
+            }}
+          >
+            Unassign
+          </button>
+          {options.map(opt => (
+            <button
+              key={opt.id}
+              onClick={(e) => { e.stopPropagation(); onSelect(opt.id) }}
+              style={{
+                width: '100%', padding: '9px 12px', border: 'none',
+                background: currentId === opt.id ? 'var(--surface2)' : 'transparent',
+                color: currentId === opt.id ? avatarColor : 'var(--text1)',
+                cursor: 'pointer', fontSize: 13, textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: avatarColor, color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 800, flexShrink: 0,
+              }}>
+                {(opt.name || '?')[0].toUpperCase()}
+              </div>
+              {opt.name}
+              {currentId === opt.id && <Check size={12} style={{ marginLeft: 'auto' }} />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

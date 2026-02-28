@@ -8,7 +8,8 @@ import {
   Edit2, Save, X, ExternalLink,
   Activity, Link2, ClipboardList, StickyNote, FileText, DollarSign,
   Heart, Tag, Plus, Check, Star, TrendingUp, Clock, Trash2, ChevronRight,
-  Car, Users, AlertCircle, CreditCard, Receipt, Truck, Loader2, Shield
+  Car, Users, AlertCircle, CreditCard, Receipt, Truck, Loader2, Shield,
+  Camera, Download, Filter,
 } from 'lucide-react'
 import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
 import ClickToCallButton from '@/components/phone/ClickToCallButton'
@@ -140,10 +141,11 @@ const TAG_COLORS: Record<CustomerTag, string> = {
   referral: '#f59e0b',
 }
 
-type TabKey = 'activity' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments' | 'fleet'
+type TabKey = 'activity' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments' | 'fleet' | 'photos'
 
 const TAB_DEFS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'activity', label: 'Activity', Icon: Activity },
+  { key: 'photos', label: 'Photos', Icon: Camera },
   { key: 'fleet', label: 'Fleet', Icon: Truck },
   { key: 'associations', label: 'Associations', Icon: Link2 },
   { key: 'tasks', label: 'Tasks', Icon: ClipboardList },
@@ -548,6 +550,218 @@ function CustomerFleetPanel({ customerId, orgId }: { customerId: string; orgId: 
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Customer Photos Tab ──────────────────────────────────────────────────────
+interface AllPhoto {
+  id: string
+  source_type: string
+  project_id: string | null
+  customer_id: string | null
+  photo_url: string | null
+  caption: string | null
+  category: string | null
+  created_at: string
+  uploaded_by: string | null
+  job_title: string | null
+  vehicle_desc: string | null
+}
+
+const PHOTO_CATS = ['all', 'before', 'after', 'design', 'vehicle'] as const
+type PhotoCat = typeof PHOTO_CATS[number]
+
+const CAT_COLORS: Record<string, string> = {
+  before: '#f59e0b', after: '#22c07a', design: '#8b5cf6', vehicle: '#22d3ee',
+}
+
+function CustomerPhotosTab({ customerId }: { customerId: string }) {
+  const supabase = createClient()
+  const [photos, setPhotos] = useState<AllPhoto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filterCat, setFilterCat] = useState<PhotoCat>('all')
+  const [filterJob, setFilterJob] = useState<string>('all')
+  const [lightbox, setLightbox] = useState<AllPhoto | null>(null)
+
+  useEffect(() => {
+    supabase.from('customer_all_photos')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setPhotos(data || []); setLoading(false) })
+  }, [customerId])
+
+  const jobs = Array.from(new Set(photos.map(p => p.job_title).filter(Boolean))) as string[]
+  const filtered = photos.filter(p => {
+    const catOk = filterCat === 'all' || (p.category || '').toLowerCase().includes(filterCat)
+    const jobOk = filterJob === 'all' || p.job_title === filterJob
+    return catOk && jobOk
+  })
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text3)' }}>
+      <Loader2 size={24} style={{ opacity: 0.5, animation: 'spin 1s linear infinite', display: 'block', margin: '0 auto 8px' }} />
+      Loading photos...
+    </div>
+  )
+  if (!photos.length) return (
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text3)' }}>
+      <Camera size={40} style={{ opacity: 0.25, display: 'block', margin: '0 auto 12px' }} />
+      <div style={{ fontSize: 15, fontWeight: 600 }}>No photos yet</div>
+      <div style={{ fontSize: 13, marginTop: 6 }}>Photos from all jobs for this customer will appear here.</div>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Filter bar */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Filter size={13} style={{ color: 'var(--text3)' }} />
+        {PHOTO_CATS.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setFilterCat(cat)}
+            style={{
+              padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, textTransform: 'capitalize',
+              background: filterCat === cat ? (CAT_COLORS[cat] || 'var(--accent)') : 'var(--surface2)',
+              color: filterCat === cat ? '#fff' : 'var(--text2)',
+            }}
+          >
+            {cat === 'all' ? `All (${photos.length})` : cat}
+          </button>
+        ))}
+        {jobs.length > 1 && (
+          <select
+            value={filterJob}
+            onChange={e => setFilterJob(e.target.value)}
+            style={{
+              padding: '4px 10px', borderRadius: 20, border: '1px solid var(--surface2)',
+              background: 'var(--surface2)', color: 'var(--text2)', fontSize: 11, marginLeft: 8,
+            }}
+          >
+            <option value="all">All Jobs</option>
+            {jobs.map(j => <option key={j} value={j}>{j}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+        gap: 10,
+      }}>
+        {filtered.map(photo => (
+          <div
+            key={`${photo.source_type}-${photo.id}`}
+            onClick={() => setLightbox(photo)}
+            style={{
+              position: 'relative', borderRadius: 10, overflow: 'hidden',
+              background: 'var(--surface2)', cursor: 'pointer',
+              border: '1px solid var(--surface2)',
+              aspectRatio: '4/3',
+            }}
+          >
+            {photo.photo_url ? (
+              <img
+                src={photo.photo_url}
+                alt={photo.caption || ''}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                loading="lazy"
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Camera size={24} style={{ opacity: 0.3 }} />
+              </div>
+            )}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+              padding: '20px 8px 6px',
+            }}>
+              {photo.job_title && (
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: '#fff',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {photo.job_title}
+                </div>
+              )}
+              {photo.category && (
+                <span style={{
+                  fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                  color: CAT_COLORS[photo.category.toLowerCase()] || 'var(--text3)',
+                }}>
+                  {photo.category}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 900, width: '100%' }}>
+            {lightbox.photo_url && (
+              <img
+                src={lightbox.photo_url}
+                alt={lightbox.caption || ''}
+                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 8, display: 'block', margin: '0 auto' }}
+              />
+            )}
+            <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                {lightbox.job_title && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{lightbox.job_title}</div>
+                )}
+                {lightbox.caption && (
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{lightbox.caption}</div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {lightbox.photo_url && (
+                  <a
+                    href={lightbox.photo_url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.1)', color: '#fff',
+                      fontSize: 12, fontWeight: 600, textDecoration: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    <Download size={13} /> Download
+                  </a>
+                )}
+                <button
+                  onClick={() => setLightbox(null)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'transparent', color: '#fff', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1718,6 +1932,10 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         {activeTab === 'fleet' && (
           <CustomerFleetPanel customerId={customer.id} orgId={customer.org_id || ''} />
         )}
+        {activeTab === 'photos' && (
+          <CustomerPhotosTab customerId={customer.id} />
+        )}
+
       </div>
 
       {/* ─── Jobs table (existing, moved below tabs) ────────────────────────── */}
@@ -1772,3 +1990,4 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
     </div>
   )
 }
+

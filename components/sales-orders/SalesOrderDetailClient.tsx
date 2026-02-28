@@ -14,6 +14,7 @@ import type { Profile, SalesOrder, LineItem, LineItemSpecs, SalesOrderStatus } f
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
+import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 const DEMO_SO = {
@@ -932,6 +933,14 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
               </div>
             </div>
           )}
+
+          {/* Related Documents */}
+          <RelatedDocsPanel
+            projectId={(so as any).project_id}
+            customerId={so.customer_id}
+            currentDocId={orderId}
+            currentDocType="sales_order"
+          />
         </div>
       </div>
 

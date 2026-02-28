@@ -28,6 +28,8 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       *,
       agent:agent_id(id,name,email),
       installer:installer_id(id,name,email),
+      designer:designer_id(id,name,email),
+      production_manager:production_manager_id(id,name,email),
       customer:customer_id(id,name,email,phone,company_name,lifetime_spend)
     `)
     .eq('id', params.id)

@@ -562,6 +562,7 @@ export interface Invoice {
   org_id: string
   invoice_number: string
   title?: string
+  project_id?: string | null
   estimate_id: string | null
   so_id: string | null
   sales_order_id?: string | null

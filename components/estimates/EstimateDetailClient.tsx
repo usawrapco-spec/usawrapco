@@ -15,6 +15,7 @@ import {
   GripVertical, Upload, Camera,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
+import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import AreaCalculatorModal from '@/components/estimates/AreaCalculatorModal'
 import WrapZoneSelector from '@/components/estimates/WrapZoneSelector'
 import DeckingCalculator from '@/components/estimates/DeckingCalculator'
@@ -2071,6 +2072,16 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 >
                   Send Estimate
                 </button>
+              </div>
+
+              {/* Related Documents */}
+              <div style={{ padding: '0 16px 16px' }}>
+                <RelatedDocsPanel
+                  projectId={(est as any).project_id}
+                  customerId={est.customer_id}
+                  currentDocId={estimateId}
+                  currentDocType="estimate"
+                />
               </div>
             </div>
           </div>
