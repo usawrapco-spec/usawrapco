@@ -10,7 +10,7 @@ interface Invoice {
   title: string | null
   total: number
   amount_paid: number
-  balance: number
+  balance_due: number
   status: string
   due_date: string | null
   invoice_date: string | null
@@ -41,7 +41,7 @@ export default function PortalInvoices({ invoices, payments }: { invoices: Invoi
 
   const totalBalance = invoices
     .filter(inv => ['open', 'sent', 'partial', 'overdue'].includes(inv.status))
-    .reduce((sum, inv) => sum + (inv.balance || 0), 0)
+    .reduce((sum, inv) => sum + ((inv as any).balance_due || 0), 0)
 
   return (
     <div style={{ padding: '20px 16px' }}>
@@ -146,11 +146,11 @@ export default function PortalInvoices({ invoices, payments }: { invoices: Invoi
                 </div>
               )}
 
-              {inv.balance > 0 && (
+              {(inv as any).balance_due > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 12, color: C.text3 }}>Balance</span>
                   <span style={{ fontSize: 14, fontWeight: 600, color: C.accent, fontFamily: 'var(--font-mono, JetBrains Mono, monospace)' }}>
-                    {money(inv.balance)}
+                    {money((inv as any).balance_due)}
                   </span>
                 </div>
               )}

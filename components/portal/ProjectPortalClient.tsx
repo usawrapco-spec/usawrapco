@@ -839,13 +839,13 @@ export default function ProjectPortalClient({
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>Balance Due</span>
-                    <span style={{ fontSize: 17, fontWeight: 800, color: invoice.balance > 0 ? C.red : C.green, fontFamily: 'JetBrains Mono, monospace' }}>
-                      {money(invoice.balance)}
+                    <span style={{ fontSize: 17, fontWeight: 800, color: (invoice as any).balance_due > 0 ? C.red : C.green, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {money((invoice as any).balance_due)}
                     </span>
                   </div>
                 </div>
 
-                {invoice.balance > 0 && (
+                {(invoice as any).balance_due > 0 && (
                   <div style={{ marginTop: 14, padding: 14, background: `${C.accent}10`, borderRadius: 10, border: `1px solid ${C.accent}30` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CreditCard size={15} color={C.accent} />

@@ -33,7 +33,7 @@ export default function TransactionsClient({ invoices, payments }: TransactionsC
 
   const totalRevenue = invoices.reduce((s, i) => s + Number(i.total || 0), 0)
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total || 0), 0)
-  const totalOutstanding = invoices.filter(i => i.status === 'sent').reduce((s, i) => s + Number(i.balance || 0), 0)
+  const totalOutstanding = invoices.filter(i => i.status === 'sent').reduce((s, i) => s + Number(i.balance_due || 0), 0)
   const totalDraft = invoices.filter(i => i.status === 'draft').reduce((s, i) => s + Number(i.total || 0), 0)
 
   const filtered = invoices.filter(inv => {
@@ -194,8 +194,8 @@ export default function TransactionsClient({ invoices, payments }: TransactionsC
                           <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
                             {fmt(Number(inv.total))}
                           </div>
-                          {Number(inv.balance) > 0 && inv.status !== 'paid' && (
-                            <div style={{ fontSize: 11, color: '#f59e0b' }}>Due: {fmt(Number(inv.balance))}</div>
+                          {Number(inv.balance_due) > 0 && inv.status !== 'paid' && (
+                            <div style={{ fontSize: 11, color: '#f59e0b' }}>Due: {fmt(Number(inv.balance_due))}</div>
                           )}
                         </td>
                         <td style={{ padding: '10px 14px' }}>

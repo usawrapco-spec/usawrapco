@@ -123,7 +123,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
         const updates: Record<string, unknown> = { status: newStatus }
         if (newStatus === 'paid') {
           updates.amount_paid = total
-          updates.balance = 0
+          updates.balance_due = 0
           updates.paid_at = new Date().toISOString()
           setAmountPaid(total)
         }
@@ -158,7 +158,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
       try {
         const updates: Record<string, unknown> = {
           amount_paid: newPaid,
-          balance: Math.max(0, newBalance),
+          balance_due: Math.max(0, newBalance),
         }
         if (newBalance <= 0) { updates.status = 'paid'; updates.paid_at = new Date().toISOString() }
         await supabase.from('invoices').update(updates).eq('id', invoiceId)

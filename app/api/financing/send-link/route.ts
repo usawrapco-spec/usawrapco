@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       .single()
     if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
-    const balance = Math.max(0, inv.balance ?? (inv.total - inv.amount_paid))
+    const balance = Math.max(0, inv.balance_due ?? (inv.total - inv.amount_paid))
     if (balance < 500) {
       return NextResponse.json({ error: 'Financing requires a minimum balance of $500' }, { status: 400 })
     }

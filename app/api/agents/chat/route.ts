@@ -12,7 +12,7 @@ async function buildSystemPrompt(admin: any, orgId: string, agentId: AgentId): P
 
   if (agentId === 'bookkeeper') {
     const [invoices, payments, estimates, expenses] = await Promise.all([
-      admin.from('invoices').select('id, invoice_number, status, total, amount_paid, balance, due_date, customer_id').eq('org_id', orgId).limit(100),
+      admin.from('invoices').select('id, invoice_number, status, total, amount_paid, balance_due, due_date, customer_id').eq('org_id', orgId).limit(100),
       admin.from('payments').select('id, amount, method, payment_date, invoice_id').eq('org_id', orgId).limit(200),
       admin.from('estimates').select('id, estimate_number, status, total, quote_date').eq('org_id', orgId).limit(100),
       admin.from('job_expenses').select('id, amount, category, description, created_at').eq('org_id', orgId).limit(200),
@@ -21,7 +21,7 @@ async function buildSystemPrompt(admin: any, orgId: string, agentId: AgentId): P
     const totalRevenue = (invoices.data || []).reduce((s: number, i: any) => s + (i.total || 0), 0)
     const totalCollected = (payments.data || []).reduce((s: number, p: any) => s + (p.amount || 0), 0)
     const outstanding = totalRevenue - totalCollected
-    const overdueInvoices = (invoices.data || []).filter((i: any) => i.status === 'overdue' || (i.due_date && i.due_date < today && i.balance > 0))
+    const overdueInvoices = (invoices.data || []).filter((i: any) => i.status === 'overdue' || (i.due_date && i.due_date < today && i.balance_due > 0))
 
     context = `
 FINANCIAL DATA (as of ${today}):
@@ -33,7 +33,7 @@ FINANCIAL DATA (as of ${today}):
 - Total Payments: ${(payments.data || []).length}
 
 INVOICES (recent):
-${(invoices.data || []).slice(0, 20).map((i: any) => `  ${i.invoice_number}: $${i.total} | Status: ${i.status} | Balance: $${i.balance || 0}`).join('\n')}
+${(invoices.data || []).slice(0, 20).map((i: any) => `  ${i.invoice_number}: $${i.total} | Status: ${i.status} | Balance: $${i.balance_due || 0}`).join('\n')}
 
 EXPENSES:
 ${(expenses.data || []).slice(0, 20).map((e: any) => `  $${e.amount} - ${e.category || 'uncategorized'}: ${e.description || ''}`).join('\n') || '  No expenses tracked yet'}

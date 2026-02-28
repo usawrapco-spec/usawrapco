@@ -580,8 +580,7 @@ export interface Invoice {
   tax_amount: number
   total: number
   amount_paid: number
-  balance: number
-  balance_due?: number
+  balance_due: number
   notes: string | null
   form_data?: Record<string, unknown>
   payment_terms: string

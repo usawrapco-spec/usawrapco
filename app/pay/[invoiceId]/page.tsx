@@ -64,7 +64,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     .eq('parent_type', 'invoice')
     .order('sort_order')
 
-  const balanceDue = Math.max(0, invoice.balance ?? (invoice.total - invoice.amount_paid))
+  const balanceDue = Math.max(0, invoice.balance_due ?? (invoice.total - invoice.amount_paid))
   const isPaid = (invoice.status === 'paid' || balanceDue <= 0) && !isSuccess
 
   // Get current financing status if any app exists

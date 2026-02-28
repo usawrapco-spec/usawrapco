@@ -45,7 +45,7 @@ export default function OpenInvoicesAlert({ initialInvoices, orgId, showPayModal
 
   if (loading || openInvoices.length === 0) return null
 
-  const total = openInvoices.reduce((s, inv) => s + (inv.balance_due ?? inv.balance ?? 0), 0)
+  const total = openInvoices.reduce((s, inv) => s + (inv.balance_due ?? 0), 0)
   const hasOverdue = openInvoices.some(inv => inv.status === 'overdue')
   const top3 = openInvoices.slice(0, 3)
 
@@ -67,7 +67,7 @@ export default function OpenInvoicesAlert({ initialInvoices, orgId, showPayModal
         payment_date: new Date().toISOString().split('T')[0],
         org_id: (inv as any).org_id,
       })
-      const balance = (inv.balance_due ?? inv.balance ?? inv.total) - amount
+      const balance = (inv.balance_due ?? inv.total) - amount
       const newStatus = balance <= 0 ? 'paid' : 'partial'
       await supabase.from('invoices').update({ status: newStatus, amount_paid: (inv.amount_paid || 0) + amount }).eq('id', inv.id)
       setOpenInvoices(prev => newStatus === 'paid' ? prev.filter(i => i.id !== inv.id) : prev.map(i => i.id === inv.id ? { ...i, status: newStatus as any, amount_paid: (i.amount_paid || 0) + amount } : i))
@@ -114,7 +114,7 @@ export default function OpenInvoicesAlert({ initialInvoices, orgId, showPayModal
           {top3.map(inv => {
             const isOverdue = inv.status === 'overdue'
             const invColor = isOverdue ? '#f25a5a' : '#f59e0b'
-            const balance = inv.balance_due ?? inv.balance ?? 0
+            const balance = inv.balance_due ?? 0
             const custName = (inv.customer as any)?.name || `INV-${inv.invoice_number}`
             return (
               <div

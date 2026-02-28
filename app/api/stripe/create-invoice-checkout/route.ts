@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       customer = prof
     }
 
-    const balanceDue = Math.max(0, invoice.balance ?? (invoice.total - (invoice.amount_paid || 0)))
+    const balanceDue = Math.max(0, invoice.balance_due ?? (invoice.total - (invoice.amount_paid || 0)))
     if (balanceDue <= 0) return NextResponse.json({ error: 'Invoice already paid' }, { status: 400 })
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2026-01-28.clover' as any })

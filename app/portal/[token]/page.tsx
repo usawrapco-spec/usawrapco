@@ -46,7 +46,7 @@ export default async function PortalTokenPage({
         ).data?.map((p: any) => p.id) || []),
     ])
 
-    const invoiceBalance = (invoiceRes.data || []).reduce((sum: number, inv: any) => sum + (inv.balance || 0), 0)
+    const invoiceBalance = (invoiceRes.data || []).reduce((sum: number, inv: any) => sum + (inv.balance_due || 0), 0)
 
     return (
       <PortalHomePage

@@ -201,7 +201,7 @@ export default function CallWidget({
           .eq('customer_id', cust.id)
           .in('status', ['open', 'sent', 'partial', 'overdue'])
 
-        const totalBalance = (invoices || []).reduce((sum: number, inv: any) => sum + (inv.balance || 0), 0)
+        const totalBalance = (invoices || []).reduce((sum: number, inv: any) => sum + (inv.balance_due || 0), 0)
 
         setCustomer({
           id: cust.id,

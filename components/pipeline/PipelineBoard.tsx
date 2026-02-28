@@ -12,6 +12,7 @@ import {
   Filter, ArrowUpDown, Plus,
   type LucideIcon,
 } from 'lucide-react'
+import JobMiniMenu from '@/components/shared/JobMiniMenu'
 // OnboardingLinkPanel moved to Sales dropdown in TopNav
 
 interface PipelineBoardProps {
@@ -469,19 +470,33 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                           ))}
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4, marginBottom: 4 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', lineHeight: 1.2 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4, marginBottom: 4, alignItems: 'flex-start' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', lineHeight: 1.2, flex: 1, minWidth: 0 }}>
                             {(project.customer as any)?.name || (project.form_data as any)?.clientName || project.title}
                           </div>
-                          {gpm > 0 && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
-                              color: gpm >= 70 ? 'var(--green)' : gpm >= 55 ? 'var(--amber)' : 'var(--red)',
-                              flexShrink: 0,
-                            }}>
-                              {gpm.toFixed(0)}%
-                            </span>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                            {gpm > 0 && (
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
+                                color: gpm >= 70 ? 'var(--green)' : gpm >= 55 ? 'var(--amber)' : 'var(--red)',
+                              }}>
+                                {gpm.toFixed(0)}%
+                              </span>
+                            )}
+                            <JobMiniMenu
+                              projectId={project.id}
+                              projectTitle={(project.customer as any)?.name || project.title || ''}
+                              currentStage={project.pipe_stage || 'sales_in'}
+                              customerId={project.customer_id || undefined}
+                              onAction={(action) => {
+                                if (action === 'deleted' || action === 'archived') {
+                                  setProjects(prev => prev.filter(p => p.id !== project.id))
+                                } else if (action === 'stage_changed') {
+                                  // projects will update via realtime
+                                }
+                              }}
+                            />
+                          </div>
                         </div>
 
                         <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -597,8 +612,18 @@ export function PipelineBoard({ profile, initialProjects }: PipelineBoardProps) 
                     <td style={{ fontSize: 11, color: 'var(--text3)' }}>
                       {(project.agent as any)?.name || '\u2014'}
                     </td>
-                    <td>
-                      <ChevronRight size={14} style={{ color: 'var(--text3)' }} />
+                    <td onClick={e => e.stopPropagation()}>
+                      <JobMiniMenu
+                        projectId={project.id}
+                        projectTitle={(project.customer as any)?.name || project.title || ''}
+                        currentStage={project.pipe_stage || 'sales_in'}
+                        customerId={project.customer_id || undefined}
+                        onAction={(action) => {
+                          if (action === 'deleted' || action === 'archived') {
+                            setProjects(prev => prev.filter(p => p.id !== project.id))
+                          }
+                        }}
+                      />
                     </td>
                   </tr>
                 )

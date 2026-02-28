@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   MessageCircle, X, Send, Mic, MicOff, Sparkles,
   Briefcase, DollarSign, Users, FileText, ChevronDown,
-  Loader2, Bot
+  Loader2, Bot, Fuel, Wrench, TrendingUp
 } from 'lucide-react'
 
 interface Message {
@@ -35,6 +35,62 @@ export default function VinylWidget() {
   const recognitionRef = useRef<any>(null)
   const pathname = usePathname()
   const router = useRouter()
+  const [fleetContext, setFleetContext] = useState<string | null>(null)
+  const isFleetPage = pathname?.startsWith('/fleet-map') ?? false
+
+  const suggestedActions = isFleetPage ? [
+    { label: 'Fuel check', icon: Fuel, prompt: "Which of my vehicles needs gas right now?" },
+    { label: 'Impressions today', icon: TrendingUp, prompt: "How many total impressions did the fleet generate today?" },
+    { label: 'Schedule service', icon: Wrench, prompt: "Which vehicles have upcoming maintenance due?" },
+    { label: 'Stuck jobs', icon: Briefcase, prompt: "Show me all jobs currently stuck in the pipeline for more than 3 days." },
+  ] : SUGGESTED_ACTIONS
+
+  // Fleet context injection
+  useEffect(() => {
+    if (!isFleetPage) {
+      setFleetContext(null)
+      return
+    }
+    async function loadFleetContext() {
+      try {
+        const res = await fetch('/api/fleet-map/vehicles')
+        if (!res.ok) return
+        const data = await res.json()
+        const vehicles = data.vehicles || []
+
+        // Build a concise fleet summary for context injection
+        const summary = vehicles.map((v: any) => {
+          const fuelSeed = parseInt((v.id || '').replace(/-/g,'').slice(-4), 16) || 80
+          const fuelLevel = (fuelSeed % 80) + 20
+          const todayMiles = v.today_miles || 0
+          const impressions = Math.round(todayMiles * ((v.wrap_sqft || 300) / 200) * 1.4)
+          return `${v.name || 'Vehicle'} (${v.make || ''} ${v.model || ''} ${v.year || ''}): status=${v.fleet_status || 'unknown'}, speed=${v.speed_mph || 0}mph, today_miles=${todayMiles}mi, fuel=${fuelLevel}%, impressions_today=${impressions.toLocaleString()}, next_service=${v.next_service_date || 'none'}`
+        }).join('\n')
+
+        const activeCount = vehicles.filter((v: any) => v.fleet_status === 'moving' || v.fleet_status === 'active').length
+        const totalMiles = vehicles.reduce((s: number, v: any) => s + (v.today_miles || 0), 0)
+        const lowFuelVehicles = vehicles.filter((v: any) => {
+          const seed = parseInt((v.id || '').replace(/-/g,'').slice(-4), 16) || 80
+          return (seed % 80) + 20 < 25
+        })
+
+        const ctx = `FLEET CONTEXT (${new Date().toLocaleString()}):
+Active vehicles: ${activeCount}/${vehicles.length}
+Total miles today: ${totalMiles}
+Low fuel vehicles: ${lowFuelVehicles.map((v: any) => v.name).join(', ') || 'none'}
+
+VEHICLE DETAILS:
+${summary}
+
+You can help with: checking fuel levels, calculating impressions, finding nearby gas stations, scheduling maintenance, identifying stuck/idle vehicles.`
+
+        setFleetContext(ctx)
+      } catch {
+        setFleetContext(null)
+      }
+    }
+    loadFleetContext()
+  }, [isFleetPage, pathname])
 
   // Load session from localStorage
   useEffect(() => {
@@ -85,6 +141,7 @@ export default function VinylWidget() {
             content: m.content,
           })),
           page_context: pathname,
+          fleet_context: isFleetPage ? fleetContext : undefined,
         }),
       })
 
@@ -116,7 +173,7 @@ export default function VinylWidget() {
     } finally {
       setIsLoading(false)
     }
-  }, [messages, isLoading, pathname, router])
+  }, [messages, isLoading, pathname, router, fleetContext, isFleetPage])
 
   const toggleVoice = useCallback(() => {
     if (isListening) {
@@ -243,6 +300,15 @@ export default function VinylWidget() {
                     color: '#fff',
                     letterSpacing: 2,
                   }}>V.I.N.Y.L.</span>
+                  {isFleetPage && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                      background: 'rgba(34,211,238,0.15)', color: 'var(--cyan)',
+                      letterSpacing: '0.06em', marginLeft: 6,
+                    }}>
+                      FLEET MODE
+                    </span>
+                  )}
                 </div>
                 <div style={{
                   fontSize: 10,
@@ -299,7 +365,7 @@ export default function VinylWidget() {
                     <div style={{ fontSize: 14, color: 'var(--text2)' }}>How can I help you today?</div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                    {SUGGESTED_ACTIONS.map(action => (
+                    {suggestedActions.map(action => (
                       <button
                         key={action.label}
                         onClick={() => sendMessage(action.prompt)}

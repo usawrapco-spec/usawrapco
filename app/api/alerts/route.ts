@@ -42,7 +42,7 @@ export async function GET() {
       .limit(10)
 
     if (count && count > 0) {
-      const totalBalance = (overdueInvoices || []).reduce((sum: number, inv: any) => sum + (inv.balance || 0), 0)
+      const totalBalance = (overdueInvoices || []).reduce((sum: number, inv: any) => sum + (inv.balance_due || 0), 0)
       alerts.push({
         id: 'overdue-invoices',
         type: 'overdue_invoice',

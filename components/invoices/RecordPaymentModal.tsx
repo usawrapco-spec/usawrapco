@@ -15,7 +15,7 @@ interface Props {
 export default function RecordPaymentModal({ invoice, profile, onClose, onSuccess }: Props) {
   const supabase = createClient()
 
-  const balance = invoice.balance || 0
+  const balance = invoice.balance_due || 0
   const [amount, setAmount] = useState(balance.toFixed(2))
   const [method, setMethod] = useState<'cash' | 'check' | 'card' | 'stripe' | 'zelle' | 'venmo' | 'ach' | 'wire' | 'other'>('card')
   const [referenceNumber, setReferenceNumber] = useState('')
@@ -74,7 +74,7 @@ export default function RecordPaymentModal({ invoice, profile, onClose, onSucces
       // Update invoice
       const updateData: any = {
         amount_paid: newAmountPaid,
-        balance: Math.max(0, newBalance),
+        balance_due: Math.max(0, newBalance),
         status: newStatus,
         updated_at: new Date().toISOString()
       }
