@@ -37,7 +37,6 @@ interface Brief {
   project: {
     id: string
     title: string | null
-    customer_name: string | null
     form_data: Record<string, any> | null
     designer_id: string | null
   } | null
@@ -85,7 +84,7 @@ export function DesignBriefs({ profile, designers }: Props) {
       .from('customer_intake')
       .select(`
         *,
-        project:project_id(id, title, customer_name, form_data, designer_id)
+        project:project_id(id, title, form_data, designer_id)
       `)
       .order('created_at', { ascending: false })
       .limit(200)
@@ -251,7 +250,7 @@ export function DesignBriefs({ profile, designers }: Props) {
                       {/* Header row */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text1)' }}>
-                          {brief.customer_name ?? brief.project?.customer_name ?? 'Unknown Customer'}
+                          {brief.customer_name ?? 'Unknown Customer'}
                         </span>
                         {brief.project?.title && (
                           <span style={{ fontSize: 12, color: 'var(--text3)' }}>· {brief.project.title}</span>

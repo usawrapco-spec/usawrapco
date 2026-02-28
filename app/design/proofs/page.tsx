@@ -33,7 +33,7 @@ export default async function DesignProofsPage() {
     .from('design_proofs')
     .select(`
       *,
-      project:project_id(id, title, customer_name, form_data)
+      project:project_id(id, title, form_data)
     `)
     .eq('org_id', ORG_ID)
     .order('sent_at', { ascending: false })

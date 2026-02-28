@@ -23,7 +23,6 @@ interface Proof {
   project: {
     id: string
     title: string | null
-    customer_name: string | null
     form_data: Record<string, any> | null
   } | null
 }
@@ -339,7 +338,7 @@ export function DesignProofs({ profile, proofs: initialProofs, designProjects: i
                       {/* Header */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text1)' }}>
-                          {proof.project?.title ?? proof.project?.customer_name ?? 'Design Proof'}
+                          {proof.project?.title ?? 'Design Proof'}
                         </span>
                         <span style={{ fontSize: 12, color: 'var(--text3)' }}>v{proof.version_number}</span>
                         <StatusBadge status={proof.customer_status} />
