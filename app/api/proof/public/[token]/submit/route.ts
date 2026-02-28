@@ -11,7 +11,7 @@ export async function POST(
   const { data: proof, error: proofErr } = await admin
     .from('design_proofs')
     .select('id, project_id, org_id, status')
-    .eq('public_token', params.token)
+    .eq('proof_token', params.token)
     .single()
 
   if (proofErr || !proof) {

@@ -119,6 +119,7 @@ export async function POST(req: Request) {
     await admin.from('wrap_route_logs').insert({
       campaign_id: campaignId,
       org_id: orgId,
+      route_date: new Date().toISOString(),
       route_name: body.routeName || `Route ${new Date().toLocaleDateString()}`,
       waypoints,
       drive_time_minutes: Math.round(driveTimeHours * 60),

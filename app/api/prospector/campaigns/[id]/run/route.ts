@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const { lat, lng } = geoData.results[0].geometry.location
     const radiusMeters = Math.round((campaign.target_radius_miles || 25) * 1609.34)
-    const types = (campaign.target_business_types || []).length > 0 ? campaign.target_business_types : ['businesses']
+    const types = (campaign.business_types || []).length > 0 ? campaign.business_types : ['businesses']
 
     // Search Google Places
     const allPlaces: any[] = []
@@ -73,7 +73,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const existingIds = new Set((existing || []).map((e: any) => e.google_place_id))
     const newPlaces = allPlaces
       .filter(p => !existingIds.has(p.place_id))
-      .slice(0, campaign.ai_max_prospects_per_run || 50)
+      .slice(0, campaign.max_results || 50)
 
     if (newPlaces.length === 0) {
       await admin.from('prospecting_campaigns').update({ last_run_at: new Date().toISOString() }).eq('id', campaignId)
@@ -114,7 +114,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // Update campaign
     await admin.from('prospecting_campaigns').update({
-      prospects_found: (campaign.prospects_found || 0) + (saved?.length || 0),
+      results_count: (campaign.results_count || 0) + (saved?.length || 0),
       last_run_at: new Date().toISOString(),
     }).eq('id', campaignId)
 

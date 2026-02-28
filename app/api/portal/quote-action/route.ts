@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         title: 'Quote Approved',
         message: `${customer_name || 'Customer'} approved the quote for "${project.title}"`,
         type: 'quote_approved',
-        action_url: `/projects/${project_id}`,
+        link: `/projects/${project_id}`,
       })
     }
 

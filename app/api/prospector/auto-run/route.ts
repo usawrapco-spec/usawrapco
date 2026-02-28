@@ -12,7 +12,7 @@ export async function POST(req: Request) {
       .from('prospecting_campaigns')
       .select('*')
       .eq('status', 'active')
-      .eq('ai_auto_run', true)
+      .eq('auto_run', true)
 
     if (error || !campaigns || campaigns.length === 0) {
       return NextResponse.json({ message: 'No active auto-run campaigns', ran: 0 })
@@ -26,10 +26,10 @@ export async function POST(req: Request) {
         // Build the AI search request
         const searchBody: any = {
           radius: campaign.target_radius_miles || 25,
-          businessTypes: campaign.target_business_types || [],
-          maxResults: campaign.ai_max_prospects_per_run || 50,
+          businessTypes: campaign.business_types || [],
+          maxResults: campaign.max_results || 50,
           excludeExisting: true,
-          minScore: campaign.min_ai_score || 60,
+          minScore: campaign.min_score || 60,
           orgId: campaign.org_id,
         }
 
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
 
         // Update campaign stats
         await admin.from('prospecting_campaigns').update({
-          prospects_found: (campaign.prospects_found || 0) + savedCount,
+          results_count: (campaign.results_count || 0) + savedCount,
           last_run_at: new Date().toISOString(),
         }).eq('id', campaign.id)
 

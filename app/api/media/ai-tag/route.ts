@@ -154,18 +154,9 @@ export async function POST(req: Request) {
           const { error: updateError } = await admin
             .from('job_images')
             .update({
-              ai_tags: normalizedTags,
+              tags: normalizedTags,
               category: normalizedCategory,
-              metadata: {
-                ai_analysis: {
-                  category: normalizedCategory,
-                  tags: normalizedTags,
-                  description: analysis.description || '',
-                  confidence: typeof analysis.confidence === 'number' ? analysis.confidence : 0,
-                  analyzed_at: new Date().toISOString(),
-                  model: 'claude-sonnet-4-6',
-                },
-              },
+              description: analysis.description || undefined,
             })
             .eq('id', image.id)
 
