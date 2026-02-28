@@ -32,15 +32,12 @@ interface Props {
 
 interface ReferralEntry {
   id: string
-  referred_by_name: string
   referred_customer_id: string | null
+  referral_code: string
   status: 'pending' | 'converted' | 'paid'
-  conversion_value: number
-  commission_paid: number
-  converted_at: string | null
+  commission_amount: number
   paid_at: string | null
   created_at: string
-  payout_requested: boolean
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -95,22 +92,21 @@ export default function PortalReferralsClient({ userId, userEmail }: Props) {
       // Get referral code for this customer
       const { data: codeData } = await supabase
         .from('referral_codes')
-        .select('id, code, affiliate_unlocked, affiliate_commission_pct')
+        .select('id, code, commission_pct, active')
         .eq('owner_id', userId)
         .eq('type', 'customer')
-        .single()
+        .maybeSingle()
 
       if (codeData) {
         setReferralCode(codeData.code)
         setReferralCodeId(codeData.id)
-        setAffiliateUnlocked(codeData.affiliate_unlocked || false)
-        setAffiliateCommissionPct(codeData.affiliate_commission_pct || 5)
+        setAffiliateCommissionPct(codeData.commission_pct || 5)
 
         // Get referral tracking entries
         const { data: trackingData } = await supabase
           .from('referral_tracking')
-          .select('id, referred_by_name, referred_customer_id, status, conversion_value, commission_paid, converted_at, paid_at, created_at, payout_requested')
-          .eq('referral_code_id', codeData.id)
+          .select('id, referred_customer_id, referral_code, status, commission_amount, paid_at, created_at')
+          .eq('referral_code', codeData.code)
           .order('created_at', { ascending: false })
 
         setReferrals((trackingData || []) as ReferralEntry[])
@@ -119,13 +115,7 @@ export default function PortalReferralsClient({ userId, userEmail }: Props) {
         const convertedCount = (trackingData || []).filter(
           (r: any) => r.status === 'converted' || r.status === 'paid'
         ).length
-        if (convertedCount >= 3 && !codeData.affiliate_unlocked) {
-          await supabase
-            .from('referral_codes')
-            .update({ affiliate_unlocked: true })
-            .eq('id', codeData.id)
-          setAffiliateUnlocked(true)
-        }
+        setAffiliateUnlocked(convertedCount >= 3)
       }
     } catch (err) {
       console.error('Referral load error:', err)
@@ -192,13 +182,13 @@ export default function PortalReferralsClient({ userId, userEmail }: Props) {
     try {
       // Mark all unpaid converted referrals as payout requested
       const unpaidIds = referrals
-        .filter(r => r.status === 'converted' && !r.payout_requested)
+        .filter(r => r.status === 'converted')
         .map(r => r.id)
 
       if (unpaidIds.length > 0) {
         await supabase
           .from('referral_tracking')
-          .update({ payout_requested: true, payout_requested_at: new Date().toISOString() })
+          .update({ status: 'pending_payout' })
           .in('id', unpaidIds)
 
         setPayoutSuccess(true)
@@ -215,14 +205,14 @@ export default function PortalReferralsClient({ userId, userEmail }: Props) {
   const totalSent = referrals.length
   const totalConverted = referrals.filter(r => r.status === 'converted' || r.status === 'paid').length
   const totalEarned = totalConverted * 100 // $100 per conversion
-  const pendingEarnings = referrals.filter(r => r.status === 'converted' && !r.payout_requested).length * 100
-  const paidEarnings = referrals.filter(r => r.status === 'paid').reduce((s, r) => s + (r.commission_paid || 100), 0)
+  const pendingEarnings = referrals.filter(r => r.status === 'converted').reduce((s, r) => s + (r.commission_amount || 100), 0)
+  const paidEarnings = referrals.filter(r => r.status === 'paid').reduce((s, r) => s + (r.commission_amount || 100), 0)
 
   // Affiliate stats
   const affiliateEarnings = affiliateUnlocked
     ? referrals
         .filter(r => r.status === 'converted' || r.status === 'paid')
-        .reduce((s, r) => s + (r.conversion_value || 0) * (affiliateCommissionPct / 100), 0)
+        .reduce((s, r) => s + (r.commission_amount || 0), 0)
     : 0
 
   const handleSignOut = async () => {
@@ -666,7 +656,7 @@ export default function PortalReferralsClient({ userId, userEmail }: Props) {
                               padding: '10px 12px', fontSize: 13, color: clr.text1,
                               borderBottom: `1px solid ${clr.surface2}`, fontWeight: 600,
                             }}>
-                              {r.referred_by_name || 'Pending signup'}
+                              {'Pending signup'}
                             </td>
                             <td style={{
                               padding: '10px 12px', borderBottom: `1px solid ${clr.surface2}`,

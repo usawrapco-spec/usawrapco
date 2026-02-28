@@ -45,7 +45,7 @@ export default function AILogPage() {
       supabase.from('ai_agents_log').select('*').order('created_at', { ascending: false }).limit(200),
       supabase.from('ai_usage_log').select('*').order('created_at', { ascending: false }).limit(200),
       supabase.from('ai_recaps').select('*').order('recap_date', { ascending: false }).limit(30),
-      supabase.from('work_summaries').select('*, profile:user_id(name, email)').order('generated_at', { ascending: false }).limit(50),
+      supabase.from('work_summaries').select('*, profile:user_id(name, email)').order('created_at', { ascending: false }).limit(50),
     ])
 
     if (agentsRes.data) setAgentLogs(agentsRes.data)
