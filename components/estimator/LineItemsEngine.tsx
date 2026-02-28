@@ -351,7 +351,7 @@ export default function LineItemsEngine({ projectId, orgId }: LineItemsEnginePro
       </div>
 
       {/* ─── Main Content ────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16, alignItems: 'start' }}>
         {/* Left: Items or Proposals */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {activeTab === 'items' ? (
@@ -394,7 +394,7 @@ export default function LineItemsEngine({ projectId, orgId }: LineItemsEnginePro
         </div>
 
         {/* Right: Totals Sidebar (sticky) */}
-        <div style={{ position: 'sticky', top: 16 }}>
+        <div style={{ position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
           <TotalsSidebar
             items={itemsWithCalc}
             onConvertToJob={handleConvertToJob}

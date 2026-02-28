@@ -354,7 +354,7 @@ export default function JobDetailClient({
 
       {/* ── Job Team Panel ─────────────────────────────────────────────────── */}
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--surface2)',
+        background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: 12, padding: '14px 20px', marginBottom: 16,
       }}>
         <div style={{
@@ -375,7 +375,7 @@ export default function JobDetailClient({
         }}>
           {/* CUSTOMER slot */}
           <div style={{
-            background: 'var(--bg)', border: '1px solid var(--surface2)',
+            background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 10, padding: '10px 12px',
           }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Customer</div>
@@ -545,7 +545,7 @@ export default function JobDetailClient({
 
           {/* Stage */}
           <div style={{
-            background: 'var(--surface)', border: '1px solid var(--surface2)',
+            background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 12, padding: 16,
           }}>
             <div style={{
@@ -612,7 +612,7 @@ export default function JobDetailClient({
 
           {/* Priority */}
           <div style={{
-            background: 'var(--surface)', border: '1px solid var(--surface2)',
+            background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 12, padding: 16,
           }}>
             <div style={{
@@ -647,7 +647,7 @@ export default function JobDetailClient({
 
           {/* Installer */}
           <div style={{
-            background: 'var(--surface)', border: '1px solid var(--surface2)',
+            background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 12, padding: 16,
           }}>
             <div style={{
@@ -674,7 +674,7 @@ export default function JobDetailClient({
 
           {/* Agent */}
           <div style={{
-            background: 'var(--surface)', border: '1px solid var(--surface2)',
+            background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 12, padding: 16,
           }}>
             <div style={{
@@ -780,8 +780,8 @@ function OverviewTab({
           { label: 'Commission', value: fmt$(commission), icon: <Award size={15} />,       color: '#8b5cf6' },
         ].map(stat => (
           <div key={stat.label} style={{
-            background: 'var(--surface)', border: '1px solid var(--surface2)',
-            borderRadius: 10, padding: '14px 16px',
+            background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 12, padding: '14px 16px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: stat.color, marginBottom: 8 }}>
               {stat.icon}
@@ -804,7 +804,7 @@ function OverviewTab({
 
         {/* Customer */}
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--surface2)',
+          background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 12, padding: 16,
         }}>
           <div style={{
@@ -847,7 +847,7 @@ function OverviewTab({
 
         {/* Vehicle & Job */}
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--surface2)',
+          background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 12, padding: 16,
         }}>
           <div style={{
@@ -886,7 +886,7 @@ function OverviewTab({
 
         {/* Dates */}
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--surface2)',
+          background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 12, padding: 16,
         }}>
           <div style={{
@@ -940,7 +940,7 @@ function OverviewTab({
 
         {/* Team */}
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--surface2)',
+          background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 12, padding: 16,
         }}>
           <div style={{
@@ -970,7 +970,7 @@ function OverviewTab({
       {/* Notes */}
       {!!fd.notes && (
         <div style={{
-          background: 'var(--surface)', border: '1px solid var(--surface2)',
+          background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 12, padding: 16,
         }}>
           <div style={{
