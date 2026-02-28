@@ -64,20 +64,23 @@ function checkEscalationRules(
 ): { shouldEscalate: boolean; reason: string } {
   for (const rule of rules) {
     if (!rule.active) continue
-    switch (rule.rule_type) {
+    // DB column is trigger_type; conditions holds the rule parameters
+    const ruleType = rule.trigger_type || rule.rule_type
+    const ruleConfig = rule.conditions || rule.rule_config || {}
+    switch (ruleType) {
       case 'keyword': {
-        const keywords: string[] = rule.rule_config?.keywords || []
+        const keywords: string[] = ruleConfig.keywords || []
         const lower = message.toLowerCase()
         const match = keywords.find(k => lower.includes(k.toLowerCase()))
         if (match) return { shouldEscalate: true, reason: `Customer used keyword: "${match}"` }
         break
       }
       case 'confidence':
-        if (confidence < (rule.rule_config?.threshold || 0.6))
+        if (confidence < (ruleConfig.threshold || 0.6))
           return { shouldEscalate: true, reason: `AI confidence too low: ${confidence.toFixed(2)}` }
         break
       case 'dollar_threshold':
-        if (quoteTotal > (rule.rule_config?.max_amount || 10000))
+        if (quoteTotal > (ruleConfig.max_amount || 10000))
           return { shouldEscalate: true, reason: `Deal value $${quoteTotal} exceeds threshold` }
         break
       case 'explicit_request': {
@@ -235,11 +238,11 @@ export async function POST(req: Request) {
   }
 
   // 6. Build system prompt
-  const brandVoice = playbook.filter((p: any) => p.category === 'brand_voice').map((p: any) => p.response_guidance).join('\n')
+  const brandVoice = playbook.filter((p: any) => p.category === 'brand_voice').map((p: any) => p.content).join('\n')
   const groupedPlaybook = playbook.reduce((acc: Record<string, string[]>, p: any) => {
     if (p.category === 'brand_voice') return acc
     if (!acc[p.category]) acc[p.category] = []
-    acc[p.category].push(p.response_guidance)
+    acc[p.category].push(p.content)
     return acc
   }, {} as Record<string, string[]>)
 
@@ -247,7 +250,7 @@ export async function POST(req: Request) {
     `${p.name || p.rule_type}: ${p.value != null ? `$${p.value}` : ''} (applies to: ${p.applies_to || 'all'})`
   ).join('\n')
 
-  const maxDeal = rules.find((r: any) => r.rule_type === 'dollar_threshold')?.rule_config?.max_amount || 10000
+  const maxDeal = rules.find((r: any) => (r.trigger_type || r.rule_type) === 'dollar_threshold')?.conditions?.max_amount || 10000
   const maxDiscount = 10
 
   const conversationHistory = history.map((m: any) =>
