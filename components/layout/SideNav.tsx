@@ -17,6 +17,7 @@ import {
   Printer, Map, Factory, BookOpen, MessageCircle, Phone,
   Zap, Activity, Target, Gauge, Workflow, Sparkles, Brain, Anchor, Send,
   Shield, Compass, Rocket, Star, Fish, MapPin, Radio,
+  UserCheck, Inbox, Tag, Banknote, GitBranch, Search,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ interface NavSection {
   items: NavItem[]
 }
 
-// ── Section definitions (restructured per spec) ───────────────────────────────
+// ── Section definitions ───────────────────────────────────────────────────────
 const NAV_SECTIONS: NavSection[] = [
   {
     id: 'sales',
@@ -43,13 +44,17 @@ const NAV_SECTIONS: NavSection[] = [
     icon: DollarSign,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/sales',        label: 'Sales Hub',    icon: DollarSign },
-      { href: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
-      { href: '/pipeline',     label: 'Pipeline',     icon: Kanban },
-      { href: '/estimates',    label: 'Estimates',    icon: FileText },
-      { href: '/proposals',    label: 'Proposals',    icon: Send,          roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/customers',    label: 'Customers',    icon: Users },
-      { href: '/calendar',     label: 'Calendar',     icon: CalendarDays },
+      { href: '/sales',         label: 'Sales Hub',    icon: DollarSign },
+      { href: '/dashboard',     label: 'Dashboard',    icon: LayoutDashboard },
+      { href: '/pipeline',      label: 'Pipeline',     icon: Kanban },
+      { href: '/estimates',     label: 'Estimates',    icon: FileText },
+      { href: '/sales-orders',  label: 'Sales Orders', icon: ShoppingCart,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/proposals',     label: 'Proposals',    icon: Send,          roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/bids',          label: 'Bids',         icon: ShoppingBag,   roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/customers',     label: 'Customers',    icon: Users },
+      { href: '/contacts',      label: 'Contacts',     icon: UserCheck,     roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/inbox',         label: 'Inbox',        icon: Inbox },
+      { href: '/calendar',      label: 'Calendar',     icon: CalendarDays },
     ],
   },
   {
@@ -58,10 +63,13 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Factory,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
     items: [
-      { href: '/jobs',                          label: 'Jobs',              icon: ClipboardList },
-      { href: '/production',                    label: 'Production Queue',  icon: Factory },
-      { href: '/install/schedule',              label: 'Install Schedule',  icon: CalendarDays },
-      { href: '/production/print-schedule',     label: 'QC',               icon: CheckSquare },
+      { href: '/jobs',                       label: 'Jobs',              icon: ClipboardList },
+      { href: '/production',                 label: 'Production Queue',  icon: Factory },
+      { href: '/timeline',                   label: 'Timeline',          icon: Activity },
+      { href: '/install/schedule',           label: 'Install Schedule',  icon: CalendarDays },
+      { href: '/production/print-schedule',  label: 'QC',                icon: CheckSquare },
+      { href: '/production/printers',        label: 'Printers',          icon: Printer,       roles: ['owner', 'admin', 'production'] },
+      { href: '/installer-portal',           label: 'Installer Portal',  icon: Hammer,        roles: ['owner', 'admin', 'installer'] },
     ],
   },
   {
@@ -70,9 +78,20 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Palette,
     roles: ['owner', 'admin', 'designer', 'production'],
     items: [
-      { href: '/design',           label: 'Design Studio', icon: LayoutGrid },
-      { href: '/media-library',    label: 'Brand Assets',  icon: ImageIcon },
-      { href: '/mockup',           label: 'Mockups',       icon: Palette },
+      { href: '/design',   label: 'Design Studio', icon: LayoutGrid },
+      { href: '/media',    label: 'Media Library',  icon: ImageIcon },
+      { href: '/mockup',   label: 'Mockups',        icon: Palette },
+    ],
+  },
+  {
+    id: 'inventory',
+    label: 'INVENTORY',
+    icon: Package,
+    roles: ['owner', 'admin', 'production', 'installer'],
+    items: [
+      { href: '/inventory',           label: 'Vinyl Inventory',  icon: Package },
+      { href: '/inventory/remnants',  label: 'Remnants',         icon: Layers },
+      { href: '/catalog',             label: 'Catalog',          icon: Tag },
     ],
   },
   {
@@ -81,17 +100,21 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Receipt,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/invoices',                label: 'Invoices',      icon: Receipt,     roles: ['owner', 'admin'] },
-      { href: '/payments',               label: 'Payments',      icon: CreditCard,  roles: ['owner', 'admin'] },
-      { href: '/transactions',            label: 'Transactions',  icon: Activity,    roles: ['owner', 'admin'] },
-      { href: '/expenses',               label: 'Expenses',      icon: FileText,    roles: ['owner', 'admin'] },
-      { href: '/payroll',                 label: 'Payroll',         icon: DollarSign,  roles: ['owner', 'admin'] },
-      { href: '/payroll/employees',      label: 'Pay Settings',    icon: Users,       roles: ['owner', 'admin'] },
-      { href: '/payroll/history',        label: 'Payroll History', icon: Clock,       roles: ['owner', 'admin'] },
-      { href: '/payroll/gusto',          label: 'Gusto Export',    icon: FileInput,   roles: ['owner', 'admin'] },
-      { href: '/settings/commissions',    label: 'Commission',      icon: TrendingUp,  roles: ['owner', 'admin'] },
-      { href: '/reports',                 label: 'Reports',       icon: BarChart3,   roles: ['owner', 'admin'] },
-      { href: '/overhead',                label: 'Overhead',      icon: Briefcase,   roles: ['owner', 'admin'] },
+      { href: '/invoices',             label: 'Invoices',        icon: Receipt,    roles: ['owner', 'admin'] },
+      { href: '/payments',             label: 'Payments',        icon: CreditCard, roles: ['owner', 'admin'] },
+      { href: '/deposit',              label: 'Deposits',        icon: Banknote,   roles: ['owner', 'admin'] },
+      { href: '/transactions',         label: 'Transactions',    icon: Activity,   roles: ['owner', 'admin'] },
+      { href: '/expenses',             label: 'Expenses',        icon: FileText,   roles: ['owner', 'admin'] },
+      { href: '/payroll',              label: 'Payroll',         icon: DollarSign, roles: ['owner', 'admin'] },
+      { href: '/payroll/employees',    label: 'Pay Settings',    icon: Users,      roles: ['owner', 'admin'] },
+      { href: '/payroll/history',      label: 'Payroll History', icon: Clock,      roles: ['owner', 'admin'] },
+      { href: '/payroll/gusto',        label: 'Gusto Export',    icon: FileInput,  roles: ['owner', 'admin'] },
+      { href: '/1099',                 label: '1099',            icon: FileText,   roles: ['owner', 'admin'] },
+      { href: '/settings/commissions', label: 'Commission',      icon: TrendingUp, roles: ['owner', 'admin'] },
+      { href: '/analytics',            label: 'Analytics',       icon: BarChart3,  roles: ['owner', 'admin'] },
+      { href: '/reports',              label: 'Reports',         icon: BarChart3,  roles: ['owner', 'admin'] },
+      { href: '/overhead',             label: 'Overhead',        icon: Briefcase,  roles: ['owner', 'admin'] },
+      { href: '/ventures',             label: 'Ventures',        icon: Rocket,     roles: ['owner', 'admin'] },
     ],
   },
   {
@@ -100,9 +123,10 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Users,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer'],
     items: [
-      { href: '/employees',   label: 'Staff',          icon: Users,       roles: ['owner', 'admin'] },
-      { href: '/leaderboard', label: 'Leaderboard',    icon: Trophy },
-      { href: '/timeclock',   label: 'Time Tracking',  icon: Clock },
+      { href: '/employees',   label: 'Staff',         icon: Users,  roles: ['owner', 'admin'] },
+      { href: '/tasks',       label: 'Tasks',         icon: CheckSquare },
+      { href: '/leaderboard', label: 'Leaderboard',   icon: Trophy },
+      { href: '/timeclock',   label: 'Time Tracking', icon: Clock },
     ],
   },
   {
@@ -111,9 +135,21 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Globe,
     roles: ['owner', 'admin', 'sales_agent'],
     items: [
-      { href: '/network',    label: 'Affiliates',    icon: Map },
-      { href: '/prospects',  label: 'Outbound CRM',  icon: UserPlus },
-      { href: '/campaigns',  label: 'Campaigns',     icon: Globe },
+      { href: '/network',    label: 'Affiliates',   icon: Map },
+      { href: '/prospects',  label: 'Outbound CRM', icon: UserPlus },
+      { href: '/campaigns',  label: 'Campaigns',    icon: Globe },
+    ],
+  },
+  {
+    id: 'sourcing',
+    label: 'SOURCING',
+    icon: Search,
+    roles: ['owner', 'admin'],
+    items: [
+      { href: '/sourcing',           label: 'Sourcing',   icon: Search },
+      { href: '/sourcing/monitor',   label: 'Monitor',    icon: Gauge },
+      { href: '/sourcing/suppliers', label: 'Suppliers',  icon: Store },
+      { href: '/sourcing/orders',    label: 'Orders',     icon: ShoppingCart },
     ],
   },
   {
@@ -139,12 +175,15 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Settings,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/settings',              label: 'General',          icon: Settings },
-      { href: '/settings/defaults',     label: 'Defaults',         icon: Wrench },
-      { href: '/settings/commissions',  label: 'Commission Rules', icon: DollarSign },
-      { href: '/settings/reviews',      label: 'Review Requests',  icon: Star },
-      { href: '/process',               label: 'Process Guide',    icon: BookOpen },
-      { href: '/integrations',          label: 'Integrations',     icon: Globe },
+      { href: '/settings',             label: 'General',          icon: Settings },
+      { href: '/settings/defaults',    label: 'Defaults',         icon: Wrench },
+      { href: '/settings/playbook',    label: 'Playbook',         icon: BookOpen },
+      { href: '/settings/vehicles',    label: 'Vehicles',         icon: Car },
+      { href: '/settings/reviews',     label: 'Review Requests',  icon: Star },
+      { href: '/workflow',             label: 'Workflow',         icon: Workflow },
+      { href: '/engine',              label: 'AI Engine',        icon: Brain },
+      { href: '/process',             label: 'Process Guide',    icon: BookOpen },
+      { href: '/integrations',        label: 'Integrations',     icon: Globe },
     ],
   },
 ]
