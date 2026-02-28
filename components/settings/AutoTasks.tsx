@@ -287,7 +287,7 @@ export default function AutoTasks({ profile }: { profile: Profile }) {
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
             {filteredDbTasks.map(t => {
-              const badge = dueBadge(t.due_date)
+              const badge = dueBadge(t.due_at)
               const roleColor = ROLE_COLOR[t.role] || '#4f7fff'
               return (
                 <div key={t.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 16px', display:'flex', alignItems:'center', gap:12 }}>

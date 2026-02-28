@@ -362,6 +362,121 @@ function gpmBadge(gpm: number): { label: string; color: string; bg: string } {
   return { label: 'Low', color: 'var(--red)', bg: 'rgba(242,90,90,0.15)' }
 }
 
+// ─── Team Multi-Select Component ─────────────────────────────────────────────
+
+function TeamMultiSelect({
+  label,
+  members,
+  selectedIds,
+  onChange,
+  canWrite,
+  accentColor = '#4f7fff',
+}: {
+  label: string
+  members: Pick<Profile, 'id' | 'name' | 'role'>[]
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+  canWrite: boolean
+  accentColor?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = members.filter(m => selectedIds.includes(m.id))
+  const available = members.filter(m => !selectedIds.includes(m.id))
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const toggle = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
+  }
+
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 72 }}>{label}</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flex: 1 }}>
+          {selected.map(m => (
+            <span
+              key={m.id}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                fontSize: 11, fontWeight: 600, padding: '2px 7px',
+                borderRadius: 4, background: `${accentColor}20`, color: accentColor,
+                border: `1px solid ${accentColor}30`,
+              }}
+            >
+              {m.name}
+              {canWrite && (
+                <button
+                  onClick={() => toggle(m.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: accentColor, padding: 0, lineHeight: 1, fontSize: 13, marginLeft: 1 }}
+                >×</button>
+              )}
+            </span>
+          ))}
+          {selected.length === 0 && (
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>None</span>
+          )}
+        </div>
+      </div>
+      {canWrite && (
+        <div ref={ref} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setOpen(!open)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 11, color: 'var(--text3)', cursor: 'pointer',
+              background: 'none', border: '1px dashed rgba(255,255,255,0.12)',
+              borderRadius: 5, padding: '2px 8px',
+            }}
+          >
+            <Plus size={10} /> Add
+          </button>
+          {open && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, marginTop: 4,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              zIndex: 300, minWidth: 160,
+            }}>
+              {available.length === 0 ? (
+                <p style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text3)' }}>All assigned</p>
+              ) : available.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => { toggle(m.id); setOpen(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '7px 12px', background: 'none',
+                    border: 'none', cursor: 'pointer', color: 'var(--text1)',
+                    fontSize: 12, textAlign: 'left',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <span style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: `${accentColor}20`, color: accentColor,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                  }}>{m.name?.[0]?.toUpperCase()}</span>
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Props ──────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -424,14 +539,23 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [proposalOptions, setProposalOptions] = useState<{ label: string; itemIds: string[] }[]>(
     (est.form_data?.proposalOptions as { label: string; itemIds: string[] }[]) || []
   )
-  const [salesRepId, setSalesRepId] = useState(est.sales_rep_id || '')
-  const [prodMgrId, setProdMgrId] = useState(est.production_manager_id || '')
-  const [projMgrId, setProjMgrId] = useState(est.project_manager_id || '')
+  // Team multi-select arrays (new) — fall back to single legacy values
+  const [salesRepIds, setSalesRepIds] = useState<string[]>(
+    est.sales_rep_ids?.length ? est.sales_rep_ids : est.sales_rep_id ? [est.sales_rep_id] : []
+  )
+  const [installerIds, setInstallerIds] = useState<string[]>(est.installer_ids || [])
+  const [designerIds, setDesignerIds] = useState<string[]>(est.designer_ids || [])
+  const [productionMgrIds, setProductionMgrIds] = useState<string[]>(
+    est.production_manager_ids?.length ? est.production_manager_ids : est.production_manager_id ? [est.production_manager_id] : []
+  )
   const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
   const [torqBonus, setTorqBonus] = useState(false)
-  const [vehicleYear, setVehicleYear] = useState<string>((est.form_data?.vehicleYear as string) || '')
-  const [vehicleMake, setVehicleMake] = useState<string>((est.form_data?.vehicleMake as string) || '')
-  const [vehicleModel, setVehicleModel] = useState<string>((est.form_data?.vehicleModel as string) || '')
+  // Vehicle fields — read from new DB columns, fall back to form_data for older estimates
+  const [vehicleYear, setVehicleYear] = useState<string>(est.vehicle_year || (est.form_data?.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>(est.vehicle_make || (est.form_data?.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>(est.vehicle_model || (est.form_data?.vehicleModel as string) || '')
+  const [vehicleVin, setVehicleVin] = useState<string>(est.vehicle_vin || '')
+  const [vehicleColor, setVehicleColor] = useState<string>(est.vehicle_color || '')
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
@@ -478,6 +602,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       const { data } = await supabase
         .from('estimate_templates')
         .select('id, name, description, line_items, use_count')
+        .eq('org_id', profile.org_id)
         .order('use_count', { ascending: false })
         .limit(20)
       if (data) setTemplates(data as typeof templates)
@@ -559,9 +684,18 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         title, notes, customer_note: customerNote, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
         quote_date: quoteDate || null, due_date: dueDate || null,
-        sales_rep_id: salesRepId || null,
-        production_manager_id: prodMgrId || null,
-        project_manager_id: projMgrId || null,
+        vehicle_year: vehicleYear || null,
+        vehicle_make: vehicleMake || null,
+        vehicle_model: vehicleModel || null,
+        vehicle_vin: vehicleVin || null,
+        vehicle_color: vehicleColor || null,
+        sales_rep_id: salesRepIds[0] || null,
+        sales_rep_ids: salesRepIds,
+        installer_ids: installerIds,
+        designer_ids: designerIds,
+        production_manager_id: productionMgrIds[0] || null,
+        production_manager_ids: productionMgrIds,
+        project_manager_id: null,
         form_data: { ...est.form_data, leadType, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
       }
       if (!savedId) {
@@ -650,7 +784,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         title: est.title,
         estimate_id: isDemo ? null : estimateId,
         customer_id: est.customer_id,
-        sales_rep_id: est.sales_rep_id || profile.id,
+        sales_rep_id: salesRepIds[0] || profile.id,
         subtotal, discount, tax_rate: taxRate, tax_amount: taxAmount, total,
         notes: est.notes,
         so_date: new Date().toISOString().split('T')[0],
@@ -881,7 +1015,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       if (error) throw error
       showToast(`Template "${name}" saved`)
       // Reload templates
-      const { data } = await supabase.from('estimate_templates').select('id, name, description, line_items, use_count').order('use_count', { ascending: false }).limit(20)
+      const { data } = await supabase.from('estimate_templates').select('id, name, description, line_items, use_count').eq('org_id', profile.org_id).order('use_count', { ascending: false }).limit(20)
       if (data) setTemplates(data as typeof templates)
     } catch (err) {
       console.error('Save template error:', err)
@@ -955,7 +1089,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         type: 'wrap',
         title: jobTitle,
         status: 'estimate',
-        agent_id: salesRepId || profile.id,
+        agent_id: salesRepIds[0] || profile.id,
         division: 'wraps',
         pipe_stage: 'sales_in',
         vehicle_desc: vDesc,
@@ -1304,6 +1438,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 {(vehicleYear || vehicleMake || vehicleModel) && (
                   <div style={{ fontSize: 11, color: 'var(--cyan)', marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
                     {[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(' ')}
+                    {vehicleColor && <span style={{ color: 'var(--text3)' }}> · {vehicleColor}</span>}
                   </div>
                 )}
               </div>
@@ -1369,52 +1504,40 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           <div style={{ ...sectionPad, borderRight: '1px solid var(--border)' }}>
             <div style={{ ...fieldLabelStyle, marginBottom: 8 }}>
               <Users size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
-              Team Assignments
+              Team
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 55 }}>Sales Rep</span>
-                <select
-                  value={salesRepId}
-                  onChange={e => setSalesRepId(e.target.value)}
-                  disabled={!canWrite}
-                  style={{ ...fieldSelectStyle, padding: '4px 8px', fontSize: 12, flex: 1 }}
-                >
-                  <option value="">-- None --</option>
-                  {team.filter(t => ['owner', 'admin', 'sales_agent'].includes(t.role)).map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 55 }}>Prod Mgr</span>
-                <select
-                  value={prodMgrId}
-                  onChange={e => setProdMgrId(e.target.value)}
-                  disabled={!canWrite}
-                  style={{ ...fieldSelectStyle, padding: '4px 8px', fontSize: 12, flex: 1 }}
-                >
-                  <option value="">-- None --</option>
-                  {team.filter(t => ['owner', 'admin', 'production'].includes(t.role)).map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 55 }}>Proj Mgr</span>
-                <select
-                  value={projMgrId}
-                  onChange={e => setProjMgrId(e.target.value)}
-                  disabled={!canWrite}
-                  style={{ ...fieldSelectStyle, padding: '4px 8px', fontSize: 12, flex: 1 }}
-                >
-                  <option value="">-- None --</option>
-                  {team.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <TeamMultiSelect
+              label="Sales Rep(s)"
+              members={team.filter(t => ['owner', 'admin', 'sales_agent'].includes(t.role))}
+              selectedIds={salesRepIds}
+              onChange={ids => setSalesRepIds(ids)}
+              canWrite={canWrite}
+              accentColor="#4f7fff"
+            />
+            <TeamMultiSelect
+              label="Installer(s)"
+              members={team.filter(t => t.role === 'installer')}
+              selectedIds={installerIds}
+              onChange={ids => setInstallerIds(ids)}
+              canWrite={canWrite}
+              accentColor="#22c07a"
+            />
+            <TeamMultiSelect
+              label="Designer(s)"
+              members={team.filter(t => ['designer', 'admin', 'owner'].includes(t.role))}
+              selectedIds={designerIds}
+              onChange={ids => setDesignerIds(ids)}
+              canWrite={canWrite}
+              accentColor="#8b5cf6"
+            />
+            <TeamMultiSelect
+              label="Prod Mgr(s)"
+              members={team.filter(t => ['production', 'admin', 'owner'].includes(t.role))}
+              selectedIds={productionMgrIds}
+              onChange={ids => setProductionMgrIds(ids)}
+              canWrite={canWrite}
+              accentColor="#f59e0b"
+            />
           </div>
 
           {/* Column 4: Dates */}
@@ -1575,6 +1698,26 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 onChange={e => setVehicleModel(e.target.value)}
                 disabled={!canWrite}
                 placeholder="Transit 350"
+                style={fieldInputStyle}
+              />
+            </div>
+            <div>
+              <label style={fieldLabelStyle}>Color</label>
+              <input
+                value={vehicleColor}
+                onChange={e => setVehicleColor(e.target.value)}
+                disabled={!canWrite}
+                placeholder="White"
+                style={fieldInputStyle}
+              />
+            </div>
+            <div>
+              <label style={fieldLabelStyle}>VIN</label>
+              <input
+                value={vehicleVin}
+                onChange={e => setVehicleVin(e.target.value)}
+                disabled={!canWrite}
+                placeholder="1FTFW1E8..."
                 style={fieldInputStyle}
               />
             </div>

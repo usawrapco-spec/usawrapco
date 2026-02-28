@@ -68,7 +68,7 @@ function generateEstimateHTML(estimate: any, mode: string = 'customer'): string 
     if (specs.rolledUp && specs.parentItemId) {
       rolledUpIds.add(li.id)
       const pid = specs.parentItemId as string
-      childrenTotals.set(pid, (childrenTotals.get(pid) || 0) + (li.total || li.total_price || 0))
+      childrenTotals.set(pid, (childrenTotals.get(pid) || 0) + (li.total_price || 0))
     }
   }
 
@@ -77,7 +77,7 @@ function generateEstimateHTML(estimate: any, mode: string = 'customer'): string 
     ? allLineItems.filter((li: any) => !rolledUpIds.has(li.id))
     : allLineItems
 
-  const subtotal = allLineItems.reduce((sum: number, item: any) => sum + (item.total || 0), 0)
+  const subtotal = allLineItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0)
   const taxRate = org.settings?.tax_rate || 8.25
   const tax = subtotal * (taxRate / 100)
   const total = subtotal + tax
@@ -304,7 +304,7 @@ function generateEstimateHTML(estimate: any, mode: string = 'customer'): string 
         const specs = item.specs || {}
         const isChild = !!(specs.rolledUp && specs.parentItemId)
         const extraTotal = childrenTotals.get(item.id) || 0
-        const displayTotal = isCustomerMode ? (item.total || 0) + extraTotal : (item.total || 0)
+        const displayTotal = isCustomerMode ? (item.total_price || 0) + extraTotal : (item.total_price || 0)
         const rolledUpBadge = (!isCustomerMode && isChild)
           ? ' <span style="font-size:9px;color:#999;background:#f0f0f0;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:0.04em;">ROLLED UP</span>'
           : ''

@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import {
   FileBarChart, Plus, X, Clock, ArrowLeft, Check, ChevronDown, ChevronUp,
-  AlertCircle, Wrench, Package, Flame, ClipboardList, ShieldCheck,
+  AlertCircle, Wrench, Package, ClipboardList, ShieldCheck,
 } from 'lucide-react'
 
 const REPORT_TYPES = [
@@ -21,16 +21,13 @@ const REPORT_TYPES = [
 
 interface ShopReport {
   id: string
-  submitted_by: string
-  report_type: string
+  created_by: string
+  type: string
   title: string
   content: any
   status: string
-  reviewed_by: string | null
-  reviewed_at: string | null
   created_at: string
   submitter?: { id: string; name: string }
-  reviewer?: { id: string; name: string }
 }
 
 export default function InstallReportsClient({ profile }: { profile: Profile }) {
@@ -49,7 +46,7 @@ export default function InstallReportsClient({ profile }: { profile: Profile }) 
   const loadReports = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase.from('shop_reports')
-      .select('id, submitted_by, report_type, title, content, status, reviewed_by, reviewed_at, created_at')
+      .select('id, created_by, type, title, content, status, created_at')
       .eq('org_id', ORG_ID)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -57,17 +54,13 @@ export default function InstallReportsClient({ profile }: { profile: Profile }) 
     const rows = data || []
 
     if (rows.length > 0) {
-      const userIds = [...new Set([
-        ...rows.map(r => r.submitted_by),
-        ...rows.map(r => r.reviewed_by).filter(Boolean),
-      ])]
+      const userIds = [...new Set(rows.map(r => r.created_by))]
       const { data: profiles } = await supabase.from('profiles').select('id, name').in('id', userIds)
       const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
 
       setReports(rows.map(r => ({
         ...r,
-        submitter: profileMap[r.submitted_by],
-        reviewer: r.reviewed_by ? profileMap[r.reviewed_by] : undefined,
+        submitter: profileMap[r.created_by],
       })))
     } else {
       setReports([])
@@ -106,11 +99,7 @@ export default function InstallReportsClient({ profile }: { profile: Profile }) 
   }
 
   const handleMarkReviewed = async (id: string) => {
-    await supabase.from('shop_reports').update({
-      status: 'reviewed',
-      reviewed_by: profile.id,
-      reviewed_at: new Date().toISOString(),
-    }).eq('id', id)
+    await supabase.from('shop_reports').update({ status: 'reviewed' }).eq('id', id)
     loadReports()
   }
 
@@ -203,7 +192,7 @@ export default function InstallReportsClient({ profile }: { profile: Profile }) 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {reports.map(report => {
             const isExpanded = expanded.has(report.id)
-            const typeInfo = getReportTypeInfo(report.report_type)
+            const typeInfo = getReportTypeInfo(report.type)
             const TypeIcon = typeInfo.icon
             const contentText = typeof report.content === 'object' ? (report.content.text || JSON.stringify(report.content)) : String(report.content || '')
 
@@ -240,10 +229,10 @@ export default function InstallReportsClient({ profile }: { profile: Profile }) 
                       </p>
                     </div>
 
-                    {report.reviewer && (
+                    {report.status === 'reviewed' && (
                       <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <ShieldCheck size={14} style={{ color: 'var(--green)' }} />
-                        Reviewed by {report.reviewer.name} on {report.reviewed_at ? new Date(report.reviewed_at).toLocaleString() : 'N/A'}
+                        Marked as reviewed
                       </div>
                     )}
 

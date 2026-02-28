@@ -99,6 +99,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [title, setTitle] = useState(so.title)
   const [status, setStatus] = useState<SalesOrderStatus>(so.status)
   const [notes, setNotes] = useState(so.notes || '')
+  const [showNotes, setShowNotes] = useState(!!so.notes)
   const [discount, setDiscount] = useState(so.discount)
   const [taxRate, setTaxRate] = useState(so.tax_rate)
   const [soDate, setSoDate] = useState(so.so_date || '')
@@ -697,15 +698,30 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
               {/* Notes tab */}
               {activeTab === 'notes' && (
                 <div>
-                  <label className="field-label">Internal Notes</label>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="field"
-                    rows={6}
-                    disabled={!canWrite}
-                    placeholder="Internal notes (not visible to customer)..."
-                  />
+                  {!showNotes && (
+                    <button
+                      onClick={() => setShowNotes(true)}
+                      style={{
+                        background: 'transparent', border: 'none', color: 'var(--accent)',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                      }}
+                    >
+                      + Add Internal Notes
+                    </button>
+                  )}
+                  {showNotes && (
+                    <>
+                      <label className="field-label">Internal Notes</label>
+                      <textarea
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
+                        className="field"
+                        rows={6}
+                        disabled={!canWrite}
+                        placeholder="Internal notes (not visible to customer)..."
+                      />
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -962,6 +978,7 @@ function LineItemCard({
   item: LineItem; index: number; isExpanded: boolean; onToggle: () => void
   canWrite: boolean; onChange: (item: LineItem) => void; onRemove: () => void
 }) {
+  const [showDescription, setShowDescription] = useState(!!item.description)
   const fmtCurrency = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 
@@ -1029,8 +1046,23 @@ function LineItemCard({
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <label className="field-label">Description</label>
-            <textarea value={item.description || ''} onChange={e => updateField('description', e.target.value)} className="field" rows={2} disabled={!canWrite} />
+            {!showDescription && (
+              <button
+                onClick={() => setShowDescription(true)}
+                style={{
+                  background: 'transparent', border: 'none', color: 'var(--accent)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                }}
+              >
+                + Add Description
+              </button>
+            )}
+            {showDescription && (
+              <>
+                <label className="field-label">Description</label>
+                <textarea value={item.description || ''} onChange={e => updateField('description', e.target.value)} className="field" rows={2} disabled={!canWrite} />
+              </>
+            )}
           </div>
 
           {/* Vehicle specs */}
