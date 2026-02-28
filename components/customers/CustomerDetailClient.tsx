@@ -947,8 +947,9 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
 
   function addTask() {
     if (!newTaskTitle.trim()) return
+    const id = crypto.randomUUID()
     const task: CustomerTask = {
-      id: `task-${Date.now()}`,
+      id,
       title: newTaskTitle.trim(),
       completed: false,
       created_at: new Date().toISOString(),
@@ -960,6 +961,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
       id: task.id,
       title: task.title,
       org_id: customer.org_id,
+      customer_id: customer.id,
       status: 'pending',
       created_at: task.created_at,
     }).then(() => {}, () => {})
