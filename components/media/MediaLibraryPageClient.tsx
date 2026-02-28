@@ -185,14 +185,12 @@ export default function MediaLibraryPageClient({ profile }: Props) {
           .from('media_files')
           .insert({
             org_id: profile.org_id,
-            storage_path: path,
-            public_url: publicUrl,
-            filename: file.name,
+            file_url: publicUrl,
+            file_name: file.name,
             mime_type: file.type,
             file_size: file.size,
             uploaded_by: profile.id,
-            source: 'internal',
-            category: catFilter !== 'all' ? catFilter : 'general',
+            bucket: 'project-files',
             tags: [],
             ai_tags: [],
             color_tags: [],
