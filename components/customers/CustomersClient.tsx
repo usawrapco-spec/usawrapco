@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink } from 'lucide-react'
+import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink, Upload } from 'lucide-react'
+import CustomerImportModal from '@/components/customers/CustomerImportModal'
 import type { Profile } from '@/types'
 
 interface Customer {
@@ -29,6 +30,7 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
   const [search, setSearch]       = useState('')
   const [showAdd, setShowAdd]     = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [saving, setSaving]       = useState(false)
   const [form, setForm]           = useState({
     name: '', company_name: '', email: '', phone: '',
@@ -79,17 +81,30 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
           <p style={{ fontSize: 13, color: 'var(--text3)' }}>{customers.length} total customers</p>
         </div>
         {(profile.role === 'owner' || profile.role === 'admin' || profile.role === 'sales_agent') && (
-          <button
-            onClick={() => setShowAdd(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, border: 'none',
-              background: 'var(--accent)', color: '#fff',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            <Plus size={14} /> Add Customer
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setShowImport(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--surface)',
+                color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Upload size={14} /> Import
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: 'var(--accent)', color: '#fff',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Plus size={14} /> Add Customer
+            </button>
+          </div>
         )}
       </div>
 
@@ -187,6 +202,18 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
             </div>
           ))}
         </div>
+      )}
+
+      {/* Import Modal */}
+      {showImport && (
+        <CustomerImportModal
+          onClose={() => setShowImport(false)}
+          onImported={(created, updated) => {
+            setShowImport(false)
+            // Reload the page to pick up newly imported customers
+            if (created + updated > 0) window.location.reload()
+          }}
+        />
       )}
 
       {/* Add Customer Modal */}
