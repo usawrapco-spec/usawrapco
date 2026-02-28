@@ -153,7 +153,6 @@ export default function CustomerImportModal({ onClose, onImported }: Props) {
       if (data.success) {
         setResult(data)
         setStep('done')
-        onImported(data.created, data.updated)
       } else {
         setResult({ created: 0, updated: 0, skipped: 0, errors: [data.error || 'Import failed'] })
         setStep('done')
@@ -393,7 +392,7 @@ export default function CustomerImportModal({ onClose, onImported }: Props) {
           padding: '16px 24px', borderTop: '1px solid var(--border)',
         }}>
           {step === 'done' ? (
-            <button onClick={onClose} style={btnPrimary}>
+            <button onClick={() => onImported(result?.created ?? 0, result?.updated ?? 0)} style={btnPrimary}>
               <Check size={14} /> Done
             </button>
           ) : (
