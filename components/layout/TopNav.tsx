@@ -15,6 +15,8 @@ import {
   ClipboardList, Layers, Wand2, ImageIcon, FileBarChart,
   Hammer, ShoppingBag, Banknote, MessageSquare,
   Map, Package, BookOpen, Phone, TrendingUp,
+  Receipt, Send, Globe, Printer, Activity, Rocket, Brain,
+  Workflow as WorkflowIcon, Anchor, Tag,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -28,29 +30,35 @@ interface DropdownItem { href: string; label: string; icon: LucideIcon; descript
 
 // ── Nav definitions ───────────────────────────────────────────────────────────
 const QUICK_CREATE: DropdownItem[] = [
-  { href: '/estimates/new',      label: 'New Estimate',   icon: FileText,    description: 'Create a quote' },
-  { href: '/sales-orders?new=1', label: 'Sales Order',    icon: ShoppingCart, description: 'Convert to order' },
-  { href: '/pipeline?new=true',  label: 'New Wrap Job',   icon: Briefcase,   description: 'Start a wrap job' },
-  { href: '/customers?new=true', label: 'New Customer',   icon: Users,       description: 'Add a customer' },
-  { href: '/tasks?new=true',     label: 'New Task',       icon: CheckSquare, description: 'Assign a task' },
-  { href: '/timeclock',          label: 'Clock In',       icon: Clock,       description: 'Start your shift' },
+  { href: '/estimates/new',       label: 'New Estimate',  icon: FileText,    description: 'Create a quote' },
+  { href: '/sales-orders?new=1',  label: 'Sales Order',   icon: ShoppingCart, description: 'Convert to order' },
+  { href: '/pipeline?new=true',   label: 'New Wrap Job',  icon: Briefcase,   description: 'Start a wrap job' },
+  { href: '/customers?new=true',  label: 'New Customer',  icon: Users,       description: 'Add a customer' },
+  { href: '/contacts?new=true',   label: 'New Contact',   icon: UserCheck,   description: 'Add a contact' },
+  { href: '/tasks?new=true',      label: 'New Task',      icon: CheckSquare, description: 'Assign a task' },
+  { href: '/timeclock',           label: 'Clock In',      icon: Clock,       description: 'Start your shift' },
 ]
 
 const JOBS_ITEMS: DropdownItem[] = [
-  { href: '/pipeline',    label: 'Pipeline',    icon: Briefcase,    description: 'Kanban job board' },
-  { href: '/jobs',        label: 'All Jobs',    icon: ClipboardList, description: 'Full job list' },
-  { href: '/timeline',    label: 'Timeline',    icon: Clock,        description: 'Visual timeline' },
-  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy,       description: 'Team rankings' },
+  { href: '/pipeline',     label: 'Pipeline',     icon: Briefcase,    description: 'Kanban job board' },
+  { href: '/jobs',         label: 'All Jobs',     icon: ClipboardList, description: 'Full job list' },
+  { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart, description: 'Active orders' },
+  { href: '/tasks',        label: 'Tasks',        icon: CheckSquare,  description: 'Team task list' },
+  { href: '/timeline',     label: 'Timeline',     icon: Activity,     description: 'Visual timeline' },
+  { href: '/leaderboard',  label: 'Leaderboard',  icon: Trophy,       description: 'Team rankings' },
 ]
 
 const PRODUCTION_ITEMS: DropdownItem[] = [
-  { href: '/production',   label: 'Production Board', icon: Factory,  description: 'Production overview' },
-  { href: '/design',       label: 'Design Studio',    icon: Palette,  description: 'Design workspace' },
-  { href: '/mockup',       label: 'Mockup Tool',      icon: Wand2,    description: 'Vehicle mockups' },
-  { href: '/media',        label: 'Media Library',    icon: ImageIcon, description: 'Files & assets' },
+  { href: '/production',                  label: 'Production Board',  icon: Factory,   description: 'Production overview' },
+  { href: '/design',                      label: 'Design Studio',     icon: Palette,   description: 'Design workspace' },
+  { href: '/mockup',                      label: 'Mockup Tool',       icon: Wand2,     description: 'Vehicle mockups' },
+  { href: '/media',                       label: 'Media Library',     icon: ImageIcon, description: 'Files & assets' },
+  { href: '/production/print-schedule',   label: 'QC',                icon: CheckSquare, description: 'Quality control' },
+  { href: '/production/printers',         label: 'Printers',          icon: Printer,   description: 'Printer management' },
+  { href: '/install/schedule',            label: 'Install Schedule',  icon: CalendarDays, description: 'Install calendar' },
 ]
 
-const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/media']
+const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/media', '/install/schedule']
 
 const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
   { id: 'new_estimate',       label: 'New Estimate',            icon: FileText, description: 'Create a new quote' },
@@ -58,14 +66,21 @@ const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description:
 ]
 
 const SALES_NAV_ITEMS: DropdownItem[] = [
-  { href: '/pipeline',   label: 'Pipeline',   icon: Briefcase },
-  { href: '/customers',  label: 'Customers',  icon: Users },
-  { href: '/prospects',  label: 'Prospects',  icon: UserPlus },
-  { href: '/analytics',  label: 'Analytics',  icon: BarChart3 },
-  { href: '/reports',    label: 'Reports',    icon: FileBarChart },
+  { href: '/estimates',    label: 'Estimates',    icon: FileText },
+  { href: '/sales-orders', label: 'Sales Orders', icon: ShoppingCart },
+  { href: '/invoices',     label: 'Invoices',     icon: Receipt },
+  { href: '/proposals',    label: 'Proposals',    icon: Send },
+  { href: '/pipeline',     label: 'Pipeline',     icon: Briefcase },
+  { href: '/customers',    label: 'Customers',    icon: Users },
+  { href: '/contacts',     label: 'Contacts',     icon: UserCheck },
+  { href: '/prospects',    label: 'Prospects',    icon: UserPlus },
+  { href: '/campaigns',    label: 'Campaigns',    icon: Globe },
+  { href: '/network',      label: 'Affiliates',   icon: Map },
+  { href: '/analytics',    label: 'Analytics',    icon: BarChart3 },
+  { href: '/reports',      label: 'Reports',      icon: FileBarChart },
 ]
 
-const SALES_PATHS = ['/estimates', '/sales-orders', '/prospects', '/campaigns', '/network', '/contacts', '/bids', '/pipeline', '/customers', '/analytics', '/reports']
+const SALES_PATHS = ['/estimates', '/sales-orders', '/invoices', '/proposals', '/prospects', '/campaigns', '/network', '/contacts', '/bids', '/pipeline', '/customers', '/analytics', '/reports']
 
 const INSTALL_ITEMS: DropdownItem[] = [
   { href: '/installer-portal', label: 'Install Board',  icon: Hammer,        description: 'Manage installs' },
@@ -76,10 +91,18 @@ const INSTALL_ITEMS: DropdownItem[] = [
 const INSTALL_PATHS = ['/installer-portal']
 
 const MORE_NAV: DropdownItem[] = [
+  { href: '/employees',  label: 'Employees',  icon: Users },
   { href: '/payroll',    label: 'Payroll',    icon: DollarSign },
+  { href: '/ventures',   label: 'Ventures',   icon: Rocket },
+  { href: '/1099',       label: '1099',       icon: FileBarChart },
   { href: '/inventory',  label: 'Inventory',  icon: Package },
-  { href: '/catalog',    label: 'Catalog',    icon: BookOpen },
+  { href: '/catalog',    label: 'Catalog',    icon: Tag },
+  { href: '/sourcing',   label: 'Sourcing',   icon: Globe },
+  { href: '/workflow',   label: 'Workflow',   icon: WorkflowIcon },
+  { href: '/engine',     label: 'AI Engine',  icon: Brain },
+  { href: '/fishing',    label: 'Marine',     icon: Anchor },
   { href: '/overhead',   label: 'Overhead',   icon: TrendingUp },
+  { href: '/integrations', label: 'Integrations', icon: Settings },
   { href: '/settings',   label: 'Settings',   icon: Settings },
 ]
 
