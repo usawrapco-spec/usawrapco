@@ -100,6 +100,8 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState('')
+  const [showDesignInstructions, setShowDesignInstructions] = useState(!!(fd.designInstructions as string) || !!(fd.designNotes as string))
+  const [showLogisticsNotes, setShowLogisticsNotes] = useState(!!(fd.logisticsNotes as string))
 
   // ── Job type state ─────────────────────────────────────────────────
   const [jobType, setJobType] = useState<'COMMERCIAL' | 'MARINE' | 'PPF'>(
@@ -1446,12 +1448,16 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
 
               <Section label="Design Instructions" icon={<SquarePen size={14} />}>
                 <Field label="Design Instructions / Notes">
-                  <textarea
-                    style={{ ...inp, minHeight: 120 }}
-                    value={f.designInstructions}
-                    onChange={e => ff('designInstructions', e.target.value)}
-                    placeholder="Describe the design layout, logo placement, text content, color scheme, etc."
-                  />
+                  {!showDesignInstructions ? (
+                    <button onClick={() => setShowDesignInstructions(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>+ Add Design Instructions</button>
+                  ) : (
+                    <textarea
+                      style={{ ...inp, minHeight: 120 }}
+                      value={f.designInstructions}
+                      onChange={e => ff('designInstructions', e.target.value)}
+                      placeholder="Describe the design layout, logo placement, text content, color scheme, etc."
+                    />
+                  )}
                 </Field>
               </Section>
 
@@ -1561,12 +1567,16 @@ export default function OrderEditor({ profile, project, teammates, onSave }: Ord
 
               <Section label="Notes" icon={<FileText size={14} />}>
                 <Field label="Logistics / Internal Notes">
-                  <textarea
-                    style={{ ...inp, minHeight: 120 }}
-                    value={f.logisticsNotes}
-                    onChange={e => ff('logisticsNotes', e.target.value)}
-                    placeholder="Scheduling notes, bay assignment, special instructions..."
-                  />
+                  {!showLogisticsNotes ? (
+                    <button onClick={() => setShowLogisticsNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>+ Add Internal Notes</button>
+                  ) : (
+                    <textarea
+                      style={{ ...inp, minHeight: 120 }}
+                      value={f.logisticsNotes}
+                      onChange={e => ff('logisticsNotes', e.target.value)}
+                      placeholder="Scheduling notes, bay assignment, special instructions..."
+                    />
+                  )}
                 </Field>
               </Section>
             </div>
