@@ -79,7 +79,7 @@ export default function RelatedDocsPanel({ projectId, customerId, currentDocId, 
         }
         if (currentDocType !== 'sales_order') {
           promises.push((async () => {
-            const { data } = await supabase.from('sales_orders').select('id, so_number, status, total, created_at').eq('project_id', pid)
+            const { data } = await supabase.from('sales_orders').select('id, so_number, status, total, created_at, est:estimate_id!inner(project_id)').eq('est.project_id', pid)
             setSalesOrders((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
               id: d.id, label: `SO-${d.so_number || d.id.slice(0, 6)}`,
               status: d.status || 'new', amount: d.total, date: d.created_at, href: `/sales-orders/${d.id}`,

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         .gt('cached_until', new Date().toISOString())
         .order('generated_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (cached) {
         return NextResponse.json({

@@ -210,7 +210,7 @@ export default function DashboardAlerts({ orgId }: AlertsProps) {
             .from('conversations')
             .select('id', { count: 'exact', head: true })
             .eq('org_id', orgId)
-            .eq('unread', true)
+            .gt('unread_count', 0)
           setUnreadMessages(count || 0)
         } catch {
           setUnreadMessages(0)
