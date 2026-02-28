@@ -3088,8 +3088,12 @@ function LineItemCard({
   const productLineType = (specs.productLineType as string) || ''
   const isBoatProduct = calcType === 'marine' || calcType === 'decking' || vType === 'marine' || productLineType === 'boat_decking'
   const NON_VEHICLE_TYPES = ['wall_wrap', 'signage', 'ppf', 'custom', 'boat_decking', 'apparel', 'print_media']
-  const VEHICLE_LINE_TYPES = ['commercial_vehicle', 'box_truck', 'trailer', 'marine']
-  const isVehicleProduct = VEHICLE_LINE_TYPES.includes(productLineType) || (!NON_VEHICLE_TYPES.includes(productLineType) && !isBoatProduct && ['vehicle', 'box-truck', 'trailer', 'commercial_vehicle', 'box_truck'].includes(calcType))
+  // Types with dedicated calculators — they handle all inputs themselves; suppress legacy VehicleInfoBlock
+  const DEDICATED_CALC_TYPES = ['commercial_vehicle', 'box_truck', 'trailer', 'marine', 'ppf', 'boat_decking', 'wall_wrap', 'signage']
+  // Show legacy VehicleInfoBlock only for old-style items using calcType (no dedicated calculator active)
+  const isVehicleProduct = !DEDICATED_CALC_TYPES.includes(productLineType) &&
+    !NON_VEHICLE_TYPES.includes(productLineType) && !isBoatProduct &&
+    ['vehicle', 'box-truck', 'trailer', 'commercial_vehicle', 'box_truck'].includes(calcType)
 
   const productTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
     wrap:    { label: 'WRAP',    color: 'var(--accent)', bg: 'rgba(79,127,255,0.12)' },
