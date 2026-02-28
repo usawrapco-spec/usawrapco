@@ -18,6 +18,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   let lineItems: LineItem[] = []
   let payments: Payment[] = []
   let isDemo = false
+  let financingStatus: string | null = null
+  let payLinkToken: string | null = null
 
   try {
     // Fetch invoice without FK join to avoid Supabase FK resolution errors
@@ -76,6 +78,18 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .eq('invoice_id', params.id)
       .order('payment_date', { ascending: false })
     payments = (paymentData as Payment[]) || []
+
+    // Financing status
+    payLinkToken = (invoice as any)?.pay_link_token || null
+    const finAppId = (invoice as any)?.financing_application_id
+    if (finAppId) {
+      const { data: finApp } = await admin
+        .from('financing_applications')
+        .select('status')
+        .eq('id', finAppId)
+        .single()
+      financingStatus = finApp?.status || null
+    }
   } catch (err) {
     console.error('[invoice detail] fetch error:', err)
     isDemo = true
@@ -89,6 +103,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       payments={payments}
       isDemo={isDemo}
       invoiceId={params.id}
+      financingStatus={financingStatus}
+      payLinkToken={payLinkToken}
     />
   )
 }

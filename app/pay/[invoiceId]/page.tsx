@@ -16,44 +16,69 @@ export default async function PayPage({ params, searchParams }: Props) {
 
   const admin = getSupabaseAdmin()
 
-  const { data: invoice, error: invErr } = await admin
+  // Try by direct ID first, then by pay_link_token (supports both URL formats)
+  let invoice: any = null
+  const { data: byId } = await admin
     .from('invoices')
     .select('*')
     .eq('id', invoiceId)
     .single()
 
-  if (!invoice || invErr) return notFound()
+  if (byId) {
+    invoice = byId
+  } else {
+    const { data: byToken } = await admin
+      .from('invoices')
+      .select('*')
+      .eq('pay_link_token', invoiceId)
+      .single()
+    invoice = byToken
+  }
 
-  // Separately fetch customer if customer_id exists
-  let customer: { id: string; name: string; email?: string } | null = null
+  if (!invoice) return notFound()
+
+  // Fetch customer
+  let customer: { id: string; name: string; email?: string; phone?: string } | null = null
   if (invoice.customer_id) {
     const { data: cust } = await admin
       .from('customers')
-      .select('id, name, email')
+      .select('id, name, email, phone')
       .eq('id', invoice.customer_id)
       .single()
     customer = cust
-  }
 
-  // Fallback: check profiles table
-  if (!customer && invoice.customer_id) {
-    const { data: prof } = await admin
-      .from('profiles')
-      .select('id, name, email')
-      .eq('id', invoice.customer_id)
-      .single()
-    customer = prof
+    if (!customer) {
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', invoice.customer_id)
+        .single()
+      customer = prof
+    }
   }
 
   const { data: lineItems } = await admin
     .from('line_items')
     .select('name, total_price')
-    .eq('parent_id', invoiceId)
+    .eq('parent_id', invoice.id)
     .eq('parent_type', 'invoice')
     .order('sort_order')
 
   const balanceDue = Math.max(0, invoice.balance ?? (invoice.total - invoice.amount_paid))
   const isPaid = (invoice.status === 'paid' || balanceDue <= 0) && !isSuccess
+
+  // Get current financing status if any app exists
+  let financingStatus: string | null = null
+  if (invoice.financing_application_id) {
+    const { data: finApp } = await admin
+      .from('financing_applications')
+      .select('status')
+      .eq('id', invoice.financing_application_id)
+      .single()
+    financingStatus = finApp?.status ?? null
+  }
+
+  const wisetackUrl = process.env.WISETACK_MERCHANT_URL || null
 
   return (
     <div style={{
@@ -78,7 +103,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         </div>
       </div>
 
-      <div style={{ width: '100%', maxWidth: 460 }}>
+      <div style={{ width: '100%', maxWidth: 480 }}>
         {/* Card */}
         <div style={{
           background: 'var(--surface)',
@@ -116,7 +141,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           {/* Card body */}
           <div style={{ padding: '20px 24px' }}>
             <PaymentClient
-              invoiceId={invoiceId}
+              invoiceId={invoice.id}
               invoiceNumber={String(invoice.invoice_number)}
               customerName={customer?.name || 'Customer'}
               customerEmail={customer?.email || null}
@@ -127,6 +152,8 @@ export default async function PayPage({ params, searchParams }: Props) {
               isSuccess={isSuccess}
               isPaid={isPaid}
               isCancelled={isCancelled}
+              wisetackUrl={wisetackUrl}
+              financingStatus={financingStatus}
             />
           </div>
         </div>

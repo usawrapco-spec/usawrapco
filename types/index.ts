@@ -591,11 +591,43 @@ export interface Invoice {
   created_by: string | null
   created_at: string
   updated_at: string
+  // Wisetack financing fields
+  pay_link_token?: string | null
+  financing_application_id?: string | null
+  preferred_payment_method?: 'card' | 'financing' | 'cash' | 'check' | null
   customer?: Pick<Profile, 'id' | 'name' | 'email'>
   sales_rep?: Pick<Profile, 'id' | 'name'>
   estimate?: Pick<Estimate, 'id' | 'estimate_number'>
   sales_order?: Pick<SalesOrder, 'id' | 'so_number'>
   payments?: Payment[]
+}
+
+export type FinancingStatus =
+  | 'pending' | 'sent' | 'prequalified' | 'applying' | 'approved'
+  | 'declined' | 'loan_accepted' | 'funded' | 'expired' | 'cancelled'
+
+export interface FinancingApplication {
+  id: string
+  org_id: string
+  invoice_id: string | null
+  customer_id: string | null
+  customer_phone: string | null
+  customer_email: string | null
+  invoice_number: string | null
+  amount_requested: number | null
+  amount_approved: number | null
+  status: FinancingStatus
+  term_months: number | null
+  apr_percent: number | null
+  monthly_payment: number | null
+  merchant_ref: string | null
+  sent_at: string | null
+  approved_at: string | null
+  funded_at: string | null
+  webhook_payload: Record<string, unknown> | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface Payment {

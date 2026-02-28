@@ -8,6 +8,7 @@ import {
   ExternalLink, Ban, Link2, Copy, Check,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
+import SendFinancingButton from '@/components/invoices/SendFinancingButton'
 import type { Profile, Invoice, InvoiceStatus, LineItem, Payment } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
@@ -64,9 +65,11 @@ interface Props {
   payments?: Payment[]
   isDemo: boolean
   invoiceId: string
+  financingStatus?: string | null
+  payLinkToken?: string | null
 }
 
-export default function InvoiceDetailClient({ profile, invoice, lineItems = [], payments = [], isDemo, invoiceId }: Props) {
+export default function InvoiceDetailClient({ profile, invoice, lineItems = [], payments = [], isDemo, invoiceId, financingStatus = null, payLinkToken = null }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const inv = invoice || DEMO_INVOICE
@@ -641,7 +644,27 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Link2 size={13} style={{ color: 'var(--accent)' }} /> Online Payment Link
               </div>
-              <PaymentLinkPanel invoiceId={invoiceId} />
+              <PaymentLinkPanel invoiceId={invoiceId} payLinkToken={payLinkToken} />
+            </div>
+          )}
+
+          {/* Financing */}
+          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && (
+            <div className="card">
+              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Calendar size={13} style={{ color: 'var(--accent)' }} /> Financing (Wisetack)
+              </div>
+              <SendFinancingButton
+                invoiceId={invoiceId}
+                invoiceNumber={inv.invoice_number}
+                payLinkToken={payLinkToken}
+                balance={Math.max(0, balanceDue)}
+                customerId={inv.customer_id}
+                projectId={inv.project_id}
+                customerPhone={(inv as any).customer?.phone || null}
+                customerEmail={inv.customer?.email || null}
+                currentFinancingStatus={financingStatus as any}
+              />
             </div>
           )}
 
@@ -700,10 +723,11 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
 }
 
 // ─── Payment Link Panel ───────────────────────────────────────────────────────
-function PaymentLinkPanel({ invoiceId }: { invoiceId: string }) {
+function PaymentLinkPanel({ invoiceId, payLinkToken }: { invoiceId: string; payLinkToken?: string | null }) {
   const [copied, setCopied] = useState(false)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
-  const url = `${appUrl}/pay/${invoiceId}`
+  const token = payLinkToken || invoiceId
+  const url = `${appUrl}/pay/${token}`
 
   function copyLink() {
     navigator.clipboard.writeText(url)
