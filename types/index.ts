@@ -842,10 +842,12 @@ export interface PlaybookEntry {
   id: string
   org_id: string
   category: PlaybookCategory
-  trigger_phrase: string | null
-  response_guidance: string
-  is_active: boolean
-  priority: number
+  title: string | null
+  content: string
+  active: boolean
+  sort_order: number
+  stage?: string | null
+  tags?: Record<string, any> | null
   created_at: string
   updated_at: string
 }
@@ -853,14 +855,15 @@ export interface PlaybookEntry {
 export interface PricingRule {
   id: string
   org_id: string
-  vehicle_category: string
-  wrap_type: string
-  base_price: number
-  price_per_sqft: number
-  max_discount_pct: number
-  rush_multiplier: Record<string, number>
-  complexity_multiplier: Record<string, number>
-  is_active: boolean
+  name: string
+  rule_type: string
+  value: number
+  min_value?: number | null
+  max_value?: number | null
+  applies_to?: string | null
+  conditions?: Record<string, any> | null
+  active: boolean
+  priority: number
   created_at: string
   updated_at: string
 }
