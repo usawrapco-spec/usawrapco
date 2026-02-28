@@ -333,6 +333,11 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
 
   const loadPayrollRecords = useCallback(async (periodId: string) => {
     if (periodId in periodRecords) return
+    // Skip DB query for demo/local IDs (not real UUIDs)
+    if (periodId.startsWith('new-') || periodId.startsWith('local-')) {
+      setPeriodRecords(prev => ({ ...prev, [periodId]: [] }))
+      return
+    }
 
     try {
       const { data, error: err } = await supabase
@@ -495,13 +500,15 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
       })),
     }))
 
-    try {
-      await supabase
-        .from('payroll_records')
-        .update({ status: 'approved' })
-        .eq('pay_period_id', periodId)
-    } catch {
-      // Graceful
+    if (!periodId.startsWith('new-') && !periodId.startsWith('local-')) {
+      try {
+        await supabase
+          .from('payroll_records')
+          .update({ status: 'approved' })
+          .eq('pay_period_id', periodId)
+      } catch {
+        // Graceful
+      }
     }
 
     setSuccess('All records approved')
@@ -524,18 +531,20 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
       })),
     }))
 
-    try {
-      await supabase
-        .from('pay_periods')
-        .update({ status: 'processed' })
-        .eq('id', periodId)
+    if (!periodId.startsWith('new-') && !periodId.startsWith('local-')) {
+      try {
+        await supabase
+          .from('pay_periods')
+          .update({ status: 'processed' })
+          .eq('id', periodId)
 
-      await supabase
-        .from('payroll_records')
-        .update({ status: 'processed' })
-        .eq('pay_period_id', periodId)
-    } catch {
-      // Graceful
+        await supabase
+          .from('payroll_records')
+          .update({ status: 'processed' })
+          .eq('pay_period_id', periodId)
+      } catch {
+        // Graceful
+      }
     }
 
     setSuccess('Payroll processed successfully')

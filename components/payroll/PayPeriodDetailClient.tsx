@@ -174,7 +174,7 @@ export default function PayPeriodDetailClient({
       regularHrs += r.regular_hours || 0
       otHrs += r.overtime_hours || 0
       ptoHrs += r.pto_hours || 0
-      gross += r.gross_pay || 0
+      gross += r.total_gross_pay || 0
       commission += r.commission_pay || 0
       deductions += parseFloat(r.deductions?.reduce?.((s: number, d: any) => s + (d.amount || 0), 0) || 0)
       net += r.net_pay || 0
@@ -235,7 +235,7 @@ export default function PayPeriodDetailClient({
       if (approvedIds.length > 0) {
         await supabase
           .from('payroll_records')
-          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .update({ status: 'paid' })
           .in('id', approvedIds)
       }
 
@@ -244,8 +244,7 @@ export default function PayPeriodDetailClient({
         .from('pay_periods')
         .update({
           status: 'paid',
-          total_gross: totals.gross,
-          total_net: totals.net,
+          total_gross_pay: totals.gross,
         })
         .eq('id', period.id)
 

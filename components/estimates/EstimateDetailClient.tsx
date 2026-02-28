@@ -2381,15 +2381,30 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           </div>
           <div style={{ ...cardStyle }}>
             <div style={{ ...sectionPad }}>
-              <label style={fieldLabelStyle}>Customer Note</label>
-              <textarea
-                value={customerNote}
-                onChange={e => setCustomerNote(e.target.value)}
-                disabled={!canWrite}
-                placeholder="Note visible to customer..."
-                rows={8}
-                style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 120 }}
-              />
+              {!showCustomerNote && (
+                <button
+                  onClick={() => setShowCustomerNote(true)}
+                  style={{
+                    background: 'transparent', border: 'none', color: 'var(--accent)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                  }}
+                >
+                  + Add Customer Note
+                </button>
+              )}
+              {showCustomerNote && (
+                <>
+                  <label style={fieldLabelStyle}>Customer Note</label>
+                  <textarea
+                    value={customerNote}
+                    onChange={e => setCustomerNote(e.target.value)}
+                    disabled={!canWrite}
+                    placeholder="Note visible to customer..."
+                    rows={8}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 120 }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3312,10 +3327,16 @@ function LineItemCard({
                     key={opt.key}
                     onClick={() => {
                       if (!canWrite) return
-                      updateSpec('productLineType', opt.key)
-                      if (opt.vehicleType) updateSpec('vehicleType', opt.vehicleType)
-                      if (opt.calcType) updateSpec('calculatorType', opt.calcType)
-                      updateSpec('product_type', opt.productType)
+                      // Batch all spec updates in a single onChange call to avoid
+                      // stale latestRef overwrites when multiple updates are queued
+                      const newSpecs = {
+                        ...(latestRef.current.specs as Record<string, unknown>),
+                        productLineType: opt.key,
+                        product_type: opt.productType,
+                        ...(opt.vehicleType ? { vehicleType: opt.vehicleType } : {}),
+                        ...(opt.calcType ? { calculatorType: opt.calcType } : {}),
+                      }
+                      onChange({ ...latestRef.current, specs: newSpecs })
                     }}
                     style={{
                       padding: '5px 10px', borderRadius: 6, cursor: canWrite ? 'pointer' : 'default',

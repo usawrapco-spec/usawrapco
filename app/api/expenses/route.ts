@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     merchant_name: body.merchant_name || null,
     ai_extracted: body.ai_extracted || false,
     status: autoApproved ? 'approved' : 'pending',
-    approved_by: autoApproved ? null : null,
+    approved_by: autoApproved ? user.id : null,
     approved_at: autoApproved ? new Date().toISOString() : null,
   }).select().single()
 
