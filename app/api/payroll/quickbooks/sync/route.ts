@@ -86,8 +86,8 @@ export async function POST(req: NextRequest) {
     const invData: any = {
       org_id: orgId,
       invoice_number: inv.DocNumber || inv.Id,
-      amount: parseFloat(inv.TotalAmt || 0),
-      balance: parseFloat(inv.Balance || 0),
+      total: parseFloat(inv.TotalAmt || 0),
+      balance_due: parseFloat(inv.Balance || 0),
       status: inv.Balance <= 0 ? 'paid' : 'sent',
       due_date: inv.DueDate || null,
       created_at: inv.TxnDate ? inv.TxnDate + 'T00:00:00Z' : undefined,
