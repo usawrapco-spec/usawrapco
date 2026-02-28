@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
+      console.error('[ai/recap] ANTHROPIC_API_KEY is not set')
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
     }
 
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
         .limit(20),
 
       admin.from('tasks')
-        .select('id, title, due_at, status, assigned_to:assigned_to(name)')
+        .select('id, title, due_at, status, assigned_to')
         .eq('org_id', orgId)
         .eq('status', 'open')
         .lt('due_at', now)
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
         .limit(20),
 
       admin.from('job_comments')
-        .select('id, content, created_at')
+        .select('id, message, created_at')
         .gte('created_at', yesterday)
         .limit(30),
 

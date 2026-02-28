@@ -1607,7 +1607,7 @@ function LineItemCard({
   latestRef.current = item
 
   const [showDescription, setShowDescription] = useState(!!item.description)
-  const [isCardExpanded, setIsCardExpanded] = useState(true)
+  const [isCardExpanded, setIsCardExpanded] = useState(item.id.startsWith('new-'))
 
   function updateField<K extends keyof LineItem>(key: K, value: LineItem[K]) {
     const updated = { ...latestRef.current, [key]: value }

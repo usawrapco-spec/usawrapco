@@ -91,8 +91,8 @@ export default function InstallReportsClient({ profile }: { profile: Profile }) 
     setSaving(true)
     await supabase.from('shop_reports').insert({
       org_id: ORG_ID,
-      submitted_by: profile.id,
-      report_type: formType,
+      created_by: profile.id,
+      type: formType,
       title: formTitle.trim(),
       content: { text: formContent },
       status: 'submitted',

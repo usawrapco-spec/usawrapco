@@ -407,6 +407,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [status, setStatus] = useState<EstimateStatus>(est.status)
   const [notes, setNotes] = useState(est.notes || '')
   const [customerNote, setCustomerNote] = useState(est.customer_note || '')
+  const [showCustomerNote, setShowCustomerNote] = useState(!!est.customer_note)
   const [discount, setDiscount] = useState(est.discount)
   const [taxRate, setTaxRate] = useState(est.tax_rate)
   const [quoteDate, setQuoteDate] = useState(est.quote_date || '')
@@ -1982,19 +1983,34 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           }}>
             {/* Left: Customer Note */}
             <div>
-              <label style={fieldLabelStyle}>Customer Note</label>
-              <textarea
-                value={customerNote}
-                onChange={e => setCustomerNote(e.target.value)}
-                disabled={!canWrite}
-                placeholder="Note visible to customer on the estimate..."
-                rows={4}
-                style={{
-                  ...fieldInputStyle,
-                  resize: 'vertical',
-                  minHeight: 80,
-                }}
-              />
+              {!showCustomerNote && (
+                <button
+                  onClick={() => setShowCustomerNote(true)}
+                  style={{
+                    background: 'transparent', border: 'none', color: 'var(--accent)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                  }}
+                >
+                  + Add Customer Note
+                </button>
+              )}
+              {showCustomerNote && (
+                <>
+                  <label style={fieldLabelStyle}>Customer Note</label>
+                  <textarea
+                    value={customerNote}
+                    onChange={e => setCustomerNote(e.target.value)}
+                    disabled={!canWrite}
+                    placeholder="Note visible to customer on the estimate..."
+                    rows={4}
+                    style={{
+                      ...fieldInputStyle,
+                      resize: 'vertical',
+                      minHeight: 80,
+                    }}
+                  />
+                </>
+              )}
             </div>
 
             {/* Right: Financial Sidebar */}

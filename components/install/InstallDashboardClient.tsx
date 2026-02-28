@@ -177,10 +177,8 @@ export default function InstallDashboardClient({ profile }: { profile: Profile }
           org_id: ORG_ID,
           project_id: modalJob.id,
           installer_id: a.installer_id,
-          role: a.role,
-          split_percentage: a.split_percentage,
           status: 'assigned',
-          assigned_by: profile.id,
+          notes: a.role ? `Role: ${a.role}` : null,
         }))
       )
     }

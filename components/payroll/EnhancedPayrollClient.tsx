@@ -49,18 +49,12 @@ type PayrollRecordStatus = 'pending' | 'approved' | 'processed'
 interface PayPeriod {
   id: string
   org_id: string
-  start_date: string
-  end_date: string
-  pay_date: string
+  period_start: string
+  period_end: string
   status: PayPeriodStatus
   total_hours: number
-  total_gross: number
-  total_net: number
-  total_deductions: number
-  notes: string | null
-  created_by: string | null
+  total_gross_pay: number
   created_at: string
-  updated_at: string
 }
 
 interface PayrollRecord {
@@ -325,9 +319,9 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     try {
       const { data, error: err } = await supabase
         .from('pay_periods')
-        .select('*')
+        .select('id, org_id, period_start, period_end, status, total_hours, total_gross_pay, created_at')
         .eq('org_id', profile.org_id)
-        .order('start_date', { ascending: false })
+        .order('period_start', { ascending: false })
         .limit(12)
 
       if (err) throw err
@@ -413,7 +407,7 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
 
   const currentPeriod = payPeriods[0]
   const totalHoursThisPeriod = currentPeriod?.total_hours || 0
-  const estimatedPayroll = currentPeriod?.total_gross || 0
+  const estimatedPayroll = currentPeriod?.total_gross_pay || 0
   const pendingApprovalCount = useMemo(() => {
     if (!expandedPeriod || !periodRecords[expandedPeriod]) return 0
     return periodRecords[expandedPeriod].filter(r => r.status === 'pending').length
@@ -432,18 +426,12 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
       const end = currentPeriodEnd
       const payDate = getPayDate(end)
 
-      const newPeriod: Partial<PayPeriod> = {
+      const newPeriod = {
         org_id: profile.org_id,
-        start_date: start.toISOString(),
-        end_date: end.toISOString(),
-        pay_date: payDate.toISOString(),
+        period_start: start.toISOString().split('T')[0],
+        period_end: end.toISOString().split('T')[0],
         status: 'draft',
         total_hours: 0,
-        total_gross: 0,
-        total_net: 0,
-        total_deductions: 0,
-        notes: null,
-        created_by: profile.id,
       }
 
       const { data, error: err } = await supabase
@@ -457,18 +445,12 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
         const demoPeriod: PayPeriod = {
           id: `new-${Date.now()}`,
           org_id: profile.org_id,
-          start_date: start.toISOString(),
-          end_date: end.toISOString(),
-          pay_date: payDate.toISOString(),
+          period_start: start.toISOString().split('T')[0],
+          period_end: end.toISOString().split('T')[0],
           status: 'draft',
           total_hours: 0,
-          total_gross: 0,
-          total_net: 0,
-          total_deductions: 0,
-          notes: null,
-          created_by: profile.id,
+          total_gross_pay: 0,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         }
         setPayPeriods(prev => [demoPeriod, ...prev])
         setSuccess('Pay period created (demo mode)')
@@ -495,7 +477,7 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     try {
       await supabase
         .from('payroll_records')
-        .update({ status: 'approved', approved_by: profile.id, approved_at: new Date().toISOString() })
+        .update({ status: 'approved' })
         .eq('id', recordId)
     } catch {
       // Graceful - already updated locally
@@ -516,7 +498,7 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     try {
       await supabase
         .from('payroll_records')
-        .update({ status: 'approved', approved_by: profile.id, approved_at: new Date().toISOString() })
+        .update({ status: 'approved' })
         .eq('pay_period_id', periodId)
     } catch {
       // Graceful
@@ -878,10 +860,10 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                     onMouseLeave={e => { if (!isExpanded) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                   >
                     <div style={{ ...mono, fontSize: 13, fontWeight: 600, color: '#fff' }}>
-                      {formatPeriodRange(period.start_date, period.end_date)}
+                      {formatPeriodRange(period.period_start, period.period_end)}
                     </div>
                     <div style={{ ...mono, fontSize: 13, color: '#e8eaed' }}>
-                      {formatDate(period.pay_date)}
+                      {formatDate(period.created_at)}
                     </div>
                     <div>
                       <span style={{
@@ -896,10 +878,10 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                       </span>
                     </div>
                     <div style={{ ...mono, fontSize: 13, color: '#e8eaed' }}>
-                      {fmtHrs(period.total_hours)}
+                      {fmtHrs(0)}
                     </div>
                     <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: '#fff' }}>
-                      {fmt(period.total_gross)}
+                      {fmt(period.total_gross_pay)}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                       <button

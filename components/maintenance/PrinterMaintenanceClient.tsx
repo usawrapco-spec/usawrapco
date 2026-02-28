@@ -58,6 +58,7 @@ export default function PrinterMaintenanceClient({ profile }: Props) {
     if (!form.description.trim()) return
     setSaving(true)
     await supabase.from('printer_maintenance_logs').insert({
+      org_id: profile.org_id,
       printer_name: form.printer_name,
       maintenance_type: form.maintenance_type,
       description: form.description,

@@ -161,14 +161,17 @@ export default function CloseJobModal({ project, profile, onClose, onUpdate }: C
 
     if (!error) {
       // Log stage approval
-      await supabase.from('stage_approvals').insert({
+      await supabase.from('stage_approvals').upsert({
         project_id: project.id,
         org_id: project.org_id,
         stage: 'sales_close',
+        status: 'approved',
         approved_by: profile.id,
+        approved_at: new Date().toISOString(),
         notes: 'Job closed with actuals entered',
         checklist: actualsData,
-      })
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'project_id,stage' })
 
       onUpdate({
         ...project,

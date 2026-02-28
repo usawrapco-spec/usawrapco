@@ -43,12 +43,12 @@ export function CampaignModal({ profile, onClose, onCreated }: Props) {
     const { data, error } = await supabase.from('prospecting_campaigns').insert({
       org_id: profile.org_id || ORG_ID,
       name, description: description || null,
-      target_business_types: types.length > 0 ? types : null,
+      business_types: types.length > 0 ? types : null,
       target_radius_miles: radius,
-      target_city: city || null, target_state: state || null, target_zip: zip || null,
-      ai_auto_run: autoRun, ai_run_schedule: autoRun ? schedule : null,
-      ai_max_prospects_per_run: maxPerRun, min_ai_score: minScore,
-      status: 'active', prospects_found: 0,
+      target_area: [city, state, zip].filter(Boolean).join(', ') || null,
+      auto_run: autoRun, run_frequency: autoRun ? schedule : null,
+      max_results: maxPerRun, min_score: minScore,
+      status: 'active', results_count: 0,
     }).select().single()
     setSaving(false)
     if (!error && data) onCreated(data)
