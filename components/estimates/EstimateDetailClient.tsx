@@ -406,6 +406,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [title, setTitle] = useState(est.title)
   const [status, setStatus] = useState<EstimateStatus>(est.status)
   const [notes, setNotes] = useState(est.notes || '')
+  const [showNotes, setShowNotes] = useState(!!est.notes)
   const [customerNote, setCustomerNote] = useState(est.customer_note || '')
   const [showCustomerNote, setShowCustomerNote] = useState(!!est.customer_note)
   const [discount, setDiscount] = useState(est.discount)
@@ -2352,15 +2353,30 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 16 }}>
           <div style={{ ...cardStyle }}>
             <div style={{ ...sectionPad }}>
-              <label style={fieldLabelStyle}>Internal Notes</label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                disabled={!canWrite}
-                placeholder="Internal notes (not visible to customer)..."
-                rows={8}
-                style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 120 }}
-              />
+              {!showNotes && (
+                <button
+                  onClick={() => setShowNotes(true)}
+                  style={{
+                    background: 'transparent', border: 'none', color: 'var(--accent)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                  }}
+                >
+                  + Add Internal Notes
+                </button>
+              )}
+              {showNotes && (
+                <>
+                  <label style={fieldLabelStyle}>Internal Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    disabled={!canWrite}
+                    placeholder="Internal notes (not visible to customer)..."
+                    rows={8}
+                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 120 }}
+                  />
+                </>
+              )}
             </div>
           </div>
           <div style={{ ...cardStyle }}>

@@ -982,25 +982,29 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
     }
   }
 
-  function addNote() {
+  async function addNote() {
     if (!newNoteContent.trim()) return
+    const tempId = `note-${Date.now()}`
     const note: CustomerNote = {
-      id: `note-${Date.now()}`,
+      id: tempId,
       content: newNoteContent.trim(),
       author: profile.display_name || 'You',
       created_at: new Date().toISOString(),
     }
     setCustomerNotes(prev => [note, ...prev])
     setNewNoteContent('')
-    supabase.from('communication_log').insert({
-      id: note.id,
+    const { data } = await supabase.from('communication_log').insert({
       customer_id: customer.id,
       org_id: customer.org_id,
       type: 'note',
       content: note.content,
       author_name: note.author,
       created_at: note.created_at,
-    }).then(() => {}, () => {})
+    }).select('id').single()
+    // Replace temp id with real DB id
+    if (data?.id) {
+      setCustomerNotes(prev => prev.map(n => n.id === tempId ? { ...n, id: data.id } : n))
+    }
   }
 
   function addAppointment() {
