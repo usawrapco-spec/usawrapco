@@ -78,6 +78,8 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
 
   const [status, setStatus] = useState<InvoiceStatus>(inv.status)
+  const [notes, setNotes] = useState(inv.notes || '')
+  const [showNotes, setShowNotes] = useState(!!inv.notes)
   const [amountPaid, setAmountPaid] = useState(inv.amount_paid)
   const [localPayments, setLocalPayments] = useState<Payment[]>(payments)
   const [vehicleYear, setVehicleYear] = useState<string>((inv.form_data?.vehicleYear as string) || '')
@@ -189,6 +191,12 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     await supabase.from('invoices').update({
       form_data: { ...inv.form_data, vehicleYear: year || undefined, vehicleMake: make || undefined, vehicleModel: model || undefined },
     }).eq('id', invoiceId)
+  }
+
+  async function handleSaveNotes() {
+    if (isDemo) return
+    await supabase.from('invoices').update({ notes }).eq('id', invoiceId)
+    showToast('Notes saved')
   }
 
   function handleExportPdf() {
@@ -511,14 +519,38 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
           </div>
 
           {/* Notes */}
-          {inv.notes && (
-            <div className="card">
-              <div className="section-label">Notes</div>
-              <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, margin: 0 }}>
-                {inv.notes}
-              </p>
-            </div>
-          )}
+          <div className="card">
+            {!showNotes && (
+              <button
+                onClick={() => setShowNotes(true)}
+                style={{
+                  background: 'transparent', border: 'none', color: 'var(--accent)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                }}
+              >
+                + Add Notes
+              </button>
+            )}
+            {showNotes && (
+              <>
+                <div className="section-label">Notes</div>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  onBlur={handleSaveNotes}
+                  disabled={!canWrite}
+                  placeholder="Internal notes for this invoice..."
+                  rows={4}
+                  style={{
+                    width: '100%', padding: '10px 12px',
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                    borderRadius: 8, color: 'var(--text1)', fontSize: 13,
+                    resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
 
         {/* Right column: Pricing + Payment + Actions */}
