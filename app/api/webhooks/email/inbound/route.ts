@@ -34,8 +34,6 @@ export async function POST(req: NextRequest) {
         subject,
         body_text: bodyText,
         body_html: bodyHtml,
-        raw_payload: payload,
-        received_at: new Date().toISOString(),
       })
     } catch { /* non-critical */ }
 

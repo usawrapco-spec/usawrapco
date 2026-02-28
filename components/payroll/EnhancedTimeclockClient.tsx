@@ -43,11 +43,11 @@ interface ScheduledJob {
 
 interface TimeOffRequest {
   id: string
-  request_type: string
+  type: string
   start_date: string
   end_date: string
-  hours_requested: number
-  notes: string | null
+  hours: number
+  reason: string | null
   status: string
   created_at: string
 }
@@ -412,11 +412,11 @@ export default function EnhancedTimeclockClient({ profile, todayEntries, weekEnt
         .insert({
           org_id: profile.org_id || ORG_ID,
           user_id: profile.id,
-          request_type: timeOffType,
+          type: timeOffType,
           start_date: timeOffStart,
           end_date: timeOffEnd,
-          hours_requested: parseFloat(timeOffHours),
-          notes: timeOffNotes || null,
+          hours: parseFloat(timeOffHours),
+          reason: timeOffNotes || null,
         })
         .select()
         .single()
@@ -957,7 +957,7 @@ export default function EnhancedTimeclockClient({ profile, todayEntries, weekEnt
                   }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)', textTransform: 'capitalize' }}>
-                        {req.request_type?.replace('_', ' ')} — {req.hours_requested}h
+                        {req.type?.replace('_', ' ')} — {req.hours}h
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
                         {new Date(req.start_date).toLocaleDateString()} — {new Date(req.end_date).toLocaleDateString()}
