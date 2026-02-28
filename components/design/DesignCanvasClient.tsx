@@ -1706,7 +1706,10 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
 
     try {
       await supabase.from('line_items').insert({
-        project_id: linkedJob.id,
+        org_id: design.org_id,
+        parent_type: 'project',
+        parent_id: linkedJob.id,
+        name: `${calcMaterial} Wrap — ${sqft} sqft`,
         description: `${calcMaterial} Wrap — ${sqft} sqft canvas design (${sqftWithWaste} sqft with ${calcWastePercent}% waste)\nMaterial: ${sqftWithWaste} sqft @ $${calcMaterialCostPerSqft}/sqft | Print: $${calcPrintCostPerSqft}/sqft | Labor: $${calcLaborCostPerSqft}/sqft | Markup: ${calcMarkup}%`,
         quantity: sqft,
         unit: 'sqft',
@@ -1725,7 +1728,7 @@ export default function DesignCanvasClient({ profile, design, jobImages, comment
   const savePreferences = useCallback(async () => {
     setPrefsSavingMsg(true)
     await supabase.from('profiles').update({
-      preferences: { units: prefsUnits, autoSaveInterval: prefsAutoSaveInterval, pixelsPerInch },
+      settings: { units: prefsUnits, autoSaveInterval: prefsAutoSaveInterval, pixelsPerInch },
     }).eq('id', profile.id)
     setTimeout(() => setPrefsSavingMsg(false), 1500)
   }, [prefsUnits, prefsAutoSaveInterval, pixelsPerInch, profile.id, supabase])
