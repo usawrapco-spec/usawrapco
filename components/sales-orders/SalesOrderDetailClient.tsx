@@ -112,6 +112,10 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [activeTab, setActiveTab] = useState<DetailTab>('items')
   const [showActions, setShowActions] = useState(false)
 
+  const [vehicleYear, setVehicleYear] = useState<string>((so.form_data?.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>((so.form_data?.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>((so.form_data?.vehicleModel as string) || '')
+
   // Team assignments
   const [salesRepId, setSalesRepId] = useState(so.sales_rep_id || '')
   const [prodManagerId, setProdManagerId] = useState(so.production_manager_id || '')
@@ -146,6 +150,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         production_manager_id: prodManagerId || null,
         project_manager_id: projManagerId || null,
         designer_id: designerId || null,
+        form_data: { ...so.form_data, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
       }).eq('id', orderId)
       if (error) throw error
       showToastMsg('Sales order saved')
@@ -552,6 +557,37 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                   className="field"
                   disabled
                   style={{ opacity: 0.7 }}
+                />
+              </div>
+              <div>
+                <label className="field-label">Year</label>
+                <input
+                  value={vehicleYear}
+                  onChange={e => setVehicleYear(e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="2024"
+                  maxLength={4}
+                />
+              </div>
+              <div>
+                <label className="field-label">Make</label>
+                <input
+                  value={vehicleMake}
+                  onChange={e => setVehicleMake(e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="Ford"
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="field-label">Model</label>
+                <input
+                  value={vehicleModel}
+                  onChange={e => setVehicleModel(e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="Transit 350"
                 />
               </div>
             </div>

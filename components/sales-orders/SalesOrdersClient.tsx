@@ -285,6 +285,11 @@ export default function SalesOrdersClient({ profile, initialOrders }: Props) {
                     </td>
                     <td style={{ color: 'var(--text1)', fontWeight: 600, fontSize: 13 }}>
                       {so.title}
+                      {(() => {
+                        const fd = so.form_data as Record<string, unknown> | null
+                        const v = [fd?.vehicleYear, fd?.vehicleMake, fd?.vehicleModel].filter(Boolean).join(' ')
+                        return v ? <div style={{ fontSize: 11, color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 400, marginTop: 2 }}>{v}</div> : null
+                      })()}
                     </td>
                     <td style={{ fontSize: 13 }}>
                       {so.customer?.name || '--'}
