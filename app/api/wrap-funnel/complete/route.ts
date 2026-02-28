@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
             org_id: ORG_ID,
             project_id: projectId,
             image_url: url,
-            caption: `AI Wrap Mockup Preview ${i + 1}`,
+            description: `AI Wrap Mockup Preview ${i + 1}`,
           })
         )
       )

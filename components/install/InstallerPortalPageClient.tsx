@@ -391,14 +391,10 @@ export default function InstallerPortalPageClient({ profile }: { profile: Profil
         org_id: orgId,
         project_id: projectId,
         user_id: profile.id,
-        uploaded_by: profile.id,
         category,
         image_url: urlData.publicUrl,
-        public_url: urlData.publicUrl,
-        storage_path: path,
         file_name: file.name,
         file_size: file.size,
-        mime_type: file.type,
       })
     } catch (err) {
       console.error('Upload failed:', err)

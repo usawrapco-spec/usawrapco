@@ -63,7 +63,7 @@ export default function EditorSaveMenu({ image, getCanvasBlob, onSaved }: Editor
           if (url && image.sourceType === 'job_image') {
             await supabase.from('job_images').update({ image_url: url }).eq('id', image.sourceId)
           } else if (url && image.sourceType === 'media_file') {
-            await supabase.from('media_files').update({ public_url: url }).eq('id', image.sourceId)
+            await supabase.from('media_files').update({ file_url: url }).eq('id', image.sourceId)
           }
           toast('Image saved', 'success')
         } else {
@@ -90,13 +90,11 @@ export default function EditorSaveMenu({ image, getCanvasBlob, onSaved }: Editor
           })
         } else if (url && image.sourceType === 'media_file') {
           await supabase.from('media_files').insert({
-            storage_path: newPath,
-            public_url: url,
-            filename: `${image.fileName.replace(/\.[^.]+$/, '')}_edited.${ext}`,
+            bucket: 'project-files',
+            file_url: url,
+            file_name: `${image.fileName.replace(/\.[^.]+$/, '')}_edited.${ext}`,
             mime_type: blob.type,
             file_size: blob.size,
-            source: 'editor',
-            folder: image.category || 'internal',
             tags: [],
           })
         }
@@ -109,13 +107,11 @@ export default function EditorSaveMenu({ image, getCanvasBlob, onSaved }: Editor
 
         if (url) {
           await supabase.from('media_files').insert({
-            storage_path: newPath,
-            public_url: url,
-            filename: `${image.fileName.replace(/\.[^.]+$/, '')}_edited.${ext}`,
+            bucket: 'project-files',
+            file_url: url,
+            file_name: `${image.fileName.replace(/\.[^.]+$/, '')}_edited.${ext}`,
             mime_type: blob.type,
             file_size: blob.size,
-            source: 'editor',
-            folder: 'internal',
             tags: [],
           })
           toast('Saved to Media Library', 'success')

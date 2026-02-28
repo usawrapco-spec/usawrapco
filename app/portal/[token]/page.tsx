@@ -31,7 +31,7 @@ export default async function PortalTokenPage({
         .limit(10),
       supabase
         .from('invoices')
-        .select('balance')
+        .select('balance_due')
         .eq('customer_id', customer.id)
         .in('status', ['open', 'sent', 'partial', 'overdue']),
       supabase
@@ -105,7 +105,7 @@ export default async function PortalTokenPage({
           ? supabase
               .from('invoices')
               .select(
-                'id, invoice_number, total, amount_paid, balance, status, due_date, invoice_date'
+                'id, invoice_number, total, amount_paid, balance_due, status, due_date, invoice_date'
               )
               .eq('customer_id', customerId)
               .order('created_at', { ascending: false })

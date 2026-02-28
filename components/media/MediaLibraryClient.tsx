@@ -135,14 +135,12 @@ export default function MediaLibraryClient({ profile }: Props) {
         const folder = folderFilter !== 'all' ? folderFilter : 'internal'
 
         await supabase.from('media_files').insert({
-          storage_path: path,
-          public_url: publicUrl,
-          filename: file.name,
+          bucket: BUCKET,
+          file_url: publicUrl,
+          file_name: file.name,
           mime_type: file.type,
           file_size: file.size,
           uploaded_by: profile.id,
-          source: 'internal',
-          folder,
           tags: [],
           ai_tags: [],
         })

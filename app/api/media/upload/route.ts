@@ -48,14 +48,13 @@ export async function POST(req: Request) {
       .from('media_files')
       .insert({
         org_id: orgId,
+        project_id: projectId || null,
         uploaded_by: userId,
-        storage_path: storagePath,
-        public_url: publicUrl,
-        filename: file.name,
+        bucket: STORAGE_BUCKET,
+        file_url: publicUrl,
+        file_name: file.name,
         mime_type: file.type,
         file_size: file.size,
-        source: projectId ? 'project' : 'upload',
-        category,
         tags: [],
         ai_tags: [],
         color_tags: [],

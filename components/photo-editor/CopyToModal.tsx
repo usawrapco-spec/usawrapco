@@ -137,13 +137,11 @@ export default function CopyToModal() {
 
     try {
       await supabase.from('media_files').insert({
-        storage_path: currentImage.storagePath || '',
-        public_url: currentImage.url,
-        filename: currentImage.fileName,
+        bucket: 'project-files',
+        file_url: currentImage.url,
+        file_name: currentImage.fileName,
         mime_type: 'image/*',
         file_size: 0,
-        source: currentImage.sourceType === 'job_image' ? 'job' : 'editor',
-        folder: selectedFolder,
         tags: [],
       })
       setCopied(true)

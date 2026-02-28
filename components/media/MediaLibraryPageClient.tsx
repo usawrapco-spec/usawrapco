@@ -288,7 +288,7 @@ export default function MediaLibraryPageClient({ profile }: Props) {
   // ── Detail panel operations ────────────────────────────────────────────────
   async function saveName() {
     if (!detailFile || !editNameVal.trim()) return
-    await supabase.from('media_files').update({ filename: editNameVal.trim() }).eq('id', detailFile.id)
+    await supabase.from('media_files').update({ file_name: editNameVal.trim() }).eq('id', detailFile.id)
     setEditingName(false)
     await loadFiles()
   }
@@ -310,7 +310,7 @@ export default function MediaLibraryPageClient({ profile }: Props) {
 
   async function saveCat(cat: string) {
     if (!detailFile) return
-    await supabase.from('media_files').update({ category: cat }).eq('id', detailFile.id)
+    await supabase.from('media_files').update({ wrap_type_tag: cat }).eq('id', detailFile.id)
     await loadFiles()
   }
 

@@ -392,14 +392,12 @@ export default function JobImages({
       : '';
 
     await supabase.from('media_files').insert({
-      storage_path: storagePath,
-      public_url: img.image_url,
-      filename: img.file_name,
+      bucket: 'project-files',
+      file_url: img.image_url,
+      file_name: img.file_name,
       mime_type: 'image/*',
       file_size: 0,
       uploaded_by: currentUserId,
-      source: 'job',
-      folder: 'vehicle-photos',
       tags: img.tags || [],
     });
     setMediaAdded(img.id);
