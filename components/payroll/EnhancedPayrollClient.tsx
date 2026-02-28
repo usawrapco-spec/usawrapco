@@ -60,20 +60,19 @@ interface PayPeriod {
 interface PayrollRecord {
   id: string
   pay_period_id: string
-  employee_id: string
-  employee_name: string
+  user_id: string
+  profile: { name: string } | null
   regular_hours: number
   overtime_hours: number
   pto_hours: number
-  hourly_rate: number
+  regular_pay: number
   total_gross_pay: number
-  commission: number
+  commission_pay: number
   deductions: number
   net_pay: number
   status: PayrollRecordStatus
   approved_by: string | null
-  approved_at: string | null
-  notes: string | null
+  breakdown: any | null
   time_entries: TimeEntry[]
   commission_breakdown: CommissionItem[]
 }
@@ -99,20 +98,19 @@ interface CommissionItem {
 interface EmployeePaySetting {
   id: string
   user_id: string
-  employee_name: string
+  profile: { name: string } | null
   pay_type: PayType
   hourly_rate: number
-  annual_salary: number
+  salary_amount: number
   commission_rate: number
   overtime_eligible: boolean
-  pto_accrual_rate: number
-  payment_method: string
-  tax_filing_status: string
-  federal_allowances: number
-  state_allowances: number
-  additional_withholding: number
-  pto_balance: number
-  sick_balance: number
+  salary_period: string | null
+  per_job_rate: number
+  percent_job_rate: number
+  pay_period_type: string | null
+  worker_type: string | null
+  auto_approve_expenses_under: number | null
+  gusto_employee_id: string | null
 }
 
 /* ─── Constants ──────────────────────────────────────────────────────── */
@@ -342,9 +340,9 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     try {
       const { data, error: err } = await supabase
         .from('payroll_records')
-        .select('*')
+        .select('*, profile:user_id(name)')
         .eq('pay_period_id', periodId)
-        .order('employee_name', { ascending: true })
+        .order('created_at', { ascending: true })
 
       if (err) throw err
       setPeriodRecords(prev => ({ ...prev, [periodId]: data || [] }))
@@ -357,9 +355,9 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     try {
       const { data, error: err } = await supabase
         .from('employee_pay_settings')
-        .select('*')
+        .select('*, profile:user_id(name)')
         .eq('org_id', profile.org_id)
-        .order('employee_name', { ascending: true })
+        .order('created_at', { ascending: true })
 
       if (err) throw err
       setPaySettings(data || [])
@@ -576,7 +574,7 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     const records = periodRecords[periodId] || []
     const header = 'Employee,Regular Hrs,OT Hrs,PTO,Gross Pay,Commission,Deductions,Net Pay,Status\n'
     const rows = records.map(r =>
-      `"${r.employee_name}",${r.regular_hours},${r.overtime_hours},${r.pto_hours},${r.total_gross_pay.toFixed(2)},${r.commission.toFixed(2)},${r.deductions.toFixed(2)},${r.net_pay.toFixed(2)},${r.status}`
+      `"${r.profile?.name || r.user_id}",${r.regular_hours},${r.overtime_hours},0,${r.total_gross_pay.toFixed(2)},${(r.commission_pay || 0).toFixed(2)},${r.deductions.toFixed(2)},${r.net_pay.toFixed(2)},${r.status}`
     ).join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -1009,10 +1007,10 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                                     color: '#4f7fff',
                                     flexShrink: 0,
                                   }}>
-                                    {record.employee_name.charAt(0)}
+                                    {(record.profile?.name || 'U').charAt(0)}
                                   </div>
                                   <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
-                                    {record.employee_name}
+                                    {record.profile?.name || record.user_id}
                                   </span>
                                 </div>
                                 <div style={{ ...mono, fontSize: 12, color: '#e8eaed' }}>
@@ -1352,10 +1350,10 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                           fontWeight: 700,
                           color: '#4f7fff',
                         }}>
-                          {setting.employee_name.charAt(0)}
+                          {(setting.profile?.name || 'U').charAt(0)}
                         </div>
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{setting.employee_name}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{setting.profile?.name || setting.user_id}</div>
                           <div style={{ fontSize: 11, color: '#505a6b' }}>
                             {payTypeLabel(setting.pay_type)}
                             {setting.overtime_eligible ? ' | OT Eligible' : ''}
@@ -1395,15 +1393,9 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                               setEditForm({
                                 pay_type: setting.pay_type,
                                 hourly_rate: setting.hourly_rate,
-                                annual_salary: setting.annual_salary,
+                                salary_amount: setting.salary_amount,
                                 commission_rate: setting.commission_rate,
                                 overtime_eligible: setting.overtime_eligible,
-                                pto_accrual_rate: setting.pto_accrual_rate,
-                                payment_method: setting.payment_method,
-                                tax_filing_status: setting.tax_filing_status,
-                                federal_allowances: setting.federal_allowances,
-                                state_allowances: setting.state_allowances,
-                                additional_withholding: setting.additional_withholding,
                               })
                             }}
                             style={{
@@ -1463,18 +1455,18 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                           }
                         />
 
-                        {/* Annual Salary */}
+                        {/* Salary Amount */}
                         <SettingField
-                          label="Annual Salary"
+                          label="Salary Amount"
                           icon={<DollarSign size={12} color="#8b95a5" />}
                           isEditing={isEditing}
-                          displayValue={setting.annual_salary > 0 ? fmt(setting.annual_salary) : '--'}
+                          displayValue={setting.salary_amount > 0 ? fmt(setting.salary_amount) : '--'}
                           editElement={
                             <input
                               type="number"
                               step="1000"
-                              value={editForm.annual_salary ?? setting.annual_salary}
-                              onChange={e => setEditForm(prev => ({ ...prev, annual_salary: parseFloat(e.target.value) || 0 }))}
+                              value={editForm.salary_amount ?? setting.salary_amount}
+                              onChange={e => setEditForm(prev => ({ ...prev, salary_amount: parseFloat(e.target.value) || 0 }))}
                               style={inputStyle}
                             />
                           }
