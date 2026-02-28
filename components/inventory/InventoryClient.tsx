@@ -791,7 +791,7 @@ function CutRemnantModal({ item, onClose, onSaved }: { item: VinylRoll; onClose:
     if (!w || !l) return
     setSaving(true)
     await supabase.from('material_remnants').insert({
-      material_name: `${item.brand} ${item.color}`, material_type: 'vinyl',
+      org_id: item.org_id, material_name: `${item.brand} ${item.color}`, material_type: 'vinyl',
       color: item.color, finish: item.finish, width_inches: w, length_inches: l,
       sqft: (w * l) / 144, status: 'available', from_roll_id: item.id,
       location: form.location, notes: form.notes,

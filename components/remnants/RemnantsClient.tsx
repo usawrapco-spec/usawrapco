@@ -57,7 +57,7 @@ export default function RemnantsClient({ profile }: Props) {
     setSaving(true)
     const sqft = (w * l) / 144
     await supabase.from('material_remnants').insert({
-      ...form, width_inches: w, length_inches: l, sqft, status: 'available',
+      ...form, org_id: profile.org_id, width_inches: w, length_inches: l, sqft, status: 'available',
     })
     await load()
     setShowAdd(false)
