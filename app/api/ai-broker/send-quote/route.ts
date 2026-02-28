@@ -66,21 +66,25 @@ export async function POST(req: Request) {
   const vehicleCat = (vehicleInfo as any).category || (vehicleInfo as any).type || 'sedan'
   const wrapType = (prefs as any).wrap_type || 'full_wrap'
 
-  // Find matching pricing rule
-  const rule = (pricingRules || []).find((r: any) =>
-    r.vehicle_category?.toLowerCase() === vehicleCat.toLowerCase() &&
-    r.wrap_type?.toLowerCase() === wrapType.toLowerCase()
-  )
+  // Find matching pricing rule — new schema stores vehicle in applies_to, wrap type in conditions.wrap_type
+  const rule = (pricingRules || []).find((r: any) => {
+    const rVehicle = (r.applies_to || r.vehicle_category || '').toLowerCase()
+    const rWrap = (r.conditions?.wrap_type || r.wrap_type || '').toLowerCase()
+    const normalWrap = wrapType.toLowerCase().replace('_', ' ')
+    return (rVehicle === vehicleCat.toLowerCase() || rVehicle === 'any') &&
+      (rWrap === normalWrap || rWrap === wrapType.toLowerCase())
+  })
 
-  let basePrice = rule?.base_price || 3500 // Default full wrap price
+  // rule.value = base_price in new schema; conditions.price_per_sqft for sqft pricing
+  let basePrice = rule?.value || rule?.base_price || 3500
   let sqft = (vehicleInfo as any).sqft || 0
-  if (sqft > 0 && rule?.price_per_sqft) {
-    basePrice = Math.max(basePrice, sqft * rule.price_per_sqft)
+  const pricePerSqft = rule?.conditions?.price_per_sqft || rule?.price_per_sqft
+  if (sqft > 0 && pricePerSqft) {
+    basePrice = Math.max(basePrice, sqft * pricePerSqft)
   }
 
-  // Apply complexity multiplier
-  const complexity = (prefs as any).complexity || 'standard'
-  const complexityMult = rule?.complexity_multiplier?.[complexity] || 1
+  // Apply complexity multiplier (new schema doesn't have this — use 1)
+  const complexityMult = 1
   const total = Math.round(basePrice * complexityMult)
   const deposit = 250
 
