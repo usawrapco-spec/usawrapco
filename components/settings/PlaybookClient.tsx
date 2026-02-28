@@ -44,12 +44,12 @@ export default function PlaybookClient({ profile, initialEntries, initialPricing
   // Default entries if empty
   const hasEntries = entries.length > 0
   const defaultEntries: any[] = !hasEntries ? [
-    { id: 'def-1', category: 'brand_voice', trigger_phrase: null, response_guidance: 'Professional but conversational. Friendly, knowledgeable about vehicle wraps. Not pushy but always move toward booking. Use customer name when known.', is_active: true, priority: 1 },
-    { id: 'def-2', category: 'greeting', trigger_phrase: 'first message', response_guidance: 'Welcome them warmly, introduce yourself as V.I.N.Y.L. from USA Wrap Co, ask what vehicle they have and what kind of wrap they want.', is_active: true, priority: 1 },
-    { id: 'def-3', category: 'pricing', trigger_phrase: 'how much / price / cost / quote', response_guidance: 'Provide pricing based on vehicle type and wrap type. Always mention what is included (design, print, laminate, install). Offer to send a formal quote.', is_active: true, priority: 1 },
-    { id: 'def-4', category: 'objection', trigger_phrase: 'too expensive / cheaper', response_guidance: 'Emphasize quality (3M/Avery vinyl, 5-year warranty, professional install). Compare to paint cost. Mention fleet discounts if applicable.', is_active: true, priority: 1 },
-    { id: 'def-5', category: 'closing', trigger_phrase: 'next step / ready / lets do it', response_guidance: 'Guide them to pay the $250 design deposit. Explain the timeline: deposit -> design -> proof approval -> production -> install.', is_active: true, priority: 1 },
-    { id: 'def-6', category: 'faq', trigger_phrase: 'how long / timeline', response_guidance: 'Typical timeline is 2-3 weeks from design approval. Install usually takes 1-2 days depending on vehicle size.', is_active: true, priority: 1 },
+    { id: 'def-1', category: 'brand_voice', title: null, content: 'Professional but conversational. Friendly, knowledgeable about vehicle wraps. Not pushy but always move toward booking. Use customer name when known.', active: true, sort_order: 1 },
+    { id: 'def-2', category: 'greeting', title: 'first message', content: 'Welcome them warmly, introduce yourself as V.I.N.Y.L. from USA Wrap Co, ask what vehicle they have and what kind of wrap they want.', active: true, sort_order: 2 },
+    { id: 'def-3', category: 'pricing', title: 'how much / price / cost / quote', content: 'Provide pricing based on vehicle type and wrap type. Always mention what is included (design, print, laminate, install). Offer to send a formal quote.', active: true, sort_order: 3 },
+    { id: 'def-4', category: 'objection', title: 'too expensive / cheaper', content: 'Emphasize quality (3M/Avery vinyl, 5-year warranty, professional install). Compare to paint cost. Mention fleet discounts if applicable.', active: true, sort_order: 4 },
+    { id: 'def-5', category: 'closing', title: 'next step / ready / lets do it', content: 'Guide them to pay the $250 design deposit. Explain the timeline: deposit -> design -> proof approval -> production -> install.', active: true, sort_order: 5 },
+    { id: 'def-6', category: 'faq', title: 'how long / timeline', content: 'Typical timeline is 2-3 weeks from design approval. Install usually takes 1-2 days depending on vehicle size.', active: true, sort_order: 6 },
   ] : []
 
   const allEntries = hasEntries ? entries : defaultEntries
@@ -75,10 +75,10 @@ export default function PlaybookClient({ profile, initialEntries, initialPricing
 
   // Default escalation rules
   const defaultEscalation = escalation.length > 0 ? escalation : [
-    { id: 'de-1', rule_type: 'explicit_request', rule_config: {}, notify_channel: 'sms', is_active: true, priority: 1 },
-    { id: 'de-2', rule_type: 'keyword', rule_config: { keywords: ['speak to someone', 'manager', 'real person', 'human', 'supervisor', 'complaint', 'lawsuit', 'attorney'] }, notify_channel: 'sms', is_active: true, priority: 2 },
-    { id: 'de-3', rule_type: 'confidence', rule_config: { threshold: 0.5 }, notify_channel: 'sms', is_active: true, priority: 3 },
-    { id: 'de-4', rule_type: 'dollar_threshold', rule_config: { max_amount: 15000 }, notify_channel: 'sms', is_active: true, priority: 4 },
+    { id: 'de-1', trigger_type: 'explicit_request', conditions: {}, active: true, priority: 1 },
+    { id: 'de-2', trigger_type: 'keyword', conditions: { keywords: ['speak to someone', 'manager', 'real person', 'human', 'supervisor', 'complaint', 'lawsuit', 'attorney'] }, active: true, priority: 2 },
+    { id: 'de-3', trigger_type: 'confidence', conditions: { threshold: 0.5 }, active: true, priority: 3 },
+    { id: 'de-4', trigger_type: 'dollar_threshold', conditions: { max_amount: 15000 }, active: true, priority: 4 },
   ]
 
   async function savePlaybookEntries() {
@@ -86,15 +86,21 @@ export default function PlaybookClient({ profile, initialEntries, initialPricing
     try {
       for (const entry of allEntries) {
         if (entry.id.startsWith('def-') || entry.id.startsWith('new-')) {
-          const { id, ...rest } = entry
-          await supabase.from('sales_playbook').insert({ ...rest, org_id: profile.org_id })
+          await supabase.from('sales_playbook').insert({
+            org_id: profile.org_id,
+            category: entry.category,
+            title: entry.title,
+            content: entry.content,
+            active: entry.active,
+            sort_order: entry.sort_order,
+          })
         } else {
           await supabase.from('sales_playbook').update({
             category: entry.category,
-            trigger_phrase: entry.trigger_phrase,
-            response_guidance: entry.response_guidance,
-            is_active: entry.is_active,
-            priority: entry.priority,
+            title: entry.title,
+            content: entry.content,
+            active: entry.active,
+            sort_order: entry.sort_order,
           }).eq('id', entry.id)
         }
       }
@@ -105,15 +111,23 @@ export default function PlaybookClient({ profile, initialEntries, initialPricing
   async function savePricingRules() {
     setSaving(true)
     try {
-      for (const rule of defaultPricing) {
+      for (let i = 0; i < defaultPricing.length; i++) {
+        const rule = defaultPricing[i]
+        const dbRow = {
+          name: `${rule.vehicle_category} - ${rule.wrap_type}`,
+          rule_type: 'wrap_pricing',
+          value: rule.base_price,
+          applies_to: rule.vehicle_category,
+          conditions: { wrap_type: rule.wrap_type, price_per_sqft: rule.price_per_sqft, max_discount_pct: rule.max_discount_pct },
+          active: rule.is_active,
+          priority: i + 1,
+          org_id: profile.org_id,
+        }
         if (rule.id.startsWith('dp-') || rule.id.startsWith('new-')) {
-          const { id, ...rest } = rule
-          await supabase.from('pricing_rules').insert({
-            ...rest, org_id: profile.org_id,
-            rush_multiplier: {}, complexity_multiplier: {},
-          })
+          await supabase.from('pricing_rules').insert(dbRow)
         } else {
-          await supabase.from('pricing_rules').update(rule).eq('id', rule.id)
+          const { org_id, ...updateRow } = dbRow
+          await supabase.from('pricing_rules').update(updateRow).eq('id', rule.id)
         }
       }
     } catch {}
@@ -194,15 +208,15 @@ export default function PlaybookClient({ profile, initialEntries, initialPricing
                   <div style={{ padding: '0 14px 14px' }}>
                     {catEntries.map((entry, i) => (
                       <div key={entry.id} style={{ padding: '10px 0', borderTop: i > 0 ? `1px solid ${c.border}` : 'none' }}>
-                        {entry.trigger_phrase && (
+                        {entry.title && (
                           <div style={{ fontSize: 11, color: c.text3, marginBottom: 4 }}>
-                            Trigger: <span style={{ color: cat.color }}>{entry.trigger_phrase}</span>
+                            Trigger: <span style={{ color: cat.color }}>{entry.title}</span>
                           </div>
                         )}
                         <textarea
-                          value={entry.response_guidance}
+                          value={entry.content || ''}
                           onChange={e => {
-                            const updated = allEntries.map(en => en.id === entry.id ? { ...en, response_guidance: e.target.value } : en)
+                            const updated = allEntries.map(en => en.id === entry.id ? { ...en, content: e.target.value } : en)
                             hasEntries ? setEntries(updated) : setEntries(updated)
                           }}
                           style={{ width: '100%', minHeight: 60, padding: 8, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, color: c.text1, fontSize: 12, lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
@@ -264,15 +278,15 @@ export default function PlaybookClient({ profile, initialEntries, initialPricing
                 <AlertTriangle size={16} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, textTransform: 'capitalize' }}>{rule.rule_type.replace('_', ' ')}</div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, textTransform: 'capitalize' }}>{(rule.trigger_type || '').replace(/_/g, ' ')}</div>
                 <div style={{ fontSize: 12, color: c.text2, lineHeight: 1.5 }}>
-                  {rule.rule_type === 'keyword' && <>Keywords: {(rule.rule_config?.keywords || []).join(', ')}</>}
-                  {rule.rule_type === 'confidence' && <>Escalate when AI confidence drops below <span style={{ fontFamily: 'JetBrains Mono, monospace', color: c.amber }}>{(rule.rule_config?.threshold || 0.5) * 100}%</span></>}
-                  {rule.rule_type === 'dollar_threshold' && <>Escalate for deals over <span style={{ fontFamily: 'JetBrains Mono, monospace', color: c.green }}>${(rule.rule_config?.max_amount || 15000).toLocaleString()}</span></>}
-                  {rule.rule_type === 'explicit_request' && <>Always escalate when customer asks for a human or manager</>}
+                  {rule.trigger_type === 'keyword' && <>Keywords: {(rule.conditions?.keywords || []).join(', ')}</>}
+                  {rule.trigger_type === 'confidence' && <>Escalate when AI confidence drops below <span style={{ fontFamily: 'JetBrains Mono, monospace', color: c.amber }}>{(rule.conditions?.threshold || 0.5) * 100}%</span></>}
+                  {rule.trigger_type === 'dollar_threshold' && <>Escalate for deals over <span style={{ fontFamily: 'JetBrains Mono, monospace', color: c.green }}>${(rule.conditions?.max_amount || 15000).toLocaleString()}</span></>}
+                  {rule.trigger_type === 'explicit_request' && <>Always escalate when customer asks for a human or manager</>}
                 </div>
               </div>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: rule.is_active ? c.green : c.red, marginTop: 8 }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: rule.active ? c.green : c.red, marginTop: 8 }} />
             </div>
           ))}
         </div>
