@@ -152,7 +152,7 @@ export default function PipelineJobCard({
   const statusColor = STATUS_COLORS[project.status] || '#6b7280'
 
   const customerName = project.customer?.name || fd.client || fd.clientName || project.title || 'Untitled'
-  const vehicle = project.vehicle_desc || fd.vehicle || ''
+  const vehicle = project.vehicle_desc || [fd.vehicleYear, fd.vehicleMake, fd.vehicleModel].filter(Boolean).join(' ') || fd.vehicle || ''
   const jobType = fd.jobType || project.type || ''
   const revenue = project.revenue || 0
   const profit = project.profit || 0
