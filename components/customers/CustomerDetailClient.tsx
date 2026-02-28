@@ -603,7 +603,7 @@ function CustomerPhotosTab({ customerId }: { customerId: string }) {
 
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text3)' }}>
-      <Loader2 size={24} style={{ opacity: 0.5, animation: 'spin 1s linear infinite', display: 'block', margin: '0 auto 8px' }} />
+      <Loader2 size={24} className="animate-spin" style={{ opacity: 0.5, display: 'block', margin: '0 auto 8px' }} />
       Loading photos...
     </div>
   )

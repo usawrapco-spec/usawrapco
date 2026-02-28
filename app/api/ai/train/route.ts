@@ -29,9 +29,9 @@ export async function GET() {
     const admin = getSupabaseAdmin()
     const { data } = await admin
       .from('ai_settings')
-      .select('id, value, created_at')
+      .select('id, setting_value, created_at')
       .eq('org_id', orgId)
-      .eq('key', 'vinyl_instruction')
+      .eq('setting_key', 'vinyl_instruction')
       .order('created_at', { ascending: true })
 
     return NextResponse.json({ instructions: data || [] })

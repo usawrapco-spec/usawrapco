@@ -45,12 +45,12 @@ export default function PhotoEditorModal({ photoUrl, jobTitle, projectId, onClos
     const load = async () => {
       const mod = await import('fabric')
       fabricRef.current = mod
-      initCanvas(mod)
+      await initCanvas(mod)
     }
     load()
   }, [])
 
-  function initCanvas(fabric: any) {
+  async function initCanvas(fabric: any) {
     if (!canvasRef.current) return
     const fc = new fabric.Canvas(canvasRef.current, {
       preserveObjectStacking: true,
@@ -58,8 +58,9 @@ export default function PhotoEditorModal({ photoUrl, jobTitle, projectId, onClos
     })
     setFabricCanvas(fc)
 
-    // Load image
-    fabric.Image.fromURL(photoUrl, (img: any) => {
+    // Load image — Fabric.js v7 uses Promise-based fromURL
+    try {
+      const img = await fabric.Image.fromURL(photoUrl, { crossOrigin: 'anonymous' })
       if (!img) return
       const maxW = Math.min(window.innerWidth - 80, 900)
       const maxH = Math.min(window.innerHeight - 240, 600)
@@ -72,7 +73,9 @@ export default function PhotoEditorModal({ photoUrl, jobTitle, projectId, onClos
       fc.sendToBack(img)
       imageRef.current = img
       fc.renderAll()
-    }, { crossOrigin: 'anonymous' })
+    } catch (e) {
+      console.error('[PhotoEditor] Image load failed:', e)
+    }
   }
 
   useEffect(() => {
@@ -100,9 +103,9 @@ export default function PhotoEditorModal({ photoUrl, jobTitle, projectId, onClos
     const fabric = fabricRef.current
     if (!fabric) return
     img.filters = [
-      new fabric.Image.filters.Brightness({ brightness: brightness / 100 }),
-      new fabric.Image.filters.Contrast({ contrast: contrast / 100 }),
-      new fabric.Image.filters.Saturation({ saturation: saturation / 100 }),
+      new fabric.filters.Brightness({ brightness: brightness / 100 }),
+      new fabric.filters.Contrast({ contrast: contrast / 100 }),
+      new fabric.filters.Saturation({ saturation: saturation / 100 }),
     ]
     img.applyFilters()
     fabricCanvas.renderAll()

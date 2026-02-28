@@ -30,7 +30,7 @@ export async function DELETE(
       .delete()
       .eq('id', params.id)
       .eq('org_id', orgId)
-      .eq('key', 'vinyl_instruction')
+      .eq('setting_key', 'vinyl_instruction')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
