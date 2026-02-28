@@ -305,10 +305,9 @@ export default function ProspectorApp({
       .insert({
         org_id: profile.org_id || ORG_ID,
         name,
-        created_by: profile.id,
+        assigned_to: profile.id,
         prospect_ids: routeStops,
         status: 'planned',
-        date_scheduled: dateScheduled || null,
       })
       .select()
       .single()

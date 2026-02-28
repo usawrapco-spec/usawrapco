@@ -390,11 +390,12 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     await save({ pipe_stage: next, status: newStatus })
 
     // Log stage approval
-    await supabase.from('stage_approvals').insert({
+    await supabase.from('stage_approvals').upsert({
       project_id: project.id, org_id: project.org_id,
-      stage: curStageKey, approved_by: profile.id,
-      notes: `Advanced to ${next}`, checklist: f,
-    })
+      stage: curStageKey, status: 'approved', approved_by: profile.id,
+      approved_at: new Date().toISOString(), notes: `Advanced to ${next}`, checklist: f,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'project_id,stage' })
 
     // Log to activity log
     fetch('/api/activity-log', {
@@ -446,11 +447,12 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   async function closeJob() {
     if (!f.finalApproved) { showToast('Check the final approval box'); return }
     await save({ pipe_stage: 'done', status: 'closed' as ProjectStatus })
-    await supabase.from('stage_approvals').insert({
+    await supabase.from('stage_approvals').upsert({
       project_id: project.id, org_id: project.org_id,
-      stage: 'sales_close', approved_by: profile.id,
-      notes: f.closeNotes || 'Job closed', checklist: f,
-    })
+      stage: 'sales_close', status: 'approved', approved_by: profile.id,
+      approved_at: new Date().toISOString(), notes: f.closeNotes || 'Job closed', checklist: f,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'project_id,stage' })
     // Award deal_won XP
     fetch('/api/xp/award', {
       method: 'POST',
@@ -487,7 +489,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     await supabase.from('send_backs').insert({
       project_id: project.id, org_id: project.org_id,
       from_stage: curStageKey, to_stage: prevStage,
-      reason: sendBackReason, notes: sendBackNotes, created_by: profile.id,
+      reason: sendBackReason, reason_detail: sendBackNotes, sent_by: profile.id,
     })
     await save({ pipe_stage: prevStage })
     setSendBacks(prev => [{ from_stage: curStageKey, to_stage: prevStage, reason: sendBackReason, notes: sendBackNotes, created_at: new Date().toISOString() }, ...prev])

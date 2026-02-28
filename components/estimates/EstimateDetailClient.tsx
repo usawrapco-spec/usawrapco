@@ -34,6 +34,16 @@ import VinLookupField from '@/components/shared/VinLookupField'
 import VehicleLookupModal from '@/components/VehicleLookupModal'
 import type { MeasurementResult } from '@/components/VehicleMeasurementPicker'
 import vehiclesData from '@/lib/data/vehicles.json'
+import CommercialVehicleCalc from '@/components/estimates/calculators/CommercialVehicleCalc'
+import BoxTruckCalc from '@/components/estimates/calculators/BoxTruckCalc'
+import TrailerCalc from '@/components/estimates/calculators/TrailerCalc'
+import MarineCalc from '@/components/estimates/calculators/MarineCalc'
+import PPFCalc from '@/components/estimates/calculators/PPFCalc'
+import BoatDeckingCalc from '@/components/estimates/calculators/BoatDeckingCalc'
+import WallWrapCalc from '@/components/estimates/calculators/WallWrapCalc'
+import SignageCalc from '@/components/estimates/calculators/SignageCalc'
+import GPMSidebar from '@/components/estimates/GPMSidebar'
+import type { CalcOutput } from '@/components/estimates/calculators/types'
 
 // ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
 const TIER_TO_PANEL_KEY: Record<string, string> = {
@@ -416,6 +426,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [prodMgrId, setProdMgrId] = useState(est.production_manager_id || '')
   const [projMgrId, setProjMgrId] = useState(est.project_manager_id || '')
   const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
+  const [torqBonus, setTorqBonus] = useState(false)
   const [vehicleYear, setVehicleYear] = useState<string>((est.form_data?.vehicleYear as string) || '')
   const [vehicleMake, setVehicleMake] = useState<string>((est.form_data?.vehicleMake as string) || '')
   const [vehicleModel, setVehicleModel] = useState<string>((est.form_data?.vehicleModel as string) || '')
@@ -1624,7 +1635,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {/* ══════════════════════════════════════════════════════════════════ */}
 
       {activeTab === 'items' && (
-        <div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
           {/* Items header */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -1924,6 +1936,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                     products={products}
                     allItems={lineItemsList}
                     onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
+                    orgId={profile.org_id}
                     rolledUpChildrenTotal={childrenTotal}
                     onRollUp={() => {
                       // Find the nearest non-rolled-up item above this one
@@ -2085,6 +2098,14 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               </div>
             </div>
           </div>
+          </div>
+          <GPMSidebar
+            lineItems={lineItemsList}
+            leadType={leadType}
+            onLeadTypeChange={setLeadType}
+            torqBonus={torqBonus}
+            onTorqChange={setTorqBonus}
+          />
         </div>
       )}
 
@@ -2973,7 +2994,7 @@ function VehicleInfoBlock({
 function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
   expandedSections, onToggleSection, leadType, team,
-  products, allItems, onOpenAreaCalc,
+  products, allItems, onOpenAreaCalc, orgId,
   onRollUp, onUnroll, rolledUpChildrenTotal,
 }: {
   item: LineItem; index: number; canWrite: boolean
@@ -2983,6 +3004,7 @@ function LineItemCard({
   products: { id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]
   allItems: LineItem[]
   onOpenAreaCalc: () => void
+  orgId: string
   onRollUp?: () => void
   onUnroll?: () => void
   rolledUpChildrenTotal?: number
@@ -3024,6 +3046,19 @@ function LineItemCard({
       specs: newSpecs,
     }
     onChange(updated)
+  }
+
+  function handleCalcChange(out: CalcOutput) {
+    const current = latestRef.current
+    const updated: LineItem = {
+      ...current,
+      name: out.name || current.name,
+      unit_price: out.unit_price,
+      total_price: (current.quantity * out.unit_price) - current.unit_discount,
+      specs: { ...current.specs, ...out.specs } as LineItemSpecs,
+    }
+    onChange(updated)
+    onBlurSave(updated)
   }
 
   const specs = item.specs as LineItemSpecs
@@ -3306,7 +3341,7 @@ function LineItemCard({
           )}
 
           {/* ── Core Fields Row ─────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_80px_120px_120px]" style={{ gap: 10, marginTop: 12 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_80px_120px_120px]" style={{ gap: 10, marginTop: 12 }}>
             <div>
               <label style={fieldLabelStyle}>Product Name</label>
               <input
@@ -3317,33 +3352,6 @@ function LineItemCard({
                 disabled={!canWrite}
                 placeholder="e.g. Full Body Wrap"
               />
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Category</label>
-              <select
-                value={(specs.vehicleType as string) || ''}
-                onChange={e => handleCategoryChange(e.target.value)}
-                onBlur={handleBlur}
-                style={fieldSelectStyle}
-                disabled={!canWrite}
-              >
-                <option value="">Select Category</option>
-                {Object.entries(
-                  Object.entries(VEHICLE_CATEGORIES).reduce((groups, [key, cat]) => {
-                    if (!groups[cat.group]) groups[cat.group] = []
-                    groups[cat.group].push({ key, ...cat })
-                    return groups
-                  }, {} as Record<string, (VehicleCategory & { key: string })[]>)
-                ).map(([group, cats]) => (
-                  <optgroup key={group} label={group}>
-                    {cats.map(cat => (
-                      <option key={cat.key} value={cat.key}>
-                        {cat.label}{cat.flatRate > 0 ? ` ($${cat.flatRate}/${cat.estimatedHours}h)` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
             </div>
             <div>
               <label style={fieldLabelStyle}>Qty</label>
@@ -3518,11 +3526,36 @@ function LineItemCard({
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════ */}
-          {/* PRODUCT-TYPE CALCULATORS (conditional on category)           */}
+          {/* PRODUCT-TYPE CALCULATORS                                      */}
           {/* ═══════════════════════════════════════════════════════════════ */}
 
-          {/* â”€â”€ Commercial Vehicle 3Ã—3 Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          {isVehicleProduct && (
+          {productLineType === 'commercial_vehicle' && (
+            <CommercialVehicleCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} orgId={orgId} />
+          )}
+          {productLineType === 'box_truck' && (
+            <BoxTruckCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+          {productLineType === 'trailer' && (
+            <TrailerCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+          {(productLineType === 'marine' || (calcType === 'marine' && productLineType !== 'boat_decking')) && (
+            <MarineCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+          {productLineType === 'ppf' && (
+            <PPFCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+          {(productLineType === 'boat_decking' || (calcType === 'decking' && productLineType !== 'marine')) && (
+            <BoatDeckingCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+          {productLineType === 'wall_wrap' && (
+            <WallWrapCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+          {productLineType === 'signage' && (
+            <SignageCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+          )}
+
+          {/* Legacy commercial vehicle grid kept for items without productLineType */}
+          {!productLineType && isVehicleProduct && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Car size={12} style={{ color: 'var(--accent)' }} /> Quick Select
@@ -3565,8 +3598,8 @@ function LineItemCard({
             </div>
           )}
 
-{/* ── Wrap Zone Selector (vehicle wraps with sqft data) ──────── */}
-          {isVehicleProduct && (specs.vinylArea as number) > 0 && !isBoatProduct && (
+{/* ── Wrap Zone Selector (legacy — vehicle wraps without productLineType) ──────── */}
+          {!productLineType && isVehicleProduct && (specs.vinylArea as number) > 0 && !isBoatProduct && (
             <div style={{ marginTop: 12 }}>
               <WrapZoneSelector
                 specs={specs}
@@ -3577,8 +3610,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Decking Calculator ──────────────────────────────────────── */}
-          {(calcType === 'decking' || isBoatProduct) && (
+          {/* ── Decking Calculator (legacy) ──────────────────────────────────────── */}
+          {!productLineType && (calcType === 'decking' || isBoatProduct) && (
             <div style={{ marginTop: 12 }}>
               <DeckingCalculator
                 specs={specs}
@@ -3595,8 +3628,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Custom Product Calculator Gadget ──────────────────────── */}
-          {specs.vehicleType === 'custom' && !['wall_wrap', 'signage', 'apparel', 'print_media'].includes(productLineType) && (
+          {/* ── Custom Product Calculator Gadget (legacy) ──────────────────────── */}
+          {!productLineType && specs.vehicleType === 'custom' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Wrench size={12} style={{ color: 'var(--purple)' }} /> Custom Product
@@ -3636,8 +3669,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Box Truck Calculator Gadget ──────────────────────────── */}
-          {specs.vehicleType === 'box_truck' && (
+          {/* ── Box Truck Calculator Gadget (legacy) ──────────────────────────── */}
+          {!productLineType && specs.vehicleType === 'box_truck' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Car size={12} style={{ color: 'var(--accent)' }} /> Box Truck Dimensions
@@ -3730,8 +3763,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Trailer Calculator Gadget ────────────────────────────── */}
-          {specs.vehicleType === 'trailer' && (
+          {/* ── Trailer Calculator Gadget (legacy) ────────────────────────────── */}
+          {!productLineType && specs.vehicleType === 'trailer' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Car size={12} style={{ color: 'var(--amber)' }} /> Trailer Dimensions
@@ -3830,8 +3863,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Marine/Decking Calculator Gadget ─────────────────────── */}
-          {specs.vehicleType === 'marine' && (
+          {/* ── Marine/Decking Calculator Gadget (legacy — no productLineType) ── */}
+          {!productLineType && specs.vehicleType === 'marine' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Layers size={12} style={{ color: 'var(--cyan)' }} /> Marine / Decking
@@ -3920,8 +3953,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── PPF Calculator Gadget ────────────────────────────────── */}
-          {specs.vehicleType === 'ppf' && (
+          {/* ── PPF Calculator Gadget (legacy — no productLineType) ─────── */}
+          {!productLineType && specs.vehicleType === 'ppf' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <CircleDot size={12} style={{ color: 'var(--cyan)' }} /> PPF Packages
@@ -3983,8 +4016,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Wall Wrap Calculator Gadget (NEW) ──────────────────────── */}
-          {productLineType === 'wall_wrap' && (
+          {/* ── Wall Wrap Calculator Gadget (legacy — superseded by WallWrapCalc) ── */}
+          {false && productLineType === 'wall_wrap' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Layers size={12} style={{ color: 'var(--purple)' }} /> Wall Wrap Calculator
@@ -4088,8 +4121,8 @@ function LineItemCard({
             </div>
           )}
 
-          {/* ── Signage Calculator Gadget (NEW) ─────────────────────────── */}
-          {productLineType === 'signage' && (
+          {/* ── Signage Calculator Gadget (legacy — superseded by SignageCalc) ── */}
+          {false && productLineType === 'signage' && (
             <div style={gadgetStyle}>
               <div style={gadgetHeaderStyle}>
                 <Layers size={12} style={{ color: 'var(--amber)' }} /> Signage Calculator

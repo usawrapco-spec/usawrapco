@@ -330,15 +330,18 @@ export default function ApprovalModal({
         break
     }
 
-    // Insert approval
-    await supabase.from('stage_approvals').insert({
+    // Upsert approval (trigger pre-creates pending records with unique constraint on project_id+stage)
+    await supabase.from('stage_approvals').upsert({
       project_id: project.id,
       org_id: project.org_id,
       stage,
+      status: 'approved',
       approved_by: profile.id,
+      approved_at: new Date().toISOString(),
       notes: notes || null,
       checklist: checklistData,
-    })
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'project_id,stage' })
 
     // Update project
     const updatePayload: any = {
@@ -428,8 +431,8 @@ export default function ApprovalModal({
       from_stage: fromStage,
       to_stage: toStage,
       reason: sendBackReason,
-      notes: sendBackNotes || null,
-      created_by: profile.id,
+      reason_detail: sendBackNotes || null,
+      sent_by: profile.id,
     })
 
     await supabase
