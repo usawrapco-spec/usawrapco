@@ -141,7 +141,7 @@ export default function JobDetailClient({
       supabase.from('estimates').select('id', { count: 'exact', head: true }).eq('project_id', pid),
       supabase.from('sales_orders').select('id', { count: 'exact', head: true }).eq('project_id', pid),
       supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-      supabase.from('payments').select('id', { count: 'exact', head: true }).eq('project_id', pid),
+      supabase.from('payments').select('id, invoice:invoice_id!inner(project_id)', { count: 'exact', head: true }).eq('invoice.project_id', pid),
     ]).then(([e, s, i, p]) => {
       setRelatedDocs({
         estimates: e.count ?? 0,

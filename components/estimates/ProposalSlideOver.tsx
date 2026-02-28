@@ -405,18 +405,20 @@ export default function ProposalSlideOver({
                 {linkCopied ? <CheckCircle2 size={14} style={{ color: 'var(--green)' }} /> : <Copy size={14} />}
                 {linkCopied ? 'Copied' : 'Link'}
               </button>
-              <button
-                onClick={() => publicToken && window.open(`/api/pdf/proposal/${publicToken}`, '_blank')}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '10px 14px', borderRadius: 8,
-                  border: '1px solid var(--border)', background: 'var(--surface2)',
-                  color: 'var(--text2)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: headingFont, textTransform: 'uppercase',
-                }}
-              >
-                <Download size={14} /> PDF
-              </button>
+              {publicToken && (
+                <a
+                  href={`/api/pdf/proposal/${publicToken}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: '10px 14px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface2)',
+                    color: 'var(--text2)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: headingFont, textTransform: 'uppercase', textDecoration: 'none',
+                  }}
+                >
+                  <Download size={14} /> PDF
+                </a>
+              )}
             </div>
           </>
         )}
