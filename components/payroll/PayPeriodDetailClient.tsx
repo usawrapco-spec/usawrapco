@@ -445,7 +445,7 @@ export default function PayPeriodDetailClient({
                   {(record.pto_hours || 0).toFixed(1)}
                 </div>
                 <div style={{ ...mono, textAlign: 'right', color: 'var(--text1)', fontSize: 13 }}>
-                  {fmt(record.gross_pay || 0)}
+                  {fmt(record.total_gross_pay || 0)}
                 </div>
                 <div style={{ ...mono, textAlign: 'right', color: record.commission_pay > 0 ? '#4f7fff' : 'var(--text2)', fontSize: 13 }}>
                   {fmt(record.commission_pay || 0)}
@@ -649,7 +649,7 @@ export default function PayPeriodDetailClient({
                           <div style={{ borderTop: '1px solid #1e2330', marginTop: 4, paddingTop: 8 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
                               <span style={{ color: 'var(--text1)', fontSize: 13 }}>Gross Pay</span>
-                              <span style={{ ...mono, color: 'var(--text1)', fontSize: 14 }}>{fmt(record.gross_pay || 0)}</span>
+                              <span style={{ ...mono, color: 'var(--text1)', fontSize: 14 }}>{fmt(record.total_gross_pay || 0)}</span>
                             </div>
                           </div>
 

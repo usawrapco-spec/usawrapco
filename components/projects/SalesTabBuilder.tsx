@@ -196,6 +196,7 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
   // ─── State ──────────────────────────────────────────────────────────────────
   const [title, setTitle] = useState(project.title || '')
   const [notes, setNotes] = useState(fd.salesNotes || '')
+  const [showNotes, setShowNotes] = useState(!!fd.salesNotes)
   const [customerNote, setCustomerNote] = useState(fd.customerNote || '')
   const [discount, setDiscount] = useState(fd.discount || 0)
   const [taxRate, setTaxRate] = useState(fd.taxRate || DEFAULT_TAX_RATE)
@@ -882,8 +883,19 @@ export default function SalesTabBuilder({ profile, project, teammates }: SalesTa
                   </select>
                 </div>
                 <div>
-                  <label style={fieldLabelStyle}>Sales Notes</label>
-                  <textarea value={notes} onChange={e => setNotes(e.target.value)} disabled={!canWrite} placeholder="Internal sales notes..." rows={3} style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 64 }} />
+                  {!showNotes ? (
+                    <button
+                      onClick={() => setShowNotes(true)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}
+                    >
+                      + Add Sales Notes
+                    </button>
+                  ) : (
+                    <>
+                      <label style={fieldLabelStyle}>Sales Notes</label>
+                      <textarea value={notes} onChange={e => setNotes(e.target.value)} disabled={!canWrite} placeholder="Internal sales notes..." rows={3} style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 64 }} />
+                    </>
+                  )}
                 </div>
               </div>
             </div>

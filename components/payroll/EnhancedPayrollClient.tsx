@@ -66,7 +66,7 @@ interface PayrollRecord {
   overtime_hours: number
   pto_hours: number
   hourly_rate: number
-  gross_pay: number
+  total_gross_pay: number
   commission: number
   deductions: number
   net_pay: number
@@ -576,7 +576,7 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
     const records = periodRecords[periodId] || []
     const header = 'Employee,Regular Hrs,OT Hrs,PTO,Gross Pay,Commission,Deductions,Net Pay,Status\n'
     const rows = records.map(r =>
-      `"${r.employee_name}",${r.regular_hours},${r.overtime_hours},${r.pto_hours},${r.gross_pay.toFixed(2)},${r.commission.toFixed(2)},${r.deductions.toFixed(2)},${r.net_pay.toFixed(2)},${r.status}`
+      `"${r.employee_name}",${r.regular_hours},${r.overtime_hours},${r.pto_hours},${r.total_gross_pay.toFixed(2)},${r.commission.toFixed(2)},${r.deductions.toFixed(2)},${r.net_pay.toFixed(2)},${r.status}`
     ).join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -1025,7 +1025,7 @@ export default function EnhancedPayrollClient({ profile, employees, projects }: 
                                   {record.pto_hours > 0 ? record.pto_hours.toFixed(1) : '--'}
                                 </div>
                                 <div style={{ ...mono, fontSize: 13, fontWeight: 600, color: '#fff' }}>
-                                  {fmt(record.gross_pay)}
+                                  {fmt(record.total_gross_pay)}
                                 </div>
                                 <div style={{ ...mono, fontSize: 12, color: record.commission > 0 ? '#22c07a' : '#505a6b' }}>
                                   {record.commission > 0 ? fmt(record.commission) : '--'}

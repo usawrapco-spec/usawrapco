@@ -531,8 +531,17 @@ export interface SalesOrder {
   contact_id: string | null
   invoice_contact_id: string | null
   status: SalesOrderStatus
+  vehicle_year?: string | null
+  vehicle_make?: string | null
+  vehicle_model?: string | null
+  vehicle_vin?: string | null
+  vehicle_color?: string | null
   sales_rep_id: string | null
+  sales_rep_ids?: string[] | null
+  installer_ids?: string[] | null
+  designer_ids?: string[] | null
   production_manager_id: string | null
+  production_manager_ids?: string[] | null
   project_manager_id: string | null
   designer_id?: string | null
   line_items: any[]

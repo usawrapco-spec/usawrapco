@@ -1201,6 +1201,8 @@ function LinkedEstimatePanel({ project }: { project: any }) {
 }
 
 function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVehicle, setSelectedVehicle, wrapDetail, setWrapDetail, selectedSides, setSelectedSides, selectedPPF, setSelectedPPF, calcSqft, fin, canFinance, teammates, profile, project, isMobileInstall, toggleMobileInstall, installAddress, setInstallAddress, saveInstallAddress, checkingWeather, installWeather }: any) {
+  const [showSalesNotes, setShowSalesNotes] = useState(!!f.salesNotes)
+  const [showInternalNotes, setShowInternalNotes] = useState(!!f.internalNotes)
   const isVehicle = jobType === 'Commercial' && subType === 'Vehicle'
   const isBox = jobType === 'Commercial' && subType === 'Box Truck'
   const isTrailer = jobType === 'Commercial' && subType === 'Trailer'
@@ -1507,8 +1509,20 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
         <Grid cols={2}>
           <Field label="Parts to Wrap"><textarea style={{...inp, minHeight:70}} value={f.coverage} onChange={e=>ff('coverage',e.target.value)} placeholder="Full vehicle, all panels..." /></Field>
           <Field label="Exclusions"><textarea style={{...inp, minHeight:70}} value={f.exclusions} onChange={e=>ff('exclusions',e.target.value)} placeholder="Mirrors, handles, roof..." /></Field>
-          <Field label="Sales Notes"><textarea style={{...inp, minHeight:70}} value={f.salesNotes} onChange={e=>ff('salesNotes',e.target.value)} placeholder="Customer requests, follow-ups..." /></Field>
-          <Field label="Internal Notes"><textarea style={{...inp, minHeight:70}} value={f.internalNotes} onChange={e=>ff('internalNotes',e.target.value)} placeholder="Installer notes, shop info..." /></Field>
+          <Field label="Sales Notes">
+            {!showSalesNotes ? (
+              <button onClick={() => setShowSalesNotes(true)} style={{ background:'transparent', border:'none', color:'var(--accent)', fontSize:12, fontWeight:600, cursor:'pointer', padding:'4px 0' }}>+ Add Sales Notes</button>
+            ) : (
+              <textarea style={{...inp, minHeight:70}} value={f.salesNotes} onChange={e=>ff('salesNotes',e.target.value)} placeholder="Customer requests, follow-ups..." />
+            )}
+          </Field>
+          <Field label="Internal Notes">
+            {!showInternalNotes ? (
+              <button onClick={() => setShowInternalNotes(true)} style={{ background:'transparent', border:'none', color:'var(--accent)', fontSize:12, fontWeight:600, cursor:'pointer', padding:'4px 0' }}>+ Add Internal Notes</button>
+            ) : (
+              <textarea style={{...inp, minHeight:70}} value={f.internalNotes} onChange={e=>ff('internalNotes',e.target.value)} placeholder="Installer notes, shop info..." />
+            )}
+          </Field>
         </Grid>
         <div style={{ display:'flex', gap:20, marginTop:12 }}>
           <Check label="Deposit Collected" checked={f.deposit} onChange={v => ff('deposit',v)} />

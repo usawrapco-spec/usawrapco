@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Save, CheckCircle2, XCircle, Plus, Trash2, Package,
@@ -78,6 +78,119 @@ const PAYMENT_TERMS_OPTIONS = [
 
 type DetailTab = 'items' | 'payment_schedule' | 'tasks' | 'notes'
 
+// ─── Team Multi-Select Component ─────────────────────────────────────────────
+
+function TeamMultiSelect({
+  label,
+  members,
+  selectedIds,
+  onChange,
+  canWrite,
+  accentColor = '#4f7fff',
+}: {
+  label: string
+  members: Pick<Profile, 'id' | 'name' | 'role'>[]
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+  canWrite: boolean
+  accentColor?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = members.filter(m => selectedIds.includes(m.id))
+  const available = members.filter(m => !selectedIds.includes(m.id))
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const toggle = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label className="field-label">{label}</label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4, minHeight: 22 }}>
+        {selected.map(m => (
+          <span
+            key={m.id}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              fontSize: 11, fontWeight: 600, padding: '2px 7px',
+              borderRadius: 4, background: `${accentColor}20`, color: accentColor,
+              border: `1px solid ${accentColor}30`,
+            }}
+          >
+            {m.name}
+            {canWrite && (
+              <button
+                onClick={() => toggle(m.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: accentColor, padding: 0, lineHeight: 1, fontSize: 13, marginLeft: 1 }}
+              >×</button>
+            )}
+          </span>
+        ))}
+        {selected.length === 0 && (
+          <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>None</span>
+        )}
+      </div>
+      {canWrite && (
+        <div ref={ref} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setOpen(!open)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 11, color: 'var(--text3)', cursor: 'pointer',
+              background: 'none', border: '1px dashed rgba(255,255,255,0.12)',
+              borderRadius: 5, padding: '2px 8px',
+            }}
+          >
+            <Plus size={10} /> Add
+          </button>
+          {open && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, marginTop: 4,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              zIndex: 300, minWidth: 160,
+            }}>
+              {available.length === 0 ? (
+                <p style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text3)' }}>All assigned</p>
+              ) : available.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => { toggle(m.id); setOpen(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '7px 12px', background: 'none',
+                    border: 'none', cursor: 'pointer', color: 'var(--text1)',
+                    fontSize: 12, textAlign: 'left',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <span style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: `${accentColor}20`, color: accentColor,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                  }}>{m.name?.[0]?.toUpperCase()}</span>
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   profile: Profile
   salesOrder: SalesOrder | null
@@ -114,15 +227,24 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [activeTab, setActiveTab] = useState<DetailTab>('items')
   const [showActions, setShowActions] = useState(false)
 
-  const [vehicleYear, setVehicleYear] = useState<string>((so.form_data?.vehicleYear as string) || '')
-  const [vehicleMake, setVehicleMake] = useState<string>((so.form_data?.vehicleMake as string) || '')
-  const [vehicleModel, setVehicleModel] = useState<string>((so.form_data?.vehicleModel as string) || '')
+  // Vehicle fields — read from DB columns, fall back to form_data for older records
+  const [vehicleYear, setVehicleYear] = useState<string>(so.vehicle_year || (so.form_data?.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>(so.vehicle_make || (so.form_data?.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>(so.vehicle_model || (so.form_data?.vehicleModel as string) || '')
+  const [vehicleVin, setVehicleVin] = useState<string>(so.vehicle_vin || '')
+  const [vehicleColor, setVehicleColor] = useState<string>(so.vehicle_color || '')
 
-  // Team assignments
-  const [salesRepId, setSalesRepId] = useState(so.sales_rep_id || '')
-  const [prodManagerId, setProdManagerId] = useState(so.production_manager_id || '')
-  const [projManagerId, setProjManagerId] = useState(so.project_manager_id || '')
-  const [designerId, setDesignerId] = useState(so.designer_id || '')
+  // Team multi-select arrays — fall back to single legacy values
+  const [salesRepIds, setSalesRepIds] = useState<string[]>(
+    so.sales_rep_ids?.length ? so.sales_rep_ids : so.sales_rep_id ? [so.sales_rep_id] : []
+  )
+  const [installerIds, setInstallerIds] = useState<string[]>(so.installer_ids || [])
+  const [designerIds, setDesignerIds] = useState<string[]>(
+    so.designer_ids?.length ? so.designer_ids : so.designer_id ? [so.designer_id] : []
+  )
+  const [productionMgrIds, setProductionMgrIds] = useState<string[]>(
+    so.production_manager_ids?.length ? so.production_manager_ids : so.production_manager_id ? [so.production_manager_id] : []
+  )
 
   // Calculated totals
   const subtotal = useMemo(() => lineItemsList.reduce((s, li) => s + li.total_price, 0), [lineItemsList])
@@ -148,10 +270,19 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         so_date: soDate || null, due_date: dueDate || null,
         install_date: installDate || null,
         payment_terms: paymentTerms, down_payment_pct: downPaymentPct,
-        sales_rep_id: salesRepId || null,
-        production_manager_id: prodManagerId || null,
-        project_manager_id: projManagerId || null,
-        designer_id: designerId || null,
+        vehicle_year: vehicleYear || null,
+        vehicle_make: vehicleMake || null,
+        vehicle_model: vehicleModel || null,
+        vehicle_vin: vehicleVin || null,
+        vehicle_color: vehicleColor || null,
+        sales_rep_id: salesRepIds[0] || null,
+        sales_rep_ids: salesRepIds,
+        installer_ids: installerIds,
+        designer_ids: designerIds,
+        designer_id: designerIds[0] || null,
+        production_manager_id: productionMgrIds[0] || null,
+        production_manager_ids: productionMgrIds,
+        project_manager_id: null,
         form_data: { ...so.form_data, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
       }).eq('id', orderId)
       if (error) throw error
@@ -186,7 +317,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
           status: 'active',
           pipe_stage: 'sales_in',
           customer_id: so.customer_id,
-          agent_id: salesRepId || so.sales_rep_id || profile.id,
+          agent_id: salesRepIds[0] || so.sales_rep_id || profile.id,
           revenue: total,
           due_date: dueDate || null,
           install_date: installDate || null,
@@ -203,7 +334,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
           status: 'active' as const,
           pipe_stage: 'sales_in' as const,
           customer_id: so.customer_id,
-          agent_id: salesRepId || so.sales_rep_id || profile.id,
+          agent_id: salesRepIds[0] || so.sales_rep_id || profile.id,
           revenue: li.total_price,
           due_date: dueDate || null,
           install_date: installDate || null,
@@ -593,6 +724,26 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                   placeholder="Transit 350"
                 />
               </div>
+              <div>
+                <label className="field-label">Color</label>
+                <input
+                  value={vehicleColor}
+                  onChange={e => setVehicleColor(e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="White"
+                />
+              </div>
+              <div>
+                <label className="field-label">VIN</label>
+                <input
+                  value={vehicleVin}
+                  onChange={e => setVehicleVin(e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="1FTFW1E8..."
+                />
+              </div>
             </div>
           </div>
 
@@ -858,64 +1009,38 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                 <Users size={13} /> Team
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <label className="field-label">Sales Rep</label>
-                <select
-                  value={salesRepId}
-                  onChange={e => setSalesRepId(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                >
-                  <option value="">-- Select --</option>
-                  {team.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="field-label">Production Manager</label>
-                <select
-                  value={prodManagerId}
-                  onChange={e => setProdManagerId(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                >
-                  <option value="">-- Select --</option>
-                  {team.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="field-label">Project Manager</label>
-                <select
-                  value={projManagerId}
-                  onChange={e => setProjManagerId(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                >
-                  <option value="">-- Select --</option>
-                  {team.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="field-label">Designer</label>
-                <select
-                  value={designerId}
-                  onChange={e => setDesignerId(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                >
-                  <option value="">-- Select --</option>
-                  {team.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <TeamMultiSelect
+              label="Sales Rep(s)"
+              members={team.filter(m => ['owner', 'admin', 'sales_agent'].includes(m.role))}
+              selectedIds={salesRepIds}
+              onChange={setSalesRepIds}
+              canWrite={canWrite}
+              accentColor="#4f7fff"
+            />
+            <TeamMultiSelect
+              label="Installer(s)"
+              members={team.filter(m => m.role === 'installer')}
+              selectedIds={installerIds}
+              onChange={setInstallerIds}
+              canWrite={canWrite}
+              accentColor="#22c07a"
+            />
+            <TeamMultiSelect
+              label="Designer(s)"
+              members={team.filter(m => ['designer', 'admin', 'owner'].includes(m.role))}
+              selectedIds={designerIds}
+              onChange={setDesignerIds}
+              canWrite={canWrite}
+              accentColor="#8b5cf6"
+            />
+            <TeamMultiSelect
+              label="Prod Mgr(s)"
+              members={team.filter(m => ['production', 'admin', 'owner'].includes(m.role))}
+              selectedIds={productionMgrIds}
+              onChange={setProductionMgrIds}
+              canWrite={canWrite}
+              accentColor="#f59e0b"
+            />
           </div>
 
           {/* Actions */}
