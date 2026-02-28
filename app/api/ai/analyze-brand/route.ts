@@ -172,12 +172,13 @@ Return ONLY valid JSON.`,
     if (projectId && Object.keys(analysis).length > 0) {
       try {
         const admin = getSupabaseAdmin()
-        await admin.from('projects').update({
-          form_data: admin.rpc('jsonb_merge', {
-            base: 'form_data',
-            patch: { brand_analysis: analysis },
-          }),
-        }).eq('id', projectId)
+        const { data: existing } = await admin
+          .from('projects')
+          .select('form_data')
+          .eq('id', projectId)
+          .single()
+        const merged = { ...(existing?.form_data as Record<string, unknown> || {}), brand_analysis: analysis }
+        await admin.from('projects').update({ form_data: merged }).eq('id', projectId)
       } catch {}
     }
 
