@@ -125,7 +125,7 @@ export default async function PortalTokenPage({
     if (est?.id) {
       const { data: li } = await supabase
         .from('line_items')
-        .select('id, item_name, description, quantity, unit_price, total_price, sort_order')
+        .select('id, name, description, quantity, unit_price, total_price, sort_order')
         .eq('parent_id', est.id)
         .order('sort_order', { ascending: true })
       lineItems = li && li.length > 0 ? li : Array.isArray(est.line_items) ? est.line_items : []

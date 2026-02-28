@@ -65,7 +65,7 @@ interface EstimateRow {
 
 interface LineItem {
   id: string
-  item_name: string
+  name: string
   description: string | null
   quantity: number
   unit_price: number
@@ -458,7 +458,7 @@ export default function ProjectPortalClient({
                         padding: '12px 0', borderBottom: i < lineItems.length - 1 ? `1px solid ${C.border}` : 'none',
                       }}>
                         <div style={{ flex: 1, marginRight: 16 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{item.item_name}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{item.name}</div>
                           {item.description && (
                             <div style={{ fontSize: 12, color: C.text2, marginTop: 3, lineHeight: 1.4 }}>{item.description}</div>
                           )}
