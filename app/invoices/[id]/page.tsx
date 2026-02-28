@@ -17,6 +17,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   let invoice: Invoice | null = null
   let lineItems: LineItem[] = []
   let payments: Payment[] = []
+  let team: Pick<Profile, 'id' | 'name' | 'role'>[] = []
   let isDemo = false
   let financingStatus: string | null = null
   let payLinkToken: string | null = null
@@ -79,6 +80,15 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       .order('payment_date', { ascending: false })
     payments = (paymentData as Payment[]) || []
 
+    // Fetch team members
+    const { data: teamData } = await admin
+      .from('profiles')
+      .select('id, name, role')
+      .eq('org_id', profile.org_id)
+      .eq('active', true)
+      .order('name')
+    team = (teamData as Pick<Profile, 'id' | 'name' | 'role'>[]) || []
+
     // Financing status
     payLinkToken = (invoice as any)?.pay_link_token || null
     const finAppId = (invoice as any)?.financing_application_id
@@ -101,6 +111,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       invoice={invoice}
       lineItems={lineItems}
       payments={payments}
+      team={team}
       isDemo={isDemo}
       invoiceId={params.id}
       financingStatus={financingStatus}

@@ -588,7 +588,16 @@ export interface Invoice {
   contact_id: string | null
   invoice_contact_id: string | null
   status: InvoiceStatus
+  vehicle_year?: string | null
+  vehicle_make?: string | null
+  vehicle_model?: string | null
+  vehicle_vin?: string | null
+  vehicle_color?: string | null
   sales_rep_id: string | null
+  sales_rep_ids?: string[] | null
+  installer_ids?: string[] | null
+  designer_ids?: string[] | null
+  production_manager_ids?: string[] | null
   line_items: any[]
   subtotal: number
   discount: number

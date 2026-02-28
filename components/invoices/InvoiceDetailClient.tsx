@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
-  ExternalLink, Ban, Link2, Copy, Check,
+  ExternalLink, Ban, Link2, Copy, Check, Plus, Users,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import SendFinancingButton from '@/components/invoices/SendFinancingButton'
@@ -58,6 +58,119 @@ const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: s
   void:    { label: 'Void',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
 }
 
+// ─── Team Multi-Select Component ─────────────────────────────────────────────
+
+function TeamMultiSelect({
+  label,
+  members,
+  selectedIds,
+  onChange,
+  canWrite,
+  accentColor = '#4f7fff',
+}: {
+  label: string
+  members: Pick<Profile, 'id' | 'name' | 'role'>[]
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+  canWrite: boolean
+  accentColor?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = members.filter(m => selectedIds.includes(m.id))
+  const available = members.filter(m => !selectedIds.includes(m.id))
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const toggle = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label className="field-label">{label}</label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4, minHeight: 22 }}>
+        {selected.map(m => (
+          <span
+            key={m.id}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              fontSize: 11, fontWeight: 600, padding: '2px 7px',
+              borderRadius: 4, background: `${accentColor}20`, color: accentColor,
+              border: `1px solid ${accentColor}30`,
+            }}
+          >
+            {m.name}
+            {canWrite && (
+              <button
+                onClick={() => toggle(m.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: accentColor, padding: 0, lineHeight: 1, fontSize: 13, marginLeft: 1 }}
+              >×</button>
+            )}
+          </span>
+        ))}
+        {selected.length === 0 && (
+          <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>None</span>
+        )}
+      </div>
+      {canWrite && (
+        <div ref={ref} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setOpen(!open)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 11, color: 'var(--text3)', cursor: 'pointer',
+              background: 'none', border: '1px dashed rgba(255,255,255,0.12)',
+              borderRadius: 5, padding: '2px 8px',
+            }}
+          >
+            <Plus size={10} /> Add
+          </button>
+          {open && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, marginTop: 4,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              zIndex: 300, minWidth: 160,
+            }}>
+              {available.length === 0 ? (
+                <p style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text3)' }}>All assigned</p>
+              ) : available.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => { toggle(m.id); setOpen(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '7px 12px', background: 'none',
+                    border: 'none', cursor: 'pointer', color: 'var(--text1)',
+                    fontSize: 12, textAlign: 'left',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <span style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: `${accentColor}20`, color: accentColor,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                  }}>{m.name?.[0]?.toUpperCase()}</span>
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   profile: Profile
   invoice: Invoice | null
@@ -65,11 +178,12 @@ interface Props {
   payments?: Payment[]
   isDemo: boolean
   invoiceId: string
+  team?: Pick<Profile, 'id' | 'name' | 'role'>[]
   financingStatus?: string | null
   payLinkToken?: string | null
 }
 
-export default function InvoiceDetailClient({ profile, invoice, lineItems = [], payments = [], isDemo, invoiceId, financingStatus = null, payLinkToken = null }: Props) {
+export default function InvoiceDetailClient({ profile, invoice, lineItems = [], payments = [], isDemo, invoiceId, team = [], financingStatus = null, payLinkToken = null }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const inv = invoice || DEMO_INVOICE
@@ -82,9 +196,20 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [showNotes, setShowNotes] = useState(!!inv.notes)
   const [amountPaid, setAmountPaid] = useState(inv.amount_paid)
   const [localPayments, setLocalPayments] = useState<Payment[]>(payments)
-  const [vehicleYear, setVehicleYear] = useState<string>((inv.form_data?.vehicleYear as string) || '')
-  const [vehicleMake, setVehicleMake] = useState<string>((inv.form_data?.vehicleMake as string) || '')
-  const [vehicleModel, setVehicleModel] = useState<string>((inv.form_data?.vehicleModel as string) || '')
+  // Vehicle fields — read from DB columns, fall back to form_data for older records
+  const [vehicleYear, setVehicleYear] = useState<string>(inv.vehicle_year || (inv.form_data?.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>(inv.vehicle_make || (inv.form_data?.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>(inv.vehicle_model || (inv.form_data?.vehicleModel as string) || '')
+  const [vehicleVin, setVehicleVin] = useState<string>(inv.vehicle_vin || '')
+  const [vehicleColor, setVehicleColor] = useState<string>(inv.vehicle_color || '')
+
+  // Team multi-select arrays
+  const [salesRepIds, setSalesRepIds] = useState<string[]>(
+    inv.sales_rep_ids?.length ? inv.sales_rep_ids : inv.sales_rep_id ? [inv.sales_rep_id] : []
+  )
+  const [installerIds, setInstallerIds] = useState<string[]>(inv.installer_ids || [])
+  const [designerIds, setDesignerIds] = useState<string[]>(inv.designer_ids || [])
+  const [productionMgrIds, setProductionMgrIds] = useState<string[]>(inv.production_manager_ids || [])
   const [paymentInput, setPaymentInput] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<Payment['method']>('card')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
@@ -186,10 +311,28 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     }
   }
 
-  async function handleSaveVehicle(year: string, make: string, model: string) {
+  async function handleSaveVehicle(year: string, make: string, model: string, vin?: string, color?: string) {
     if (!canWrite || isDemo) return
     await supabase.from('invoices').update({
+      vehicle_year: year || null,
+      vehicle_make: make || null,
+      vehicle_model: model || null,
+      vehicle_vin: vin !== undefined ? (vin || null) : (vehicleVin || null),
+      vehicle_color: color !== undefined ? (color || null) : (vehicleColor || null),
       form_data: { ...inv.form_data, vehicleYear: year || undefined, vehicleMake: make || undefined, vehicleModel: model || undefined },
+    }).eq('id', invoiceId)
+  }
+
+  async function handleSaveTeam(
+    repIds: string[], instIds: string[], desIds: string[], prodIds: string[]
+  ) {
+    if (!canWrite || isDemo) return
+    await supabase.from('invoices').update({
+      sales_rep_id: repIds[0] || null,
+      sales_rep_ids: repIds,
+      installer_ids: instIds,
+      designer_ids: desIds,
+      production_manager_ids: prodIds,
     }).eq('id', invoiceId)
   }
 
@@ -409,6 +552,28 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                   className="field"
                   disabled={!canWrite}
                   placeholder="Transit 350"
+                />
+              </div>
+              <div>
+                <label className="field-label">Color</label>
+                <input
+                  value={vehicleColor}
+                  onChange={e => setVehicleColor(e.target.value)}
+                  onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, vehicleModel, vehicleVin, e.target.value)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="White"
+                />
+              </div>
+              <div>
+                <label className="field-label">VIN</label>
+                <input
+                  value={vehicleVin}
+                  onChange={e => setVehicleVin(e.target.value)}
+                  onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, vehicleModel, e.target.value, vehicleColor)}
+                  className="field"
+                  disabled={!canWrite}
+                  placeholder="1FTFW1E8..."
                 />
               </div>
               <div>
@@ -754,6 +919,47 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               </div>
             </div>
           )}
+
+          {/* Team */}
+          <div className="card">
+            <div className="section-label">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Users size={13} /> Team
+              </div>
+            </div>
+            <TeamMultiSelect
+              label="Sales Rep(s)"
+              members={team.filter(m => ['owner', 'admin', 'sales_agent'].includes(m.role))}
+              selectedIds={salesRepIds}
+              onChange={ids => { setSalesRepIds(ids); handleSaveTeam(ids, installerIds, designerIds, productionMgrIds) }}
+              canWrite={canWrite}
+              accentColor="#4f7fff"
+            />
+            <TeamMultiSelect
+              label="Installer(s)"
+              members={team.filter(m => m.role === 'installer')}
+              selectedIds={installerIds}
+              onChange={ids => { setInstallerIds(ids); handleSaveTeam(salesRepIds, ids, designerIds, productionMgrIds) }}
+              canWrite={canWrite}
+              accentColor="#22c07a"
+            />
+            <TeamMultiSelect
+              label="Designer(s)"
+              members={team.filter(m => ['designer', 'admin', 'owner'].includes(m.role))}
+              selectedIds={designerIds}
+              onChange={ids => { setDesignerIds(ids); handleSaveTeam(salesRepIds, installerIds, ids, productionMgrIds) }}
+              canWrite={canWrite}
+              accentColor="#8b5cf6"
+            />
+            <TeamMultiSelect
+              label="Prod Mgr(s)"
+              members={team.filter(m => ['production', 'admin', 'owner'].includes(m.role))}
+              selectedIds={productionMgrIds}
+              onChange={ids => { setProductionMgrIds(ids); handleSaveTeam(salesRepIds, installerIds, designerIds, ids) }}
+              canWrite={canWrite}
+              accentColor="#f59e0b"
+            />
+          </div>
 
           {/* Related Documents */}
           <RelatedDocsPanel

@@ -777,6 +777,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
   // --- Existing state ---
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showNotes, setShowNotes] = useState(!!customer.notes)
   const [form, setForm] = useState({
     name: customer.name || '',
     company_name: customer.company_name || '',
@@ -1209,8 +1210,19 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
         {/* Notes */}
         {editing ? (
           <div>
-            <label className="field-label">Notes</label>
-            <textarea className="field resize-none" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes about this customer..." />
+            {!showNotes ? (
+              <button
+                onClick={() => setShowNotes(true)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}
+              >
+                + Add Notes
+              </button>
+            ) : (
+              <>
+                <label className="field-label">Notes</label>
+                <textarea className="field resize-none" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes about this customer..." />
+              </>
+            )}
           </div>
         ) : saved.notes ? (
           <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: 'var(--text2)', borderLeft: '3px solid var(--accent)' }}>
