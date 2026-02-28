@@ -104,7 +104,7 @@ export default function ConvertToSOModal({ estimate, onClose, onSuccess, employe
             org_id: estimate.org_id,
             title: item.name || 'Job from SO',
             customer_id: estimate.customer_id,
-            sales_rep_id: estimate.sales_rep_id,
+            agent_id: estimate.sales_rep_id,
             production_manager_id: productionManagerId || estimate.production_manager_id,
             status: 'open',
             pipe_stage: 'sales_in',
