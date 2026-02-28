@@ -37,6 +37,7 @@ const CATEGORIES: SettingsCategory[] = [
     name: 'Sales & Revenue',
     cards: [
       { title: 'Commission Rules', description: 'Inbound, outbound, and pre-sold commission tiers', href: '/settings/commissions', icon: <DollarSign size={18} />, iconColor: 'var(--green)' },
+      { title: 'Installer Pay Rates', description: 'Flat rate grid by vehicle type — admin editable', href: '/settings/pay-rates', icon: <DollarSign size={18} />, iconColor: 'var(--cyan)' },
       { title: 'Sales Playbook', description: 'Scripts, objection handling, and closing strategies', href: '/settings/playbook', icon: <BookOpen size={18} />, iconColor: 'var(--accent)' },
       { title: 'Coupons & Discounts', description: 'Manage promotional codes and discount rules', href: '/settings/coupons', icon: <Tag size={18} />, iconColor: 'var(--amber)' },
       { title: 'Booking', description: 'Online booking widget and scheduling rules', href: '/settings/booking', icon: <CalendarCheck size={18} />, iconColor: 'var(--cyan)' },
