@@ -49,10 +49,10 @@ export async function POST(req: Request) {
   try {
     const { data: settings } = await admin
       .from('shop_settings')
-      .select('settings_json')
+      .select('settings')
       .eq('org_id', orgId)
       .single()
-    const s = settings?.settings_json as any
+    const s = settings?.settings as any
     if (s?.auto_tasks_enabled === false) autoTasksEnabled = false
   } catch {}
 
