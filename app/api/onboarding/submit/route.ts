@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     // Update linked project if exists
     if (intake.project_id) {
       await admin.from('projects').update({
-        stage: 'sales_in',
+        pipe_stage: 'sales_in',
         updated_at: new Date().toISOString(),
       }).eq('id', intake.project_id)
     }

@@ -57,10 +57,10 @@ export async function GET(
     if (intake.project_id) {
       const { data: project } = await admin
         .from('projects')
-        .select('stage, status, title')
+        .select('pipe_stage, status, title')
         .eq('id', intake.project_id)
         .single()
-      if (project) projectStatus = project.stage || project.status
+      if (project) projectStatus = project.pipe_stage || project.status
     }
 
     return NextResponse.json({
