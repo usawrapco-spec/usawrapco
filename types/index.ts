@@ -235,6 +235,18 @@ export interface Project {
   last_weather_check?: string | null
   // Portal
   portal_token?: string | null
+  // Vehicle structured fields
+  vehicle_year?: string | null
+  vehicle_make?: string | null
+  vehicle_model?: string | null
+  vehicle_vin?: string | null
+  vehicle_color?: string | null
+  // Team array columns
+  sales_rep_ids?: string[] | null
+  installer_ids?: string[] | null
+  designer_ids?: string[] | null
+  production_manager_id?: string | null
+  production_manager_ids?: string[] | null
   // Computed / joined fields (not DB columns)
   render_count?: number
   deposit_status?: string | null
