@@ -140,6 +140,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     client: fd.client || initial.title || '', bizName: fd.bizName || '',
     phone: fd.phone || '', email: fd.email || '',
     vehicle: fd.vehicle || initial.vehicle_desc || '', vehicleColor: fd.vehicleColor || '',
+    vehicleYear: fd.vehicleYear || '', vehicleMake: fd.vehicleMake || '', vehicleModel: fd.vehicleModel || '',
     leadType: fd.leadType || 'inbound', agent: fd.agent || profile.name || '',
     installer: fd.installer || '', installDate: fd.installDate || initial.install_date || '',
     sqft: fd.sqft || '', matRate: fd.matRate || '2.10', margin: fd.margin || '75',
@@ -247,7 +248,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     const formData = { ...f, jobType, subType, wrapDetail, selectedVehicle, selectedPPF,
                        selectedSides: Array.from(selectedSides) }
     const { error } = await supabase.from('projects').update({
-      title: f.client || project.title, vehicle_desc: f.vehicle,
+      title: f.client || project.title, vehicle_desc: [f.vehicleYear, f.vehicleMake, f.vehicleModel].filter(Boolean).join(' ') || f.vehicle,
       install_date: f.installDate || null, revenue: fin.sale || null,
       profit: fin.profit || null, gpm: fin.gpm || null, commission: fin.commission || null,
       form_data: formData, fin_data: fin, updated_at: new Date().toISOString(), ...updates,
@@ -562,7 +563,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const checklistByStage: Record<string, {label: string; done: boolean}[]> = {
     sales_in: [
       { label: 'Client name',       done: !!f.client },
-      { label: 'Vehicle info',      done: !!f.vehicle },
+      { label: 'Vehicle info',      done: !!(f.vehicleYear && f.vehicleMake && f.vehicleModel) || !!f.vehicle },
       { label: 'Installer assigned',done: !!f.installer },
       { label: 'Deposit collected', done: !!f.deposit },
       { label: 'Contract signed',   done: !!f.contractSigned },
@@ -647,7 +648,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
             <div style={{ fontSize:11, color:'var(--text3)', marginTop:3, display:'flex', alignItems:'center', gap:6 }}>
               <span style={{ fontFamily:'JetBrains Mono, monospace' }}>#{project.id.slice(-8)}</span>
               <span style={{ width:3, height:3, borderRadius:'50%', background:'var(--text3)', display:'inline-block' }} />
-              <span>{f.vehicle || 'No vehicle'}</span>
+              <span>{[f.vehicleYear, f.vehicleMake, f.vehicleModel].filter(Boolean).join(' ') || f.vehicle || 'No vehicle'}</span>
             </div>
           </div>
         </div>
@@ -1218,7 +1219,9 @@ function SalesTab({ f, ff, jobType, setJobType, subType, setSubType, selectedVeh
           <Field label="Business Name"><input style={inp} value={f.bizName} onChange={e=>ff('bizName',e.target.value)} placeholder="Smith Plumbing LLC" /></Field>
           <Field label="Phone"><input style={inp} value={f.phone} onChange={e=>ff('phone',e.target.value)} placeholder="(555) 000-0000" /></Field>
           <Field label="Email"><input style={inp} value={f.email} onChange={e=>ff('email',e.target.value)} placeholder="client@email.com" /></Field>
-          <Field label="Vehicle"><input style={inp} value={f.vehicle} onChange={e=>ff('vehicle',e.target.value)} placeholder="2024 Ford Transit 350" /></Field>
+          <Field label="Year"><input style={inp} value={f.vehicleYear} onChange={e=>ff('vehicleYear',e.target.value)} placeholder="2024" maxLength={4} /></Field>
+          <Field label="Make"><input style={inp} value={f.vehicleMake} onChange={e=>ff('vehicleMake',e.target.value)} placeholder="Ford" /></Field>
+          <Field label="Model"><input style={inp} value={f.vehicleModel} onChange={e=>ff('vehicleModel',e.target.value)} placeholder="Transit 350" /></Field>
           <Field label="Color"><input style={inp} value={f.vehicleColor} onChange={e=>ff('vehicleColor',e.target.value)} placeholder="White" /></Field>
         </Grid>
         <Grid cols={4} style={{marginTop:12}}>
