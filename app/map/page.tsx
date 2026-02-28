@@ -22,7 +22,7 @@ export default async function MapPage() {
   // Fetch customers with projects for lifetime value
   const [customersRes, connectionsRes, projectsRes, referralsRes] = await Promise.all([
     admin.from('customers')
-      .select('id, name, email, phone, company, status, lifetime_spend, referral_source, created_at, company_name')
+      .select('id, name, email, phone, business_name, status, lifetime_spend, lead_source, created_at, company_name')
       .eq('org_id', orgId).limit(500),
     admin.from('customer_connections')
       .select('*')

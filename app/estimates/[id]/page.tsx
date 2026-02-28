@@ -66,7 +66,7 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
   try {
     const { data } = await admin
       .from('customers')
-      .select('id, name, email, phone, company, company_name')
+      .select('id, name, email, phone, business_name, company_name')
       .eq('org_id', orgId)
       .order('name')
       .limit(500)
