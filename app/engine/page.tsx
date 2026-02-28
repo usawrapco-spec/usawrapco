@@ -31,7 +31,7 @@ export default async function EnginePage() {
       .limit(500),
     admin
       .from('prospects')
-      .select('id, status, score, business_name, company, name, email, phone, estimated_revenue, created_at, updated_at')
+      .select('id, status, score, business_name, company, name, email, phone, estimated_fleet_size, created_at, updated_at')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(500),

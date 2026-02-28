@@ -215,9 +215,9 @@ export async function POST(req: Request) {
   // 4. Load context: history, playbook, pricing, escalation rules
   const [historyRes, playbookRes, pricingRes, rulesRes] = await Promise.all([
     admin.from('messages').select('*').eq('conversation_id', conversation.id).order('created_at', { ascending: true }).limit(50),
-    admin.from('sales_playbook').select('*').eq('org_id', ORG_ID).eq('is_active', true).order('priority', { ascending: true }),
-    admin.from('pricing_rules').select('*').eq('org_id', ORG_ID).eq('is_active', true),
-    admin.from('escalation_rules').select('*').eq('org_id', ORG_ID).eq('is_active', true).order('priority', { ascending: true }),
+    admin.from('sales_playbook').select('*').eq('org_id', ORG_ID).eq('active', true).order('sort_order', { ascending: true }),
+    admin.from('pricing_rules').select('*').eq('org_id', ORG_ID).eq('active', true),
+    admin.from('escalation_rules').select('*').eq('org_id', ORG_ID).eq('active', true).order('priority', { ascending: true }),
   ])
 
   const history = historyRes.data || []

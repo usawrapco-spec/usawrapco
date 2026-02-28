@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   const { data: pricingRules } = await admin.from('pricing_rules')
     .select('*')
     .eq('org_id', convo.org_id)
-    .eq('is_active', true)
+    .eq('active', true)
 
   // Calculate quote from vehicle_info + wrap_preferences (stored in tags jsonb)
   const convoTags = (convo.tags as any) || {}

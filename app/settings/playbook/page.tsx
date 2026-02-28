@@ -21,8 +21,8 @@ export default async function PlaybookPage() {
   let escalationRules: any[] = []
   try {
     const [pbRes, prRes, erRes] = await Promise.all([
-      admin.from('sales_playbook').select('*').eq('org_id', profile.org_id).order('priority', { ascending: true }),
-      admin.from('pricing_rules').select('*').eq('org_id', profile.org_id).order('vehicle_category'),
+      admin.from('sales_playbook').select('*').eq('org_id', profile.org_id).order('sort_order', { ascending: true }),
+      admin.from('pricing_rules').select('*').eq('org_id', profile.org_id).order('name'),
       admin.from('escalation_rules').select('*').eq('org_id', profile.org_id).order('priority', { ascending: true }),
     ])
     entries = pbRes.data || []

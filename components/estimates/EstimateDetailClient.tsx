@@ -415,6 +415,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [prodMgrId, setProdMgrId] = useState(est.production_manager_id || '')
   const [projMgrId, setProjMgrId] = useState(est.project_manager_id || '')
   const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
+  const [vehicleYear, setVehicleYear] = useState<string>((est.form_data?.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>((est.form_data?.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>((est.form_data?.vehicleModel as string) || '')
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailModalType, setEmailModalType] = useState<'estimate' | 'invoice' | 'proof' | 'general'>('estimate')
@@ -545,7 +548,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         sales_rep_id: salesRepId || null,
         production_manager_id: prodMgrId || null,
         project_manager_id: projMgrId || null,
-        form_data: { ...est.form_data, leadType, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined },
+        form_data: { ...est.form_data, leadType, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
       }
       if (!savedId) {
         // First save — create estimate in DB
@@ -1284,6 +1287,11 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>
                   {est.customer.email}
                 </div>
+                {(vehicleYear || vehicleMake || vehicleModel) && (
+                  <div style={{ fontSize: 11, color: 'var(--cyan)', marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
+                    {[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(' ')}
+                  </div>
+                )}
               </div>
             ) : (
               <button
@@ -1524,6 +1532,37 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 }
                 {proposalMode ? 'Enabled' : 'Disabled'}
               </button>
+            </div>
+            <div>
+              <label style={fieldLabelStyle}>Year</label>
+              <input
+                value={vehicleYear}
+                onChange={e => setVehicleYear(e.target.value)}
+                disabled={!canWrite}
+                placeholder="2024"
+                maxLength={4}
+                style={fieldInputStyle}
+              />
+            </div>
+            <div>
+              <label style={fieldLabelStyle}>Make</label>
+              <input
+                value={vehicleMake}
+                onChange={e => setVehicleMake(e.target.value)}
+                disabled={!canWrite}
+                placeholder="Ford"
+                style={fieldInputStyle}
+              />
+            </div>
+            <div>
+              <label style={fieldLabelStyle}>Model</label>
+              <input
+                value={vehicleModel}
+                onChange={e => setVehicleModel(e.target.value)}
+                disabled={!canWrite}
+                placeholder="Transit 350"
+                style={fieldInputStyle}
+              />
             </div>
           </div>
         </div>
