@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Upload, Send, Check, X, ChevronDown, ChevronUp, ChevronRight, Mail,
   ThumbsUp, ThumbsDown, MoreHorizontal, Download, History,
-  Copy, Trash2, FileImage, Clock, Loader2, Plus, MessageSquare,
-  Paperclip,
+  Copy, Trash2, FileImage, Loader2, Plus, MessageSquare,
 } from 'lucide-react'
 import type { Profile, Project } from '@/types'
 import GalleryPicker, { type GalleryFile } from '@/components/shared/GalleryPicker'

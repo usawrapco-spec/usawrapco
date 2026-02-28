@@ -19,13 +19,13 @@ CREATE INDEX IF NOT EXISTS idx_job_connections_org ON job_connections(org_id);
 ALTER TABLE job_connections ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "job_connections_select" ON job_connections
-  FOR SELECT USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR SELECT USING (org_id = get_my_org_id());
 
 CREATE POLICY "job_connections_insert" ON job_connections
-  FOR INSERT WITH CHECK (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR INSERT WITH CHECK (org_id = get_my_org_id());
 
 CREATE POLICY "job_connections_delete" ON job_connections
-  FOR DELETE USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR DELETE USING (org_id = get_my_org_id());
 
 -- ── 2. job_proofs ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS job_proofs (
@@ -52,16 +52,16 @@ CREATE INDEX IF NOT EXISTS idx_job_proofs_org ON job_proofs(org_id);
 ALTER TABLE job_proofs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "job_proofs_select" ON job_proofs
-  FOR SELECT USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR SELECT USING (org_id = get_my_org_id());
 
 CREATE POLICY "job_proofs_insert" ON job_proofs
-  FOR INSERT WITH CHECK (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR INSERT WITH CHECK (org_id = get_my_org_id());
 
 CREATE POLICY "job_proofs_update" ON job_proofs
-  FOR UPDATE USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR UPDATE USING (org_id = get_my_org_id());
 
 CREATE POLICY "job_proofs_delete" ON job_proofs
-  FOR DELETE USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR DELETE USING (org_id = get_my_org_id());
 
 -- ── 3. job_proof_versions ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS job_proof_versions (
@@ -84,13 +84,13 @@ CREATE INDEX IF NOT EXISTS idx_job_proof_versions_org ON job_proof_versions(org_
 ALTER TABLE job_proof_versions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "job_proof_versions_select" ON job_proof_versions
-  FOR SELECT USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR SELECT USING (org_id = get_my_org_id());
 
 CREATE POLICY "job_proof_versions_insert" ON job_proof_versions
-  FOR INSERT WITH CHECK (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR INSERT WITH CHECK (org_id = get_my_org_id());
 
 CREATE POLICY "job_proof_versions_delete" ON job_proof_versions
-  FOR DELETE USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR DELETE USING (org_id = get_my_org_id());
 
 -- ── 4. job_proof_messages ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS job_proof_messages (
@@ -113,10 +113,10 @@ CREATE INDEX IF NOT EXISTS idx_job_proof_messages_org ON job_proof_messages(org_
 ALTER TABLE job_proof_messages ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "job_proof_messages_select" ON job_proof_messages
-  FOR SELECT USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR SELECT USING (org_id = get_my_org_id());
 
 CREATE POLICY "job_proof_messages_insert" ON job_proof_messages
-  FOR INSERT WITH CHECK (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR INSERT WITH CHECK (org_id = get_my_org_id());
 
 CREATE POLICY "job_proof_messages_delete" ON job_proof_messages
-  FOR DELETE USING (org_id = (SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1));
+  FOR DELETE USING (org_id = get_my_org_id());

@@ -50,7 +50,6 @@ export async function POST(
       org_id: body.org_id || ORG_ID,
       invoice_id: invoiceId,
       amount: body.amount,
-      type: body.type || 'payment',
       method: body.method || 'cash',
       notes: body.notes || null,
       payment_date: body.payment_date || new Date().toISOString().slice(0, 10),
