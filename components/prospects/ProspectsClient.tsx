@@ -866,6 +866,7 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId
     fleet_size: '', estimated_revenue: '',
     notes: '', agent_name: currentAgent,
   })
+  const [showNotes, setShowNotes] = useState(false)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit() {
@@ -1015,25 +1016,33 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId
 
           {/* Notes */}
           <div>
-            <label style={{
-              display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)',
-              marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
-              fontFamily: 'Barlow Condensed, sans-serif',
-            }}>
-              Notes
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              placeholder="Add notes..."
-              rows={3}
-              style={{
-                width: '100%', padding: '8px 12px', borderRadius: 8,
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                color: 'var(--text1)', fontSize: 13, outline: 'none',
-                resize: 'vertical', boxSizing: 'border-box',
-              }}
-            />
+            {!showNotes ? (
+              <button onClick={() => setShowNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                + Add Notes
+              </button>
+            ) : (
+              <>
+                <label style={{
+                  display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)',
+                  marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                }}>
+                  Notes
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Add notes..."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 8,
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                    color: 'var(--text1)', fontSize: 13, outline: 'none',
+                    resize: 'vertical', boxSizing: 'border-box',
+                  }}
+                />
+              </>
+            )}
           </div>
 
           {/* Agent (admin only) */}
@@ -1098,6 +1107,7 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
   const [editing, setEditing] = useState(false)
   const [followUp, setFollowUp] = useState(prospect.follow_up_date || '')
   const [editForm, setEditForm] = useState({ ...prospect })
+  const [showEditNotes, setShowEditNotes] = useState(!!prospect.notes)
   const cfg = STATUS_CONFIG[prospect.status]
 
   async function handleSaveEdit() {
@@ -1363,24 +1373,32 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
               </div>
             </div>
             <div>
-              <label style={{
-                display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)',
-                marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
-                fontFamily: 'Barlow Condensed, sans-serif',
-              }}>
-                Notes
-              </label>
-              <textarea
-                value={editForm.notes}
-                onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 8,
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  color: 'var(--text1)', fontSize: 13, outline: 'none',
-                  resize: 'vertical', boxSizing: 'border-box',
-                }}
-              />
+              {!showEditNotes ? (
+                <button onClick={() => setShowEditNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                  + Add Notes
+                </button>
+              ) : (
+                <>
+                  <label style={{
+                    display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)',
+                    marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
+                    fontFamily: 'Barlow Condensed, sans-serif',
+                  }}>
+                    Notes
+                  </label>
+                  <textarea
+                    value={editForm.notes}
+                    onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                    rows={3}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8,
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      color: 'var(--text1)', fontSize: 13, outline: 'none',
+                      resize: 'vertical', boxSizing: 'border-box',
+                    }}
+                  />
+                </>
+              )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setEditing(false)} style={{

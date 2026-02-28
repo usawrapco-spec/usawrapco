@@ -177,21 +177,27 @@ export default function JobDetailClient({
   const installers = teammates.filter(t => t.role === 'installer')
   const agents = teammates.filter(t => ['sales_agent', 'admin', 'owner'].includes(t.role))
   const designers = teammates.filter(t => ['designer', 'admin', 'owner'].includes(t.role))
+  const managers = teammates.filter(t => ['production', 'admin', 'owner'].includes(t.role))
 
-  const [teamDropdown, setTeamDropdown] = useState<string | null>(null)
-  const teamDropdownRef = useRef<HTMLDivElement>(null)
+  const [salesRepIds, setSalesRepIds] = useState<string[]>(
+    project.agent_id ? [project.agent_id] : []
+  )
+  const [installerIds, setInstallerIds] = useState<string[]>(
+    project.installer_id ? [project.installer_id] : []
+  )
+  const [designerIds, setDesignerIds] = useState<string[]>(
+    project.designer_id ? [project.designer_id] : []
+  )
+  const [productionMgrIds, setProductionMgrIds] = useState<string[]>(
+    project.production_manager_id ? [project.production_manager_id] : []
+  )
+  const [vehicleYear, setVehicleYear] = useState<string>((fd.vehicle_year as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>((fd.vehicle_make as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>((fd.vehicle_model as string) || '')
+  const [vehicleVin, setVehicleVin] = useState<string>((fd.vehicle_vin as string) || '')
+  const [vehicleColor, setVehicleColor] = useState<string>(project.vehicle_color || (fd.vehicleColor as string) || '')
+
   const [relatedDocs, setRelatedDocs] = useState({ estimates: 0, salesOrders: 0, invoices: 0, payments: 0 })
-
-  useEffect(() => {
-    if (!teamDropdown) return
-    const handler = (e: MouseEvent) => {
-      if (teamDropdownRef.current && !teamDropdownRef.current.contains(e.target as Node)) {
-        setTeamDropdown(null)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [teamDropdown])
 
   useEffect(() => {
     const pid = project.id
@@ -279,6 +285,22 @@ export default function JobDetailClient({
       setFieldError(`Failed to update ${field.replace('_', ' ')}`)
     }
     setSavingField(null)
+  }
+
+  const updateArrayField = async (field: string, ids: string[], singleField?: string) => {
+    const updates: Record<string, any> = { [field]: ids }
+    if (singleField) updates[singleField] = ids[0] || null
+    await supabase.from('projects').update(updates).eq('id', project.id)
+  }
+
+  const saveVehicle = async () => {
+    await supabase.from('projects').update({
+      vehicle_year: vehicleYear || null,
+      vehicle_make: vehicleMake || null,
+      vehicle_model: vehicleModel || null,
+      vehicle_vin: vehicleVin || null,
+      vehicle_color: vehicleColor || null,
+    }).eq('id', project.id)
   }
 
   // ── Copy job ──
@@ -696,32 +718,58 @@ export default function JobDetailClient({
           <Users size={13} /> Job Team
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, overflowX: 'auto' }}>
-          {/* CUSTOMER slot */}
-          <div style={{ background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Customer</div>
-            {customer ? (
-              <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4f7fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
-                    {(customer.name || '?')[0].toUpperCase()}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.name}</div>
-                    {customer.company_name && (
-                      <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.company_name}</div>
-                    )}
-                  </div>
+        {/* Customer row */}
+        <div style={{ background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Customer</div>
+          {customer ? (
+            <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4f7fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                  {(customer.name || '?')[0].toUpperCase()}
                 </div>
-              </Link>
-            ) : (
-              <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No customer</div>
-            )}
-          </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.name}</div>
+                  {customer.company_name && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.company_name}</div>
+                  )}
+                </div>
+              </div>
+            </Link>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No customer</div>
+          )}
+        </div>
 
-          <TeamSlot label="Sales Agent" fieldKey="agent_id" currentId={(project as any).agent_id} currentName={(project as any).agent?.name} options={agents} avatarColor="#22c07a" teamDropdown={teamDropdown} setTeamDropdown={setTeamDropdown} dropdownRef={teamDropdownRef} onSelect={(id) => { setTeamDropdown(null); updateField('agent_id', id) }} />
-          <TeamSlot label="Installer" fieldKey="installer_id" currentId={(project as any).installer_id} currentName={(project as any).installer?.name} options={installers} avatarColor="#22d3ee" teamDropdown={teamDropdown} setTeamDropdown={setTeamDropdown} dropdownRef={teamDropdownRef} onSelect={(id) => { setTeamDropdown(null); updateField('installer_id', id) }} />
-          <TeamSlot label="Designer" fieldKey="designer_id" currentId={(project as any).designer_id} currentName={designers.find(d => d.id === (project as any).designer_id)?.name} options={designers} avatarColor="#8b5cf6" teamDropdown={teamDropdown} setTeamDropdown={setTeamDropdown} dropdownRef={teamDropdownRef} onSelect={(id) => { setTeamDropdown(null); updateField('designer_id', id) }} />
+        {/* Team multi-select grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, overflowX: 'auto' }}>
+          <TeamMultiSelect
+            label="Sales Rep"
+            roleColor="#22c07a"
+            options={agents}
+            selectedIds={salesRepIds}
+            onSave={(ids) => { setSalesRepIds(ids); updateArrayField('sales_rep_ids', ids, 'agent_id') }}
+          />
+          <TeamMultiSelect
+            label="Installer"
+            roleColor="#22d3ee"
+            options={installers}
+            selectedIds={installerIds}
+            onSave={(ids) => { setInstallerIds(ids); updateArrayField('installer_ids', ids, 'installer_id') }}
+          />
+          <TeamMultiSelect
+            label="Designer"
+            roleColor="#8b5cf6"
+            options={designers}
+            selectedIds={designerIds}
+            onSave={(ids) => { setDesignerIds(ids); updateArrayField('designer_ids', ids, 'designer_id') }}
+          />
+          <TeamMultiSelect
+            label="Prod Mgr"
+            roleColor="#f59e0b"
+            options={managers}
+            selectedIds={productionMgrIds}
+            onSave={(ids) => { setProductionMgrIds(ids); updateArrayField('production_manager_ids', ids, 'production_manager_id') }}
+          />
         </div>
 
         {/* Related Documents chips */}
@@ -881,36 +929,31 @@ export default function JobDetailClient({
             </div>
           </div>
 
-          {/* Installer */}
+          {/* Vehicle */}
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Wrench size={11} /> Installer
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Car size={11} /> Vehicle
             </div>
-            <select
-              value={project.installer_id || ''}
-              onChange={e => updateField('installer_id', e.target.value || null)}
-              disabled={savingField === 'installer_id'}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--surface2)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 13, cursor: 'pointer' }}
-            >
-              <option value="">Unassigned</option>
-              {installers.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-          </div>
-
-          {/* Agent */}
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <UserCheck size={11} /> Sales Agent
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Year',  value: vehicleYear,  set: setVehicleYear },
+                { label: 'Make',  value: vehicleMake,  set: setVehicleMake },
+                { label: 'Model', value: vehicleModel, set: setVehicleModel },
+                { label: 'VIN',   value: vehicleVin,   set: setVehicleVin },
+                { label: 'Color', value: vehicleColor, set: setVehicleColor },
+              ].map(({ label, value, set }) => (
+                <div key={label}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{label}</div>
+                  <input
+                    value={value}
+                    onChange={e => set(e.target.value)}
+                    onBlur={saveVehicle}
+                    placeholder={label}
+                    style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--surface2)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 12, boxSizing: 'border-box' }}
+                  />
+                </div>
+              ))}
             </div>
-            <select
-              value={project.agent_id || ''}
-              onChange={e => updateField('agent_id', e.target.value || null)}
-              disabled={savingField === 'agent_id'}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--surface2)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 13, cursor: 'pointer' }}
-            >
-              <option value="">Unassigned</option>
-              {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
           </div>
 
           {fieldError && (
@@ -1318,11 +1361,20 @@ function OverviewTab({
             <Car size={11} /> Vehicle &amp; Job
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {project.vehicle_desc && <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text1)' }}>{project.vehicle_desc}</div>}
-            {fd.vehicleColor != null && <div style={{ fontSize: 12, color: 'var(--text2)' }}>Color: {String(fd.vehicleColor)}</div>}
+            {(project.vehicle_year || project.vehicle_make || project.vehicle_model) ? (
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text1)' }}>
+                {[project.vehicle_year, project.vehicle_make, project.vehicle_model].filter(Boolean).join(' ')}
+              </div>
+            ) : project.vehicle_desc ? (
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text1)' }}>{project.vehicle_desc}</div>
+            ) : null}
+            {project.vehicle_vin && <div style={{ fontSize: 12, color: 'var(--text2)' }}>VIN: {project.vehicle_vin}</div>}
+            {(project.vehicle_color || fd.vehicleColor != null) && (
+              <div style={{ fontSize: 12, color: 'var(--text2)' }}>Color: {project.vehicle_color || String(fd.vehicleColor)}</div>
+            )}
             {project.type && <div style={{ fontSize: 12, color: 'var(--text2)', textTransform: 'capitalize' }}>Type: {project.type}</div>}
             {fd.jobType != null && <div style={{ fontSize: 12, color: 'var(--text2)' }}>Job: {String(fd.jobType)}</div>}
-            {!project.vehicle_desc && fd.vehicleColor == null && !project.type && fd.jobType == null && (
+            {!project.vehicle_year && !project.vehicle_make && !project.vehicle_desc && !project.vehicle_color && fd.vehicleColor == null && !project.type && fd.jobType == null && (
               <div style={{ fontSize: 13, color: 'var(--text3)' }}>No vehicle info</div>
             )}
           </div>
@@ -1438,6 +1490,104 @@ function TimelineTab({ approvals, fmtDate }: { approvals: StageApproval[]; fmtDa
 }
 
 // ─── Team Slot ─────────────────────────────────────────────────────────────────
+// ─── Team Multi-Select ─────────────────────────────────────────────────────────
+interface TeamMultiSelectProps {
+  label: string
+  roleColor: string
+  options: Pick<Profile, 'id' | 'name' | 'role'>[]
+  selectedIds: string[]
+  onSave: (ids: string[]) => void
+}
+
+function TeamMultiSelect({ label, roleColor, options, selectedIds, onSave }: TeamMultiSelectProps) {
+  const [open, setOpen] = useState(false)
+  const [local, setLocal] = useState<string[]>(selectedIds)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setLocal(selectedIds) }, [selectedIds])
+
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onSave(local)
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open, local, onSave])
+
+  const toggle = (id: string) => setLocal(l => l.includes(id) ? l.filter(x => x !== id) : [...l, id])
+
+  return (
+    <div
+      ref={ref}
+      style={{ background: 'var(--bg)', border: '1px solid var(--surface2)', borderRadius: 10, padding: '10px 12px', position: 'relative' }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{label}</div>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ cursor: 'pointer', display: 'flex', flexWrap: 'wrap', gap: 4, minHeight: 28, alignItems: 'center' }}
+      >
+        {local.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2px dashed var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <User size={13} style={{ color: 'var(--text3)' }} />
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Assign {label}</span>
+          </div>
+        ) : local.map(id => {
+          const m = options.find(o => o.id === id)
+          if (!m) return null
+          return (
+            <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: `${roleColor}20`, border: `1px solid ${roleColor}40`, color: roleColor, fontSize: 11, fontWeight: 700 }}>
+              {m.name}
+              <button
+                onClick={(e) => { e.stopPropagation(); const n = local.filter(x => x !== id); setLocal(n); onSave(n) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: roleColor, padding: 0, display: 'flex', lineHeight: 1 }}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          )
+        })}
+        <Pencil size={11} style={{ color: 'var(--text3)', marginLeft: 'auto', flexShrink: 0 }} />
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+          marginTop: 4, background: 'var(--surface)', border: '1px solid var(--surface2)',
+          borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        }}>
+          {options.map(opt => {
+            const sel = local.includes(opt.id)
+            return (
+              <button
+                key={opt.id}
+                onClick={() => toggle(opt.id)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 12px', border: 'none',
+                  background: sel ? 'var(--surface2)' : 'transparent',
+                  color: sel ? roleColor : 'var(--text1)',
+                  cursor: 'pointer', fontSize: 13, textAlign: 'left',
+                }}
+              >
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: sel ? roleColor : 'var(--surface2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                  {(opt.name || '?')[0].toUpperCase()}
+                </div>
+                {opt.name}
+                {sel && <Check size={12} style={{ marginLeft: 'auto' }} />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface TeamSlotProps {
   label: string
   fieldKey: string
