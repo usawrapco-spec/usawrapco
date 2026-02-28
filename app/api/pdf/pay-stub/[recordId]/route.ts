@@ -96,7 +96,7 @@ function PayStubPDF({ record, employee, period }: {
   const overtimeRate = record.overtime_rate || hourlyRate * 1.5
   const commissionPay = record.commission_pay || 0
   const bonusPay = record.bonus_pay || 0
-  const grossPay = record.gross_pay || 0
+  const grossPay = record.total_gross_pay || 0
   const netPay = record.net_pay || 0
 
   const deductions = Array.isArray(record.deductions) ? record.deductions : []
@@ -330,18 +330,15 @@ export async function GET(
     const yearStart = `${new Date().getFullYear()}-01-01`
     const { data: ytdRecords } = await admin
       .from('payroll_records')
-      .select('gross_pay, net_pay, deductions, taxes')
+      .select('total_gross_pay, net_pay, deductions')
       .eq('user_id', record.user_id)
       .eq('status', 'paid')
       .gte('created_at', yearStart)
 
     if (ytdRecords && ytdRecords.length > 0) {
-      record.ytd_gross = ytdRecords.reduce((s: number, r: any) => s + (r.gross_pay || 0), 0) + (record.gross_pay || 0)
+      record.ytd_gross = ytdRecords.reduce((s: number, r: any) => s + (r.total_gross_pay || 0), 0) + (record.total_gross_pay || 0)
       record.ytd_net = ytdRecords.reduce((s: number, r: any) => s + (r.net_pay || 0), 0) + (record.net_pay || 0)
-      record.ytd_taxes = ytdRecords.reduce((s: number, r: any) => {
-        const taxes = Array.isArray(r.taxes) ? r.taxes : []
-        return s + taxes.reduce((ts: number, t: any) => ts + (t.amount || 0), 0)
-      }, 0)
+      record.ytd_taxes = 0
       record.ytd_deductions = ytdRecords.reduce((s: number, r: any) => {
         const deds = Array.isArray(r.deductions) ? r.deductions : []
         return s + deds.reduce((ds: number, d: any) => ds + (d.amount || 0), 0)
