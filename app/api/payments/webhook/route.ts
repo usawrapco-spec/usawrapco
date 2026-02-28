@@ -129,7 +129,7 @@ export async function POST(req: Request) {
           // Update invoice — only use columns that actually exist in DB
           const updates: Record<string, unknown> = {
             amount_paid: newPaid,
-            balance: newBalance,
+            balance_due: newBalance,
             updated_at: new Date().toISOString(),
           }
           if (newBalance <= 0) {

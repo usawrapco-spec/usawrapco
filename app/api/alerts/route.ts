@@ -33,11 +33,11 @@ export async function GET() {
     const now = new Date().toISOString()
     const { data: overdueInvoices, count } = await admin
       .from('invoices')
-      .select('id, invoice_number, due_date, balance, customer_id', { count: 'exact' })
+      .select('id, invoice_number, due_date, balance_due, customer_id', { count: 'exact' })
       .eq('org_id', orgId)
       .lt('due_date', now)
       .not('status', 'in', '("paid","void","draft")')
-      .gt('balance', 0)
+      .gt('balance_due', 0)
       .order('due_date', { ascending: true })
       .limit(10)
 

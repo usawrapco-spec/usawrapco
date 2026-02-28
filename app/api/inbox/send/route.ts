@@ -224,7 +224,7 @@ export async function POST(req: Request) {
       channel,
       direction: channel === 'note' ? 'internal' : 'outbound',
       sent_by: user.id,
-      sent_by_name: profile.name || null,
+      sender_name: profile.name || null,
       subject: subject || null,
       body: body || '',
       body_html:

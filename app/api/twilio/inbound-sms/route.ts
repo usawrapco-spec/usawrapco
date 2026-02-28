@@ -136,11 +136,10 @@ export async function POST(req: NextRequest) {
       channel: 'sms',
       direction: 'inbound',
       customer_id: customer.id,
-      from_address: from,
-      to_address: to,
+      from_number: from,
+      to_number: to,
       body,
-      twilio_message_sid: messageSid,
-      media_urls: mediaUrls.length > 0 ? mediaUrls : null,
+      twilio_sid: messageSid,
       status: 'received',
       created_at: new Date().toISOString(),
     })
@@ -230,7 +229,7 @@ export async function POST(req: NextRequest) {
               direction: 'outbound',
               body: aiReplyBody,
               status: sendRes.ok ? 'sent' : 'failed',
-              sent_by_name: 'AI Assistant',
+              sender_name: 'AI Assistant',
               twilio_sid: sendData.sid || null,
             })
 

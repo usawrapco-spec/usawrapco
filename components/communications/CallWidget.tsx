@@ -197,7 +197,7 @@ export default function CallWidget({
         // Get balance (unpaid invoices)
         const { data: invoices } = await supabase
           .from('invoices')
-          .select('balance')
+          .select('balance_due')
           .eq('customer_id', cust.id)
           .in('status', ['open', 'sent', 'partial', 'overdue'])
 

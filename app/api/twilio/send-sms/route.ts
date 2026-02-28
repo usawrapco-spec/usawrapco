@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         direction: 'outbound',
         body,
         sent_by: user.id,
-        sent_by_name: profile?.name || user.email,
+        sender_name: profile?.name || user.email,
         status,
         twilio_sid: messageSid,
       })
@@ -91,10 +91,10 @@ export async function POST(req: NextRequest) {
       org_id: orgId,
       channel: 'sms',
       direction: 'outbound',
-      from_address: twilioFrom || 'system',
-      to_address: to,
+      from_number: twilioFrom || 'system',
+      to_number: to,
       body,
-      twilio_message_sid: messageSid,
+      twilio_sid: messageSid,
       status,
       created_at: new Date().toISOString(),
     })
