@@ -147,6 +147,8 @@ interface Props {
 function KanbanCard({ job, onClick }: { job: Project; onClick: () => void }) {
   const prio = PRIORITY_CONFIG[job.priority] || PRIORITY_CONFIG.normal
   const agentName = (job.agent as any)?.name
+  const fd = (job.form_data as any) || {}
+  const vehicleStr = job.vehicle_desc || [fd.vehicleYear, fd.vehicleMake, fd.vehicleModel].filter(Boolean).join(' ') || ''
 
   return (
     <div
@@ -183,9 +185,9 @@ function KanbanCard({ job, onClick }: { job: Project; onClick: () => void }) {
       </div>
 
       {/* Vehicle */}
-      {job.vehicle_desc && (
-        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, paddingLeft: 12 }}>
-          {job.vehicle_desc}
+      {vehicleStr && (
+        <div style={{ fontSize: 11, color: 'var(--cyan)', marginBottom: 6, paddingLeft: 12, fontFamily: 'JetBrains Mono, monospace' }}>
+          {vehicleStr}
         </div>
       )}
 
@@ -591,9 +593,11 @@ export default function JobsClient({ profile, initialJobs }: Props) {
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span style={{ color: 'var(--text1)', fontWeight: 600, fontSize: 13 }}>{job.title}</span>
-                          {job.vehicle_desc && (
-                            <span style={{ fontSize: 11, color: 'var(--text3)' }}>{job.vehicle_desc}</span>
-                          )}
+                          {(() => {
+                            const fd2 = (job.form_data as any) || {}
+                            const v = job.vehicle_desc || [fd2.vehicleYear, fd2.vehicleMake, fd2.vehicleModel].filter(Boolean).join(' ') || ''
+                            return v ? <span style={{ fontSize: 11, color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace' }}>{v}</span> : null
+                          })()}
                         </div>
                       </td>
                       <td>
