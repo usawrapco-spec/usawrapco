@@ -33,7 +33,7 @@ export async function POST(
     .eq('project_id', params.id)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (!invoice && !body.invoice_id) {
     return NextResponse.json(

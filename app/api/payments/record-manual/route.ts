@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       .from('invoices')
       .select('org_id, customer_id, total, amount_paid, balance, status')
       .eq('id', invoice_id)
-      .single()
+      .maybeSingle()
 
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 

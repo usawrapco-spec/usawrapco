@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = getSupabaseAdmin()
-  const { data: profile } = await admin.from('profiles').select('org_id').eq('id', user.id).single()
+  const { data: profile } = await admin.from('profiles').select('org_id').eq('id', user.id).maybeSingle()
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 403 })
 
   const url = new URL(req.url)
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
       .select('*')
       .eq('id', conversationId)
       .eq('org_id', profile.org_id)
-      .single()
+      .maybeSingle()
 
     if (!convo) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     if (convo.customer_id) {
       const { data: c } = await admin.from('customers')
         .select('id, name, email, phone, company_name, status')
-        .eq('id', convo.customer_id).single() as { data: any }
+        .eq('id', convo.customer_id).maybeSingle() as { data: any }
       customer = c
     }
 
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
       .eq('conversation_id', convo.id)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const { data: msgCount } = await admin.from('messages')
       .select('id', { count: 'exact', head: true })
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
     if (convo.customer_id) {
       const { data: c } = await admin.from('customers')
         .select('id, name, email, phone, company_name, status')
-        .eq('id', convo.customer_id).single() as { data: any }
+        .eq('id', convo.customer_id).maybeSingle() as { data: any }
       customer = c
     }
 

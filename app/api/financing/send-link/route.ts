@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('org_id, name')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
     const orgId = profile?.org_id
     if (!orgId) return NextResponse.json({ error: 'No org found' }, { status: 400 })
 
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       .select('*, customer:customer_id(id, name, email, phone)')
       .eq('id', invoice_id)
       .eq('org_id', orgId)
-      .single()
+      .maybeSingle()
     if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
     const balance = Math.max(0, inv.balance_due ?? (inv.total - inv.amount_paid))
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
             .eq('org_id', orgId)
             .eq('integration_id', 'sendgrid')
             .eq('enabled', true)
-            .single()
+            .maybeSingle()
           const sgConfig = sgInt?.config as any
           if (sgConfig?.api_key) {
             const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {

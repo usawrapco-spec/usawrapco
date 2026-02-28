@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       .from('customers')
       .select('id')
       .eq('portal_token', token)
-      .single()
+      .maybeSingle()
 
     if (!customer) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       .from('design_proofs')
       .select('id, project_id')
       .eq('id', proofId)
-      .single()
+      .maybeSingle()
 
     if (!proof) {
       return NextResponse.json({ error: 'Proof not found' }, { status: 404 })
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       .select('id')
       .eq('id', proof.project_id)
       .eq('customer_id', customer.id)
-      .single()
+      .maybeSingle()
 
     if (!project) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

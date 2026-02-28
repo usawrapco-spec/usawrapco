@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       .from('projects')
       .select('id, org_id, pipe_stage')
       .eq('proof_token', proof_token)
-      .single()
+      .maybeSingle()
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })

@@ -12,7 +12,7 @@ export async function GET(
     .from('design_proofs')
     .select('*, project:projects(title, vehicle_desc)')
     .eq('public_token', params.token)
-    .single()
+    .maybeSingle()
 
   if (error || !proof) {
     return NextResponse.json({ error: 'Proof not found' }, { status: 404 })

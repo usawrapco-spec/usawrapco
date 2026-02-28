@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       .from('invoices')
       .select('*')
       .eq('id', invoice_id)
-      .single()
+      .maybeSingle()
 
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         .from('customers')
         .select('id, name, email')
         .eq('id', invoice.customer_id)
-        .single()
+        .maybeSingle()
       customer = cust
     }
     // Fallback to profiles
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         .from('profiles')
         .select('id, name, email')
         .eq('id', invoice.customer_id)
-        .single()
+        .maybeSingle()
       customer = prof
     }
 

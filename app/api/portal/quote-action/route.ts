@@ -15,14 +15,14 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdmin()
 
     // Verify the portal token matches this project
-    const { data: project, error: projErr } = await supabase
+    const { data: project } = await supabase
       .from('projects')
       .select('id, portal_token, title, org_id')
       .eq('id', project_id)
       .eq('portal_token', portal_token)
-      .single()
+      .maybeSingle()
 
-    if (projErr || !project) {
+    if (!project) {
       return NextResponse.json({ error: 'Invalid portal token' }, { status: 403 })
     }
 

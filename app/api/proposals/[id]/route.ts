@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .from('proposals')
       .select('*')
       .eq('id', params.id)
-      .single()
+      .maybeSingle()
 
     if (!proposal) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -109,7 +109,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Re-fetch everything
-    const { data: proposal } = await admin.from('proposals').select('*').eq('id', params.id).single()
+    const { data: proposal } = await admin.from('proposals').select('*').eq('id', params.id).maybeSingle()
     const { data: packages } = await admin.from('proposal_packages').select('*').eq('proposal_id', params.id).order('sort_order')
     const { data: upsells } = await admin.from('proposal_upsells').select('*').eq('proposal_id', params.id).order('sort_order')
 
