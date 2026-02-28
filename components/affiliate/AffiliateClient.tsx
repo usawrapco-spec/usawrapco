@@ -29,6 +29,7 @@ export default function AffiliateClient({ profile, affiliates: initial, commissi
   const [tab, setTab] = useState<TabKey>('dashboard')
   const [showNewModal, setShowNewModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
   const [toast, setToast] = useState('')
   const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null)
 
@@ -74,6 +75,7 @@ export default function AffiliateClient({ profile, affiliates: initial, commissi
     if (!error && data) {
       setAffiliates(prev => [data, ...prev])
       setShowNewModal(false)
+      setShowNotes(false)
       setForm({ name: '', company: '', email: '', phone: '', type: 'dealer', commission_type: 'percent_gp', commission_rate: '10', notes: '' })
       showMsg('Affiliate created!')
     } else {
@@ -440,8 +442,16 @@ export default function AffiliateClient({ profile, affiliates: initial, commissi
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Notes</div>
-                <textarea style={{ ...inp, minHeight: 60, resize: 'none' }} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="How we met, referral terms, special agreements..." />
+                {!showNotes ? (
+                  <button onClick={() => setShowNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                    + Add Notes
+                  </button>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Notes</div>
+                    <textarea style={{ ...inp, minHeight: 60, resize: 'none' }} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="How we met, referral terms, special agreements..." />
+                  </>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button onClick={() => setShowNewModal(false)} style={{ flex: 1, padding: '10px', borderRadius: 9, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text2)', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Cancel</button>

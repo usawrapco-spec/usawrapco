@@ -125,6 +125,7 @@ export default function EnhancedTimeclockClient({ profile, todayEntries, weekEnt
   const [timeOffEnd, setTimeOffEnd] = useState('')
   const [timeOffHours, setTimeOffHours] = useState('')
   const [timeOffNotes, setTimeOffNotes] = useState('')
+  const [showTimeOffNotes, setShowTimeOffNotes] = useState(false)
   const [ptoBalance, setPtoBalance] = useState(0)
   const [sickBalance, setSickBalance] = useState(0)
 
@@ -922,11 +923,19 @@ export default function EnhancedTimeclockClient({ profile, todayEntries, weekEnt
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text1)', fontSize: 13, marginBottom: 10, outline: 'none' }}
               />
 
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Notes (optional)</label>
-              <textarea value={timeOffNotes} onChange={e => setTimeOffNotes(e.target.value)}
-                placeholder="Reason for time off..."
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text1)', fontSize: 13, marginBottom: 12, outline: 'none', resize: 'none', minHeight: 60, fontFamily: 'inherit' }}
-              />
+              {!showTimeOffNotes ? (
+                <button onClick={() => setShowTimeOffNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0', display: 'block', marginBottom: 12 }}>
+                  + Add Notes
+                </button>
+              ) : (
+                <>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Notes (optional)</label>
+                  <textarea value={timeOffNotes} onChange={e => setTimeOffNotes(e.target.value)}
+                    placeholder="Reason for time off..."
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text1)', fontSize: 13, marginBottom: 12, outline: 'none', resize: 'none', minHeight: 60, fontFamily: 'inherit' }}
+                  />
+                </>
+              )}
 
               <button onClick={submitTimeOff} disabled={saving}
                 style={{

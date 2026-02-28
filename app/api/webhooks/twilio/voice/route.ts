@@ -61,26 +61,8 @@ export async function POST(req: NextRequest) {
       .single()
 
     // --- Find assigned employee for this number ---
-    let assignedEmployee: { id: string; name: string; phone: string | null } | null = null
-
-    // Check if there is a phone_number assignment for the dialed number
-    const { data: phoneNumber } = await supabase
-      .from('phone_numbers')
-      .select('assigned_to')
-      .eq('phone_number', to)
-      .eq('org_id', ORG_ID)
-      .single()
-
-    if (phoneNumber?.assigned_to) {
-      const { data: emp } = await supabase
-        .from('profiles')
-        .select('id, name, phone')
-        .eq('id', phoneNumber.assigned_to)
-        .single()
-      if (emp) assignedEmployee = emp
-    }
-
-    // (customer table does not have assigned_to; routing uses phone_number assignment above)
+    // phone_numbers table does not have an assigned_to column yet; routing falls back to voicemail
+    const assignedEmployee: { id: string; name: string; phone: string | null } | null = null
 
     // --- Log the call ---
     await supabase.from('calls').insert({
@@ -90,7 +72,7 @@ export async function POST(req: NextRequest) {
       from_number: from,
       to_number: to,
       customer_id: customer?.id || null,
-      user_id: assignedEmployee?.id || null,
+      user_id: (assignedEmployee as { id: string } | null)?.id || null,
       status: callStatus || 'ringing',
     })
 

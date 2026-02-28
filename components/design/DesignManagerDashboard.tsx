@@ -160,6 +160,7 @@ export default function DesignManagerDashboard({ profile }: { profile: Profile }
   const [newPriority, setNewPriority] = useState<Priority>('normal')
   const [newDeadline, setNewDeadline] = useState('')
   const [newDescription, setNewDescription] = useState('')
+  const [showNewDescription, setShowNewDescription] = useState(false)
   const [creatingNew, setCreatingNew] = useState(false)
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -1293,8 +1294,16 @@ export default function DesignManagerDashboard({ profile }: { profile: Profile }
             <input type="date" style={S.field} value={newDeadline} onChange={e => setNewDeadline(e.target.value)} />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>Description</label>
-            <textarea rows={2} style={{ ...S.field, resize: 'vertical' as const }} placeholder="Brief description..." value={newDescription} onChange={e => setNewDescription(e.target.value)} />
+            {!showNewDescription ? (
+              <button onClick={() => setShowNewDescription(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                + Add Description
+              </button>
+            ) : (
+              <>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 5 }}>Description</label>
+                <textarea rows={2} style={{ ...S.field, resize: 'vertical' as const }} placeholder="Brief description..." value={newDescription} onChange={e => setNewDescription(e.target.value)} />
+              </>
+            )}
           </div>
         </div>
         <div style={{ padding: '0 20px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

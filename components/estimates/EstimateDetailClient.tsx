@@ -44,6 +44,7 @@ import WallWrapCalc from '@/components/estimates/calculators/WallWrapCalc'
 import SignageCalc from '@/components/estimates/calculators/SignageCalc'
 import GPMSidebar from '@/components/estimates/GPMSidebar'
 import type { CalcOutput } from '@/components/estimates/calculators/types'
+import EstimateSurveyTab from '@/components/estimates/EstimateSurveyTab'
 
 // ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
 const TIER_TO_PANEL_KEY: Record<string, string> = {
@@ -187,7 +188,7 @@ const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: 
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'photos' | 'calculators' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
+type TabKey = 'items' | 'survey' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
@@ -1735,8 +1736,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
-          { key: 'photos' as TabKey, label: 'Photos' },
-          { key: 'calculators' as TabKey, label: 'Calculators' },
+          { key: 'survey' as TabKey, label: 'Survey' },
           { key: 'design' as TabKey, label: 'Design' },
           { key: 'production' as TabKey, label: 'Production' },
           { key: 'install' as TabKey, label: 'Install' },
@@ -2269,109 +2269,41 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         </div>
       )}
 
-      {activeTab === 'photos' && (
-        <div style={{ ...cardStyle }}>
-          <div style={{ ...sectionPad }}>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 16 }}>
-              <Camera size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
-              Photos
-            </div>
-
-            {/* Intake Photos */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-                  <Upload size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
-                  Intake Photos
-                </div>
-              </div>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 32, border: '2px dashed var(--border)', borderRadius: 10,
-                background: 'var(--bg)', cursor: 'pointer', color: 'var(--text3)', fontSize: 13,
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Upload size={24} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
-                  <div>Drop photos here or click to upload</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Customer vehicle intake photos</div>
-                </div>
-              </div>
-              {/* Vehicle profiles from intake */}
-              {!!est.form_data?.vehicleProfiles && (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
-                    Vehicle Profiles from Intake
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 12px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border)' }}>
-                    Vehicle profile data from intake forms will appear here.
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Before Photos */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 10 }}>
-                <Image size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
-                Before Photos
-              </div>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 24, border: '2px dashed var(--border)', borderRadius: 10,
-                background: 'var(--bg)', cursor: 'pointer', color: 'var(--text3)', fontSize: 13,
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Upload size={20} style={{ margin: '0 auto 6px', display: 'block', opacity: 0.5 }} />
-                  <div>Upload before photos</div>
-                </div>
-              </div>
-            </div>
-
-            {/* After Photos */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 10 }}>
-                <Image size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
-                After Photos
-              </div>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 24, border: '2px dashed var(--border)', borderRadius: 10,
-                background: 'var(--bg)', cursor: 'pointer', color: 'var(--text3)', fontSize: 13,
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Upload size={20} style={{ margin: '0 auto 6px', display: 'block', opacity: 0.5 }} />
-                  <div>Upload after photos</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'calculators' && (
-        <EstimateCalculators
-          onAddLineItems={(newItems) => {
-            const items = newItems.map((item, idx) => ({
-              id: `calc-${Date.now()}-${idx}`,
-              parent_type: 'estimate' as const,
+      {activeTab === 'survey' && (
+        <EstimateSurveyTab
+          estimateId={estimateId}
+          orgId={est.org_id || profile.org_id}
+          userId={profile.id}
+          onVehicleAddedToLineItems={(vehicle) => {
+            const label = [vehicle.vehicle_year, vehicle.vehicle_make, vehicle.vehicle_model]
+              .filter(Boolean).join(' ')
+            const newItem: LineItem = {
+              id: `survey-${Date.now()}`,
+              parent_type: 'estimate',
               parent_id: estimateId,
-              product_type: (item.product_type || 'wrap') as any,
-              name: item.name,
-              description: item.description,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
+              product_type: 'wrap',
+              name: label ? `${label} — Full Wrap` : 'Full Wrap',
+              description: vehicle.design_notes || null,
+              quantity: 1,
+              unit_price: 0,
               unit_discount: 0,
-              total_price: item.total_price,
-              specs: item.specs as any,
-              sort_order: lineItemsList.length + idx,
+              total_price: 0,
+              specs: {
+                vehicleYear: vehicle.vehicle_year,
+                vehicleMake: vehicle.vehicle_make,
+                vehicleModel: vehicle.vehicle_model,
+                vehicleVin: vehicle.vin,
+                surveyVehicleId: vehicle.id,
+              },
+              sort_order: lineItemsList.length,
               created_at: new Date().toISOString(),
-            }))
-            setLineItemsList(prev => [...prev, ...items])
+            }
+            setLineItemsList(prev => [...prev, newItem])
             setActiveTab('items')
           }}
-          onClose={() => setActiveTab('items')}
         />
       )}
+
 
       {activeTab === 'design' && (
         <div style={{ ...cardStyle }}>

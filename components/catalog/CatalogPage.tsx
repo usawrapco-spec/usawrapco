@@ -82,6 +82,7 @@ export default function CatalogPage({ profile }: CatalogPageProps) {
   // Line item form
   const [iName, setIName] = useState('')
   const [iDesc, setIDesc] = useState('')
+  const [showIDesc, setShowIDesc] = useState(false)
   const [iPrice, setIPrice] = useState('')
   const [iCategory, setICategory] = useState('addon')
   const [iSaving, setISaving] = useState(false)
@@ -214,7 +215,7 @@ export default function CatalogPage({ profile }: CatalogPageProps) {
 
   // Line item modal handlers
   function resetItemForm() {
-    setIName(''); setIDesc(''); setIPrice(''); setICategory('addon')
+    setIName(''); setIDesc(''); setShowIDesc(false); setIPrice(''); setICategory('addon')
   }
 
   function openAddItem() {
@@ -227,6 +228,7 @@ export default function CatalogPage({ profile }: CatalogPageProps) {
     setEditingItem(li)
     setIName(li.name)
     setIDesc(li.description || '')
+    setShowIDesc(!!(li.description))
     setIPrice(li.default_price ? String(li.default_price) : '')
     setICategory(li.category)
     setShowItemModal(true)
@@ -828,8 +830,16 @@ export default function CatalogPage({ profile }: CatalogPageProps) {
             <input type="text" placeholder="Item name" value={iName} onChange={e => setIName(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 8, color: '#e8eaed', fontSize: 13, outline: 'none', marginBottom: 12 }} />
 
             {/* Description */}
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Description</label>
-            <textarea placeholder="Optional description..." value={iDesc} onChange={e => setIDesc(e.target.value)} rows={3} style={{ width: '100%', padding: '10px 12px', background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 8, color: '#e8eaed', fontSize: 13, outline: 'none', resize: 'vertical', marginBottom: 12 }} />
+            {!showIDesc ? (
+              <button onClick={() => setShowIDesc(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0', display: 'block', marginBottom: 12 }}>
+                + Add Description
+              </button>
+            ) : (
+              <>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#5a6080', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Description</label>
+                <textarea placeholder="Optional description..." value={iDesc} onChange={e => setIDesc(e.target.value)} rows={3} style={{ width: '100%', padding: '10px 12px', background: '#0d0f14', border: '1px solid #1a1d27', borderRadius: 8, color: '#e8eaed', fontSize: 13, outline: 'none', resize: 'vertical', marginBottom: 12 }} />
+              </>
+            )}
 
             {/* Price / Category */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>

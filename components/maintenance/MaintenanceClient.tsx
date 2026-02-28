@@ -65,11 +65,13 @@ export default function MaintenanceClient({ profile }: { profile: Profile | null
   const [updating, setUpdating] = useState(false)
   const [notesEdit, setNotesEdit] = useState('')
   const [resolution, setResolution] = useState('')
+  const [showNotesEdit, setShowNotesEdit] = useState(false)
 
   // Sync edit state whenever selected ticket changes
   useEffect(() => {
     setNotesEdit(selected?.internal_notes || '')
     setResolution(selected?.resolution_notes || '')
+    setShowNotesEdit(!!(selected?.internal_notes))
   }, [selected?.id])
 
   const loadTickets = useCallback(async () => {
@@ -237,13 +239,21 @@ export default function MaintenanceClient({ profile }: { profile: Profile | null
 
               {/* Internal notes */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: 0.5, marginBottom: 8 }}>INTERNAL NOTES</div>
-                <textarea value={notesEdit} onChange={e => setNotesEdit(e.target.value)} placeholder="Add private notes visible only to staff…"
-                  style={{ width: '100%', minHeight: 80, padding: '10px 12px', background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text1, fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
-                <button onClick={() => updateTicket(selected.id, { internal_notes: notesEdit })} disabled={updating}
-                  style={{ marginTop: 8, padding: '8px 16px', background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', color: C.text2, fontWeight: 600, fontSize: 13 }}>
-                  Save Notes
-                </button>
+                {!showNotesEdit ? (
+                  <button onClick={() => setShowNotesEdit(true)} style={{ background: 'transparent', border: 'none', color: C.accent, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                    + Add Internal Notes
+                  </button>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, letterSpacing: 0.5, marginBottom: 8 }}>INTERNAL NOTES</div>
+                    <textarea value={notesEdit} onChange={e => setNotesEdit(e.target.value)} placeholder="Add private notes visible only to staff…"
+                      style={{ width: '100%', minHeight: 80, padding: '10px 12px', background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text1, fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
+                    <button onClick={() => updateTicket(selected.id, { internal_notes: notesEdit })} disabled={updating}
+                      style={{ marginTop: 8, padding: '8px 16px', background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', color: C.text2, fontWeight: 600, fontSize: 13 }}>
+                      Save Notes
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Actions */}

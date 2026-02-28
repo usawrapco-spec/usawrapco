@@ -151,6 +151,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   const [formClientName, setFormClientName] = useState('')
   const [formDesignType, setFormDesignType] = useState('Full Wrap')
   const [formDescription, setFormDescription] = useState('')
+  const [showFormDescription, setShowFormDescription] = useState(false)
   const [formDeadline, setFormDeadline] = useState('')
   const [formDesignerId, setFormDesignerId] = useState('')
   const [formProjectId, setFormProjectId] = useState('')
@@ -165,6 +166,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
   const [drawerClientName, setDrawerClientName] = useState('')
   const [drawerDesignType, setDrawerDesignType] = useState('')
   const [drawerDescription, setDrawerDescription] = useState('')
+  const [showDrawerDescription, setShowDrawerDescription] = useState(false)
   const [drawerDeadline, setDrawerDeadline] = useState('')
   const [drawerSaving, setDrawerSaving] = useState(false)
 
@@ -476,6 +478,7 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
     setDrawerClientName(dp.client_name)
     setDrawerDesignType(dp.design_type)
     setDrawerDescription(dp.description || '')
+    setShowDrawerDescription(!!(dp.description))
     setDrawerDeadline(dp.deadline || '')
     setChatMessages([])
     setChatInput('')
@@ -1236,8 +1239,16 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
               {/* Notes */}
               <div>
-                <label style={labelStyle}>Notes</label>
-                <textarea placeholder="Design brief, brand colors, requests..." value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' as const }} />
+                {!showFormDescription ? (
+                  <button onClick={() => setShowFormDescription(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                    + Add Notes
+                  </button>
+                ) : (
+                  <>
+                    <label style={labelStyle}>Notes</label>
+                    <textarea placeholder="Design brief, brand colors, requests..." value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' as const }} />
+                  </>
+                )}
               </div>
             </div>
 
@@ -1412,8 +1423,16 @@ export default function DesignStudioPage({ profile }: DesignStudioPageProps) {
 
                   {/* Description */}
                   <div>
-                    <label style={labelStyle}>Description / Brief</label>
-                    <textarea value={drawerDescription} onChange={e => setDrawerDescription(e.target.value)} rows={4} style={{ ...fieldStyle, resize: 'vertical' as const }} placeholder="Design brief, brand colors, requests..." />
+                    {!showDrawerDescription ? (
+                      <button onClick={() => setShowDrawerDescription(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                        + Add Description / Brief
+                      </button>
+                    ) : (
+                      <>
+                        <label style={labelStyle}>Description / Brief</label>
+                        <textarea value={drawerDescription} onChange={e => setDrawerDescription(e.target.value)} rows={4} style={{ ...fieldStyle, resize: 'vertical' as const }} placeholder="Design brief, brand colors, requests..." />
+                      </>
+                    )}
                   </div>
 
                   {/* Deadline + Designer */}

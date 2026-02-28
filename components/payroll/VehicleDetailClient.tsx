@@ -118,6 +118,7 @@ export default function VehicleDetailClient({
   })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [showNotes, setShowNotes] = useState(!!(vehicle.notes))
 
   // Add maintenance
   const [showAddMaint, setShowAddMaint] = useState(false)
@@ -321,8 +322,16 @@ export default function VehicleDetailClient({
               <div><label style={labelStyle}>Insurance Expiry</label><input type="date" value={editForm.insurance_expiry} onChange={e => setEditForm(p => ({ ...p, insurance_expiry: e.target.value }))} style={inputStyle} /></div>
               <div><label style={labelStyle}>Registration Expiry</label><input type="date" value={editForm.registration_expiry} onChange={e => setEditForm(p => ({ ...p, registration_expiry: e.target.value }))} style={inputStyle} /></div>
               <div style={{ gridColumn: '1/-1' }}>
-                <label style={labelStyle}>Notes</label>
-                <textarea value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' as const }} />
+                {!showNotes ? (
+                  <button onClick={() => setShowNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                    + Add Notes
+                  </button>
+                ) : (
+                  <>
+                    <label style={labelStyle}>Notes</label>
+                    <textarea value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' as const }} />
+                  </>
+                )}
               </div>
             </div>
           ) : (

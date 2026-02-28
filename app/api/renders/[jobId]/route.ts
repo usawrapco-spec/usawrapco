@@ -21,17 +21,17 @@ export async function GET(
 
     if (error) return Response.json({ error: error.message }, { status: 500 })
 
-    // Also return render count and settings
-    const { data: settings } = await admin
+    // Also return render count and settings (settings column is JSONB)
+    const { data: settingsRow } = await admin
       .from('render_settings')
-      .select('max_renders_per_job, watermark_text, watermark_enabled')
+      .select('settings')
       .eq('org_id', ORG_ID)
       .single()
 
     return Response.json({
       renders: renders || [],
       count: renders?.length || 0,
-      settings: settings || { max_renders_per_job: 20, watermark_enabled: true, watermark_text: 'UNCONFIRMED — USA WRAP CO' },
+      settings: settingsRow?.settings || { max_renders_per_job: 20, watermark_enabled: true, watermark_text: 'UNCONFIRMED — USA WRAP CO' },
     })
   } catch (err) {
     console.error('[renders/jobId] GET error:', err)
@@ -81,7 +81,7 @@ export async function PATCH(
     const { renderId, ...updates } = await req.json()
     if (!renderId) return Response.json({ error: 'renderId required' }, { status: 400 })
 
-    const allowed = ['notes', 'watermarked', 'watermark_url']
+    const allowed = ['render_url', 'status']
     const filtered = Object.fromEntries(
       Object.entries(updates).filter(([k]) => allowed.includes(k))
     )

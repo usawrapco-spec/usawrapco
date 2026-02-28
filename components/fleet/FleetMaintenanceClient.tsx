@@ -124,6 +124,7 @@ export default function FleetMaintenanceClient({ isAdmin, initialVehicles, initi
   const [ticketUpdating, setTicketUpdating] = useState(false)
   const [internalNotes, setInternalNotes] = useState('')
   const [resolution, setResolution] = useState('')
+  const [showInternalNotes, setShowInternalNotes] = useState(false)
 
   const loadTickets = useCallback(async () => {
     setTicketsLoading(true)
@@ -315,13 +316,21 @@ export default function FleetMaintenanceClient({ isAdmin, initialVehicles, initi
                 </div>
               )}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 8 }}>INTERNAL NOTES</div>
-                <textarea value={internalNotes || selectedTicket.internal_notes || ''} onChange={e => setInternalNotes(e.target.value)} placeholder="Private notes for staff…"
-                  style={{ width: '100%', minHeight: 80, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid #2a2d3a', borderRadius: 10, color: 'var(--text1)', fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
-                <button onClick={() => updateTicket(selectedTicket.id, { internal_notes: internalNotes || selectedTicket.internal_notes || '' })} disabled={ticketUpdating}
-                  style={{ marginTop: 8, padding: '8px 16px', background: 'var(--surface2)', border: '1px solid #2a2d3a', borderRadius: 8, cursor: 'pointer', color: 'var(--text2)', fontWeight: 600, fontSize: 13 }}>
-                  Save Notes
-                </button>
+                {!showInternalNotes ? (
+                  <button onClick={() => setShowInternalNotes(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                    + Add Internal Notes
+                  </button>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 8 }}>INTERNAL NOTES</div>
+                    <textarea value={internalNotes || selectedTicket.internal_notes || ''} onChange={e => setInternalNotes(e.target.value)} placeholder="Private notes for staff…"
+                      style={{ width: '100%', minHeight: 80, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid #2a2d3a', borderRadius: 10, color: 'var(--text1)', fontSize: 14, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
+                    <button onClick={() => updateTicket(selectedTicket.id, { internal_notes: internalNotes || selectedTicket.internal_notes || '' })} disabled={ticketUpdating}
+                      style={{ marginTop: 8, padding: '8px 16px', background: 'var(--surface2)', border: '1px solid #2a2d3a', borderRadius: 8, cursor: 'pointer', color: 'var(--text2)', fontWeight: 600, fontSize: 13 }}>
+                      Save Notes
+                    </button>
+                  </>
+                )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {selectedTicket.project && (
@@ -513,7 +522,7 @@ export default function FleetMaintenanceClient({ isAdmin, initialVehicles, initi
               {filteredTickets.map(t => {
                 const sc = TICKET_STATUS_COLORS[t.status] || 'var(--text2)'
                 return (
-                  <div key={t.id} onClick={() => { setSelectedTicket(t); setInternalNotes(t.internal_notes || ''); setResolution(t.resolution_notes || '') }}
+                  <div key={t.id} onClick={() => { setSelectedTicket(t); setInternalNotes(t.internal_notes || ''); setResolution(t.resolution_notes || ''); setShowInternalNotes(!!(t.internal_notes)) }}
                     style={{ padding: '16px 20px', background: 'var(--surface)', border: '1px solid #2a2d3a', borderRadius: 14, cursor: 'pointer', display: 'flex', gap: 14, alignItems: 'flex-start', transition: 'border-color 0.15s' }}
                     onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)60')}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = '#2a2d3a')}>

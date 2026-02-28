@@ -84,7 +84,6 @@ export async function POST(req: NextRequest) {
       .update({
         tracking_phone: purchased.phoneNumber,
         forward_to: forwardTo || null,
-        twilio_sid: purchased.sid,
       })
       .eq('id', campaignId)
       .eq('org_id', orgId)

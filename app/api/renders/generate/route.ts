@@ -160,10 +160,10 @@ export async function POST(req: Request) {
     // Enforce render limit
     const { data: settings } = await admin
       .from('render_settings')
-      .select('max_renders_per_job')
+      .select('settings')
       .eq('org_id', ORG_ID)
       .single()
-    const maxRenders = settings?.max_renders_per_job ?? 20
+    const maxRenders = (settings?.settings as any)?.max_renders_per_job ?? 20
 
     const { count: existing } = await admin
       .from('job_renders')
@@ -328,7 +328,8 @@ export async function GET(req: Request) {
   }
 
   if (newStatus === 'failed') {
-    updates.notes = prediction.error || 'Prediction failed'
+    // notes column does not exist on job_renders — log only
+    console.error('[renders/generate] prediction failed:', prediction.error)
   }
 
   // Parse progress from logs
