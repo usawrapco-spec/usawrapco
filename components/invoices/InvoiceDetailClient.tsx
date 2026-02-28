@@ -329,10 +329,6 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     if (!canWrite || isDemo) return
     await supabase.from('invoices').update({
       sales_rep_id: repIds[0] || null,
-      sales_rep_ids: repIds,
-      installer_ids: instIds,
-      designer_ids: desIds,
-      production_manager_ids: prodIds,
     }).eq('id', invoiceId)
   }
 

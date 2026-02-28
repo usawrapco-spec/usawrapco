@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { token: str
 
     const { data: report, error } = await admin
       .from('condition_reports')
-      .update({ ...body, updated_at: new Date().toISOString() })
+      .update({ ...body })
       .eq('report_token', params.token)
       .select()
       .single()

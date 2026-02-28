@@ -9,7 +9,7 @@ import {
   Briefcase, Printer, Wrench, Search, CheckCircle,
   LayoutGrid, List, ChevronRight, DollarSign,
   ArrowUpDown, Plus, Factory, Hammer, CheckCircle2,
-  Waves, Shield, Anchor, Car,
+  Anchor, Car,
   type LucideIcon,
 } from 'lucide-react'
 // OnboardingLinkPanel moved to Sales dropdown in TopNav
@@ -75,12 +75,18 @@ interface PipelineDef {
   stages: { key: string; label: string; icon: LucideIcon; color: string }[]
 }
 
+// Maps display pipeline key → DB pipeline_type values it represents
+const DIVISION_TYPES: Record<string, string[]> = {
+  wraps:   ['wraps', 'ppf'],
+  dekwave: ['dekwave', 'decking', 'marine'],
+}
+
 const PIPELINES: PipelineDef[] = [
   {
     key: 'wraps',
-    label: 'Wraps',
+    label: 'USAWRAPCO',
     icon: Car,
-    color: '#4f7fff',
+    color: '#22d3ee',
     stages: [
       { key: 'sales_in',    label: 'Sales Intake',  icon: Briefcase,   color: '#4f7fff' },
       { key: 'production',  label: 'Design',        icon: Printer,     color: '#8b5cf6' },
@@ -90,42 +96,16 @@ const PIPELINES: PipelineDef[] = [
     ],
   },
   {
-    key: 'decking',
-    label: 'Decking',
-    icon: Waves,
-    color: '#22d3ee',
+    key: 'dekwave',
+    label: 'DEKWAVE',
+    icon: Anchor,
+    color: '#f59e0b',
     stages: [
       { key: 'sales_in',    label: 'Lead',           icon: Briefcase,   color: '#4f7fff' },
       { key: 'production',  label: 'Estimate Sent',  icon: DollarSign,  color: '#f59e0b' },
       { key: 'install',     label: 'Site Scan',      icon: Search,      color: '#22d3ee' },
       { key: 'prod_review', label: 'Manufacturing',  icon: Factory,     color: '#22c07a' },
       { key: 'sales_close', label: 'Install',        icon: Hammer,      color: '#8b5cf6' },
-    ],
-  },
-  {
-    key: 'ppf',
-    label: 'PPF',
-    icon: Shield,
-    color: '#22c07a',
-    stages: [
-      { key: 'sales_in',    label: 'Lead',       icon: Briefcase,   color: '#4f7fff' },
-      { key: 'production',  label: 'Estimate',   icon: DollarSign,  color: '#f59e0b' },
-      { key: 'install',     label: 'Scheduled',  icon: Wrench,      color: '#22d3ee' },
-      { key: 'prod_review', label: 'Install',    icon: Hammer,      color: '#22c07a' },
-      { key: 'sales_close', label: 'QC',         icon: CheckCircle, color: '#8b5cf6' },
-    ],
-  },
-  {
-    key: 'marine',
-    label: 'Marine',
-    icon: Anchor,
-    color: '#f59e0b',
-    stages: [
-      { key: 'sales_in',    label: 'Lead',       icon: Briefcase,   color: '#4f7fff' },
-      { key: 'production',  label: 'Design',     icon: Printer,     color: '#8b5cf6' },
-      { key: 'install',     label: 'Production', icon: Factory,     color: '#22c07a' },
-      { key: 'prod_review', label: 'Haul Out',   icon: Anchor,      color: '#f59e0b' },
-      { key: 'sales_close', label: 'Install',    icon: Hammer,      color: '#22d3ee' },
     ],
   },
 ]
@@ -200,14 +180,14 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
   }, [profile.org_id])
 
   // Active jobs filtered by pipeline type (exclude done/cancelled)
-  const activeJobs = useMemo(() =>
-    projects.filter(p =>
+  const activeJobs = useMemo(() => {
+    const divTypes = DIVISION_TYPES[activePipeline] ?? [activePipeline]
+    return projects.filter(p =>
       p.pipe_stage !== 'done' &&
       p.status !== 'cancelled' &&
-      (p.pipeline_type || 'wraps') === activePipeline
-    ),
-    [projects, activePipeline]
-  )
+      divTypes.includes(p.pipeline_type || 'wraps')
+    )
+  }, [projects, activePipeline])
 
   const filtered = useMemo(() => {
     let list = [...activeJobs]
@@ -288,7 +268,8 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
         {PIPELINES.map(pl => {
           const isActive = activePipeline === pl.key
           const Icon = pl.icon
-          const pipeCount = projects.filter(p => (p.pipeline_type || 'wraps') === pl.key && p.pipe_stage !== 'done' && p.status !== 'cancelled').length
+          const plTypes = DIVISION_TYPES[pl.key] ?? [pl.key]
+          const pipeCount = projects.filter(p => plTypes.includes(p.pipeline_type || 'wraps') && p.pipe_stage !== 'done' && p.status !== 'cancelled').length
           return (
             <button
               key={pl.key}

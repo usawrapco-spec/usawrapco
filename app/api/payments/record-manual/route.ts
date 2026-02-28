@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { data: invoice } = await admin
       .from('invoices')
-      .select('org_id, customer_id, total, amount_paid, balance, status')
+      .select('org_id, customer_id, total, amount_paid, balance_due, status')
       .eq('id', invoice_id)
       .maybeSingle()
 
@@ -48,10 +48,9 @@ export async function POST(req: NextRequest) {
 
     if (payErr) return NextResponse.json({ error: payErr.message }, { status: 500 })
 
-    // Update invoice totals and status (balance_due column doesn't exist, use balance)
     const updates: Record<string, unknown> = {
       amount_paid: newPaid,
-      balance: newBalance,
+      balance_due: newBalance,
       updated_at: new Date().toISOString(),
     }
     if (newBalance <= 0) {

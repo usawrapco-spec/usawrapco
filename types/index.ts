@@ -159,7 +159,7 @@ export interface Profile {
 
 // ─── Project ───────────────────────────────────────────────────────────────────
 export type ProjectType = 'wrap' | 'decking' | 'design' | 'ppf'
-export type PipelineType = 'wraps' | 'decking' | 'ppf' | 'marine'
+export type PipelineType = 'wraps' | 'dekwave' | 'decking' | 'ppf' | 'marine'
 export type ProjectStatus =
   | 'estimate'
   | 'active'

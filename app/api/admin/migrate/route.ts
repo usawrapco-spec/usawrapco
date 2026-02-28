@@ -149,11 +149,11 @@ export async function POST(req: NextRequest) {
   const adminClient = getSupabaseAdmin()
   const { data: profile } = await adminClient
     .from('profiles')
-    .select('is_owner')
+    .select('role')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.is_owner) {
+  if (profile?.role !== 'owner') {
     return NextResponse.json({ error: 'Owner access required' }, { status: 403 })
   }
 

@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     // Fetch all image records
     const { data: images, error: fetchError } = await admin
       .from('job_images')
-      .select('id, image_url, public_url, storage_path, file_name, mime_type')
+      .select('id, image_url, file_name')
       .in('id', imageIds)
 
     if (fetchError) {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     const results: TagResult[] = await Promise.all(
       images.map(async (image): Promise<TagResult> => {
         try {
-          const imageUrl = image.public_url || image.image_url
+          const imageUrl = image.image_url
           if (!imageUrl) {
             return { imageId: image.id, success: false, error: 'No image URL available' }
           }
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 
           const buffer = await imgRes.arrayBuffer()
           const base64 = Buffer.from(buffer).toString('base64')
-          const mime = image.mime_type || imgRes.headers.get('content-type') || 'image/jpeg'
+          const mime = imgRes.headers.get('content-type') || 'image/jpeg'
 
           // Call Claude Vision
           const response = await anthropic.messages.create({

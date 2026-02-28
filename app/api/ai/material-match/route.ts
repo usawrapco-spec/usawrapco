@@ -14,9 +14,9 @@ export async function POST(req: Request) {
     // Load available vinyl inventory remnants
     const { data: remnants } = await admin
       .from('vinyl_inventory')
-      .select('id, brand, color, finish, width_inches, length_ft, sqft_available, notes')
+      .select('id, brand, color, finish, width_in, roll_length_ft, qty_sqft, notes')
       .eq('status', 'available')
-      .order('sqft_available', { ascending: false })
+      .order('qty_sqft', { ascending: false })
       .limit(50)
 
     if (!remnants || remnants.length === 0) {

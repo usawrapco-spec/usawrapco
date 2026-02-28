@@ -297,6 +297,7 @@ export default function ContactDetailClient({
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('timeline')
   const [newNote, setNewNote] = useState('')
+  const [showNoteInput, setShowNoteInput] = useState(false)
   const [showTagInput, setShowTagInput] = useState(false)
   const [newTagValue, setNewTagValue] = useState('')
   const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set())
@@ -1038,33 +1039,46 @@ export default function ContactDetailClient({
       {activeTab === 'notes' && (
         <div>
           {/* Add note */}
-          <div style={{
-            display: 'flex', gap: 8, marginBottom: 16,
-            padding: '12px 16px', background: 'var(--surface)',
-            border: '1px solid var(--border)', borderRadius: 10,
-          }}>
-            <textarea
-              placeholder="Write a note..."
-              rows={3}
+          {!showNoteInput ? (
+            <button
+              onClick={() => setShowNoteInput(true)}
               style={{
-                flex: 1, padding: '8px 12px', borderRadius: 8,
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                color: 'var(--text1)', fontSize: 13, outline: 'none',
-                resize: 'vertical', fontFamily: 'inherit',
+                background: 'transparent', border: 'none', color: 'var(--accent)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                marginBottom: 16, display: 'block',
               }}
-              onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-            />
-            <button style={{
-              display: 'flex', alignItems: 'flex-start', gap: 5,
-              padding: '8px 14px', borderRadius: 8,
-              background: 'var(--accent)', border: 'none',
-              color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              height: 'fit-content',
-            }}>
-              <Plus size={13} /> Add
+            >
+              + Write a Note
             </button>
-          </div>
+          ) : (
+            <div style={{
+              display: 'flex', gap: 8, marginBottom: 16,
+              padding: '12px 16px', background: 'var(--surface)',
+              border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <textarea
+                placeholder="Write a note..."
+                rows={3}
+                style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 8,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  color: 'var(--text1)', fontSize: 13, outline: 'none',
+                  resize: 'vertical', fontFamily: 'inherit',
+                }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+              />
+              <button style={{
+                display: 'flex', alignItems: 'flex-start', gap: 5,
+                padding: '8px 14px', borderRadius: 8,
+                background: 'var(--accent)', border: 'none',
+                color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                height: 'fit-content',
+              }}>
+                <Plus size={13} /> Add
+              </button>
+            </div>
+          )}
 
           {/* Notes list */}
           {DEMO_NOTES.map(note => (
