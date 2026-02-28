@@ -26,7 +26,8 @@ export default async function PortalTokenPage({
       supabase
         .from('activity_log')
         .select('id, action, details, created_at')
-        .eq('customer_id', customer.id)
+        .eq('entity_id', customer.id)
+        .eq('entity_type', 'customer')
         .order('created_at', { ascending: false })
         .limit(10),
       supabase
