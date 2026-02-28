@@ -79,10 +79,12 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
 
   const [status, setStatus] = useState<InvoiceStatus>(inv.status)
   const [amountPaid, setAmountPaid] = useState(inv.amount_paid)
+  const [localPayments, setLocalPayments] = useState<Payment[]>(payments)
   const [vehicleYear, setVehicleYear] = useState<string>((inv.form_data?.vehicleYear as string) || '')
   const [vehicleMake, setVehicleMake] = useState<string>((inv.form_data?.vehicleMake as string) || '')
   const [vehicleModel, setVehicleModel] = useState<string>((inv.form_data?.vehicleModel as string) || '')
   const [paymentInput, setPaymentInput] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<Payment['method']>('card')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -162,6 +164,17 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
         }
         if (newBalance <= 0) { updates.status = 'paid'; updates.paid_at = new Date().toISOString() }
         await supabase.from('invoices').update(updates).eq('id', invoiceId)
+        const today = new Date().toISOString().split('T')[0]
+        const { data: newPayment } = await supabase.from('payments').insert({
+          org_id: inv.org_id,
+          invoice_id: invoiceId,
+          customer_id: inv.customer_id,
+          amount,
+          method: paymentMethod,
+          recorded_by: profile.id,
+          payment_date: today,
+        }).select().single()
+        if (newPayment) setLocalPayments(prev => [newPayment as Payment, ...prev])
         showToast(`Payment of ${fmtCurrency(amount)} recorded`)
       } catch {
         showToast('Error recording payment')
@@ -424,7 +437,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               <div style={{ marginTop: 12 }}>
                 <label className="field-label">Linked Sales Order</label>
                 <button
-                  onClick={() => router.push(`/sales-orders/${inv.sales_order_id}`)}
+                  onClick={() => router.push(`/sales-orders/${inv.so_id}`)}
                   className="btn-ghost btn-sm"
                   style={{ gap: 6 }}
                 >
@@ -561,6 +574,14 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                       />
                     </div>
                   </div>
+                  <div>
+                    <label className="field-label">Method</label>
+                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as Payment['method'])} className="field">
+                      {(['card','cash','check','zelle','venmo','ach','wire','stripe','other'] as const).map(m => (
+                        <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       onClick={handleRecordPayment}
@@ -607,11 +628,11 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
           )}
 
           {/* Payment History */}
-          {payments.length > 0 && (
+          {localPayments.length > 0 && (
             <div className="card">
               <div className="section-label">Payment History</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {payments.map(p => (
+                {localPayments.map(p => (
                   <div key={p.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '8px 0', borderBottom: '1px solid var(--border)',
