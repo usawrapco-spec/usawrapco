@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       cancel_url: `${siteUrl}/get-started/checkout`,
     })
 
-    // Update lead with stripe session id
+    // Update lead with stripe session id (stored in metadata JSONB — no stripe_session_id column)
     if (body.lead_id) {
       const { createClient } = await import('@supabase/supabase-js')
       const supabase = createClient(
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       )
       await supabase
         .from('onboarding_leads')
-        .update({ stripe_session_id: session.id, status: 'checkout_started' })
+        .update({ status: 'checkout_started', metadata: { stripe_session_id: session.id } })
         .eq('id', body.lead_id)
     }
 
