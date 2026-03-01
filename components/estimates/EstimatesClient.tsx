@@ -4,8 +4,9 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Plus, FileText, Send, CheckCircle2,
-  DollarSign, TrendingUp, ChevronRight, AlertTriangle,
+  DollarSign, TrendingUp, ChevronRight, AlertTriangle, LayoutTemplate,
 } from 'lucide-react'
+import Link from 'next/link'
 import type { Profile, Estimate, EstimateStatus } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
@@ -184,15 +185,28 @@ export default function EstimatesClient({ profile, initialEstimates }: Props) {
             {stats.total} estimate{stats.total !== 1 ? 's' : ''} total
           </p>
         </div>
-        {canWrite && (
-          <button
-            onClick={handleCreate}
-            disabled={creating}
-            className="btn-primary"
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Link
+            href="/estimates/templates"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 8,
+              border: '1px solid var(--border)', background: 'var(--surface)',
+              color: 'var(--text2)', fontSize: 13, fontWeight: 600, textDecoration: 'none',
+            }}
           >
-            <Plus size={14} /> New Estimate
-          </button>
-        )}
+            <LayoutTemplate size={14} /> Templates
+          </Link>
+          {canWrite && (
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="btn-primary"
+            >
+              <Plus size={14} /> New Estimate
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats cards */}

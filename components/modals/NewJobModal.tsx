@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Car, Building2, User, ChevronDown } from 'lucide-react';
+import { Car, Building2, User, ChevronDown, Link2 } from 'lucide-react';
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal';
 import { useToast } from '@/components/shared/Toast';
 
 interface NewJobModalProps {
@@ -13,13 +14,6 @@ interface NewJobModalProps {
   currentUserId: string;
   onJobCreated?: (job: any) => void;
   initialJobType?: 'wrap' | 'deck';
-}
-
-interface CustomerOption {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
 }
 
 interface SalesRepOption {
@@ -55,13 +49,12 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
   const { toast, xpToast, badgeToast } = useToast();
 
   // Lookups
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [salesReps, setSalesReps] = useState<SalesRepOption[]>([]);
-  const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [loadingSalesReps, setLoadingSalesReps] = useState(false);
 
-  // Customer selection: '' = none selected, 'new' = manual entry, otherwise customer id
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('new');
+  // Customer selection
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRow | null>(null);
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
 
   const [form, setForm] = useState({
     clientName: '',
@@ -81,22 +74,9 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
   });
   const supabase = createClient();
 
-  // Load customers and sales reps on mount
+  // Load sales reps on mount
   useEffect(() => {
     if (!isOpen) return;
-
-    const loadCustomers = async () => {
-      setLoadingCustomers(true);
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, name, email, phone')
-        .eq('org_id', orgId)
-        .order('name');
-      if (!error && data) {
-        setCustomers(data);
-      }
-      setLoadingCustomers(false);
-    };
 
     const loadSalesReps = async () => {
       setLoadingSalesReps(true);
@@ -113,7 +93,6 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
       setLoadingSalesReps(false);
     };
 
-    loadCustomers();
     loadSalesReps();
   }, [isOpen, orgId]);
 
@@ -123,23 +102,20 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCustomerSelect = (customerId: string) => {
-    setSelectedCustomerId(customerId);
-    if (customerId === 'new') {
-      // Clear fields for manual entry
-      setForm((prev) => ({ ...prev, clientName: '', clientPhone: '', clientEmail: '' }));
-    } else {
-      // Auto-fill from selected customer
-      const customer = customers.find((c) => c.id === customerId);
-      if (customer) {
-        setForm((prev) => ({
-          ...prev,
-          clientName: customer.name || '',
-          clientPhone: customer.phone || '',
-          clientEmail: customer.email || '',
-        }));
-      }
-    }
+  const handleCustomerSelect = (customer: CustomerRow) => {
+    setSelectedCustomer(customer);
+    setCustomerModalOpen(false);
+    setForm((prev) => ({
+      ...prev,
+      clientName: customer.name || '',
+      clientPhone: customer.phone || '',
+      clientEmail: customer.email || '',
+    }));
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedCustomer(null);
+    setForm((prev) => ({ ...prev, clientName: '', clientPhone: '', clientEmail: '' }));
   };
 
   const handleCreate = async () => {
@@ -160,7 +136,7 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
       service_division: jobType === 'wrap' ? 'wraps' : 'decking',
       pipe_stage: 'sales_in',
       priority: 'normal',
-      customer_id: selectedCustomerId !== 'new' ? selectedCustomerId : null,
+      customer_id: selectedCustomer?.id || null,
       agent_id: form.agentId || null,
       vehicle_desc: jobType === 'wrap'
         ? [
@@ -229,14 +205,14 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
         deckType: 'New Build', deckMaterial: 'Composite', deckSqft: '',
         agentId: '', installDate: '', notes: '',
       });
-      setSelectedCustomerId('new');
+      setSelectedCustomer(null);
       setSaving(false);
       // Navigate to the new job
       router.push(`/jobs/${data.id}`);
     }
   };
 
-  const isManualEntry = selectedCustomerId === 'new';
+  const isManualEntry = selectedCustomer === null;
 
   return (
     <div className="fixed inset-0 bg-black/70 z-[300] flex items-center justify-center animate-in fade-in" onClick={onClose}>
@@ -282,26 +258,55 @@ export default function NewJobModal({ isOpen, onClose, orgId, currentUserId, onJ
 
         {/* Customer selection */}
         <label className={LABEL_CLASS}>Customer</label>
-        <div className="relative mb-4">
-          <select
-            value={selectedCustomerId}
-            onChange={(e) => handleCustomerSelect(e.target.value)}
-            className={SELECT_CLASS}
-            style={{ appearance: 'none', paddingRight: '2.5rem' }}
-          >
-            <option value="new">+ New Customer (manual entry)</option>
-            {loadingCustomers && <option disabled>Loading customers...</option>}
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}{c.email ? ` — ${c.email}` : ''}{c.phone ? ` — ${c.phone}` : ''}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size={16}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-          />
+        <div className="mb-4">
+          {selectedCustomer ? (
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-purple-500/40 bg-purple-500/8">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold shrink-0">
+                  {selectedCustomer.name?.charAt(0).toUpperCase() || '?'}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-gray-100">{selectedCustomer.name}</div>
+                  {selectedCustomer.company_name && (
+                    <div className="text-xs text-gray-500">{selectedCustomer.company_name}</div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCustomerModalOpen(true)}
+                  className="text-xs text-purple-400 font-semibold bg-transparent border-none cursor-pointer"
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearCustomer}
+                  className="text-xs text-gray-500 font-semibold bg-transparent border-none cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCustomerModalOpen(true)}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-dashed border-[#2a3f6a] bg-[#111827] text-gray-500 text-sm cursor-pointer hover:border-purple-500/40 hover:text-gray-400 transition-colors"
+            >
+              <Link2 size={14} className="text-purple-400 shrink-0" />
+              Find existing customer — or fill in details below for new
+            </button>
+          )}
         </div>
+
+        <CustomerSearchModal
+          open={customerModalOpen}
+          onClose={() => setCustomerModalOpen(false)}
+          orgId={orgId}
+          onSelect={handleCustomerSelect}
+        />
 
         {/* Client info - always show, but auto-filled when customer selected */}
         <div className="grid grid-cols-2 gap-3 mb-3">

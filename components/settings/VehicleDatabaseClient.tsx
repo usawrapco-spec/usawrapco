@@ -31,6 +31,7 @@ interface Vehicle {
 interface Props {
   profile: Profile
   initialVehicles: Vehicle[]
+  totalCount: number
 }
 
 function parseCSV(text: string): Record<string, string>[] {
@@ -67,7 +68,7 @@ function mapCSVRow(row: Record<string, string>, orgId: string): Partial<Vehicle>
   }
 }
 
-export default function VehicleDatabaseClient({ profile, initialVehicles }: Props) {
+export default function VehicleDatabaseClient({ profile, initialVehicles, totalCount }: Props) {
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const orgId = profile.org_id || ORG_ID
@@ -174,7 +175,7 @@ export default function VehicleDatabaseClient({ profile, initialVehicles }: Prop
             Vehicle Database
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text3)' }}>
-            {vehicles.length} vehicles — used for sqft auto-fill in estimates
+            {totalCount.toLocaleString()} vehicles — used for sqft auto-fill in estimates
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -400,7 +401,7 @@ export default function VehicleDatabaseClient({ profile, initialVehicles }: Prop
           />
         </div>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-          {filtered.length} of {vehicles.length} vehicles
+          {filtered.length.toLocaleString()} of {totalCount.toLocaleString()} vehicles
         </span>
       </div>
 
