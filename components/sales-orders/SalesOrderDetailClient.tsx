@@ -15,6 +15,7 @@ import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 const DEMO_SO = {
@@ -226,6 +227,10 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [toast, setToast] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<DetailTab>('items')
   const [showActions, setShowActions] = useState(false)
+  const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(
+    so.customer ? { id: so.customer.id, name: so.customer.name, email: so.customer.email ?? null, phone: null, company_name: null, lifetime_spend: null } : null
+  )
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
 
   // Vehicle fields — read from DB columns, fall back to form_data for older records
   const [vehicleYear, setVehicleYear] = useState<string>(so.vehicle_year || (so.form_data?.vehicleYear as string) || '')
@@ -686,11 +691,33 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
               </div>
               <div>
                 <label className="field-label">Customer</label>
-                <input
-                  value={so.customer?.name || ''}
-                  className="field"
-                  disabled
-                  style={{ opacity: 0.7 }}
+                {linkedCustomer ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linkedCustomer.name}</div>
+                    {linkedCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{linkedCustomer.company_name}</div>}
+                    {linkedCustomer.phone && <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>{linkedCustomer.phone}</div>}
+                    {linkedCustomer.email && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{linkedCustomer.email}</div>}
+                    {canWrite && (
+                      <button onClick={() => setCustomerModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600, textAlign: 'left', marginTop: 2 }}>Change</button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setCustomerModalOpen(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}
+                  >
+                    <Plus size={12} /> Add Customer
+                  </button>
+                )}
+                <CustomerSearchModal
+                  open={customerModalOpen}
+                  onClose={() => setCustomerModalOpen(false)}
+                  orgId={profile.org_id}
+                  onSelect={async (c) => {
+                    setLinkedCustomer(c)
+                    setCustomerModalOpen(false)
+                    if (!isDemo) await supabase.from('sales_orders').update({ customer_id: c.id }).eq('id', orderId)
+                  }}
                 />
               </div>
               <div>

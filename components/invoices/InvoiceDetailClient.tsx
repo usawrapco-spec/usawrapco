@@ -8,6 +8,7 @@ import {
   ExternalLink, Ban, Link2, Copy, Check, Plus, Users,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import SendFinancingButton from '@/components/invoices/SendFinancingButton'
 import type { Profile, Invoice, InvoiceStatus, LineItem, Payment } from '@/types'
 import { isAdminRole } from '@/types'
@@ -222,6 +223,10 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [paymentInput, setPaymentInput] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<Payment['method']>('card')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(
+    inv.customer ? { id: inv.customer.id, name: inv.customer.name, email: inv.customer.email ?? null, phone: (inv.customer as any).phone ?? null, company_name: null, lifetime_spend: null } : null
+  )
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [showSendModal, setShowSendModal] = useState(false)
@@ -513,20 +518,37 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               </div>
               <div>
                 <label className="field-label">Customer</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <User size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                  <input
-                    value={inv.customer?.name || '--'}
-                    className="field"
-                    disabled
-                    style={{ opacity: 0.7 }}
-                  />
-                </div>
-                {inv.customer?.email && (
-                  <span style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, display: 'block' }}>
-                    {inv.customer.email}
-                  </span>
+                {linkedCustomer ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <User size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linkedCustomer.name}</span>
+                    </div>
+                    {linkedCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{linkedCustomer.company_name}</div>}
+                    {linkedCustomer.phone && <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>{linkedCustomer.phone}</div>}
+                    {linkedCustomer.email && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{linkedCustomer.email}</div>}
+                    {canWrite && (
+                      <button onClick={() => setCustomerModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600, textAlign: 'left', marginTop: 2 }}>Change</button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setCustomerModalOpen(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}
+                  >
+                    <Plus size={12} /> Add Customer
+                  </button>
                 )}
+                <CustomerSearchModal
+                  open={customerModalOpen}
+                  onClose={() => setCustomerModalOpen(false)}
+                  orgId={profile.org_id}
+                  onSelect={async (c) => {
+                    setLinkedCustomer(c)
+                    setCustomerModalOpen(false)
+                    if (!isDemo) await supabase.from('invoices').update({ customer_id: c.id }).eq('id', invoiceId)
+                  }}
+                />
               </div>
               <div>
                 <label className="field-label">Year</label>

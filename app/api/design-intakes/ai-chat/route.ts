@@ -7,6 +7,8 @@ export async function POST(request: NextRequest) {
   try {
     const { messages, formData } = await request.json()
 
+    console.log('[ai-chat] received messages:', messages?.length ?? 0)
+
     const systemPrompt = `You are the USA Wrap Co design concierge. You are warm, expert, creative, and conversational.
 
 The customer has shared this about their project:
@@ -16,6 +18,18 @@ Your job is to ask 3 to 5 smart, specific follow-up questions to deeply understa
 
     const encoder = new TextEncoder()
 
+    // When the conversation starts fresh (empty messages), inject an opener
+    // so the Anthropic API receives a valid non-empty messages array.
+    const finalMessages: { role: 'user' | 'assistant'; content: string }[] =
+      Array.isArray(messages) && messages.length > 0
+        ? messages.map((m: { role: string; content: string }) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }))
+        : [{ role: 'user', content: 'Please greet me and ask your first question about my project.' }]
+
+    console.log('[ai-chat] sending to Claude, finalMessages count:', finalMessages.length)
+
     const readable = new ReadableStream({
       async start(controller) {
         try {
@@ -23,10 +37,7 @@ Your job is to ask 3 to 5 smart, specific follow-up questions to deeply understa
             model: 'claude-sonnet-4-6',
             max_tokens: 1024,
             system: systemPrompt,
-            messages: messages.map((m: { role: string; content: string }) => ({
-              role: m.role as 'user' | 'assistant',
-              content: m.content,
-            })),
+            messages: finalMessages,
           })
 
           for await (const event of stream) {

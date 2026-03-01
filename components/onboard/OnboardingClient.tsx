@@ -27,6 +27,7 @@ import {
   Layers,
   Star,
 } from 'lucide-react'
+import VehicleSelector from '@/components/onboarding/VehicleSelector'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface OnboardingClientProps {
@@ -40,6 +41,7 @@ interface FormData {
   vehicleYear: string
   vehicleMake: string
   vehicleModel: string
+  vehicleSqft: string
   vehicleColor: string
   vehiclePhotos: UploadedFile[]
   // Services
@@ -193,6 +195,7 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
     vehicleYear: '',
     vehicleMake: '',
     vehicleModel: '',
+    vehicleSqft: '',
     vehicleColor: '',
     vehiclePhotos: [],
     services: [],
@@ -337,6 +340,7 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
           vehicleYear: form.vehicleYear,
           vehicleMake: form.vehicleMake,
           vehicleModel: form.vehicleModel,
+          vehicleSqft: form.vehicleSqft,
           vehicleColor: form.vehicleColor,
           services: form.services,
           referenceImages: form.referenceImages,
@@ -575,51 +579,24 @@ export default function OnboardingClient({ token }: OnboardingClientProps) {
         return (
           <div style={slideStyle}>
             <StepHeader icon={Car} title="Vehicle Information" subtitle="Tell us about the vehicle being wrapped" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>Year *</label>
-                <input
-                  style={inputStyle}
-                  type="number"
-                  placeholder="2024"
-                  value={form.vehicleYear}
-                  onChange={e => ff('vehicleYear', e.target.value)}
-                  min="1990"
-                  max="2030"
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Make *</label>
-                <select
-                  style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
-                  value={form.vehicleMake}
-                  onChange={e => ff('vehicleMake', e.target.value)}
-                >
-                  <option value="">Select make</option>
-                  {POPULAR_MAKES.map(m => <option key={m} value={m}>{m}</option>)}
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Model *</label>
-                <input
-                  style={inputStyle}
-                  placeholder="Model S"
-                  value={form.vehicleModel}
-                  onChange={e => ff('vehicleModel', e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Color</label>
-                <input
-                  style={inputStyle}
-                  placeholder="Pearl White"
-                  value={form.vehicleColor}
-                  onChange={e => ff('vehicleColor', e.target.value)}
-                />
-              </div>
+            <VehicleSelector
+              onChange={data => {
+                ff('vehicleYear', data.year)
+                ff('vehicleMake', data.make)
+                ff('vehicleModel', data.model)
+                ff('vehicleSqft', data.sqft ? String(data.sqft) : '')
+              }}
+            />
+            <div style={{ marginTop: 20 }}>
+              <label style={labelStyle}>Vehicle Color</label>
+              <input
+                style={inputStyle}
+                placeholder="Pearl White"
+                value={form.vehicleColor}
+                onChange={e => ff('vehicleColor', e.target.value)}
+              />
             </div>
-            <div style={{ marginTop: 24 }}>
+            <div style={{ marginTop: 20 }}>
               <label style={labelStyle}>Vehicle Photos</label>
               <DropZone
                 label="Upload vehicle photos"

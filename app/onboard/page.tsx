@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronRight, Upload, X, Plus, AlertTriangle } from 'lucide-react'
+import VehicleSelector from '@/components/onboarding/VehicleSelector'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ interface FormState {
   services: string[]
   // Step 4
   vehicleYear: string; vehicleMake: string; vehicleModel: string
-  vehicleQuantity: string; vehicleColor: string
+  vehicleSqft: number | null; vehicleQuantity: string; vehicleColor: string
   vehiclePhotos: File[]; vehiclePhotoUrls: string[]
   hasExistingWrap: boolean
   boatType: string; boatLength: string
@@ -54,7 +55,7 @@ interface FormState {
 const initForm = (): FormState => ({
   name: '', businessName: '', email: '', phone: '', website: '', referralSource: '',
   services: [],
-  vehicleYear: '', vehicleMake: '', vehicleModel: '', vehicleQuantity: '1',
+  vehicleYear: '', vehicleMake: '', vehicleModel: '', vehicleSqft: null, vehicleQuantity: '1',
   vehicleColor: '#ffffff', vehiclePhotos: [], vehiclePhotoUrls: [],
   hasExistingWrap: false, boatType: '', boatLength: '',
   hasLogo: null, logoFile: null, logoPreview: null,
@@ -189,6 +190,7 @@ export default function OnboardPage() {
 
   const sendAiMessage = useCallback(async (userMsg: string, history: ChatMessage[]) => {
     setAiStreaming(true)
+    console.log('[AI chat] sendAiMessage called', { userMsg: userMsg.slice(0, 50), historyLen: history.length })
 
     const messages = userMsg
       ? [...history, { role: 'user' as const, content: userMsg }]
@@ -213,35 +215,56 @@ export default function OnboardPage() {
       },
     }
 
+    // Show empty assistant bubble immediately so the user sees activity
+    const finalMessages: ChatMessage[] = userMsg
+      ? [...history, { role: 'user', content: userMsg }, { role: 'assistant', content: '' }]
+      : [...history, { role: 'assistant', content: '' }]
+    setAiMessages([...finalMessages])
+
     try {
+      console.log('[AI chat] Fetching /api/design-intakes/ai-chat, messages:', messages.length)
       const res = await fetch('/api/design-intakes/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages, formData }),
       })
 
-      if (!res.ok) throw new Error('API error')
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('[AI chat] API returned non-OK:', res.status, errText)
+        throw new Error(`API error ${res.status}`)
+      }
 
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let assistantText = ''
+      let streamDone = false
 
-      const finalMessages: ChatMessage[] = userMsg
-        ? [...history, { role: 'user', content: userMsg }, { role: 'assistant', content: '' }]
-        : [...history, { role: 'assistant', content: '' }]
-      setAiMessages([...finalMessages])
-
-      while (true) {
+      while (!streamDone) {
         const { done, value } = await reader.read()
         if (done) break
         const chunk = decoder.decode(value)
         const lines = chunk.split('\n')
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') break
+            const data = line.slice(6).trim()
+            if (data === '[DONE]') { streamDone = true; break }
             try {
               const parsed = JSON.parse(data)
+              if (parsed.error) {
+                console.error('[AI chat] Stream error event:', parsed.error)
+                // Show error in bubble so it's not empty
+                setAiMessages(prev => {
+                  const updated = [...prev]
+                  updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: "I'm having trouble connecting right now. Please try sending your message again.",
+                  }
+                  return updated
+                })
+                streamDone = true
+                break
+              }
               if (parsed.text) {
                 assistantText += parsed.text
                 setAiMessages(prev => {
@@ -250,20 +273,33 @@ export default function OnboardPage() {
                   return updated
                 })
               }
-            } catch { /* ignore */ }
+            } catch { /* ignore SSE parse errors for non-data lines */ }
           }
         }
       }
 
+      console.log('[AI chat] Stream complete, assistantText length:', assistantText.length)
+
       if (assistantText.includes('BRIEF_COMPLETE')) {
         setBriefComplete(true)
-        // Store cleaned version in form
         up({ aiConversation: finalMessages.slice(0, -1).concat([{ role: 'assistant', content: assistantText }]) })
       }
 
       setAiUnavailable(false)
       if (retryTimerRef.current) clearInterval(retryTimerRef.current)
-    } catch {
+    } catch (err) {
+      console.error('[AI chat] Caught error:', err)
+      // Show error text in the bubble instead of leaving it empty
+      setAiMessages(prev => {
+        const updated = [...prev]
+        if (updated.length > 0 && updated[updated.length - 1].role === 'assistant' && updated[updated.length - 1].content === '') {
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            content: "I'm temporarily unavailable. Describe your vision in the text box below and we'll follow up!",
+          }
+        }
+        return updated
+      })
       setAiUnavailable(true)
       // Auto-retry every 30 seconds
       if (!retryTimerRef.current) {
@@ -272,7 +308,7 @@ export default function OnboardPage() {
             const r = await fetch('/api/design-intakes/ai-chat', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ messages: [], formData: {} }),
+              body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], formData: {} }),
               signal: AbortSignal.timeout(5000),
             })
             if (r.ok) {
@@ -696,30 +732,19 @@ function Step4({ form, up, hasMarine, onNext, onBack, edit, onVehiclePhotos, onR
       <h2 style={s.heading}>Tell us about the vehicle(s)</h2>
       <p style={{ ...s.subtext, marginBottom: 32 }}>Give us the details so we can design to fit perfectly.</p>
 
-      <div style={s.row}>
-        <div style={s.field}>
-          <label style={s.label}>Year</label>
-          <input style={s.input} type="number" value={form.vehicleYear} placeholder="2023"
-            onChange={e => up({ vehicleYear: e.target.value })} />
-        </div>
-        <div style={s.field}>
-          <label style={s.label}>Quantity</label>
-          <input style={s.input} type="number" min="1" value={form.vehicleQuantity}
-            onChange={e => up({ vehicleQuantity: e.target.value })} />
-        </div>
-      </div>
+      <VehicleSelector
+        onChange={data => up({
+          vehicleYear: data.year,
+          vehicleMake: data.make,
+          vehicleModel: data.model,
+          vehicleSqft: data.sqft,
+        })}
+      />
 
-      <div style={s.row}>
-        <div style={s.field}>
-          <label style={s.label}>Make</label>
-          <input style={s.input} value={form.vehicleMake} placeholder="Ford"
-            onChange={e => up({ vehicleMake: e.target.value })} />
-        </div>
-        <div style={s.field}>
-          <label style={s.label}>Model</label>
-          <input style={s.input} value={form.vehicleModel} placeholder="Transit 250"
-            onChange={e => up({ vehicleModel: e.target.value })} />
-        </div>
+      <div style={{ ...s.field, marginTop: 20 }}>
+        <label style={s.label}>Quantity</label>
+        <input style={s.input} type="number" min="1" value={form.vehicleQuantity}
+          onChange={e => up({ vehicleQuantity: e.target.value })} />
       </div>
 
       <div style={s.field}>
