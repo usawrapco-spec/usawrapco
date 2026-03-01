@@ -1676,6 +1676,19 @@ function DesignTab({ f, ff, project, profile }: any) {
         </Field>
       </Section>
 
+      {/* AI Mockup Generator */}
+      <Section label="AI Mockup Generator">
+        <div style={{ padding:16, background:'var(--surface2)', borderRadius:10, border:'1px solid rgba(79,127,255,0.3)' }}>
+          <div style={{ fontSize:12, color:'var(--text2)', marginBottom:8 }}>Generate a photorealistic wrap mockup for this vehicle using AI</div>
+          <a
+            href={`/mockup?projectId=${project.id}`}
+            style={{ padding:'8px 16px', borderRadius:8, fontWeight:700, fontSize:12, cursor:'pointer', background:'linear-gradient(135deg,var(--accent) 0%,#7c3aed 100%)', border:'none', color:'#fff', display:'inline-flex', alignItems:'center', gap:6, textDecoration:'none' }}
+          >
+            <Sparkles size={13} /> Generate AI Mockup
+          </a>
+        </div>
+      </Section>
+
       {/* Send bid to designer */}
       <Section label="Designer Bidding">
         <div style={{ padding:16, background:'var(--surface2)', borderRadius:10, border:'1px solid var(--border)' }}>
