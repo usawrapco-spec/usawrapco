@@ -2,7 +2,6 @@ import '@/app/globals.css'
 import type { Metadata, Viewport } from 'next'
 import { Providers } from '@/components/shared/Providers'
 import VinylChat from '@/components/vinyl-chat'
-import SystemAlertBanner from '@/components/shared/SystemAlertBanner'
 import SystemHealthBanner from '@/components/layout/SystemHealthBanner'
 
 export const metadata: Metadata = {
@@ -40,7 +39,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <SystemHealthBanner />
         <Providers>
-          <SystemAlertBanner />
           {children}
           <VinylChat />
         </Providers>
