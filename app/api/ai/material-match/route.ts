@@ -42,15 +42,15 @@ Return ONLY the JSON, no other text.`
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
-    let result = { matches: [] }
+    let result = { matches: [] as any[] }
     try {
       const match = text.match(/\{[\s\S]*\}/)
       if (match) result = JSON.parse(match[0])
     } catch {}
 
     return Response.json(result)
-  } catch (err) {
+  } catch (err: any) {
     console.error('[material-match] error:', err)
-    return Response.json({ matches: [] })
+    return Response.json({ matches: [], error: err.message || 'Material match failed' }, { status: 500 })
   }
 }

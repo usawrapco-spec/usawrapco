@@ -111,6 +111,7 @@ Return JSON:
 
     return NextResponse.json({ report, analysis })
   } catch (err: any) {
-    return NextResponse.json({ report, analysis: null, error: err.message }, { status: 200 })
+    console.error('[self-improve] AI analysis error:', err)
+    return NextResponse.json({ report, analysis: null, error: err.message }, { status: 500 })
   }
 }

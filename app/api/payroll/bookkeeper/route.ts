@@ -64,23 +64,28 @@ ${runs.slice(0, 5).map((r: any) => `  ${r.period_start}–${r.period_end}: $${(r
     return NextResponse.json({ reply: 'AI Bookkeeper is not configured. Please add ANTHROPIC_API_KEY to your environment variables.' })
   }
 
-  const Anthropic = (await import('@anthropic-ai/sdk')).default
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  try {
+    const Anthropic = (await import('@anthropic-ai/sdk')).default
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const messages: any[] = [
-    ...(Array.isArray(history) ? history.slice(-8) : []),
-    { role: 'user', content: message }
-  ]
+    const messages: any[] = [
+      ...(Array.isArray(history) ? history.slice(-8) : []),
+      { role: 'user', content: message }
+    ]
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system: `You are an expert AI bookkeeper and payroll advisor for USA Wrap Co, a vehicle wrap shop. You help the owner understand their financials, payroll costs, and job profitability. You have access to real business data shown below. Be concise, specific, and use dollar amounts from the data when answering questions. Format numbers with $ signs and commas.
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: `You are an expert AI bookkeeper and payroll advisor for USA Wrap Co, a vehicle wrap shop. You help the owner understand their financials, payroll costs, and job profitability. You have access to real business data shown below. Be concise, specific, and use dollar amounts from the data when answering questions. Format numbers with $ signs and commas.
 
 ${context}`,
-    messages,
-  })
+      messages,
+    })
 
-  const reply = response.content[0]?.type === 'text' ? response.content[0].text : 'Sorry, I could not generate a response.'
-  return NextResponse.json({ reply })
+    const reply = response.content[0]?.type === 'text' ? response.content[0].text : 'Sorry, I could not generate a response.'
+    return NextResponse.json({ reply })
+  } catch (err: any) {
+    console.error('[payroll/bookkeeper] AI error:', err)
+    return NextResponse.json({ error: err.message || 'AI bookkeeper failed' }, { status: 500 })
+  }
 }

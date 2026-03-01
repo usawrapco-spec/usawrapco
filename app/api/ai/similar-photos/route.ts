@@ -49,8 +49,8 @@ Return ONLY the JSON array, no other text.`
     } catch {}
 
     return Response.json({ photos })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[similar-photos] error:', err)
-    return Response.json({ photos: [] })
+    return Response.json({ photos: [], error: err.message || 'Similar photos failed' }, { status: 500 })
   }
 }

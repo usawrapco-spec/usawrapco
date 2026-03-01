@@ -54,6 +54,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ summary })
   } catch (error: any) {
-    return NextResponse.json({ summary: '', error: error.message }, { status: 200 })
+    console.error('[work-summary] error:', error)
+    return NextResponse.json({ summary: '', error: error.message }, { status: 500 })
   }
 }

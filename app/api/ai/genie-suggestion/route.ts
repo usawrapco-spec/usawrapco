@@ -39,8 +39,8 @@ Return ONLY valid JSON array, no markdown.`
     const suggestions = JSON.parse(text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
 
     return Response.json({ suggestions: Array.isArray(suggestions) ? suggestions : [] })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[genie-suggestion] error:', err)
-    return Response.json({ suggestions: [] })
+    return Response.json({ suggestions: [], error: err.message || 'AI suggestion failed' }, { status: 500 })
   }
 }
