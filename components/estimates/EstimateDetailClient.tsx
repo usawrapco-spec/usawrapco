@@ -42,7 +42,7 @@ import PPFCalc from '@/components/estimates/calculators/PPFCalc'
 import BoatDeckingCalc from '@/components/estimates/calculators/BoatDeckingCalc'
 import WallWrapCalc from '@/components/estimates/calculators/WallWrapCalc'
 import SignageCalc from '@/components/estimates/calculators/SignageCalc'
-import GPMSidebar from '@/components/estimates/GPMSidebar'
+// GPMSidebar removed — unified into right panel
 import type { CalcOutput } from '@/components/estimates/calculators/types'
 import EstimateSurveyTab from '@/components/estimates/EstimateSurveyTab'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
@@ -654,6 +654,28 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     return rows
   })()
   const totalComm = commRows.reduce((s, r) => s + r.val, 0)
+
+  // Unified panel: COGS breakdown by category
+  const cogsBreakdown = useMemo(() => lineItemsList.reduce((acc, li) => {
+    const g = calcGPM(li, leadType)
+    acc.material += g.materialCost
+    acc.labor    += g.laborCost
+    acc.design   += g.designFee
+    acc.misc     += g.miscCost
+    return acc
+  }, { material: 0, labor: 0, design: 0, misc: 0 }), [lineItemsList, leadType])
+
+  // Unified panel: commission rate respecting torqBonus checkbox
+  const commRate = useMemo(() => {
+    const rates = COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound
+    if (!rates.bonuses || overallGPM < 65) return rates.base
+    let rate = rates.base
+    if (overallGPM >= 73) rate += 0.02
+    if (torqBonus) rate += 0.01
+    return Math.min(rate, rates.max)
+  }, [leadType, overallGPM, torqBonus])
+
+  const estCommission = useMemo(() => Math.max(0, totalGP * commRate), [totalGP, commRate])
 
   // Proposal slide-over
   const [proposalSlideOpen, setProposalSlideOpen] = useState(false)
@@ -2192,91 +2214,144 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               )}
             </div>
 
-            {/* Right: Financial Sidebar */}
+            {/* Right: Unified Financial Panel */}
             <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
-              {/* GP Summary */}
-              <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 10 }}>
-                  Financial Summary
+
+              {/* ── REVENUE ─────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Revenue</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <SummaryRow label='Revenue' value={fmtCurrency(subtotal)} />
-                  <SummaryRow label='COGS' value={fmtCurrency(totalCOGS)} />
+              </div>
+
+              {/* ── COSTS ───────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Costs</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {cogsBreakdown.material > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.labor > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.design > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.misc > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
+                    </div>
+                  )}
+                  <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                      {fmtCurrency(totalGP)}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Overall GPM</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 800, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 60 ? 'var(--amber)' : 'var(--red)' }}>
-                      {fmtPercent(overallGPM)}
-                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
                   </div>
                 </div>
               </div>
-              {/* Commission Section */}
-              <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>
-                  Commission
+
+              {/* ── PROFIT ──────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Profit</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{fmtPercent(overallGPM)}</span>
+                  </div>
+                  {overallGPM < 65 && subtotal > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
+                      <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+              </div>
+
+              {/* ── COMMISSION PREVIEW ──────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Commission Preview</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                   {(['inbound', 'outbound', 'presold'] as const).map(lt => (
                     <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
-                      {lt === 'presold' ? 'Pre-Sold' : lt.charAt(0).toUpperCase() + lt.slice(1)}
+                      {lt === 'presold' ? 'Pre-Sold' : lt === 'inbound' ? 'In' : 'Out'}
                     </button>
                   ))}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {commRows.map(r => (
-                    <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text2)' }}>{r.label}</span>
-                      <span style={{ fontFamily: monoFont, fontSize: 13, color: r.val >= 0 ? 'var(--text1)' : 'var(--red)' }}>{fmtCurrency(r.val)}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>Total Commission</span>
-                    <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(totalComm)}</span>
+                {(COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound).bonuses && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
+                    <input type="checkbox" checked={torqBonus} onChange={() => setTorqBonus(!torqBonus)} />
+                    Torq Training Bonus (+1%)
+                  </label>
+                )}
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Commission Rate</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text1)' }}>{(commRate * 100).toFixed(1)}%</span>
+                  </div>
+                  {overallGPM < 65 && subtotal > 0 && (
+                    <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>Low margin — base rate only</div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(estCommission)}</span>
                   </div>
                 </div>
               </div>
-              {/* Subtotal / Discount / Tax / Total */}
-              <div style={{ ...sectionPad, borderBottom: '1px solid var(--border)' }}>
+
+              {/* ── TOTALS ──────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <SummaryRow label='Subtotal' value={fmtCurrency(subtotal)} />
-                  {discount > 0 && <SummaryRow label='Discount' value={fmtCurrency(-discount)} />}
-                  <SummaryRow label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(taxAmount)} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
+                      <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--red)', fontWeight: 600 }}>{fmtCurrency(-discount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
                     <span style={{ fontFamily: monoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
                   </div>
                 </div>
               </div>
-              {/* Action Buttons */}
-              <div style={{ ...sectionPad, display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+              {/* ── ACTION BUTTONS ───────────────────────── */}
+              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {canWrite && (
                   <button
                     onClick={handleCreateJob}
-                    style={{
-                      width: '100%', padding: '10px', borderRadius: 8, border: 'none',
-                      background: 'var(--green)', color: '#fff', cursor: 'pointer',
-                      fontWeight: 700, fontFamily: headingFont, fontSize: 14,
-                      textTransform: 'uppercase', letterSpacing: '0.04em',
-                    }}
+                    style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
                   >
                     Convert to Job
                   </button>
                 )}
                 <button
                   onClick={handleSendEstimate}
-                  style={{
-                    width: '100%', padding: '10px', borderRadius: 8,
-                    border: '1px solid var(--accent)',
-                    background: 'transparent', color: 'var(--accent)', cursor: 'pointer',
-                    fontWeight: 700, fontFamily: headingFont, fontSize: 14,
-                    textTransform: 'uppercase', letterSpacing: '0.04em',
-                  }}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
                 >
                   Send Estimate
                 </button>
@@ -2294,13 +2369,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           </div>
           </div>
-          <GPMSidebar
-            lineItems={lineItemsList}
-            leadType={leadType}
-            onLeadTypeChange={setLeadType}
-            torqBonus={torqBonus}
-            onTorqChange={setTorqBonus}
-          />
         </div>
       )}
 
