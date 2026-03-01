@@ -11,8 +11,9 @@ import {
   X, Search, Flame, TrendingUp, DollarSign, Clock, ArrowRight,
   Pencil, Trash2, Calendar, MessageSquare, PhoneCall, MailIcon,
   StickyNote, CheckCircle2, AlertCircle, LayoutGrid, List,
-  UserPlus, Target,
+  UserPlus, Target, Link2,
 } from 'lucide-react'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 // ── Types ────────────────────────────────────────────────────
 type ProspectStatus = 'hot' | 'warm' | 'cold' | 'dead'
@@ -42,6 +43,8 @@ interface Prospect {
   follow_up_date: string | null
   activities: Activity[]
   created_at: string
+  customer_id?: string | null
+  customer_name?: string | null
 }
 
 interface ProspectsClientProps {
@@ -57,6 +60,7 @@ const DEMO_PROSPECTS: Prospect[] = [
     fleet_size: '5 trucks', estimated_revenue: 15000, notes: 'Very interested in full fleet wrap.',
     agent_id: 'kevin-1', agent_name: 'Kevin', last_contact: '2026-02-21',
     follow_up_date: '2026-02-22', created_at: '2026-02-10',
+    customer_id: null, customer_name: null,
     activities: [
       { id: 'a1', type: 'call', description: 'Initial cold call. Very receptive, wants quote.', date: '2026-02-18' },
       { id: 'a2', type: 'call', description: 'Follow-up call. Discussed fleet pricing.', date: '2026-02-21' },
@@ -205,6 +209,8 @@ function mapDbToProspect(row: any): Prospect {
     follow_up_date: null,
     activities: [],
     created_at: row.created_at || '',
+    customer_id: row.customer_id || null,
+    customer_name: row.customer?.name || null,
   }
 }
 
@@ -686,6 +692,7 @@ export default function ProspectsClient({ profile, initialProspects }: Prospects
           onUpdate={(updated) => {
             setProspects(prev => prev.map(p => p.id === updated.id ? updated : p))
           }}
+          orgId={profile.org_id || ORG_ID}
         />
       )}
 
@@ -1096,12 +1103,13 @@ function AddProspectModal({ onClose, onAdd, isAdmin, currentAgent, orgId, userId
 }
 
 // ── Detail Modal ─────────────────────────────────────────────
-function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
+function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate, orgId }: {
   prospect: Prospect
   onClose: () => void
   onConvert: () => void
   onDelete: (id: string) => void
   onUpdate: (p: Prospect) => void
+  orgId: string
 }) {
   const supabase = createClient()
   const [editing, setEditing] = useState(false)
@@ -1109,6 +1117,19 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
   const [editForm, setEditForm] = useState({ ...prospect })
   const [showEditNotes, setShowEditNotes] = useState(!!prospect.notes)
   const cfg = STATUS_CONFIG[prospect.status]
+  const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(
+    prospect.customer_id ? { id: prospect.customer_id, name: prospect.customer_name || '', email: null, phone: null, company_name: null, lifetime_spend: null } : null
+  )
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
+
+  async function handleSelectCustomer(c: CustomerRow) {
+    setLinkedCustomer(c)
+    setCustomerModalOpen(false)
+    if (!prospect.id.startsWith('local-')) {
+      await supabase.from('prospects').update({ customer_id: c.id }).eq('id', prospect.id)
+    }
+    onUpdate({ ...prospect, customer_id: c.id, customer_name: c.name })
+  }
 
   async function handleSaveEdit() {
     const updated: Prospect = {
@@ -1239,7 +1260,68 @@ function DetailModal({ prospect, onClose, onConvert, onDelete, onUpdate }: {
                   <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>{prospect.notes}</div>
                 </div>
               )}
+
+              {/* Linked Customer */}
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.05em' }}>
+                  Linked Customer
+                </div>
+                {linkedCustomer ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', background: 'rgba(79,127,255,0.08)',
+                    border: '1px solid rgba(79,127,255,0.25)', borderRadius: 10,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%',
+                        background: 'rgba(79,127,255,0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        <User size={14} style={{ color: 'var(--accent)' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linkedCustomer.name}</div>
+                        {linkedCustomer.company_name && (
+                          <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{linkedCustomer.company_name}</div>
+                        )}
+                        {linkedCustomer.phone && (
+                          <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace' }}>{linkedCustomer.phone}</div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setCustomerModalOpen(true)}
+                      style={{
+                        background: 'none', border: 'none', color: 'var(--accent)',
+                        fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '2px 6px',
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setCustomerModalOpen(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      width: '100%', padding: '10px 14px', borderRadius: 10,
+                      border: '1px dashed var(--border)', background: 'transparent',
+                      color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
+                    }}
+                  >
+                    <Link2 size={13} /> Link existing customer record
+                  </button>
+                )}
+              </div>
             </div>
+
+            <CustomerSearchModal
+              open={customerModalOpen}
+              onClose={() => setCustomerModalOpen(false)}
+              orgId={orgId}
+              onSelect={handleSelectCustomer}
+            />
 
             {/* Follow-up date picker */}
             <div style={{
