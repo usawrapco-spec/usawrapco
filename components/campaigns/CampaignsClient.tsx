@@ -4,7 +4,8 @@ import DOMPurify from 'isomorphic-dompurify'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
-import { Plus, X, Play, Pause, Mail, Send, Sparkles, Target } from 'lucide-react'
+import { Plus, X, Play, Pause, Mail, Send, Sparkles, Target, Link2 } from 'lucide-react'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import WrapCampaignsList from '@/components/campaigns/WrapCampaignsList'
 
 interface CampaignsClientProps {
@@ -34,6 +35,12 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
   const [formIndustry, setFormIndustry] = useState('General')
   const [formAutoReply, setFormAutoReply] = useState(false)
   const [formSaving, setFormSaving] = useState(false)
+  const [formCustomer, setFormCustomer] = useState<CustomerRow | null>(null)
+  const [formCustomerModalOpen, setFormCustomerModalOpen] = useState(false)
+
+  // Detail panel customer
+  const [detailCustomer, setDetailCustomer] = useState<CustomerRow | null>(null)
+  const [detailCustomerModalOpen, setDetailCustomerModalOpen] = useState(false)
 
   async function handleCreate() {
     if (!formName.trim()) return
@@ -55,6 +62,7 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
       auto_reply: formAutoReply,
       stats: { sent: 0, opened: 0, replied: 0, bounced: 0, conversions: 0 },
       created_by: profile.id,
+      customer_id: formCustomer?.id || null,
     }).select().single()
 
     if (!error && data) {
@@ -62,8 +70,31 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
       setShowCreate(false)
       setFormName('')
       setFormIndustry('General')
+      setFormCustomer(null)
     }
     setFormSaving(false)
+  }
+
+  async function selectCampaign(c: any) {
+    setSelectedCampaign(c)
+    if (c.customer_id) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id, name, company_name, phone, email, lifetime_spend')
+        .eq('id', c.customer_id)
+        .single()
+      setDetailCustomer(data ? (data as CustomerRow) : null)
+    } else {
+      setDetailCustomer(null)
+    }
+  }
+
+  async function saveDetailCustomer(customer: CustomerRow | null) {
+    if (!selectedCampaign) return
+    await supabase.from('campaigns').update({ customer_id: customer?.id || null }).eq('id', selectedCampaign.id)
+    setCampaigns(prev => prev.map(c => c.id === selectedCampaign.id ? { ...c, customer_id: customer?.id || null } : c))
+    setSelectedCampaign((prev: any) => prev ? { ...prev, customer_id: customer?.id || null } : prev)
+    setDetailCustomer(customer)
   }
 
   async function generateEmails(campaign: any) {
@@ -209,7 +240,7 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
             </div>
           )}
           {campaigns.map(c => (
-            <div key={c.id} onClick={() => setSelectedCampaign(c)} style={{
+            <div key={c.id} onClick={() => selectCampaign(c)} style={{
               padding: '14px 16px', background: selectedCampaign?.id === c.id ? 'rgba(79,127,255,0.08)' : 'var(--surface)',
               border: `1px solid ${selectedCampaign?.id === c.id ? 'var(--accent)' : 'var(--border)'}`,
               borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
@@ -276,6 +307,52 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
               </div>
             </div>
 
+            {/* Linked Customer */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                Linked Customer
+              </div>
+              {detailCustomer ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 12px', borderRadius: 8,
+                  background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: 'rgba(79,127,255,0.15)', color: 'var(--accent)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {detailCustomer.name?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{detailCustomer.name}</div>
+                      {detailCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{detailCustomer.company_name}</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setDetailCustomerModalOpen(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Change</button>
+                    <button onClick={() => saveDetailCustomer(null)} style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setDetailCustomerModalOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '8px 12px', borderRadius: 8,
+                    border: '1px dashed var(--border)', background: 'var(--surface2)',
+                    color: 'var(--text3)', fontSize: 12, cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <Link2 size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  Link to customer account
+                </button>
+              )}
+            </div>
+
             {/* Email Sequence */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {(selectedCampaign.email_sequence || []).map((step: any, i: number) => (
@@ -332,6 +409,20 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
 
       </>}
 
+      {/* Customer Search Modals */}
+      <CustomerSearchModal
+        open={formCustomerModalOpen}
+        onClose={() => setFormCustomerModalOpen(false)}
+        orgId={profile.org_id || ''}
+        onSelect={(c) => { setFormCustomer(c); setFormCustomerModalOpen(false) }}
+      />
+      <CustomerSearchModal
+        open={detailCustomerModalOpen}
+        onClose={() => setDetailCustomerModalOpen(false)}
+        orgId={profile.org_id || ''}
+        onSelect={(c) => { saveDetailCustomer(c); setDetailCustomerModalOpen(false) }}
+      />
+
       {/* Create Campaign Modal */}
       {showCreate && (
         <div style={{
@@ -371,6 +462,51 @@ export default function CampaignsClient({ profile, initialCampaigns, prospects, 
                 <input type="checkbox" checked={formAutoReply} onChange={e => setFormAutoReply(e.target.checked)} />
                 <span style={{ fontSize: 13, color: 'var(--text2)' }}>Auto-send AI replies (vs queue for review)</span>
               </label>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 6, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.06em' }}>
+                  Linked Customer <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+                </label>
+                {formCustomer ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px', borderRadius: 8,
+                    background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{
+                        width: 26, height: 26, borderRadius: '50%',
+                        background: 'rgba(79,127,255,0.15)', color: 'var(--accent)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 800, flexShrink: 0,
+                      }}>
+                        {formCustomer.name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{formCustomer.name}</div>
+                        {formCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{formCustomer.company_name}</div>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setFormCustomerModalOpen(true)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Change</button>
+                      <button onClick={() => setFormCustomer(null)} style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setFormCustomerModalOpen(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '8px 12px', borderRadius: 8,
+                      border: '1px dashed var(--border)', background: 'var(--surface2)',
+                      color: 'var(--text3)', fontSize: 12, cursor: 'pointer', textAlign: 'left',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <Link2 size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                    Link to customer account
+                  </button>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 20px', borderTop: '1px solid var(--border)' }}>
               <button onClick={() => setShowCreate(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}>
