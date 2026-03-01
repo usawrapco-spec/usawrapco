@@ -93,6 +93,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/design/intakes',   label: 'Design Intakes', icon: FileInput, badge: 'intakes' },
       { href: '/proofs',           label: 'All Proofs',     icon: FileImage },
       { href: '/mockup',           label: 'Mockups',        icon: Palette },
+      { href: '/dashboard/mockups', label: 'Mockup Leads',   icon: ImageIcon, roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/deckforge',        label: 'DeckForge',      icon: Zap },
       { href: '/configurator',     label: 'Configurator',   icon: Cog },
       { href: '/media',            label: 'Media Library',  icon: ImageIcon },
