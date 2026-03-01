@@ -7,8 +7,9 @@ import { ROLE_LABELS, ROLE_COLORS, ROLE_OPTIONS } from '@/lib/permissions'
 import {
   Search, Plus, X, Edit2, Users, UserPlus, UserCheck, UserX,
   ShieldCheck, ShieldOff, Mail, RefreshCw, Clock, Send,
-  ChevronDown, Check,
+  ChevronDown, Check, Link2,
 } from 'lucide-react'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 interface Props {
   profile: Profile
@@ -102,6 +103,8 @@ export default function EmployeesPage({ profile }: Props) {
   // Edit modal
   const [editMember, setEditMember] = useState<Profile | null>(null)
   const [editRole, setEditRole] = useState<UserRole>('viewer')
+  const [editLinkedCustomer, setEditLinkedCustomer] = useState<{ id: string; name: string } | null>(null)
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
@@ -209,6 +212,14 @@ export default function EmployeesPage({ profile }: Props) {
     setEditMember(member)
     setEditRole(member.role)
     setEditError(null)
+    const cid = (member as any).customer_id
+    const cname = (member as any).customer_name
+    setEditLinkedCustomer(cid ? { id: cid, name: cname || '' } : null)
+  }
+
+  function handleSelectCustomer(c: CustomerRow) {
+    setEditLinkedCustomer({ id: c.id, name: c.name })
+    setCustomerModalOpen(false)
   }
 
   async function handleSaveRole() {
@@ -217,12 +228,14 @@ export default function EmployeesPage({ profile }: Props) {
     setEditError(null)
     const { error } = await supabase
       .from('profiles')
-      .update({ role: editRole, updated_at: new Date().toISOString() })
+      .update({ role: editRole, customer_id: editLinkedCustomer?.id ?? null, updated_at: new Date().toISOString() })
       .eq('id', editMember.id)
     if (error) {
       setEditError(error.message)
     } else {
-      setMembers(prev => prev.map(m => m.id === editMember.id ? { ...m, role: editRole } : m))
+      setMembers(prev => prev.map(m => m.id === editMember.id
+        ? { ...m, role: editRole, customer_id: editLinkedCustomer?.id ?? null } as any
+        : m))
       setEditMember(null)
     }
     setSaving(false)
@@ -555,6 +568,14 @@ export default function EmployeesPage({ profile }: Props) {
         )}
       </div>
 
+      {/* Customer Search Modal */}
+      <CustomerSearchModal
+        open={customerModalOpen}
+        onClose={() => setCustomerModalOpen(false)}
+        orgId={profile.org_id || ''}
+        onSelect={handleSelectCustomer}
+      />
+
       {/* ── Edit Role Modal ── */}
       {editMember && (
         <div
@@ -601,6 +622,64 @@ export default function EmployeesPage({ profile }: Props) {
             <p style={{ fontSize: 11, color: '#5a6080', marginBottom: 16, lineHeight: 1.5 }}>
               Changing this role will update what {editMember.name} can access immediately.
             </p>
+
+            {/* Linked Customer Account */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: 'block', fontSize: 11, fontWeight: 700, color: '#5a6080',
+                textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+              }}>
+                Linked Customer Account
+              </label>
+              {editLinkedCustomer ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 12px', borderRadius: 8,
+                  background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: 'rgba(79,127,255,0.15)', color: '#4f7fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {editLinkedCustomer.name?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e8eaed' }}>
+                      {editLinkedCustomer.name}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => setCustomerModalOpen(true)}
+                      style={{ fontSize: 11, color: '#4f7fff', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Change
+                    </button>
+                    <button
+                      onClick={() => setEditLinkedCustomer(null)}
+                      style={{ fontSize: 11, color: '#f25a5a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCustomerModalOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '8px 12px', borderRadius: 8,
+                    border: '1px dashed #1a1d27', background: '#0d0f14',
+                    color: '#5a6080', fontSize: 12, cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <Link2 size={13} style={{ color: '#4f7fff', flexShrink: 0 }} />
+                  <span>Link to existing customer record</span>
+                </button>
+              )}
+            </div>
 
             {editError && (
               <div style={{

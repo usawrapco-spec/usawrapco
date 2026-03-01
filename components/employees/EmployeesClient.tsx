@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole } from '@/types'
 import { ROLE_PERMISSIONS } from '@/types'
 import { clsx } from 'clsx'
-import { Crown, Briefcase, Printer, Wrench, Palette, User, Search, Check, X, type LucideIcon } from 'lucide-react'
+import { Crown, Briefcase, Printer, Wrench, Palette, User, Search, Check, X, Link2, type LucideIcon } from 'lucide-react'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 interface EmployeesClientProps {
   profile: Profile
@@ -46,9 +47,11 @@ interface NewMemberForm {
   email: string
   phone: string
   role: UserRole
+  customer_id: string | null
+  customer_name: string | null
 }
 
-const EMPTY_FORM: NewMemberForm = { name: '', email: '', phone: '', role: 'sales_agent' }
+const EMPTY_FORM: NewMemberForm = { name: '', email: '', phone: '', role: 'sales_agent', customer_id: null, customer_name: null }
 
 export function EmployeesClient({ profile, initialMembers, projectCounts = {} }: EmployeesClientProps) {
   const [members, setMembers] = useState<Profile[]>(initialMembers)
@@ -62,6 +65,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
   const [addError, setAddError] = useState<string | null>(null)
   const [addSaving, setAddSaving] = useState(false)
   const [expandedPerms, setExpandedPerms] = useState<string | null>(null)
+  const [showFindExisting, setShowFindExisting] = useState(false)
   const supabase = createClient()
 
   const filtered = useMemo(() => {
@@ -153,6 +157,7 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
       permissions,
       active: true,
       avatar_url: null,
+      customer_id: newMember.customer_id || null,
       created_at: now,
       updated_at: now,
     }
@@ -421,6 +426,17 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
         </table>
       </div>
 
+      {/* Find Existing Customer Modal */}
+      <CustomerSearchModal
+        open={showFindExisting}
+        onClose={() => setShowFindExisting(false)}
+        orgId={profile.org_id || ''}
+        onSelect={(c: CustomerRow) => {
+          setNewMember(prev => ({ ...prev, customer_id: c.id, customer_name: c.name }))
+          setShowFindExisting(false)
+        }}
+      />
+
       {/* ── Add Team Member Modal ────────────────────────────────────────── */}
       {showAddModal && (
         <div
@@ -468,6 +484,58 @@ export function EmployeesClient({ profile, initialMembers, projectCounts = {} }:
               value={newMember.phone}
               onChange={e => setNewMember(prev => ({ ...prev, phone: e.target.value }))}
             />
+
+            {/* Linked Customer Account */}
+            <label className="section-label mb-1 block">Linked Customer Account</label>
+            {newMember.customer_id ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+                background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: '50%',
+                    background: 'rgba(79,127,255,0.15)', color: 'var(--accent)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 800,
+                  }}>
+                    {newMember.customer_name?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <span className="text-sm font-600 text-text1">{newMember.customer_name}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowFindExisting(true)}
+                    style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewMember(prev => ({ ...prev, customer_id: null, customer_name: null }))}
+                    style={{ fontSize: 11, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowFindExisting(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                  padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+                  border: '1px dashed var(--border)', background: 'var(--surface2)',
+                  color: 'var(--text3)', fontSize: 12, cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <Link2 size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                <span>Link to existing customer record <span style={{ color: 'var(--text3)', fontSize: 11 }}>(optional)</span></span>
+              </button>
+            )}
 
             {/* Role */}
             <label className="section-label mb-1 block">Role</label>
