@@ -10,8 +10,8 @@ interface BoatingZone {
   speed_limit_mph: number | null
   description: string | null
   enforcement_agency: string | null
-  seasonal_start: string | null
-  seasonal_end: string | null
+  season_start: string | null
+  season_end: string | null
   penalty_notes: string | null
   region: string | null
 }
@@ -194,9 +194,9 @@ export function BoatingClient({ zones, regulations }: Props) {
                       )}
                     </div>
 
-                    {(zone.seasonal_start || zone.seasonal_end) && (
+                    {(zone.season_start || zone.season_end) && (
                       <div style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--surface2)', borderRadius: 5, padding: '4px 8px' }}>
-                        Seasonal: {zone.seasonal_start || 'N/A'} &ndash; {zone.seasonal_end || 'N/A'}
+                        Seasonal: {zone.season_start || 'N/A'} &ndash; {zone.season_end || 'N/A'}
                       </div>
                     )}
 

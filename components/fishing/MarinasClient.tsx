@@ -17,7 +17,7 @@ interface Marina {
   fuel_types: string[] | null
   has_pump_out: boolean | null
   has_transient_moorage: boolean | null
-  transient_rate_per_ft_night: number | null
+  transient_rate_per_ft_per_night: number | null
   has_repair_yard: boolean | null
   has_wifi: boolean | null
   has_showers: boolean | null
@@ -207,7 +207,7 @@ export function MarinasClient({ marinas }: Props) {
                     active={marina.has_transient_moorage}
                     icon={<Anchor size={10} />}
                     label="Transient"
-                    detail={marina.transient_rate_per_ft_night != null ? `$${marina.transient_rate_per_ft_night}/ft/night` : null}
+                    detail={marina.transient_rate_per_ft_per_night != null ? `$${marina.transient_rate_per_ft_per_night}/ft/night` : null}
                     color="var(--green)"
                   />
                   <AmenityBadge active={marina.has_repair_yard} icon={<Wrench size={10} />} label="Repair Yard" color="var(--purple)" />

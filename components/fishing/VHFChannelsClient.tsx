@@ -5,7 +5,7 @@ import { Radio, Search } from 'lucide-react'
 
 interface VHFChannel {
   id: string
-  channel_number: string
+  channel: string
   name: string
   description: string | null
   frequency_rx: string | null
@@ -66,7 +66,7 @@ export function VHFChannelsClient({ channels }: Props) {
     if (filterCategory && c.use_category !== filterCategory) return false
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
-      if (!c.channel_number.toLowerCase().includes(q) && !(c.name ?? '').toLowerCase().includes(q)) return false
+      if (!c.channel.toLowerCase().includes(q) && !(c.name ?? '').toLowerCase().includes(q)) return false
     }
     return true
   })
@@ -208,7 +208,7 @@ export function VHFChannelsClient({ channels }: Props) {
                           color: cs.color,
                           lineHeight: 1,
                         }}>
-                          {ch.channel_number}
+                          {ch.channel}
                         </span>
                         <span style={{
                           fontSize: 11,

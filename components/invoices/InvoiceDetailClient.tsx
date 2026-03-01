@@ -196,20 +196,29 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [showNotes, setShowNotes] = useState(!!inv.notes)
   const [amountPaid, setAmountPaid] = useState(inv.amount_paid)
   const [localPayments, setLocalPayments] = useState<Payment[]>(payments)
-  // Vehicle fields — read from DB columns, fall back to form_data for older records
-  const [vehicleYear, setVehicleYear] = useState<string>(inv.vehicle_year || (inv.form_data?.vehicleYear as string) || '')
-  const [vehicleMake, setVehicleMake] = useState<string>(inv.vehicle_make || (inv.form_data?.vehicleMake as string) || '')
-  const [vehicleModel, setVehicleModel] = useState<string>(inv.vehicle_model || (inv.form_data?.vehicleModel as string) || '')
-  const [vehicleVin, setVehicleVin] = useState<string>(inv.vehicle_vin || '')
-  const [vehicleColor, setVehicleColor] = useState<string>(inv.vehicle_color || '')
+  // Vehicle fields — DB columns with form_data fallback for older records
+  const fd = (inv.form_data || {}) as Record<string, unknown>
+  const [vehicleYear, setVehicleYear] = useState<string>(inv.vehicle_year || (fd.vehicleYear as string) || '')
+  const [vehicleMake, setVehicleMake] = useState<string>(inv.vehicle_make || (fd.vehicleMake as string) || '')
+  const [vehicleModel, setVehicleModel] = useState<string>(inv.vehicle_model || (fd.vehicleModel as string) || '')
+  const [vehicleVin, setVehicleVin] = useState<string>(inv.vehicle_vin || (fd.vehicleVin as string) || '')
+  const [vehicleColor, setVehicleColor] = useState<string>(inv.vehicle_color || (fd.vehicleColor as string) || '')
 
-  // Team multi-select arrays
+  // Team fields — array DB columns with form_data fallback for older records
   const [salesRepIds, setSalesRepIds] = useState<string[]>(
-    inv.sales_rep_ids?.length ? inv.sales_rep_ids : inv.sales_rep_id ? [inv.sales_rep_id] : []
+    inv.sales_rep_ids?.length ? inv.sales_rep_ids :
+    (fd.salesRepIds as string[])?.length ? (fd.salesRepIds as string[]) :
+    inv.sales_rep_id ? [inv.sales_rep_id] : []
   )
-  const [installerIds, setInstallerIds] = useState<string[]>(inv.installer_ids || [])
-  const [designerIds, setDesignerIds] = useState<string[]>(inv.designer_ids || [])
-  const [productionMgrIds, setProductionMgrIds] = useState<string[]>(inv.production_manager_ids || [])
+  const [installerIds, setInstallerIds] = useState<string[]>(
+    inv.installer_ids?.length ? inv.installer_ids : (fd.installerIds as string[]) || []
+  )
+  const [designerIds, setDesignerIds] = useState<string[]>(
+    inv.designer_ids?.length ? inv.designer_ids : (fd.designerIds as string[]) || []
+  )
+  const [productionMgrIds, setProductionMgrIds] = useState<string[]>(
+    inv.production_manager_ids?.length ? inv.production_manager_ids : (fd.productionMgrIds as string[]) || []
+  )
   const [paymentInput, setPaymentInput] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<Payment['method']>('card')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
@@ -319,7 +328,6 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
       vehicle_model: model || null,
       vehicle_vin: vin !== undefined ? (vin || null) : (vehicleVin || null),
       vehicle_color: color !== undefined ? (color || null) : (vehicleColor || null),
-      form_data: { ...inv.form_data, vehicleYear: year || undefined, vehicleMake: make || undefined, vehicleModel: model || undefined },
     }).eq('id', invoiceId)
   }
 
@@ -329,6 +337,10 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     if (!canWrite || isDemo) return
     await supabase.from('invoices').update({
       sales_rep_id: repIds[0] || null,
+      sales_rep_ids: repIds,
+      installer_ids: instIds,
+      designer_ids: desIds,
+      production_manager_ids: prodIds,
     }).eq('id', invoiceId)
   }
 
