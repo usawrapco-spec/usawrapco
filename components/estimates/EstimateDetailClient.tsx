@@ -12,7 +12,7 @@ import {
   TrendingUp, Calculator, Settings,
   Package, Image, Link2, UserPlus, Ruler,
   FoldVertical, UnfoldVertical,
-  GripVertical, Upload, Camera,
+  GripVertical, Upload, Camera, ExternalLink,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
@@ -1295,9 +1295,14 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             )}
           </div>
 
-          {/* Email PDF */}
+          {/* Customer Portal */}
           <button
-            onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
+            onClick={() => {
+              const portalUrl = est.customer_id
+                ? `/portal?customer_id=${est.customer_id}`
+                : `/portal?estimate_id=${estimateId}`
+              router.push(portalUrl)
+            }}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: 'var(--surface)', border: '1px solid var(--border)',
@@ -1306,8 +1311,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               fontFamily: headingFont, letterSpacing: '0.03em',
             }}
           >
-            <Mail size={14} />
-            Email PDF
+            <ExternalLink size={14} />
+            Customer Portal
           </button>
 
           {/* Status-based action button */}
