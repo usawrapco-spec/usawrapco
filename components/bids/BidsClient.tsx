@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Send, Clock, CheckCircle2, XCircle, DollarSign, Calendar,
-  AlertTriangle, Search, X, ChevronRight, Users, TrendingUp,
+  AlertTriangle, Search, X, ChevronRight, Users, TrendingUp, Plus,
 } from 'lucide-react'
 import type { Profile } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Bid {
@@ -117,6 +118,8 @@ export default function BidsClient({ profile, initialBids, installers: initialIn
   const [bidOfferedRate, setBidOfferedRate] = useState('')
   const [bidTargetRate, setBidTargetRate] = useState('')
   const [sending, setSending] = useState(false)
+  const [bidCustomer, setBidCustomer] = useState<CustomerRow | null>(null)
+  const [bidCustomerModalOpen, setBidCustomerModalOpen] = useState(false)
 
   // Filter
   const filtered = useMemo(() => {
@@ -209,6 +212,7 @@ export default function BidsClient({ profile, initialBids, installers: initialIn
           target_rate: target || null,
           passive_margin: margin > 0 ? margin : null,
           sent_at: now,
+          customer_id: bidCustomer?.id || null,
         })
       } catch {}
 
@@ -222,6 +226,7 @@ export default function BidsClient({ profile, initialBids, installers: initialIn
     setBidInstallerIds([])
     setBidOfferedRate('')
     setBidTargetRate('')
+    setBidCustomer(null)
   }
 
   const STATUS_TABS: { key: string; label: string; count: number }[] = [
@@ -562,6 +567,35 @@ export default function BidsClient({ profile, initialBids, installers: initialIn
               >
                 <X size={18} />
               </button>
+            </div>
+
+            {/* Customer */}
+            <div style={{ marginBottom: 16 }}>
+              <label className="field-label">Customer (optional)</label>
+              {bidCustomer ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{bidCustomer.name}</span>
+                    {bidCustomer.company_name && <span style={{ fontSize: 11, color: 'var(--cyan)' }}>{bidCustomer.company_name}</span>}
+                    {bidCustomer.phone && <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>{bidCustomer.phone}</span>}
+                    {bidCustomer.email && <span style={{ fontSize: 11, color: 'var(--text2)' }}>{bidCustomer.email}</span>}
+                  </div>
+                  <button onClick={() => setBidCustomerModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600 }}>Change</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setBidCustomerModalOpen(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}
+                >
+                  <Plus size={12} /> Add Customer
+                </button>
+              )}
+              <CustomerSearchModal
+                open={bidCustomerModalOpen}
+                onClose={() => setBidCustomerModalOpen(false)}
+                orgId={profile.org_id}
+                onSelect={(c) => { setBidCustomer(c); setBidCustomerModalOpen(false) }}
+              />
             </div>
 
             {/* Job title */}
