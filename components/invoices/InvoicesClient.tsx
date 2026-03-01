@@ -10,7 +10,6 @@ import type { Profile, Invoice, InvoiceStatus } from '@/types'
 import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
-import OpenInvoicesAlert from '@/components/invoices/OpenInvoicesAlert'
 
 // ─── Demo data when DB tables don't exist yet ────────────────────────────────
 const DEMO_INVOICES = [
@@ -174,13 +173,6 @@ export default function InvoicesClient({ profile, initialInvoices }: Props) {
           <AlertTriangle size={14} />
           <span>Showing demo data. Run the v6 migration SQL to enable live invoices.</span>
         </div>
-      )}
-
-      {/* Open Invoices Alert */}
-      {!usingDemo && (
-        <OpenInvoicesAlert
-          initialInvoices={invoices.filter(inv => inv.status === 'sent' || inv.status === 'overdue')}
-        />
       )}
 
       {/* Header */}

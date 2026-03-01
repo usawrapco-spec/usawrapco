@@ -9,9 +9,6 @@ import XPAwarder from '@/components/dashboard/XPAwarder'
 import RoleDashboard from '@/components/dashboard/RoleDashboard'
 import DashboardHero from '@/components/dashboard/DashboardHero'
 import VinylDailyBrief from '@/components/dashboard/VinylDailyBrief'
-import OpenInvoicesAlert from '@/components/invoices/OpenInvoicesAlert'
-import DashboardAlerts from '@/components/dashboard/DashboardAlerts'
-import { SystemAlertsBanner } from '@/components/dashboard/SystemAlertsBanner'
 
 export default async function DashboardPage() {
     const supabase = createClient()
@@ -104,13 +101,6 @@ export default async function DashboardPage() {
 
     return (
         <XPAwarder>
-            <div style={{ padding: '16px 24px 0' }}>
-                <SystemAlertsBanner />
-                <OpenInvoicesAlert orgId={orgId} />
-            </div>
-            <div style={{ padding: '0 24px' }}>
-                <DashboardAlerts orgId={orgId} />
-            </div>
             {profile.role === 'owner' && (
                 <div style={{ padding: '20px 24px 0' }}>
                     <VinylDailyBrief
