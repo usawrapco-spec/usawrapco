@@ -136,8 +136,8 @@ ${((intake.ai_conversation as Array<{ role: string; content: string }>) || [])
           org_id: ORG_ID,
           title: `Brief — ${intake.business_name || intake.customer_name}`,
           status: 'brief_created',
-          customer_id: intake.converted_customer_id || null,
-          brief: briefContent,
+          client_name: intake.customer_name || intake.business_name || null,
+          ai_brief: briefContent,
           intake_id: intake.id,
         })
         .select('id')
