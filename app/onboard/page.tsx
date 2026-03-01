@@ -85,7 +85,7 @@ const s = {
     padding: '0 20px 40px',
     display: 'flex', flexDirection: 'column' as const,
     minHeight: '100dvh', justifyContent: 'center',
-    animation: 'fadeUp 0.35s ease',
+    animation: 'fadeUp 0.35s ease forwards',
   },
   heading: {
     fontSize: 'clamp(28px, 7vw, 44px)', fontWeight: 800,
@@ -492,7 +492,7 @@ function Step1({ onStart }: { onStart: () => void }) {
         pointerEvents: 'none',
       }} />
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, animation: 'fadeUp 0.5s ease' }}>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 560, animation: 'fadeUp 0.5s ease forwards' }}>
         {/* Logo */}
         <div style={{ marginBottom: 48 }}>
           <div style={{
