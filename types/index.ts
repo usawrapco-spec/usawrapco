@@ -151,6 +151,7 @@ export interface Profile {
   monthly_xp?: number | null
   weekly_xp?: number | null
   badges?: string[] | null
+  feature_permissions?: Record<string, boolean> | null
   settings?: Record<string, any> | null
   email_signature?: string | null
   created_at: string

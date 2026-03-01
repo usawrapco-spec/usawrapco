@@ -1,3 +1,12 @@
+"""
+Script to atomically update SideNav.tsx and types/index.ts
+then immediately run git add + commit.
+"""
+import os, subprocess, sys
+
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+SIDENAV = """\
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -354,3 +363,30 @@ export function SideNav({
     </>
   )
 }
+"""
+
+with open('components/layout/SideNav.tsx', 'w', encoding='utf-8') as f:
+    f.write(SIDENAV)
+
+print('SideNav written:', len(SIDENAV), 'bytes')
+
+# Update types/index.ts
+with open('types/index.ts', 'r', encoding='utf-8') as f:
+    types_content = f.read()
+
+if 'feature_permissions' not in types_content:
+    types_content = types_content.replace(
+        '  settings?: Record<string, any> | null\n  email_signature?: string | null\n  created_at: string\n  updated_at: string\n}',
+        '  feature_permissions?: Record<string, boolean> | null\n  settings?: Record<string, any> | null\n  email_signature?: string | null\n  created_at: string\n  updated_at: string\n}'
+    )
+    with open('types/index.ts', 'w', encoding='utf-8') as f:
+        f.write(types_content)
+    print('types/index.ts updated')
+else:
+    print('types/index.ts already has feature_permissions')
+
+# Verify
+with open('components/layout/SideNav.tsx', 'r') as f:
+    check = f.read()
+print('Verify id main:', "'id: 'main'" in check)
+print('Verify bytes:', len(check))
