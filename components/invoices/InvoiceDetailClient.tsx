@@ -59,6 +59,26 @@ const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: s
   void:    { label: 'Void',    color: 'var(--text3)',  bg: 'rgba(90,96,128,0.10)' },
 }
 
+const INV_LABOR_RATE = 30
+const INV_DESIGN_FEE_DEFAULT = 150
+const invHeadingFont = 'Barlow Condensed, sans-serif'
+const invMonoFont = 'JetBrains Mono, monospace'
+
+const INV_COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boolean }> = {
+  inbound:  { base: 0.045, max: 0.075, bonuses: true },
+  outbound: { base: 0.07,  max: 0.10,  bonuses: true },
+  presold:  { base: 0.05,  max: 0.05,  bonuses: false },
+}
+
+function calcInvItemCOGS(item: LineItem): { material: number; labor: number; design: number; misc: number } {
+  const s = item.specs as Record<string, unknown>
+  const material = (s.materialCost as number) || 0
+  const labor    = (s.laborCost as number) || ((s.estimatedHours as number) || 0) * INV_LABOR_RATE
+  const design   = (s.designFee as number) ?? INV_DESIGN_FEE_DEFAULT
+  const misc     = (s.machineCost as number) || 0
+  return { material, labor, design, misc }
+}
+
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
 
 function TeamMultiSelect({
@@ -223,6 +243,8 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [paymentInput, setPaymentInput] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<Payment['method']>('card')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [leadType, setLeadType] = useState<string>((inv.form_data?.leadType as string) || 'inbound')
+  const [torqBonus, setTorqBonus] = useState(false)
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(
     inv.customer ? { id: inv.customer.id, name: inv.customer.name, email: inv.customer.email ?? null, phone: (inv.customer as any).phone ?? null, company_name: null, lifetime_spend: null } : null
   )
@@ -244,6 +266,28 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     return subtotal - discount + taxAmount
   }, [subtotal, discount, taxAmount, inv.total])
   const balanceDue = useMemo(() => total - amountPaid, [total, amountPaid])
+
+  // Unified financial panel
+  const cogsBreakdown = useMemo(() => items.reduce((acc, li) => {
+    const c = calcInvItemCOGS(li)
+    acc.material += c.material
+    acc.labor    += c.labor
+    acc.design   += c.design
+    acc.misc     += c.misc
+    return acc
+  }, { material: 0, labor: 0, design: 0, misc: 0 }), [items])
+  const totalCOGS    = useMemo(() => cogsBreakdown.material + cogsBreakdown.labor + cogsBreakdown.design + cogsBreakdown.misc, [cogsBreakdown])
+  const totalGP      = useMemo(() => subtotal - totalCOGS, [subtotal, totalCOGS])
+  const overallGPM   = useMemo(() => subtotal > 0 ? (totalGP / subtotal) * 100 : 0, [totalGP, subtotal])
+  const commRate     = useMemo(() => {
+    const rates = INV_COMMISSION_RATES[leadType] || INV_COMMISSION_RATES.inbound
+    if (!rates.bonuses || overallGPM < 65) return rates.base
+    let rate = rates.base
+    if (overallGPM >= 73) rate += 0.02
+    if (torqBonus) rate += 0.01
+    return Math.min(rate, rates.max)
+  }, [leadType, overallGPM, torqBonus])
+  const estCommission = useMemo(() => Math.max(0, totalGP * commRate), [totalGP, commRate])
 
   const fmtCurrency = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -750,109 +794,195 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
 
         {/* Right column: Pricing + Payment + Actions */}
         <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Pricing summary */}
-          <div className="card">
-            <div className="section-label">Pricing Summary</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <PricingRow label="Subtotal" value={fmtCurrency(subtotal)} />
-              {discount > 0 && (
-                <PricingRow label="Discount" value={`-${fmtCurrency(discount)}`} color="var(--green)" />
-              )}
-              <PricingRow label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(taxAmount)} />
-              <div style={{ borderTop: '2px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
-                <PricingRow label="Total" value={fmtCurrency(total)} isTotal />
+          {/* ── Unified Financial Panel ─────────────────────────────────── */}
+          <div style={{ background: 'var(--card-bg, var(--surface))', border: '1px solid var(--card-border, var(--border))', borderRadius: 16, overflow: 'hidden' }}>
+
+            {/* ── REVENUE ─────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Revenue</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
+                <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
               </div>
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 4 }}>
-                <PricingRow label="Amount Paid" value={fmtCurrency(amountPaid)} color="var(--green)" />
-                <div style={{ marginTop: 8 }}>
-                  <PricingRow
-                    label="Balance Due"
-                    value={fmtCurrency(Math.max(0, balanceDue))}
-                    isTotal
-                    color={balanceDue > 0 ? 'var(--amber)' : 'var(--green)'}
-                  />
+            </div>
+
+            {/* ── COSTS ───────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Costs</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {cogsBreakdown.material > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
+                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
+                  </div>
+                )}
+                {cogsBreakdown.labor > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
+                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
+                  </div>
+                )}
+                {cogsBreakdown.design > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
+                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
+                  </div>
+                )}
+                {cogsBreakdown.misc > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
+                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
+                  </div>
+                )}
+                <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Payment section */}
-          {canWrite && status !== 'void' && balanceDue > 0 && (
-            <div className="card">
-              <div className="section-label">Record Payment</div>
-              {showPaymentForm ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div>
-                    <label className="field-label">Payment Amount</label>
-                    <div style={{ position: 'relative' }}>
-                      <DollarSign size={13} style={{
-                        position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                        color: 'var(--text3)', pointerEvents: 'none',
-                      }} />
-                      <input
-                        type="number"
-                        value={paymentInput}
-                        onChange={e => setPaymentInput(e.target.value)}
-                        className="field mono"
-                        placeholder="0.00"
-                        style={{ paddingLeft: 30 }}
-                        min={0}
-                        step={0.01}
-                      />
+            {/* ── PROFIT ──────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Profit</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{overallGPM.toFixed(1)}%</span>
+                </div>
+                {overallGPM < 65 && subtotal > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
+                    <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── COMMISSION PREVIEW ──────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Commission Preview</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: invHeadingFont }}>Lead Type</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                {(['inbound', 'outbound', 'presold'] as const).map(lt => (
+                  <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: invHeadingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
+                    {lt === 'presold' ? 'Pre-Sold' : lt === 'inbound' ? 'In' : 'Out'}
+                  </button>
+                ))}
+              </div>
+              {(INV_COMMISSION_RATES[leadType] || INV_COMMISSION_RATES.inbound).bonuses && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
+                  <input type="checkbox" checked={torqBonus} onChange={() => setTorqBonus(!torqBonus)} />
+                  Torq Training Bonus (+1%)
+                </label>
+              )}
+              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Commission Rate</span>
+                  <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text1)' }}>{(commRate * 100).toFixed(1)}%</span>
+                </div>
+                {overallGPM < 65 && subtotal > 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>Low margin — base rate only</div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
+                  <span style={{ fontFamily: invMonoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(estCommission)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── TOTALS ──────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
+                </div>
+                {discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
+                    <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--green)', fontWeight: 600 }}>-{fmtCurrency(discount)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
+                  <span style={{ fontFamily: invMonoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── PAYMENT STATUS ───────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Payment</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Amount Paid</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--green)', fontWeight: 700 }}>{fmtCurrency(amountPaid)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Balance Due</span>
+                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 900, color: balanceDue > 0 ? 'var(--amber)' : 'var(--green)' }}>{fmtCurrency(Math.max(0, balanceDue))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── RECORD PAYMENT (inline) ──────────────── */}
+            {canWrite && status !== 'void' && balanceDue > 0 && (
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                {showPaymentForm ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: invHeadingFont }}>Payment Amount</label>
+                      <div style={{ position: 'relative' }}>
+                        <DollarSign size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                        <input type="number" value={paymentInput} onChange={e => setPaymentInput(e.target.value)} className="field mono" placeholder="0.00" style={{ paddingLeft: 30 }} min={0} step={0.01} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: invHeadingFont }}>Method</label>
+                      <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as Payment['method'])} className="field">
+                        {(['card','cash','check','zelle','venmo','ach','wire','stripe','other'] as const).map(m => (
+                          <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button onClick={() => setPaymentInput(balanceDue.toFixed(2))} className="btn-ghost btn-xs" style={{ fontSize: 11 }}>Full ({fmtCurrency(balanceDue)})</button>
+                      <button onClick={() => setPaymentInput((balanceDue / 2).toFixed(2))} className="btn-ghost btn-xs" style={{ fontSize: 11 }}>Half ({fmtCurrency(balanceDue / 2)})</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={handleRecordPayment} className="btn-primary btn-sm" style={{ flex: 1, background: 'var(--green)' }}><CreditCard size={13} /> Record</button>
+                      <button onClick={() => { setShowPaymentForm(false); setPaymentInput('') }} className="btn-ghost btn-sm">Cancel</button>
                     </div>
                   </div>
-                  <div>
-                    <label className="field-label">Method</label>
-                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as Payment['method'])} className="field">
-                      {(['card','cash','check','zelle','venmo','ach','wire','stripe','other'] as const).map(m => (
-                        <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={handleRecordPayment}
-                      className="btn-primary btn-sm"
-                      style={{ flex: 1, background: 'var(--green)' }}
-                    >
-                      <CreditCard size={13} /> Record
-                    </button>
-                    <button
-                      onClick={() => { setShowPaymentForm(false); setPaymentInput('') }}
-                      className="btn-ghost btn-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {/* Quick amount buttons */}
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => setPaymentInput(balanceDue.toFixed(2))}
-                      className="btn-ghost btn-xs"
-                      style={{ fontSize: 11 }}
-                    >
-                      Full Balance ({fmtCurrency(balanceDue)})
-                    </button>
-                    <button
-                      onClick={() => setPaymentInput((balanceDue / 2).toFixed(2))}
-                      className="btn-ghost btn-xs"
-                      style={{ fontSize: 11 }}
-                    >
-                      Half ({fmtCurrency(balanceDue / 2)})
-                    </button>
-                  </div>
-                </div>
-              ) : (
+                ) : (
+                  <button onClick={() => setShowPaymentForm(true)} style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <CreditCard size={14} /> Record Payment
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── ACTION BUTTON ────────────────────────── */}
+            {canWrite && status !== 'void' && (
+              <div style={{ padding: '14px 16px' }}>
                 <button
-                  onClick={() => setShowPaymentForm(true)}
-                  className="btn-primary btn-sm"
-                  style={{ width: '100%', background: 'var(--green)' }}
+                  onClick={handleSendInvoice}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  <CreditCard size={13} /> Record Payment
+                  <Send size={14} /> Send Invoice
                 </button>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
 
           {/* Payment History */}
           {localPayments.length > 0 && (
