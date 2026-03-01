@@ -33,7 +33,6 @@ import type { Panel } from '@/components/vehicle/PanelSelector'
 import VinLookupField from '@/components/shared/VinLookupField'
 import VehicleLookupModal from '@/components/VehicleLookupModal'
 import type { MeasurementResult } from '@/components/VehicleMeasurementPicker'
-import vehiclesData from '@/lib/data/vehicles.json'
 import CommercialVehicleCalc from '@/components/estimates/calculators/CommercialVehicleCalc'
 import BoxTruckCalc from '@/components/estimates/calculators/BoxTruckCalc'
 import TrailerCalc from '@/components/estimates/calculators/TrailerCalc'
@@ -71,28 +70,45 @@ interface VehicleEntry {
   basePrice: number; installHours: number; tier: string
 }
 
-const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
-const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
-const ALL_YEARS = [...new Set(VEHICLES_DB.map(v => v.year))].sort((a, b) => b - a)
+const YEARS_LIST = Array.from({ length: 37 }, (_, i) => 2026 - i)
 
-function getModelsForMake(make: string): string[] {
-  return [...new Set(VEHICLES_DB.filter(v => v.make === make).map(v => v.model))].sort()
+type ModelInfo = { model: string; sqft: number | null; base_price: number | null }
+
+async function fetchMakesForYear(year: string): Promise<string[]> {
+  try {
+    const res = await fetch(`/api/vehicles/makes?year=${year}`)
+    const d = await res.json()
+    return d.makes || []
+  } catch { return [] }
 }
 
-function getMakesForYear(year: number): string[] {
-  return [...new Set(VEHICLES_DB.filter(v => v.year === year).map(v => v.make))].sort()
+async function fetchModels(make: string, year: string): Promise<ModelInfo[]> {
+  try {
+    const res = await fetch(`/api/vehicles/models?make=${encodeURIComponent(make)}&year=${year}`)
+    const d = await res.json()
+    return d.models || []
+  } catch { return [] }
 }
 
-function getModelsForMakeYear(make: string, year: number): string[] {
-  return [...new Set(VEHICLES_DB.filter(v => v.make === make && v.year === year).map(v => v.model))].sort()
-}
-
-function findVehicle(make: string, model: string, year?: string): VehicleEntry | null {
-  const y = year ? parseInt(year) : null
-  const match = y
-    ? VEHICLES_DB.find(v => v.make === make && v.model === model && v.year === y)
-    : VEHICLES_DB.find(v => v.make === make && v.model === model)
-  return match || null
+async function fetchVehicle(make: string, model: string, year: string): Promise<VehicleEntry | null> {
+  try {
+    const res = await fetch(`/api/vehicles/lookup?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&year=${year}`)
+    const d = await res.json()
+    if (d.measurement) {
+      const m = d.measurement as Record<string, unknown>
+      const sqft = Number(m.full_wrap_sqft) || 0
+      return {
+        year: parseInt(year) || 0,
+        make,
+        model,
+        sqft,
+        basePrice: sqft ? Math.round(sqft * 20) : 0,
+        installHours: sqft ? Math.round((sqft / 30) * 10) / 10 : 8,
+        tier: (m.body_style as string) || 'standard',
+      }
+    }
+  } catch {/* ignore */}
+  return null
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -2967,48 +2983,49 @@ function VehicleAutocomplete({
   const currentMake = (specs.vehicleMake as string) || ''
   const currentModel = (specs.vehicleModel as string) || ''
 
-  const yearNum = currentYear ? parseInt(currentYear) : 0
-  const availableMakes = yearNum > 0 ? getMakesForYear(yearNum) : ALL_MAKES
-  const availableModels = currentMake
-    ? (yearNum > 0 ? getModelsForMakeYear(currentMake, yearNum) : getModelsForMake(currentMake))
-    : []
+  const [apiMakes, setApiMakes] = useState<string[]>([])
+  const [apiModels, setApiModels] = useState<ModelInfo[]>([])
+  const [matchedVehicle, setMatchedVehicle] = useState<VehicleEntry | null>(null)
+  const [loadingMakes, setLoadingMakes] = useState(false)
+  const [loadingModels, setLoadingModels] = useState(false)
+
+  // Year → load makes
+  useEffect(() => {
+    if (!currentYear) { setApiMakes([]); return }
+    setLoadingMakes(true)
+    fetchMakesForYear(currentYear).then(makes => { setApiMakes(makes); setLoadingMakes(false) })
+  }, [currentYear])
+
+  // Make+Year → load models
+  useEffect(() => {
+    if (!currentMake || !currentYear) { setApiModels([]); return }
+    setLoadingModels(true)
+    fetchModels(currentMake, currentYear).then(models => { setApiModels(models); setLoadingModels(false) })
+  }, [currentMake, currentYear])
+
+  // Make+Model+Year → load matched vehicle
+  useEffect(() => {
+    if (!currentMake || !currentModel || !currentYear) { setMatchedVehicle(null); return }
+    fetchVehicle(currentMake, currentModel, currentYear).then(v => setMatchedVehicle(v))
+  }, [currentMake, currentModel, currentYear])
 
   function selectYear(yr: string) {
     updateSpec('vehicleYear', yr)
-    const y = parseInt(yr)
-    // If current make is not available for this year, clear it
-    if (currentMake && y > 0) {
-      const makes = getMakesForYear(y)
-      if (!makes.includes(currentMake)) {
-        updateSpec('vehicleMake', '')
-        updateSpec('vehicleModel', '')
-      } else if (currentModel) {
-        const models = getModelsForMakeYear(currentMake, y)
-        if (!models.includes(currentModel)) {
-          updateSpec('vehicleModel', '')
-        } else {
-          const v = findVehicle(currentMake, currentModel, yr)
-          if (v) onVehicleSelect(v)
-        }
-      }
-    }
+    updateSpec('vehicleMake', '')
+    updateSpec('vehicleModel', '')
   }
 
   function selectMake(make: string) {
     updateSpec('vehicleMake', make)
-    if (make !== currentMake) {
-      updateSpec('vehicleModel', '')
-    }
+    if (make !== currentMake) updateSpec('vehicleModel', '')
   }
 
-  function selectModel(model: string) {
+  async function selectModel(model: string) {
     updateSpec('vehicleModel', model)
-    const v = findVehicle(currentMake, model, currentYear)
+    const v = await fetchVehicle(currentMake, model, currentYear)
     if (v) onVehicleSelect(v)
     handleBlur()
   }
-
-  const matchedVehicle = currentMake && currentModel ? findVehicle(currentMake, currentModel, currentYear) : null
 
   return (
     <div style={{ marginBottom: 14 }}>
@@ -3033,7 +3050,7 @@ function VehicleAutocomplete({
               disabled={!canWrite}
             >
               <option value="">Year</option>
-              {ALL_YEARS.map(y => (
+              {YEARS_LIST.map(y => (
                 <option key={y} value={String(y)}>{y}</option>
               ))}
             </select>
@@ -3045,11 +3062,11 @@ function VehicleAutocomplete({
             <select
               value={currentMake}
               onChange={e => selectMake(e.target.value)}
-              style={{ ...fieldSelectStyle, fontSize: 12 }}
-              disabled={!canWrite}
+              style={{ ...fieldSelectStyle, fontSize: 12, opacity: loadingMakes ? 0.6 : 1 }}
+              disabled={!canWrite || !currentYear || loadingMakes}
             >
-              <option value="">Select Make</option>
-              {availableMakes.map(m => (
+              <option value="">{loadingMakes ? 'Loading...' : 'Select Make'}</option>
+              {apiMakes.map(m => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
@@ -3061,18 +3078,15 @@ function VehicleAutocomplete({
             <select
               value={currentModel}
               onChange={e => selectModel(e.target.value)}
-              style={{ ...fieldSelectStyle, fontSize: 12 }}
-              disabled={!canWrite || !currentMake}
+              style={{ ...fieldSelectStyle, fontSize: 12, opacity: loadingModels ? 0.6 : 1 }}
+              disabled={!canWrite || !currentMake || loadingModels}
             >
-              <option value="">{currentMake ? 'Select Model' : 'Select make first'}</option>
-              {availableModels.map(m => {
-                const v = findVehicle(currentMake, m, currentYear)
-                return (
-                  <option key={m} value={m}>
-                    {m}{v && v.sqft > 0 ? ` (${v.sqft}sqft)` : ''}
-                  </option>
-                )
-              })}
+              <option value="">{loadingModels ? 'Loading...' : (currentMake ? 'Select Model' : 'Select make first')}</option>
+              {apiModels.map(m => (
+                <option key={m.model} value={m.model}>
+                  {m.model}{m.sqft && m.sqft > 0 ? ` (${m.sqft}sqft)` : ''}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -3099,7 +3113,7 @@ function VehicleAutocomplete({
           border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
         }}>
           <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-            PVO Data
+            DB Data
           </span>
           <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>
             {matchedVehicle.sqft} sqft
@@ -3174,9 +3188,8 @@ function VehicleInfoBlock({
             if (data.engineCylinders && data.engineLiters) {
               updateSpec('engine', `${data.engineLiters}L ${data.engineCylinders}cyl`)
             }
-            // Cross-reference vehicles.json for sqft/pricing
-            const v = findVehicle(data.make, data.model, data.year)
-            if (v) onVehicleSelect(v)
+            // Cross-reference vehicle DB for sqft/pricing
+            fetchVehicle(data.make, data.model, data.year || '').then(v => { if (v) onVehicleSelect(v) })
           }}
           showCamera
           showManualFallback={false}

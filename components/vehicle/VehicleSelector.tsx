@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Car, Search, CheckCircle2, AlertTriangle, ChevronDown } from 'lucide-react'
-import vehiclesData from '@/lib/data/vehicles.json'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -16,6 +15,13 @@ export interface VehicleEntry {
   tier: string
 }
 
+interface ModelInfo {
+  model: string
+  sqft: number | null
+  base_price: number | null
+  install_hours: number | null
+}
+
 interface VehicleSelectorProps {
   onVehicleSelect: (vehicle: VehicleEntry) => void
   defaultYear?: number
@@ -24,30 +30,12 @@ interface VehicleSelectorProps {
   showVinField?: boolean
 }
 
-// ─── Vehicle Database ────────────────────────────────────────────────────────
-
-const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
-const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
-const YEARS = Array.from({ length: 37 }, (_, i) => 2026 - i) // 2026 down to 1990
-
-function getModelsForMakeYear(make: string, year?: number): string[] {
-  let filtered = VEHICLES_DB.filter(v => v.make === make)
-  if (year) filtered = filtered.filter(v => v.year === year)
-  return [...new Set(filtered.map(v => v.model))].sort()
-}
-
-function findVehicle(make: string, model: string, year?: number): VehicleEntry | null {
-  if (year) {
-    const exact = VEHICLES_DB.find(v => v.make === make && v.model === model && v.year === year)
-    if (exact) return exact
-  }
-  return VEHICLES_DB.find(v => v.make === make && v.model === model) || null
-}
-
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const monoFont = "'JetBrains Mono', monospace"
 const headingFont = "'Barlow Condensed', sans-serif"
+
+const YEARS = Array.from({ length: 37 }, (_, i) => 2026 - i)
 
 const fieldInputStyle: React.CSSProperties = {
   width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -72,6 +60,26 @@ const optionStyle: React.CSSProperties = {
   borderBottom: '1px solid var(--border)',
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function measurementToEntry(
+  data: Record<string, unknown>,
+  make: string,
+  model: string,
+  year: number | null,
+): VehicleEntry {
+  const sqft = Number(data.full_wrap_sqft) || 0
+  return {
+    year: year || 0,
+    make,
+    model,
+    sqft,
+    basePrice: sqft ? Math.round(sqft * 20) : 0,
+    installHours: sqft ? Math.round((sqft / 30) * 10) / 10 : 8,
+    tier: (data.body_style as string) || 'standard',
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function VehicleSelector({
@@ -91,8 +99,15 @@ export default function VehicleSelector({
   const [selectedYear, setSelectedYear] = useState<number | null>(defaultYear || null)
   const [selectedMake, setSelectedMake] = useState(defaultMake || '')
   const [selectedModel, setSelectedModel] = useState(defaultModel || '')
+  const [currentMatch, setCurrentMatch] = useState<VehicleEntry | null>(null)
 
-  // Dropdown state
+  // API-loaded data
+  const [allMakes, setAllMakes] = useState<string[]>([])
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([])
+  const [loadingMakes, setLoadingMakes] = useState(false)
+  const [loadingModels, setLoadingModels] = useState(false)
+
+  // Dropdown open state
   const [yearOpen, setYearOpen] = useState(false)
   const [makeOpen, setMakeOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
@@ -102,6 +117,26 @@ export default function VehicleSelector({
   const yearRef = useRef<HTMLDivElement>(null)
   const makeRef = useRef<HTMLDivElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
+
+  // Load all makes on mount
+  useEffect(() => {
+    setLoadingMakes(true)
+    fetch('/api/vehicles/makes')
+      .then(r => r.json())
+      .then(d => { setAllMakes(d.makes || []); setLoadingMakes(false) })
+      .catch(() => setLoadingMakes(false))
+  }, [])
+
+  // Load models when make changes
+  useEffect(() => {
+    if (!selectedMake) { setAvailableModels([]); return }
+    setLoadingModels(true)
+    const yearParam = selectedYear ? `&year=${selectedYear}` : ''
+    fetch(`/api/vehicles/models?make=${encodeURIComponent(selectedMake)}${yearParam}`)
+      .then(r => r.json())
+      .then(d => { setAvailableModels(d.models || []); setLoadingModels(false) })
+      .catch(() => setLoadingModels(false))
+  }, [selectedMake, selectedYear])
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -113,6 +148,23 @@ export default function VehicleSelector({
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // ─── API Lookup ────────────────────────────────────────────────────────
+
+  async function lookupVehicle(make: string, model: string, year: number | null): Promise<VehicleEntry | null> {
+    try {
+      const yearParam = year ? `&year=${year}` : ''
+      const res = await fetch(`/api/vehicles/lookup?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}${yearParam}`)
+      const data = await res.json()
+      if (data.measurement) {
+        const entry = measurementToEntry(data.measurement, make, model, year)
+        setCurrentMatch(entry)
+        onVehicleSelect(entry)
+        return entry
+      }
+    } catch {/* ignore */}
+    return null
+  }
 
   // ─── VIN Decode ────────────────────────────────────────────────────────
 
@@ -135,13 +187,11 @@ export default function VehicleSelector({
         setSelectedYear(yearNum)
         setSelectedMake(make)
         setSelectedModel(model)
-        // Cross-reference vehicles.json
-        const v = findVehicle(make, model, yearNum || undefined)
-        if (v) {
-          onVehicleSelect(v)
-          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''} - ${v.sqft} sqft, $${v.basePrice}`)
+        const entry = await lookupVehicle(make, model, yearNum)
+        if (entry) {
+          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''} - ${entry.sqft} sqft, $${entry.basePrice}`)
         } else {
-          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''}${bodyClass ? ` (${bodyClass})` : ''} - not in database, enter sqft manually`)
+          setVinResult(`${year} ${make} ${model}${trim ? ` ${trim}` : ''}${bodyClass ? ` (${bodyClass})` : ''} - not in database`)
         }
       } else {
         setVinResult('VIN not found - enter vehicle info manually')
@@ -159,10 +209,8 @@ export default function VehicleSelector({
   function handleYearSelect(yr: number) {
     setSelectedYear(yr)
     setYearOpen(false)
-    // If make+model already set, re-lookup
     if (selectedMake && selectedModel) {
-      const v = findVehicle(selectedMake, selectedModel, yr)
-      if (v) onVehicleSelect(v)
+      lookupVehicle(selectedMake, selectedModel, yr)
     }
   }
 
@@ -172,6 +220,7 @@ export default function VehicleSelector({
     setMakeFilter('')
     if (make !== selectedMake) {
       setSelectedModel('')
+      setCurrentMatch(null)
     }
   }
 
@@ -179,27 +228,18 @@ export default function VehicleSelector({
     setSelectedModel(model)
     setModelOpen(false)
     setModelFilter('')
-    const v = findVehicle(selectedMake, model, selectedYear || undefined)
-    if (v) onVehicleSelect(v)
+    lookupVehicle(selectedMake, model, selectedYear)
   }
 
   // ─── Filtered Lists ────────────────────────────────────────────────────
 
   const filteredMakes = makeFilter
-    ? ALL_MAKES.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
-    : ALL_MAKES
+    ? allMakes.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
+    : allMakes
 
-  const availableModels = selectedMake
-    ? getModelsForMakeYear(selectedMake, selectedYear || undefined)
-    : []
   const filteredModels = modelFilter
-    ? availableModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase()))
+    ? availableModels.filter(m => m.model.toLowerCase().includes(modelFilter.toLowerCase()))
     : availableModels
-
-  // ─── Current Vehicle Match ─────────────────────────────────────────────
-  const currentMatch = selectedMake && selectedModel
-    ? findVehicle(selectedMake, selectedModel, selectedYear || undefined)
-    : null
 
   return (
     <div style={{
@@ -323,7 +363,7 @@ export default function VehicleSelector({
               onChange={e => { setMakeFilter(e.target.value); if (!makeOpen) setMakeOpen(true) }}
               onFocus={() => setMakeOpen(true)}
               style={fieldInputStyle}
-              placeholder="Search makes..."
+              placeholder={loadingMakes ? 'Loading makes...' : 'Search makes...'}
             />
             {makeOpen && filteredMakes.length > 0 && (
               <div style={dropdownStyle}>
@@ -348,28 +388,25 @@ export default function VehicleSelector({
               onChange={e => { setModelFilter(e.target.value); if (!modelOpen) setModelOpen(true) }}
               onFocus={() => { if (selectedMake) setModelOpen(true) }}
               style={fieldInputStyle}
-              placeholder={selectedMake ? 'Search models...' : 'Select make first'}
+              placeholder={selectedMake ? (loadingModels ? 'Loading models...' : 'Search models...') : 'Select make first'}
               disabled={!selectedMake}
             />
             {modelOpen && filteredModels.length > 0 && (
               <div style={dropdownStyle}>
-                {filteredModels.map(m => {
-                  const v = findVehicle(selectedMake, m, selectedYear || undefined)
-                  return (
-                    <div key={m} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                      onMouseDown={() => handleModelSelect(m)}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                    >
-                      <span>{m}</span>
-                      {v && v.sqft > 0 && (
-                        <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
-                          {v.sqft}sqft | ${v.basePrice}
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
+                {filteredModels.map(m => (
+                  <div key={m.model} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onMouseDown={() => handleModelSelect(m.model)}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span>{m.model}</span>
+                    {m.sqft && m.sqft > 0 && (
+                      <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
+                        {m.sqft}sqft | ${m.base_price}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>

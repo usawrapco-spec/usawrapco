@@ -3,17 +3,24 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Zap, Car } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import SharedVehicleSelector, { type VehicleSelectResult } from '@/components/shared/VehicleSelector'
 import type { LineItemSpecs } from '@/types'
 import {
   CalcOutput, PricingRule, VINYL_MATERIALS, LAMINATE_RATE, DESIGN_FEE_DEFAULT,
   autoPrice, calcGPMPct, gpmColor,
-  calcFieldLabel, calcInput, calcSelect, pillBtn, outputRow, outputVal,
+  calcFieldLabel, calcInput, pillBtn, outputRow, outputVal,
 } from './types'
 
+// vehicle_measurements column names
 interface VehicleRecord {
-  year: number; make: string; model: string
-  sqft_full: number; sqft_partial: number; sqft_hood: number
-  sqft_roof: number; sqft_sides: number; sqft_doors: number
+  make: string
+  model: string
+  full_wrap_sqft: number | null
+  partial_wrap_sqft: number | null
+  hood_sqft: number | null
+  roof_sqft: number | null
+  side_sqft: number | null
+  doors_sqft: number | null
 }
 
 interface Props {
@@ -24,11 +31,11 @@ interface Props {
 }
 
 const COVERAGE = [
-  { key: 'full',          label: 'Full Wrap',    pct: 1.00, sqftFn: (v: VehicleRecord) => v.sqft_full },
-  { key: 'three_quarter', label: '3/4 Wrap',     pct: 0.75, sqftFn: (v: VehicleRecord) => Math.round(v.sqft_full * 0.75) },
-  { key: 'half',          label: 'Half Wrap',    pct: 0.50, sqftFn: (v: VehicleRecord) => Math.round(v.sqft_full * 0.50) },
-  { key: 'hood',          label: 'Hood Only',    pct: 0,    sqftFn: (v: VehicleRecord) => v.sqft_hood },
-  { key: 'roof',          label: 'Roof Only',    pct: 0,    sqftFn: (v: VehicleRecord) => v.sqft_roof },
+  { key: 'full',          label: 'Full Wrap',    pct: 1.00, sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
+  { key: 'three_quarter', label: '3/4 Wrap',     pct: 0.75, sqftFn: (v: VehicleRecord) => Math.round((v.full_wrap_sqft || 0) * 0.75) },
+  { key: 'half',          label: 'Half Wrap',    pct: 0.50, sqftFn: (v: VehicleRecord) => Math.round((v.full_wrap_sqft || 0) * 0.50) },
+  { key: 'hood',          label: 'Hood Only',    pct: 0,    sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
+  { key: 'roof',          label: 'Roof Only',    pct: 0,    sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
   { key: 'custom',        label: 'Custom Zones', pct: 0,    sqftFn: () => 0 },
 ]
 
@@ -39,9 +46,6 @@ const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', 
 export default function CommercialVehicleCalc({ specs, onChange, canWrite, orgId }: Props) {
   const supabase = createClient()
 
-  const [years, setYears] = useState<number[]>([])
-  const [makes, setMakes] = useState<string[]>([])
-  const [models, setModels] = useState<string[]>([])
   const [vehicle, setVehicle] = useState<VehicleRecord | null>(null)
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([])
 
@@ -61,64 +65,85 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite, orgId
     (specs.customZones as Record<string, boolean>) || {}
   )
 
-  // Fetch years on mount
+  // Load pricing rules on mount
   useEffect(() => {
-    supabase.from('vehicle_database').select('year').eq('org_id', orgId)
-      .then(({ data }) => {
-        if (data) setYears([...new Set(data.map(r => r.year as number))].sort((a, b) => b - a))
-      })
     supabase.from('pricing_rules').select('id,name,applies_to,conditions,value')
       .eq('org_id', orgId).eq('applies_to', 'commercial').eq('active', true)
       .then(({ data }) => { if (data) setPricingRules(data as PricingRule[]) })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId])
 
+  // If initial specs have year/make/model, fetch the measurement on mount
   useEffect(() => {
-    if (!year) { setMakes([]); setModels([]); return }
-    supabase.from('vehicle_database').select('make').eq('org_id', orgId).eq('year', Number(year))
-      .then(({ data }) => {
-        if (data) setMakes([...new Set(data.map(r => r.make as string))].sort())
+    const y = (specs.vehicleYear as string) || ''
+    const mk = (specs.vehicleMake as string) || ''
+    const mdl = (specs.vehicleModel as string) || ''
+    if (y && mk && mdl) {
+      fetch(`/api/vehicles/lookup?year=${y}&make=${encodeURIComponent(mk)}&model=${encodeURIComponent(mdl)}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.measurement) {
+            const m = d.measurement as Record<string, unknown>
+            setVehicle({
+              make: mk, model: mdl,
+              full_wrap_sqft: (m.full_wrap_sqft as number) || null,
+              partial_wrap_sqft: (m.partial_wrap_sqft as number) || null,
+              hood_sqft: (m.hood_sqft as number) || null,
+              roof_sqft: (m.roof_sqft as number) || null,
+              side_sqft: (m.side_sqft as number) || null,
+              doors_sqft: (m.doors_sqft as number) || null,
+            })
+          }
+        })
+        .catch(() => {/* ignore */})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleVehicleSelect = (result: VehicleSelectResult) => {
+    setYear(result.year)
+    setMake(result.make)
+    setModel(result.model)
+    if (result.measurement) {
+      const m = result.measurement as Record<string, unknown>
+      setVehicle({
+        make: result.make,
+        model: result.model,
+        full_wrap_sqft: (m.full_wrap_sqft as number) || null,
+        partial_wrap_sqft: (m.partial_wrap_sqft as number) || null,
+        hood_sqft: (m.hood_sqft as number) || null,
+        roof_sqft: (m.roof_sqft as number) || null,
+        side_sqft: (m.side_sqft as number) || null,
+        doors_sqft: (m.doors_sqft as number) || null,
       })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, orgId])
+      // Auto-populate install hours from sqft if not already set
+      const sqft = Number(m.full_wrap_sqft) || 0
+      if (sqft > 0 && installHours === 0) {
+        setInstallHours(Math.round((sqft / 30) * 10) / 10)
+      }
+    } else if (!result.model) {
+      setVehicle(null)
+    }
+  }
 
-  useEffect(() => {
-    if (!year || !make) { setModels([]); return }
-    supabase.from('vehicle_database').select('model').eq('org_id', orgId)
-      .eq('year', Number(year)).eq('make', make)
-      .then(({ data }) => {
-        if (data) setModels([...new Set(data.map(r => r.model as string))].sort())
-      })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, make, orgId])
-
-  useEffect(() => {
-    if (!year || !make || !model) { setVehicle(null); return }
-    supabase.from('vehicle_database').select('*')
-      .eq('org_id', orgId).eq('year', Number(year)).eq('make', make).eq('model', model)
-      .limit(1).single()
-      .then(({ data }) => { if (data) setVehicle(data as VehicleRecord) })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, make, model, orgId])
-
-  // Compute sqft
+  // Compute sqft for selected coverage
   const sqft = useMemo(() => {
     if (!vehicle) return 0
     if (coverage === 'custom') {
       let t = 0
-      const sides2 = (vehicle.sqft_sides || 0) / 2
-      if (customZones.hood)         t += vehicle.sqft_hood || 0
-      if (customZones.roof)         t += vehicle.sqft_roof || 0
+      const sides2 = (vehicle.side_sqft || 0) / 2
+      if (customZones.hood)         t += vehicle.hood_sqft || 0
+      if (customZones.roof)         t += vehicle.roof_sqft || 0
       if (customZones.driver_side)  t += sides2
       if (customZones.pass_side)    t += sides2
-      if (customZones.front_bumper) t += Math.round(vehicle.sqft_full * 0.05)
-      if (customZones.rear_bumper)  t += Math.round(vehicle.sqft_full * 0.05)
+      if (customZones.front_bumper) t += Math.round((vehicle.full_wrap_sqft || 0) * 0.05)
+      if (customZones.rear_bumper)  t += Math.round((vehicle.full_wrap_sqft || 0) * 0.05)
       if (customZones.mirrors)      t += 6
-      if (customZones.doors)        t += vehicle.sqft_doors || 0
+      if (customZones.doors)        t += vehicle.doors_sqft || 0
       return Math.round(t)
     }
     const cov = COVERAGE.find(c => c.key === coverage)
-    return cov ? cov.sqftFn(vehicle) : vehicle.sqft_full
+    return cov ? cov.sqftFn(vehicle) : (vehicle.full_wrap_sqft || 0)
   }, [vehicle, coverage, customZones])
 
   const matRate  = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
@@ -151,7 +176,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite, orgId
         unitPriceSaved: salePrice,
       },
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sqft, materialCost, salePrice, installerPay, installHours, designFee,
       year, make, model, coverage, material, laminate, waste, customZones])
 
@@ -178,35 +203,19 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite, orgId
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, fontFamily: 'Barlow Condensed, sans-serif' }}>
           Step 1 — Vehicle
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          <div>
-            <label style={calcFieldLabel}>Year</label>
-            <select value={year} onChange={e => { setYear(e.target.value); setMake(''); setModel('') }} style={calcSelect} disabled={!canWrite}>
-              <option value="">Year</option>
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={calcFieldLabel}>Make</label>
-            <select value={make} onChange={e => { setMake(e.target.value); setModel('') }} style={calcSelect} disabled={!canWrite || !year}>
-              <option value="">Make</option>
-              {makes.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={calcFieldLabel}>Model</label>
-            <select value={model} onChange={e => setModel(e.target.value)} style={calcSelect} disabled={!canWrite || !make}>
-              <option value="">Model</option>
-              {models.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-        </div>
+        <SharedVehicleSelector
+          defaultYear={year}
+          defaultMake={make}
+          defaultModel={model}
+          disabled={!canWrite}
+          onVehicleSelect={handleVehicleSelect}
+        />
         {vehicle && (
           <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 11, color: 'var(--text2)' }}>
-            <span>Full: <b style={{ color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.sqft_full}</b> sqft</span>
-            <span>Partial: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.sqft_partial}</b></span>
-            <span>Hood: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.sqft_hood}</b></span>
-            <span>Roof: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.sqft_roof}</b></span>
+            <span>Full: <b style={{ color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.full_wrap_sqft}</b> sqft</span>
+            <span>Partial: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.partial_wrap_sqft}</b></span>
+            <span>Hood: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.hood_sqft}</b></span>
+            <span>Roof: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.roof_sqft}</b></span>
           </div>
         )}
       </div>
@@ -227,14 +236,14 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite, orgId
         {coverage === 'custom' && vehicle && (
           <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[
-              { key: 'hood',         label: `Hood (${vehicle.sqft_hood} sqft)` },
-              { key: 'roof',         label: `Roof (${vehicle.sqft_roof} sqft)` },
-              { key: 'driver_side',  label: `Driver Side (~${Math.round((vehicle.sqft_sides||0)/2)} sqft)` },
-              { key: 'pass_side',    label: `Pass Side (~${Math.round((vehicle.sqft_sides||0)/2)} sqft)` },
+              { key: 'hood',         label: `Hood (${vehicle.hood_sqft} sqft)` },
+              { key: 'roof',         label: `Roof (${vehicle.roof_sqft} sqft)` },
+              { key: 'driver_side',  label: `Driver Side (~${Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
+              { key: 'pass_side',    label: `Pass Side (~${Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
               { key: 'front_bumper', label: 'Front Bumper (~est)' },
               { key: 'rear_bumper',  label: 'Rear Bumper (~est)' },
               { key: 'mirrors',      label: 'Mirrors (6 sqft)' },
-              { key: 'doors',        label: `Doors (${vehicle.sqft_doors} sqft)` },
+              { key: 'doors',        label: `Doors (${vehicle.doors_sqft} sqft)` },
             ].map(z => (
               <label key={z.key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: canWrite ? 'pointer' : 'default', fontSize: 12, color: customZones[z.key] ? 'var(--text1)' : 'var(--text2)' }}>
                 <input type="checkbox" checked={!!customZones[z.key]} onChange={() => canWrite && toggleZone(z.key)} />

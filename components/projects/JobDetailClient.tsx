@@ -18,6 +18,7 @@ import JobChat from '@/components/chat/JobChat'
 import JobPhotosTab from '@/components/projects/JobPhotosTab'
 import ProofingPanel from '@/components/projects/ProofingPanel'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
+import SharedVehicleSelector from '@/components/shared/VehicleSelector'
 
 export interface StageApproval {
   id: string
@@ -955,10 +956,25 @@ export default function JobDetailClient({
               <Car size={11} /> Vehicle
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <SharedVehicleSelector
+                defaultYear={vehicleYear}
+                defaultMake={vehicleMake}
+                defaultModel={vehicleModel}
+                onVehicleSelect={result => {
+                  setVehicleYear(result.year)
+                  setVehicleMake(result.make)
+                  setVehicleModel(result.model)
+                  // Auto-save when a full vehicle is selected
+                  if (result.year && result.make && result.model) {
+                    supabase.from('projects').update({
+                      vehicle_year: result.year || null,
+                      vehicle_make: result.make || null,
+                      vehicle_model: result.model || null,
+                    }).eq('id', project.id).then(() => {})
+                  }
+                }}
+              />
               {[
-                { label: 'Year',  value: vehicleYear,  set: setVehicleYear },
-                { label: 'Make',  value: vehicleMake,  set: setVehicleMake },
-                { label: 'Model', value: vehicleModel, set: setVehicleModel },
                 { label: 'VIN',   value: vehicleVin,   set: setVehicleVin },
                 { label: 'Color', value: vehicleColor, set: setVehicleColor },
               ].map(({ label, value, set }) => (

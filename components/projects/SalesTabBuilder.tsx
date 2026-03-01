@@ -16,8 +16,6 @@ import { isAdminRole } from '@/types'
 import { hasPermission } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import EmailComposeModal, { type EmailData } from '@/components/shared/EmailComposeModal'
-import vehiclesData from '@/lib/data/vehicles.json'
-
 // ─── Vehicle Database ────────────────────────────────────────────────────────────
 
 interface VehicleEntry {
@@ -25,19 +23,45 @@ interface VehicleEntry {
   basePrice: number; installHours: number; tier: string
 }
 
-const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
-const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
+type VehicleModelInfo = { model: string; sqft: number | null; base_price: number | null }
 
-function getModelsForMake(make: string): string[] {
-  return [...new Set(VEHICLES_DB.filter(v => v.make === make).map(v => v.model))].sort()
+const YEARS_LIST = Array.from({ length: 37 }, (_, i) => 2026 - i)
+
+async function fetchAllMakes(): Promise<string[]> {
+  try {
+    const res = await fetch('/api/vehicles/makes')
+    const d = await res.json()
+    return d.makes || []
+  } catch { return [] }
 }
 
-function findVehicle(make: string, model: string, year?: string): VehicleEntry | null {
-  const y = year ? parseInt(year) : null
-  const match = y
-    ? VEHICLES_DB.find(v => v.make === make && v.model === model && v.year === y)
-    : VEHICLES_DB.find(v => v.make === make && v.model === model)
-  return match || null
+async function fetchModelsForMake(make: string, year?: string): Promise<VehicleModelInfo[]> {
+  try {
+    const yearParam = year ? `&year=${year}` : ''
+    const res = await fetch(`/api/vehicles/models?make=${encodeURIComponent(make)}${yearParam}`)
+    const d = await res.json()
+    return d.models || []
+  } catch { return [] }
+}
+
+async function lookupVehicle(make: string, model: string, year?: string): Promise<VehicleEntry | null> {
+  try {
+    const yearParam = year ? `&year=${year}` : ''
+    const res = await fetch(`/api/vehicles/lookup?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}${yearParam}`)
+    const d = await res.json()
+    if (d.measurement) {
+      const m = d.measurement as Record<string, unknown>
+      const sqft = Number(m.full_wrap_sqft) || 0
+      return {
+        year: year ? parseInt(year) : 0,
+        make, model, sqft,
+        basePrice: sqft ? Math.round(sqft * 20) : 0,
+        installHours: sqft ? Math.round((sqft / 30) * 10) / 10 : 8,
+        tier: (m.body_style as string) || 'standard',
+      }
+    }
+  } catch {/* ignore */}
+  return null
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -1438,6 +1462,40 @@ function VehicleAutocomplete({
   const makeRef = useRef<HTMLDivElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
 
+  const [allMakes, setAllMakes] = useState<string[]>([])
+  const [apiModels, setApiModels] = useState<VehicleModelInfo[]>([])
+  const [matchedVehicle, setMatchedVehicle] = useState<VehicleEntry | null>(null)
+  const [loadingMakes, setLoadingMakes] = useState(false)
+  const [loadingModels, setLoadingModels] = useState(false)
+
+  const currentMake = (specs.vehicleMake as string) || ''
+  const currentModel = (specs.vehicleModel as string) || ''
+  const currentYear = (specs.vehicleYear as string) || ''
+
+  // Load all makes once
+  useEffect(() => {
+    setLoadingMakes(true)
+    fetchAllMakes().then(makes => { setAllMakes(makes); setLoadingMakes(false) })
+  }, [])
+
+  // Load models when make changes
+  useEffect(() => {
+    if (!currentMake) { setApiModels([]); return }
+    setLoadingModels(true)
+    fetchModelsForMake(currentMake, currentYear || undefined).then(models => {
+      setApiModels(models)
+      setLoadingModels(false)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMake, currentYear])
+
+  // Load matched vehicle
+  useEffect(() => {
+    if (!currentMake || !currentModel) { setMatchedVehicle(null); return }
+    lookupVehicle(currentMake, currentModel, currentYear || undefined).then(v => setMatchedVehicle(v))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMake, currentModel, currentYear])
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (makeRef.current && !makeRef.current.contains(e.target as Node)) setMakeOpen(false)
@@ -1447,32 +1505,26 @@ function VehicleAutocomplete({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const currentMake = (specs.vehicleMake as string) || ''
-  const currentModel = (specs.vehicleModel as string) || ''
-
   const filteredMakes = makeFilter
-    ? ALL_MAKES.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
-    : ALL_MAKES
+    ? allMakes.filter(m => m.toLowerCase().includes(makeFilter.toLowerCase()))
+    : allMakes
 
-  const availableModels = currentMake ? getModelsForMake(currentMake) : []
   const filteredModels = modelFilter
-    ? availableModels.filter(m => m.toLowerCase().includes(modelFilter.toLowerCase()))
-    : availableModels
+    ? apiModels.filter(m => m.model.toLowerCase().includes(modelFilter.toLowerCase()))
+    : apiModels
 
   function selectMake(make: string) {
     updateSpec('vehicleMake', make)
     setMakeOpen(false)
     setMakeFilter('')
-    if (make !== currentMake) {
-      updateSpec('vehicleModel', '')
-    }
+    if (make !== currentMake) updateSpec('vehicleModel', '')
   }
 
-  function selectModel(model: string) {
+  async function selectModel(model: string) {
     updateSpec('vehicleModel', model)
     setModelOpen(false)
     setModelFilter('')
-    const v = findVehicle(currentMake, model, specs.vehicleYear as string)
+    const v = await lookupVehicle(currentMake, model, currentYear || undefined)
     if (v) onVehicleSelect(v)
     handleBlur()
   }
@@ -1496,20 +1548,17 @@ function VehicleAutocomplete({
       <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
         <div>
           <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Year</label>
-          <input
-            value={specs.vehicleYear || ''}
-            onChange={e => updateSpec('vehicleYear', e.target.value)}
-            onBlur={() => {
-              if (currentMake && currentModel) {
-                const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
-                if (v) onVehicleSelect(v)
-              }
-              handleBlur()
-            }}
-            style={{ ...fieldInputStyle, fontSize: 12 }}
+          <select
+            value={currentYear}
+            onChange={e => { updateSpec('vehicleYear', e.target.value); handleBlur() }}
+            style={{ ...fieldInputStyle, fontSize: 12, appearance: 'none' as const }}
             disabled={!canWrite}
-            placeholder="2024"
-          />
+          >
+            <option value="">Year</option>
+            {YEARS_LIST.map(y => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
+          </select>
         </div>
         <div ref={makeRef} style={{ position: 'relative' }}>
           <label style={{ ...fieldLabelStyle, fontSize: 9 }}>Make</label>
@@ -1519,7 +1568,7 @@ function VehicleAutocomplete({
             onFocus={() => setMakeOpen(true)}
             style={{ ...fieldInputStyle, fontSize: 12 }}
             disabled={!canWrite}
-            placeholder="Search makes..."
+            placeholder={loadingMakes ? 'Loading...' : 'Search makes...'}
           />
           {makeOpen && filteredMakes.length > 0 && (
             <div style={dropdownStyle}>
@@ -1543,27 +1592,24 @@ function VehicleAutocomplete({
             onFocus={() => { if (currentMake) setModelOpen(true) }}
             style={{ ...fieldInputStyle, fontSize: 12 }}
             disabled={!canWrite || !currentMake}
-            placeholder={currentMake ? 'Search models...' : 'Select make first'}
+            placeholder={currentMake ? (loadingModels ? 'Loading...' : 'Search models...') : 'Select make first'}
           />
           {modelOpen && filteredModels.length > 0 && (
             <div style={dropdownStyle}>
-              {filteredModels.map(m => {
-                const v = findVehicle(currentMake, m)
-                return (
-                  <div key={m} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    onMouseDown={() => selectModel(m)}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <span>{m}</span>
-                    {v && v.sqft > 0 && (
-                      <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
-                        {v.sqft}sqft · ${v.basePrice}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
+              {filteredModels.map(m => (
+                <div key={m.model} style={{ ...optionStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onMouseDown={() => selectModel(m.model)}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <span>{m.model}</span>
+                  {m.sqft && m.sqft > 0 && (
+                    <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: monoFont }}>
+                      {m.sqft}sqft · ${m.base_price}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1579,25 +1625,21 @@ function VehicleAutocomplete({
           />
         </div>
       </div>
-      {currentMake && currentModel && (() => {
-        const v = findVehicle(currentMake, currentModel, specs.vehicleYear as string)
-        if (!v || v.sqft === 0) return null
-        return (
-          <div style={{
-            display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
-            background: 'rgba(34,192,122,0.06)', borderRadius: 6,
-            border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
-          }}>
-            <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-              PVO Data
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>{v.sqft} sqft</span>
-            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>${v.basePrice}</span>
-            <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>{v.installHours}hrs</span>
-            <span style={{ fontSize: 10, color: 'var(--text3)' }}>{v.tier.replace('_', ' ')}</span>
-          </div>
-        )
-      })()}
+      {matchedVehicle && matchedVehicle.sqft > 0 && (
+        <div style={{
+          display: 'flex', gap: 12, marginTop: 6, padding: '4px 10px',
+          background: 'rgba(34,192,122,0.06)', borderRadius: 6,
+          border: '1px solid rgba(34,192,122,0.12)', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+            DB Data
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>{matchedVehicle.sqft} sqft</span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>${matchedVehicle.basePrice}</span>
+          <span style={{ fontSize: 11, color: 'var(--text2)', fontFamily: monoFont }}>{matchedVehicle.installHours}hrs</span>
+          <span style={{ fontSize: 10, color: 'var(--text3)' }}>{matchedVehicle.tier.replace('_', ' ')}</span>
+        </div>
+      )}
     </div>
   )
 }
