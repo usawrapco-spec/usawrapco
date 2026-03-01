@@ -29,6 +29,8 @@ export interface PortalContextValue {
   orgName: string
   projects: PortalProject[]
   hasFleet?: boolean
+  loyaltyPoints?: number
+  referralCredits?: number
 }
 
 const PortalCtx = createContext<PortalContextValue | null>(null)

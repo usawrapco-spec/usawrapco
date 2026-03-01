@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Briefcase, Palette, MessageSquare, Receipt, Map } from 'lucide-react'
+import { Home, Briefcase, Palette, MessageSquare, Receipt, Map, Star, Gift } from 'lucide-react'
 import { C } from '@/lib/portal-theme'
 import { PortalProvider, type PortalContextValue } from '@/lib/portal-context'
 
@@ -36,6 +36,9 @@ export default function PortalShell({
   const firstName = ctx.customer.name?.split(' ')[0] || 'there'
   const navItems = ctx.hasFleet ? [...BASE_NAV, FLEET_NAV] : [...BASE_NAV]
 
+  const pts = ctx.loyaltyPoints ?? 0
+  const showBadge = pts > 0
+
   return (
     <PortalProvider value={ctx}>
       <div style={{ minHeight: '100dvh', background: C.bg, color: C.text1, display: 'flex', flexDirection: 'column' }}>
@@ -45,11 +48,62 @@ export default function PortalShell({
           borderBottom: `1px solid ${C.border}`,
           background: C.surface,
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: C.accent, textTransform: 'uppercase', fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)' }}>
-            {ctx.orgName}
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2, fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)' }}>
-            Hey {firstName}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: C.accent, textTransform: 'uppercase', fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)' }}>
+                {ctx.orgName}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2, fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)' }}>
+                Hey {firstName}
+              </div>
+            </div>
+
+            {/* Loyalty + Referral quick links */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {showBadge && (
+                <Link
+                  href="/portal/loyalty"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '5px 10px',
+                    borderRadius: 20,
+                    background: `${C.amber}15`,
+                    border: `1px solid ${C.amber}30`,
+                    textDecoration: 'none',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: C.amber,
+                    fontFamily: 'JetBrains Mono, monospace',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Star size={12} strokeWidth={2.5} />
+                  {pts.toLocaleString()} pts
+                </Link>
+              )}
+              <Link
+                href="/portal/referrals"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 10px',
+                  borderRadius: 20,
+                  background: `${C.green}15`,
+                  border: `1px solid ${C.green}30`,
+                  textDecoration: 'none',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: C.green,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Gift size={12} strokeWidth={2.5} />
+                Refer
+              </Link>
+            </div>
           </div>
         </header>
 

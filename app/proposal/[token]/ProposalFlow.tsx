@@ -7,7 +7,7 @@ import ReviewStep from './steps/ReviewStep'
 import PaymentStep from './steps/PaymentStep'
 import SuccessStep from './steps/SuccessStep'
 import {
-  ChevronRight, Phone, Mail, User, Car, Clock, X,
+  ChevronRight, Phone, Mail, User, Car, Clock, X, AlertTriangle,
 } from 'lucide-react'
 
 const C = {
@@ -24,6 +24,7 @@ interface ProposalFlowProps {
   customer: any
   salesRep: any
   vehicleInfo: any
+  surveyVehicles?: any[]
 }
 
 type Step = 'landing' | 'packages' | 'upsells' | 'review' | 'payment' | 'success'
@@ -31,6 +32,7 @@ const STEP_ORDER: Step[] = ['landing', 'packages', 'upsells', 'review', 'payment
 
 export default function ProposalFlow({
   token, proposal, packages, upsells, customer, salesRep, vehicleInfo,
+  surveyVehicles = [],
 }: ProposalFlowProps) {
   const [step, setStep] = useState<Step>('landing')
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
@@ -43,6 +45,7 @@ export default function ProposalFlow({
   const [declineReason, setDeclineReason] = useState('')
   const [declining, setDeclining] = useState(false)
   const [declined, setDeclined] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   const stepIdx = STEP_ORDER.indexOf(step)
   const hasUpsells = upsells.length > 0
@@ -223,6 +226,174 @@ export default function ProposalFlow({
               &ldquo;{proposal.message}&rdquo;
             </div>
           )}
+
+          {/* ── Vehicle Inspection Notes ── */}
+          {surveyVehicles.length > 0 && (() => {
+            const hasConcerns = surveyVehicles.some(v =>
+              v.concern_notes || v.surface_condition === 'poor' || v.surface_condition === 'fair' ||
+              v.photos.some((p: any) => p.is_flagged)
+            )
+            return (
+              <div style={{
+                background: C.surface, border: `1px solid ${hasConcerns ? 'rgba(245,158,11,0.3)' : C.border}`,
+                borderRadius: 14, marginBottom: 16, overflow: 'hidden',
+              }}>
+                {/* Header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '14px 18px', borderBottom: `1px solid ${C.border}`,
+                }}>
+                  <Car size={16} style={{ color: C.accent }} />
+                  <span style={{
+                    fontSize: 14, fontWeight: 800,
+                    fontFamily: 'Barlow Condensed, sans-serif',
+                    textTransform: 'uppercase', letterSpacing: '0.05em', color: C.text1, flex: 1,
+                  }}>
+                    Vehicle Inspection Notes
+                  </span>
+                  <span style={{ fontSize: 12, color: C.text3 }}>
+                    {surveyVehicles.length} vehicle{surveyVehicles.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div style={{ padding: '14px 18px 18px' }}>
+                  {/* Surface prep disclaimer */}
+                  {hasConcerns && (
+                    <div style={{
+                      display: 'flex', gap: 10, background: 'rgba(245,158,11,0.07)',
+                      border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10,
+                      padding: '10px 14px', marginBottom: 14,
+                    }}>
+                      <AlertTriangle size={15} style={{ color: C.accent, flexShrink: 0, marginTop: 1 }} />
+                      <p style={{ fontSize: 13, color: 'rgba(245,158,11,0.85)', margin: 0, lineHeight: 1.55 }}>
+                        Some vehicles may require surface preparation before installation.
+                        Final pricing will be confirmed after review.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Vehicle rows */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {surveyVehicles.map((vehicle: any, idx: number) => {
+                      const label = [vehicle.vehicle_year, vehicle.vehicle_make, vehicle.vehicle_model]
+                        .filter(Boolean).join(' ') || `Vehicle ${idx + 1}`
+                      const flaggedPhotos = vehicle.photos.filter((p: any) => p.is_flagged)
+                      const allPhotos = vehicle.photos
+                      const condColor =
+                        vehicle.surface_condition === 'good' ? C.green :
+                        vehicle.surface_condition === 'fair' ? C.accent :
+                        vehicle.surface_condition === 'poor' ? C.red : null
+
+                      return (
+                        <div key={vehicle.id} style={{
+                          background: C.surface2, borderRadius: 10,
+                          border: `1px solid ${flaggedPhotos.length ? 'rgba(245,158,11,0.2)' : C.border}`,
+                          padding: 14,
+                        }}>
+                          {/* Vehicle label row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: (vehicle.design_notes || vehicle.concern_notes || allPhotos.length) ? 10 : 0 }}>
+                            <div style={{
+                              width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                              background: 'rgba(245,158,11,0.12)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, color: C.accent }}>{idx + 1}</span>
+                            </div>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: C.text1, flex: 1 }}>{label}</span>
+                            {vehicle.vehicle_plate && (
+                              <span style={{ fontSize: 11, color: C.text3, fontFamily: 'monospace' }}>
+                                #{vehicle.vehicle_plate}
+                              </span>
+                            )}
+                            {condColor && (
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                                color: condColor, background: condColor + '18',
+                                textTransform: 'uppercase', letterSpacing: '0.04em',
+                              }}>
+                                {vehicle.surface_condition === 'good' ? 'Good' :
+                                 vehicle.surface_condition === 'fair' ? 'Fair' : 'Needs Prep'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Design notes */}
+                          {vehicle.design_notes && (
+                            <p style={{ fontSize: 13, color: C.text2, margin: '0 0 8px', lineHeight: 1.5 }}>
+                              {vehicle.design_notes}
+                            </p>
+                          )}
+
+                          {/* Concern notes */}
+                          {vehicle.concern_notes && (
+                            <div style={{
+                              background: 'rgba(245,158,11,0.06)',
+                              border: '1px solid rgba(245,158,11,0.15)',
+                              borderRadius: 8, padding: '7px 10px', marginBottom: 10,
+                              display: 'flex', gap: 7, alignItems: 'flex-start',
+                            }}>
+                              <AlertTriangle size={12} style={{ color: C.accent, flexShrink: 0, marginTop: 1 }} />
+                              <p style={{ fontSize: 12, color: 'rgba(245,158,11,0.8)', margin: 0, lineHeight: 1.5 }}>
+                                {vehicle.concern_notes}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Photos */}
+                          {allPhotos.length > 0 && (() => {
+                            const ordered = [
+                              ...flaggedPhotos,
+                              ...allPhotos.filter((p: any) => !p.is_flagged),
+                            ]
+                            return (
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {ordered.map((photo: any) => (
+                                  <button
+                                    key={photo.id}
+                                    onClick={() => setLightboxUrl(photo.public_url)}
+                                    style={{
+                                      position: 'relative', width: 72, height: 72,
+                                      borderRadius: 8, overflow: 'hidden', padding: 0,
+                                      border: `1px solid ${photo.is_flagged ? 'rgba(245,158,11,0.45)' : C.border}`,
+                                      cursor: 'pointer', background: 'none', flexShrink: 0,
+                                    }}
+                                  >
+                                    <img
+                                      src={photo.public_url}
+                                      alt={photo.angle || 'photo'}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                    />
+                                    {photo.is_flagged && (
+                                      <div style={{
+                                        position: 'absolute', top: 3, right: 3,
+                                        background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 3px',
+                                        display: 'flex',
+                                      }}>
+                                        <AlertTriangle size={10} style={{ color: C.accent }} />
+                                      </div>
+                                    )}
+                                    <div style={{
+                                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                                      background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)',
+                                      padding: '10px 4px 3px',
+                                    }}>
+                                      <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', margin: 0, textTransform: 'capitalize' }}>
+                                        {photo.angle?.replace('_', ' ')}
+                                      </p>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Expiration */}
           {daysLeft !== null && (
@@ -424,6 +595,35 @@ export default function ProposalFlow({
           depositAmount={depositAmount}
           colors={C}
         />
+      )}
+
+      {/* ── Photo Lightbox ─────────────────────────────────────── */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(0,0,0,0.93)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            style={{
+              position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)',
+              border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer',
+              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X size={20} />
+          </button>
+          <img
+            src={lightboxUrl}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }}
+            alt="inspection photo"
+          />
+        </div>
       )}
     </div>
   )

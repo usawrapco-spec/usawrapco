@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, Palette } from 'lucide-react'
 import { SideNav } from '@/components/layout/SideNav'
 import { QuickPermissionsWidget } from '@/components/ui/QuickPermissionsWidget'
+import { DesignHealthBanner } from '@/components/design/DesignHealthBanner'
 import type { Profile } from '@/types'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -12,6 +13,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/design/briefs':    'Incoming Briefs',
   '/design/materials': 'Material Library',
   '/design/proofs':    'Customer Proofs',
+  '/design/mockups':   'AI Mockups',
+  '/design/intakes':   'Design Intakes',
   '/configurator':     '3D Configurator',
   '/mockup':           'Mockup Tool',
 }
@@ -29,7 +32,11 @@ export function DesignStudioLayout({ profile, children, actions }: Props) {
   const [mobileOpen, setMobileOpen]   = useState(false)
 
   const sideW = collapsed ? 64 : 240
-  const title = (pathname ? PAGE_TITLES[pathname] : undefined) ?? 'Design Studio'
+  const title =
+    (pathname
+      ? PAGE_TITLES[pathname] ??
+        (pathname.startsWith('/design/mockups') ? 'AI Mockups' : undefined)
+      : undefined) ?? 'Design Studio'
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
@@ -133,6 +140,7 @@ export function DesignStudioLayout({ profile, children, actions }: Props) {
             paddingBottom: 24,
           }}
         >
+          <DesignHealthBanner />
           {children}
         </main>
       </div>

@@ -27,6 +27,7 @@ interface NavItem {
   label: string
   icon: React.ElementType
   roles?: UserRole[]
+  badge?: string // badge key for dynamic counts
 }
 
 interface NavSection {
@@ -89,7 +90,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/design/briefs',    label: 'Briefs',         icon: FileText },
       { href: '/design/proofs',    label: 'Proofs',         icon: Eye },
       { href: '/design/materials', label: 'Materials',      icon: Package },
-      { href: '/design-intakes',   label: 'Design Intakes', icon: FileInput },
+      { href: '/design/intakes',   label: 'Design Intakes', icon: FileInput, badge: 'intakes' },
       { href: '/proofs',           label: 'All Proofs',     icon: FileImage },
       { href: '/mockup',           label: 'Mockups',        icon: Palette },
       { href: '/deckforge',        label: 'DeckForge',      icon: Zap },
@@ -253,6 +254,24 @@ function isActiveRoute(pathname: string | null, href: string): boolean {
 
 const defaultOpen = Object.fromEntries(NAV_SECTIONS.map(s => [s.id, true]))
 
+// ── Badge counts (fetched client-side) ────────────────────────────────────────
+let badgeCacheValue = 0
+let badgeCacheTime = 0
+
+async function fetchIntakeBadge(): Promise<number> {
+  const now = Date.now()
+  if (now - badgeCacheTime < 30000) return badgeCacheValue
+  try {
+    const res = await fetch('/api/design-intakes?status=new', { cache: 'no-store' })
+    if (res.ok) {
+      const data = await res.json()
+      badgeCacheValue = Array.isArray(data) ? data.length : 0
+      badgeCacheTime = now
+    }
+  } catch { /* silent */ }
+  return badgeCacheValue
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface SideNavProps {
   profile: Profile
@@ -273,6 +292,13 @@ export function SideNav({
   const pathname = usePathname()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpen)
   const [hoverExpanded, setHoverExpanded] = useState(false)
+  const [badges, setBadges] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    fetchIntakeBadge().then(count => {
+      if (count > 0) setBadges(b => ({ ...b, intakes: count }))
+    })
+  }, [])
 
   useEffect(() => {
     try {
@@ -522,16 +548,27 @@ export function SideNav({
                           style={{ flexShrink: 0 }}
                         />
                         {isExpanded && (
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: active ? 'var(--text1)' : 'var(--text2)',
-                              fontWeight: active ? 600 : 400,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {item.label}
-                          </span>
+                          <>
+                            <span
+                              style={{
+                                fontSize: 13,
+                                color: active ? 'var(--text1)' : 'var(--text2)',
+                                fontWeight: active ? 600 : 400,
+                                whiteSpace: 'nowrap',
+                                flex: 1,
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                            {item.badge && badges[item.badge] > 0 && (
+                              <span style={{
+                                background: '#f25a5a', color: '#fff',
+                                borderRadius: 10, padding: '1px 6px',
+                                fontSize: 10, fontWeight: 700, lineHeight: '16px',
+                                flexShrink: 0,
+                              }}>{badges[item.badge]}</span>
+                            )}
+                          </>
                         )}
                       </Link>
                     )

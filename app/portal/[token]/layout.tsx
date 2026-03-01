@@ -29,11 +29,21 @@ export default async function PortalTokenLayout({
       .eq('customer_id', customer.id)
       .order('created_at', { ascending: false })
 
-    // Fetch org name and fleet vehicles count
-    const [orgRes, fleetRes] = await Promise.all([
+    // Fetch org name, fleet count, and loyalty data in parallel
+    const [orgRes, fleetRes, invoiceRes, redemptionRes] = await Promise.all([
       supabase.from('orgs').select('name').eq('id', customer.org_id).single(),
       supabase.from('fleet_vehicles').select('id', { count: 'exact', head: true }).eq('customer_id', customer.id).not('name', 'is', null),
+      supabase.from('invoices').select('total').eq('customer_id', customer.id).eq('status', 'paid'),
+      supabase.from('loyalty_redemptions').select('points_redeemed, status').eq('customer_id', customer.id),
     ])
+
+    // Compute loyalty points balance
+    const totalSpend = (invoiceRes.data || []).reduce((s, inv) => s + (inv.total || 0), 0)
+    const totalEarned = Math.floor(totalSpend)
+    const totalRedeemed = (redemptionRes.data || [])
+      .filter((r: any) => r.status !== 'denied' && r.status !== 'rejected')
+      .reduce((s: number, r: any) => s + (r.points_redeemed || 0), 0)
+    const loyaltyPoints = Math.max(0, totalEarned - totalRedeemed)
 
     const ctx: PortalContextValue = {
       customer: {
@@ -48,6 +58,7 @@ export default async function PortalTokenLayout({
       orgName: orgRes.data?.name || 'USA Wrap Co',
       projects: projects || [],
       hasFleet: (fleetRes.count ?? 0) > 0,
+      loyaltyPoints,
     }
 
     return (

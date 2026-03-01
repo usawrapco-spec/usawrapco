@@ -1,22 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Paintbrush, Printer, Wrench, ShieldCheck, Star, Clock, Award, Phone, Mail, MapPin, ChevronRight } from 'lucide-react'
 
 interface ReferralLandingClientProps {
   code: string
+  referrerName?: string
 }
 
-export default function ReferralLandingClient({ code }: ReferralLandingClientProps) {
+export default function ReferralLandingClient({ code, referrerName }: ReferralLandingClientProps) {
   const router = useRouter()
-  const [referrerName, setReferrerName] = useState<string>('Bob Smith')
+  const displayName = referrerName || 'a happy customer'
 
-  // Demo mode: always show "Bob Smith" as referrer
+  // Store referral code in cookie so it survives the redirect to /onboard
   useEffect(() => {
-    // In production, fetch from referral_codes table
-    // For now, always use demo data
-    setReferrerName('Bob Smith')
+    document.cookie = `ref_code=${code}; max-age=604800; path=/; SameSite=Lax`
   }, [code])
 
   const services = [
@@ -115,7 +114,7 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
             color: '#e8eaed',
           }}>
             You&apos;ve been referred by{' '}
-            <span style={{ color: '#4f7fff' }}>{referrerName}</span>!
+            <span style={{ color: '#4f7fff' }}>{displayName}</span>!
           </h2>
 
           <p style={{
@@ -125,7 +124,7 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
             maxWidth: '560px',
             margin: '0 auto 32px',
           }}>
-            Premium vehicle wraps, paint protection film, and commercial graphics in the DFW area.
+            Premium vehicle wraps, paint protection film, and commercial graphics.
             Your vehicle deserves the best.
           </p>
 
@@ -157,7 +156,7 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
               e.currentTarget.style.transform = 'translateY(0)'
             }}
           >
-            Get Your Free Quote
+            Get Your Free Wrap Design
             <ChevronRight size={18} />
           </button>
         </section>
@@ -197,17 +196,6 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
           ))}
         </section>
 
-        {/* Trust Banner */}
-        <div style={{
-          textAlign: 'center',
-          fontSize: '15px',
-          color: '#9299b5',
-          marginBottom: '48px',
-          fontStyle: 'italic',
-        }}>
-          Trusted by 200+ vehicles in the DFW area
-        </div>
-
         {/* What We Do */}
         <section style={{ marginBottom: '48px' }}>
           <h3 style={{
@@ -235,7 +223,6 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
                 borderRadius: '12px',
                 padding: '28px 20px',
                 textAlign: 'center',
-                transition: 'border-color 0.2s',
               }}>
                 <div style={{
                   width: '48px',
@@ -316,12 +303,8 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
               cursor: 'pointer',
               transition: 'all 0.2s',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#1daa6c'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#22c07a'
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#1daa6c' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#22c07a' }}
           >
             Claim Your Spot
           </button>
@@ -361,14 +344,6 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
               </div>
             ))}
           </div>
-          <p style={{
-            textAlign: 'center',
-            fontSize: '13px',
-            color: '#5a6080',
-            marginTop: '12px',
-          }}>
-            Gallery coming soon
-          </p>
         </section>
 
         {/* Final CTA */}
@@ -450,33 +425,15 @@ export default function ReferralLandingClient({ code }: ReferralLandingClientPro
             gap: '12px',
             alignItems: 'center',
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '14px',
-              color: '#9299b5',
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#9299b5' }}>
               <Phone size={16} style={{ color: '#4f7fff' }} />
               (817) 555-WRAP
             </div>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '14px',
-              color: '#9299b5',
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#9299b5' }}>
               <Mail size={16} style={{ color: '#4f7fff' }} />
               info@usawrapco.com
             </div>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '14px',
-              color: '#9299b5',
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#9299b5' }}>
               <MapPin size={16} style={{ color: '#4f7fff' }} />
               DFW Metroplex, Texas
             </div>

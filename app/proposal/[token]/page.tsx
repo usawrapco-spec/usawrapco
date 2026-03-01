@@ -41,6 +41,22 @@ export default async function ProposalPage({ params }: { params: { token: string
     .eq('proposal_id', proposal.id)
     .order('sort_order')
 
+  // Fetch survey vehicles (for inspection notes section)
+  let surveyVehicles: any[] = []
+  if (proposal.include_inspection !== false && proposal.estimate_id) {
+    const { data: vehicles } = await supabase
+      .from('estimate_survey_vehicles')
+      .select(`*, estimate_survey_photos(*)`)
+      .eq('estimate_id', proposal.estimate_id)
+      .order('sort_order')
+    if (vehicles) {
+      surveyVehicles = vehicles.map((v: any) => ({
+        ...v,
+        photos: v.estimate_survey_photos || [],
+      }))
+    }
+  }
+
   // Fetch estimate info
   let customer: any = null
   let salesRep: any = null
@@ -92,6 +108,7 @@ export default async function ProposalPage({ params }: { params: { token: string
       customer={customer}
       salesRep={salesRep}
       vehicleInfo={vehicleInfo}
+      surveyVehicles={surveyVehicles}
     />
   )
 }
