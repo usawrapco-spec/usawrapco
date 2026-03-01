@@ -10,6 +10,7 @@ import {
   Sparkles, Eye, RotateCw, Trash2, Copy, Move, MousePointer,
   FileImage, Settings, ArrowLeft, Check, X, Sliders
 } from 'lucide-react'
+import PrintExportPanel from '@/components/design/PrintExportPanel'
 
 type Mode = 'ai' | 'manual'
 type AIStep = 1 | 2 | 3 | 4
@@ -56,6 +57,12 @@ export default function DesignStudioPage() {
   const [selectedObject, setSelectedObject] = useState<any>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const supabase = createClient()
+  const [selectedVehicleType, setSelectedVehicleType] = useState<'car' | 'van' | 'truck' | 'box_truck' | 'trailer' | 'suv'>('car')
+
+  const getCanvasImage = useCallback(() => {
+    if (!canvasRef.current) return ''
+    return canvasRef.current.toDataURL('image/jpeg', 0.95)
+  }, [])
 
   // AI mode form state
   const [brandInfo, setBrandInfo] = useState({
@@ -483,7 +490,21 @@ export default function DesignStudioPage() {
         {/* Vehicle Type Selector */}
         <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
           <label className="field-label">Vehicle Template</label>
-          <select className="field" style={{ fontSize: 11 }}>
+          <select
+            className="field"
+            style={{ fontSize: 11 }}
+            value={selectedVehicleType}
+            onChange={e => {
+              const map: Record<string, 'car' | 'van' | 'truck' | 'box_truck' | 'trailer' | 'suv'> = {
+                Sedan: 'car', 'Sports Car': 'car', Other: 'car',
+                SUV: 'suv', Truck: 'truck', Van: 'van',
+                'Box Truck': 'box_truck', 'Food Truck': 'box_truck',
+                Trailer: 'trailer', Bus: 'trailer',
+                Motorcycle: 'car', Boat: 'car',
+              }
+              setSelectedVehicleType(map[e.target.value] || 'car')
+            }}
+          >
             <option>Select vehicle...</option>
             {VEHICLE_TYPES.map(v => <option key={v}>{v}</option>)}
           </select>
@@ -625,10 +646,29 @@ export default function DesignStudioPage() {
         </div>
         {/* Export section */}
         <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label className="field-label">Export As</label>
-          <button className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}><Download size={14} /> PNG</button>
-          <button className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}><Download size={14} /> PDF (Print-Ready)</button>
-          <button className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}><Download size={14} /> CMYK PDF</button>
+          <label className="field-label">Quick Export</label>
+          <button
+            className="btn-ghost btn-sm"
+            style={{ justifyContent: 'flex-start' }}
+            onClick={() => {
+              const img = getCanvasImage()
+              if (!img) return
+              const a = document.createElement('a')
+              a.href = img
+              a.download = `design-${jobId}.jpg`
+              a.click()
+            }}
+          >
+            <Download size={14} /> PNG / JPEG
+          </button>
+          <PrintExportPanel
+            jobId={jobId || 'unknown'}
+            customerName={job?.title || 'Customer'}
+            vehicleDescription={job?.vehicle_desc || vehicleInfo.type || 'Vehicle'}
+            vehicleType={selectedVehicleType}
+            selectedZones={[]}
+            getCanvasImage={getCanvasImage}
+          />
         </div>
       </div>
     </div>
