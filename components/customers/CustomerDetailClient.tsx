@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
 import ClickToCallButton from '@/components/phone/ClickToCallButton'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import type { Profile } from '@/types'
 import { format, formatDistanceToNow } from 'date-fns'
 
@@ -801,6 +802,20 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
   })
   const [showTagPicker, setShowTagPicker] = useState(false)
 
+  // Parent account state
+  const [parentAccount, setParentAccount] = useState<CustomerRow | null>(
+    (customer as any).linked_account_id
+      ? { id: (customer as any).linked_account_id, name: (customer as any).linked_account_name || 'Parent Account', email: null, phone: null, company_name: null, lifetime_spend: null }
+      : null
+  )
+  const [parentAccountModalOpen, setParentAccountModalOpen] = useState(false)
+
+  async function handleSelectParentAccount(c: CustomerRow) {
+    setParentAccount(c)
+    setParentAccountModalOpen(false)
+    await supabase.from('customers').update({ linked_account_id: c.id }).eq('id', customer.id).then(() => {}, () => {})
+  }
+
   // Tasks state
   const [tasks, setTasks] = useState<CustomerTask[]>([])
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -1510,7 +1525,7 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
             </div>
 
             {/* Linked Contacts */}
-            <div>
+            <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <Users size={14} style={{ color: 'var(--purple)' }} />
                 <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -1536,6 +1551,69 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
                 </div>
               </div>
             </div>
+
+            {/* Parent Account */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Link2 size={14} style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Parent Account
+                  </span>
+                </div>
+                {parentAccount && (
+                  <button
+                    onClick={() => setParentAccountModalOpen(true)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                  >
+                    Change
+                  </button>
+                )}
+              </div>
+              {parentAccount ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)',
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: 'rgba(79,127,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 700, color: 'var(--accent)', flexShrink: 0,
+                  }}>
+                    {parentAccount.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{parentAccount.name}</div>
+                    {parentAccount.company_name && (
+                      <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{parentAccount.company_name}</div>
+                    )}
+                    {parentAccount.phone && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: monoFont }}>{parentAccount.phone}</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setParentAccountModalOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    border: '1px dashed var(--border)', background: 'transparent',
+                    color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  <Link2 size={13} /> Link parent account
+                </button>
+              )}
+            </div>
+
+            <CustomerSearchModal
+              open={parentAccountModalOpen}
+              onClose={() => setParentAccountModalOpen(false)}
+              orgId={customer.org_id || ''}
+              onSelect={handleSelectParentAccount}
+            />
           </div>
         )}
 

@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink, Upload } from 'lucide-react'
+import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink, Upload, Link2 } from 'lucide-react'
 import CustomerImportModal from '@/components/customers/CustomerImportModal'
+import CustomerSearchModal from '@/components/shared/CustomerSearchModal'
 import type { Profile } from '@/types'
 
 interface Customer {
@@ -31,6 +32,7 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
   const [search, setSearch]       = useState('')
   const [showAdd, setShowAdd]     = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showFindExisting, setShowFindExisting] = useState(false)
   const [saving, setSaving]       = useState(false)
   const [form, setForm]           = useState({
     name: '', company_name: '', email: '', phone: '',
@@ -220,12 +222,30 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, width: '100%', maxWidth: 480, padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>Add Customer</div>
               <button onClick={() => setShowAdd(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
                 <X size={18} />
               </button>
             </div>
+
+            {/* Search existing before creating */}
+            <button
+              onClick={() => setShowFindExisting(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '10px 14px', borderRadius: 10, marginBottom: 16,
+                border: '1px dashed var(--border)', background: 'var(--surface2)',
+                color: 'var(--text2)', fontSize: 13, cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <Link2 size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+              <span>
+                <span style={{ fontWeight: 600, color: 'var(--text1)' }}>Find existing customer</span>
+                <span style={{ color: 'var(--text3)', fontSize: 12 }}> — search before creating a duplicate</span>
+              </span>
+            </button>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { key: 'name', label: 'Contact Name *', placeholder: 'Full name' },
@@ -278,6 +298,18 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
           </div>
         </div>
       )}
+
+      {/* Find Existing Customer Modal */}
+      <CustomerSearchModal
+        open={showFindExisting}
+        onClose={() => setShowFindExisting(false)}
+        orgId={profile.org_id || ''}
+        onSelect={(c) => {
+          setShowFindExisting(false)
+          setShowAdd(false)
+          router.push(`/customers/${c.id}`)
+        }}
+      />
     </div>
   )
 }
