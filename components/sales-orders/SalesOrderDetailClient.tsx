@@ -77,6 +77,26 @@ const PAYMENT_TERMS_OPTIONS = [
   { value: '50_50', label: '50/50 Split' },
 ]
 
+const LABOR_RATE_SO = 30
+const DESIGN_FEE_DEFAULT_SO = 150
+const headingFont = 'Barlow Condensed, sans-serif'
+const monoFont = 'JetBrains Mono, monospace'
+
+const SO_COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boolean }> = {
+  inbound:  { base: 0.045, max: 0.075, bonuses: true },
+  outbound: { base: 0.07,  max: 0.10,  bonuses: true },
+  presold:  { base: 0.05,  max: 0.05,  bonuses: false },
+}
+
+function calcSOItemCOGS(item: LineItem): { material: number; labor: number; design: number; misc: number } {
+  const s = item.specs as Record<string, unknown>
+  const material = (s.materialCost as number) || 0
+  const labor    = (s.laborCost as number) || ((s.estimatedHours as number) || 0) * LABOR_RATE_SO
+  const design   = (s.designFee as number) ?? DESIGN_FEE_DEFAULT_SO
+  const misc     = (s.machineCost as number) || 0
+  return { material, labor, design, misc }
+}
+
 type DetailTab = 'items' | 'payment_schedule' | 'tasks' | 'notes'
 
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
@@ -226,6 +246,8 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<DetailTab>('items')
+  const [leadType, setLeadType] = useState<string>((so.form_data?.leadType as string) || 'inbound')
+  const [torqBonus, setTorqBonus] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(
     so.customer ? { id: so.customer.id, name: so.customer.name, email: so.customer.email ?? null, phone: null, company_name: null, lifetime_spend: null } : null
@@ -256,6 +278,28 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const taxAmount = useMemo(() => (subtotal - discount) * taxRate, [subtotal, discount, taxRate])
   const total = useMemo(() => subtotal - discount + taxAmount, [subtotal, discount, taxAmount])
   const downPayment = useMemo(() => total * ((downPaymentPct ?? 0) / 100), [total, downPaymentPct])
+
+  // Unified financial panel calculations
+  const cogsBreakdown = useMemo(() => lineItemsList.reduce((acc, li) => {
+    const c = calcSOItemCOGS(li)
+    acc.material += c.material
+    acc.labor    += c.labor
+    acc.design   += c.design
+    acc.misc     += c.misc
+    return acc
+  }, { material: 0, labor: 0, design: 0, misc: 0 }), [lineItemsList])
+  const totalCOGS = useMemo(() => cogsBreakdown.material + cogsBreakdown.labor + cogsBreakdown.design + cogsBreakdown.misc, [cogsBreakdown])
+  const totalGP   = useMemo(() => subtotal - totalCOGS, [subtotal, totalCOGS])
+  const overallGPM = useMemo(() => subtotal > 0 ? (totalGP / subtotal) * 100 : 0, [totalGP, subtotal])
+  const commRate = useMemo(() => {
+    const rates = SO_COMMISSION_RATES[leadType] || SO_COMMISSION_RATES.inbound
+    if (!rates.bonuses || overallGPM < 65) return rates.base
+    let rate = rates.base
+    if (overallGPM >= 73) rate += 0.02
+    if (torqBonus) rate += 0.01
+    return Math.min(rate, rates.max)
+  }, [leadType, overallGPM, torqBonus])
+  const estCommission = useMemo(() => Math.max(0, totalGP * commRate), [totalGP, commRate])
 
   const fmtCurrency = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -908,84 +952,178 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
 
         {/* Right column */}
         <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Pricing summary */}
-          <div className="card">
-            <div className="section-label">Pricing Summary</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <PricingRow label="Subtotal" value={fmtCurrency(subtotal)} />
-              <div>
-                <label className="field-label">Discount</label>
-                <input
-                  type="number"
-                  value={discount}
-                  onChange={e => setDiscount(Number(e.target.value))}
-                  className="field mono"
-                  disabled={!canWrite}
-                  min={0}
-                  step={0.01}
-                />
-              </div>
-              <div>
-                <label className="field-label">Tax Rate</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="number"
-                    value={(taxRate * 100).toFixed(2)}
-                    onChange={e => setTaxRate(Number(e.target.value) / 100)}
-                    className="field mono"
-                    disabled={!canWrite}
-                    min={0}
-                    max={100}
-                    step={0.01}
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{ color: 'var(--text3)', fontSize: 13 }}>%</span>
-                </div>
-              </div>
-              <PricingRow label="Tax" value={fmtCurrency(taxAmount)} />
-              <div style={{ borderTop: '2px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
-                <PricingRow label="Total" value={fmtCurrency(total)} isTotal />
-              </div>
-            </div>
-          </div>
+          {/* ── Unified Financial Panel ─────────────────────────────────── */}
+          <div style={{ background: 'var(--card-bg, var(--surface))', border: '1px solid var(--card-border, var(--border))', borderRadius: 16, overflow: 'hidden' }}>
 
-          {/* Payment */}
-          <div className="card">
-            <div className="section-label">Payment</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <label className="field-label">Terms</label>
-                <select
-                  value={paymentTerms}
-                  onChange={e => setPaymentTerms(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                >
-                  {PAYMENT_TERMS_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+            {/* ── REVENUE ─────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Revenue</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
+                <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
               </div>
-              <div>
-                <label className="field-label">Down Payment %</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="number"
-                    value={downPaymentPct ?? 0}
-                    onChange={e => setDownPaymentPct(Number(e.target.value))}
-                    className="field mono"
-                    disabled={!canWrite}
-                    min={0}
-                    max={100}
-                    step={5}
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{ color: 'var(--text3)', fontSize: 13 }}>%</span>
+            </div>
+
+            {/* ── COSTS ───────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Costs</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {cogsBreakdown.material > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
+                  </div>
+                )}
+                {cogsBreakdown.labor > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
+                  </div>
+                )}
+                {cogsBreakdown.design > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
+                  </div>
+                )}
+                {cogsBreakdown.misc > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
+                  </div>
+                )}
+                <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
                 </div>
               </div>
-              <PricingRow label="Down Payment" value={fmtCurrency(downPayment)} />
-              <PricingRow label="Balance" value={fmtCurrency(total - downPayment)} />
             </div>
+
+            {/* ── PROFIT ──────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Profit</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{overallGPM.toFixed(1)}%</span>
+                </div>
+                {overallGPM < 65 && subtotal > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
+                    <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── COMMISSION PREVIEW ──────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Commission Preview</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                {(['inbound', 'outbound', 'presold'] as const).map(lt => (
+                  <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
+                    {lt === 'presold' ? 'Pre-Sold' : lt === 'inbound' ? 'In' : 'Out'}
+                  </button>
+                ))}
+              </div>
+              {(SO_COMMISSION_RATES[leadType] || SO_COMMISSION_RATES.inbound).bonuses && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
+                  <input type="checkbox" checked={torqBonus} onChange={() => setTorqBonus(!torqBonus)} />
+                  Torq Training Bonus (+1%)
+                </label>
+              )}
+              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Commission Rate</span>
+                  <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text1)' }}>{(commRate * 100).toFixed(1)}%</span>
+                </div>
+                {overallGPM < 65 && subtotal > 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>Low margin — base rate only</div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
+                  <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(estCommission)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── TOTALS ──────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 10 }}>Totals</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Discount</label>
+                  <input type="number" value={discount} onChange={e => setDiscount(Number(e.target.value))} className="field mono" disabled={!canWrite} min={0} step={0.01} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Tax Rate</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" value={(taxRate * 100).toFixed(2)} onChange={e => setTaxRate(Number(e.target.value) / 100)} className="field mono" disabled={!canWrite} min={0} max={100} step={0.01} style={{ flex: 1 }} />
+                    <span style={{ color: 'var(--text3)', fontSize: 13 }}>%</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
+                  <span style={{ fontFamily: monoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── PAYMENT ─────────────────────────────── */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 10 }}>Payment</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Terms</label>
+                  <select value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} className="field" disabled={!canWrite}>
+                    {PAYMENT_TERMS_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Down Payment %</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="number" value={downPaymentPct ?? 0} onChange={e => setDownPaymentPct(Number(e.target.value))} className="field mono" disabled={!canWrite} min={0} max={100} step={5} style={{ flex: 1 }} />
+                    <span style={{ color: 'var(--text3)', fontSize: 13 }}>%</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Down Payment</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(downPayment)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Balance</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(total - downPayment)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── ACTION BUTTONS ───────────────────────── */}
+            {canWrite && (
+              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={() => handleCreateJob('single')} style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <Briefcase size={14} /> Create Job
+                </button>
+                <button onClick={handleConvertToInvoice} style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <FileText size={14} /> To Invoice
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Dates */}
