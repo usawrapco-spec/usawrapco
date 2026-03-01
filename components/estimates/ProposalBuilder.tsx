@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import {
   Send, Copy, Eye, Save, Plus, Trash2, GripVertical,
   CheckCircle2, Clock, Mail, MessageSquare, Loader2,
-  ChevronDown, Image, Video, X, Sparkles, Package,
-  Calendar, Link2, AlertTriangle,
+  ChevronDown, ChevronRight, Image, Video, X, Sparkles, Package,
+  Calendar, Link2, AlertTriangle, Car, ToggleLeft, ToggleRight,
+  ZoomIn,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -99,6 +100,12 @@ export default function ProposalBuilder({
   const [sendSms, setSendSms] = useState(false)
   const [sendPhone, setSendPhone] = useState(customerPhone || '')
   const [sending, setSending] = useState(false)
+
+  // Survey vehicles (concerns section)
+  const [surveyVehicles, setSurveyVehicles] = useState<any[]>([])
+  const [includeInspection, setIncludeInspection] = useState(true)
+  const [inspectionExpanded, setInspectionExpanded] = useState(true)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   // Activity
   const [activity, setActivity] = useState<any[]>([])
@@ -194,6 +201,22 @@ export default function ProposalBuilder({
       setLoading(false)
     }
     init()
+  }, [estimateId])
+
+  // ─── Load survey vehicles ──────────────────────────────────────────
+  useEffect(() => {
+    if (!estimateId) return
+    supabase
+      .from('estimate_survey_vehicles')
+      .select(`*, estimate_survey_photos(*)`)
+      .eq('estimate_id', estimateId)
+      .order('sort_order')
+      .then(({ data }) => {
+        if (data) setSurveyVehicles(data.map((v: any) => ({
+          ...v,
+          photos: v.estimate_survey_photos || [],
+        })))
+      })
   }, [estimateId])
 
   // ─── Load activity feed ────────────────────────────────────────────
@@ -710,6 +733,237 @@ export default function ProposalBuilder({
         ))}
       </div>
 
+      {/* ── Vehicle Inspection Notes ─────────────────────────── */}
+      {surveyVehicles.length > 0 && (() => {
+        const vehiclesWithConcerns = surveyVehicles.filter(v =>
+          v.concern_notes || v.surface_condition === 'poor' || v.surface_condition === 'fair' ||
+          v.photos.some((p: any) => p.is_flagged)
+        )
+        const totalFlagged = surveyVehicles.reduce((s: number, v: any) =>
+          s + v.photos.filter((p: any) => p.is_flagged).length, 0)
+
+        return (
+          <div style={{
+            background: C.surface,
+            border: `1px solid ${includeInspection ? C.amber + '44' : C.border}`,
+            borderRadius: 12, marginBottom: 20, overflow: 'hidden',
+          }}>
+            {/* Section header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '14px 20px', borderBottom: inspectionExpanded ? `1px solid ${C.border}` : 'none',
+            }}>
+              <button
+                onClick={() => setInspectionExpanded(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.text3, display: 'flex', padding: 0 }}
+              >
+                {inspectionExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+              <Car size={16} style={{ color: C.amber }} />
+              <div style={{ flex: 1 }}>
+                <span style={{
+                  fontSize: 14, fontWeight: 800, fontFamily: headingFont,
+                  textTransform: 'uppercase', letterSpacing: '0.05em', color: C.text1,
+                }}>
+                  Vehicle Inspection Notes
+                </span>
+                <span style={{ marginLeft: 10, fontSize: 11, color: C.text3 }}>
+                  {surveyVehicles.length} vehicle{surveyVehicles.length !== 1 ? 's' : ''}
+                  {totalFlagged > 0 && ` · ${totalFlagged} concern${totalFlagged !== 1 ? 's' : ''} flagged`}
+                </span>
+              </div>
+              {/* Include toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, color: includeInspection ? C.text2 : C.text3 }}>
+                  {includeInspection ? 'Included in proposal' : 'Hidden from customer'}
+                </span>
+                <button
+                  onClick={() => setIncludeInspection(v => !v)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0,
+                    color: includeInspection ? C.amber : C.text3 }}
+                >
+                  {includeInspection
+                    ? <ToggleRight size={24} />
+                    : <ToggleLeft size={24} />}
+                </button>
+              </div>
+            </div>
+
+            {inspectionExpanded && (
+              <div style={{ padding: 20 }}>
+
+                {/* Disclaimer banner — only shown when there are concerns */}
+                {vehiclesWithConcerns.length > 0 && (
+                  <div style={{
+                    display: 'flex', gap: 10, alignItems: 'flex-start',
+                    background: 'rgba(245,158,11,0.06)', border: `1px solid rgba(245,158,11,0.2)`,
+                    borderRadius: 10, padding: '10px 14px', marginBottom: 16,
+                  }}>
+                    <AlertTriangle size={16} style={{ color: C.amber, flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: C.amber, margin: '0 0 2px' }}>
+                        Surface Preparation Required
+                      </p>
+                      <p style={{ fontSize: 12, color: 'rgba(245,158,11,0.7)', margin: 0 }}>
+                        Some vehicles have surface issues noted during inspection. Final pricing may be adjusted
+                        based on preparation work required. All concerns are documented below.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vehicle rows */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {surveyVehicles.map((vehicle: any, idx: number) => {
+                    const label = [vehicle.vehicle_year, vehicle.vehicle_make, vehicle.vehicle_model]
+                      .filter(Boolean).join(' ') || `Vehicle ${idx + 1}`
+                    const flaggedPhotos = vehicle.photos.filter((p: any) => p.is_flagged)
+                    const allPhotos = vehicle.photos
+                    const hasConcerns = vehicle.concern_notes || flaggedPhotos.length > 0 ||
+                      vehicle.surface_condition === 'poor' || vehicle.surface_condition === 'fair'
+                    const condColor = vehicle.surface_condition === 'good' ? C.green :
+                      vehicle.surface_condition === 'fair' ? C.amber :
+                      vehicle.surface_condition === 'poor' ? C.red : C.text3
+
+                    return (
+                      <div key={vehicle.id} style={{
+                        background: C.surface2,
+                        border: `1px solid ${hasConcerns ? 'rgba(245,158,11,0.2)' : C.border}`,
+                        borderRadius: 10, padding: 14,
+                      }}>
+                        {/* Vehicle header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: allPhotos.length > 0 || vehicle.design_notes || vehicle.concern_notes ? 12 : 0 }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                            background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.2)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: C.accent }}>{idx + 1}</span>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{label}</span>
+                              {vehicle.vehicle_plate && (
+                                <span style={{ fontSize: 11, color: C.text3, fontFamily: monoFont }}>
+                                  #{vehicle.vehicle_plate}
+                                </span>
+                              )}
+                              {vehicle.vin && (
+                                <span style={{ fontSize: 10, color: C.text3, fontFamily: monoFont }}>
+                                  VIN: {vehicle.vin}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Surface condition badge */}
+                          {vehicle.surface_condition && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, padding: '3px 10px',
+                              borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.04em',
+                              color: condColor, background: condColor + '18',
+                              border: `1px solid ${condColor}30`,
+                            }}>
+                              {vehicle.surface_condition === 'good' ? '✓ Good Surface' :
+                               vehicle.surface_condition === 'fair' ? '⚠ Fair Surface' : '✗ Poor Surface'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Design notes */}
+                        {vehicle.design_notes && (
+                          <div style={{ marginBottom: 10 }}>
+                            <p style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, margin: '0 0 4px' }}>
+                              Design Notes
+                            </p>
+                            <p style={{ fontSize: 13, color: C.text2, margin: 0, lineHeight: 1.5 }}>
+                              {vehicle.design_notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Concern notes */}
+                        {vehicle.concern_notes && (
+                          <div style={{
+                            background: 'rgba(245,158,11,0.05)',
+                            border: '1px solid rgba(245,158,11,0.15)',
+                            borderRadius: 8, padding: '8px 12px', marginBottom: 10,
+                          }}>
+                            <p style={{ fontSize: 10, color: C.amber, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, margin: '0 0 3px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <AlertTriangle size={10} /> Surface Concerns
+                            </p>
+                            <p style={{ fontSize: 13, color: 'rgba(245,158,11,0.8)', margin: 0, lineHeight: 1.5 }}>
+                              {vehicle.concern_notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Photo grid — show flagged first, then rest */}
+                        {allPhotos.length > 0 && (() => {
+                          const ordered = [
+                            ...flaggedPhotos,
+                            ...allPhotos.filter((p: any) => !p.is_flagged),
+                          ]
+                          return (
+                            <div>
+                              <p style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, margin: '0 0 6px' }}>
+                                Photos ({allPhotos.length})
+                                {flaggedPhotos.length > 0 && (
+                                  <span style={{ marginLeft: 6, color: C.amber }}>
+                                    · {flaggedPhotos.length} concern{flaggedPhotos.length !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </p>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {ordered.map((photo: any) => (
+                                  <div
+                                    key={photo.id}
+                                    onClick={() => setLightboxUrl(photo.public_url)}
+                                    style={{
+                                      position: 'relative', width: 72, height: 72,
+                                      borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
+                                      border: `1px solid ${photo.is_flagged ? 'rgba(245,158,11,0.4)' : C.border}`,
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <img
+                                      src={photo.public_url}
+                                      alt={photo.angle || 'photo'}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                    />
+                                    {photo.is_flagged && (
+                                      <div style={{
+                                        position: 'absolute', top: 3, right: 3,
+                                        background: 'rgba(0,0,0,0.6)', borderRadius: 4,
+                                        padding: '1px 3px',
+                                      }}>
+                                        <AlertTriangle size={10} style={{ color: C.amber }} />
+                                      </div>
+                                    )}
+                                    <div style={{
+                                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                                      background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)',
+                                      padding: '10px 4px 3px',
+                                    }}>
+                                      <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', margin: 0, textTransform: 'capitalize' }}>
+                                        {photo.angle?.replace('_', ' ')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Bottom Actions ────────────────────────────────────── */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -767,6 +1021,34 @@ export default function ProposalBuilder({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Photo Lightbox ──────────────────────────────────── */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            style={{
+              position: 'absolute', top: 16, right: 16, background: 'none',
+              border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 4,
+            }}
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={lightboxUrl}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }}
+            alt="inspection photo"
+          />
         </div>
       )}
 
