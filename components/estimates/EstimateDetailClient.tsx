@@ -45,6 +45,7 @@ import SignageCalc from '@/components/estimates/calculators/SignageCalc'
 import type { CalcOutput } from '@/components/estimates/calculators/types'
 import EstimateSurveyTab from '@/components/estimates/EstimateSurveyTab'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
+import SharedVehicleSelector from '@/components/shared/VehicleSelector'
 
 // ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
 const TIER_TO_PANEL_KEY: Record<string, string> = {
@@ -1744,35 +1745,18 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 {proposalMode ? 'Enabled' : 'Disabled'}
               </button>
             </div>
-            <div>
-              <label style={fieldLabelStyle}>Year</label>
-              <input
-                value={vehicleYear}
-                onChange={e => setVehicleYear(e.target.value)}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={fieldLabelStyle}>Vehicle</label>
+              <SharedVehicleSelector
+                defaultYear={vehicleYear}
+                defaultMake={vehicleMake}
+                defaultModel={vehicleModel}
                 disabled={!canWrite}
-                placeholder="2024"
-                maxLength={4}
-                style={fieldInputStyle}
-              />
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Make</label>
-              <input
-                value={vehicleMake}
-                onChange={e => setVehicleMake(e.target.value)}
-                disabled={!canWrite}
-                placeholder="Ford"
-                style={fieldInputStyle}
-              />
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Model</label>
-              <input
-                value={vehicleModel}
-                onChange={e => setVehicleModel(e.target.value)}
-                disabled={!canWrite}
-                placeholder="Transit 350"
-                style={fieldInputStyle}
+                onVehicleSelect={result => {
+                  setVehicleYear(result.year)
+                  setVehicleMake(result.make)
+                  setVehicleModel(result.model)
+                }}
               />
             </div>
             <div>
