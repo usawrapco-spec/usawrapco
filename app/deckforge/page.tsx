@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
-import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { MobileNav } from '@/components/layout/MobileNav'
+import DeckForgeProjectsClient from '@/components/deckforge/DeckForgeProjectsClient'
 import type { Profile } from '@/types'
-import { Layers, Construction } from 'lucide-react'
+import { getSupabaseAdmin } from '@/lib/supabase/service'
 
 export default async function DeckforgePage() {
   const supabase = createClient()
@@ -18,19 +18,8 @@ export default async function DeckforgePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <TopNav profile={profile as Profile} />
-      <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <Layers size={32} color="var(--accent)" />
-            <Construction size={28} color="var(--amber)" />
-          </div>
-          <h1 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 32, fontWeight: 700, color: 'var(--text1)', margin: '0 0 8px 0' }}>
-            Deckforge
-          </h1>
-          <p style={{ fontSize: 14, color: 'var(--text2)', maxWidth: 400 }}>
-            Coming Soon &mdash; Building now
-          </p>
-        </div>
+      <main style={{ flex: 1, overflowY: 'auto', paddingBottom: 80 }}>
+        <DeckForgeProjectsClient />
       </main>
       <div className="md:hidden"><MobileNav /></div>
     </div>

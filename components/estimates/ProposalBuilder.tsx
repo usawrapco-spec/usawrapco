@@ -153,6 +153,7 @@ export default function ProposalBuilder({
           setMessage(full.proposal.message || '')
           setDepositAmount((full.proposal.deposit_amount ?? DEFAULT_DEPOSIT).toString())
           setStatus(full.proposal.status || 'draft')
+          setIncludeInspection(full.proposal.include_inspection !== false)
           setSentAt(full.proposal.sent_at)
           setViewedAt(full.proposal.viewed_at)
           setAcceptedAt(full.proposal.accepted_at)
@@ -243,6 +244,7 @@ export default function ProposalBuilder({
           message: message || null,
           expiration_date: expirationDate ? new Date(expirationDate).toISOString() : null,
           deposit_amount: Number(depositAmount) || DEFAULT_DEPOSIT,
+          include_inspection: includeInspection,
           packages: packages.map(p => ({
             name: p.name || 'Untitled Package',
             badge: p.badge || null,
