@@ -894,7 +894,14 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           {tab === 'chat' && (
             <div>
               <div style={{ marginBottom:16 }}>
-                <JobChat projectId={project.id} orgId={project.org_id} currentUserId={profile.id} currentUserName={profile.name} />
+                <JobChat
+                  projectId={project.id}
+                  orgId={project.org_id}
+                  currentUserId={profile.id}
+                  currentUserName={profile.name}
+                  customerName={f.client || undefined}
+                  installerName={teammates.find(t => t.id === project.installer_id)?.name || f.installer || undefined}
+                />
               </div>
               <div style={{ borderTop:'1px solid var(--border)', paddingTop:16, marginBottom:16 }}>
                 <div style={{ fontSize:10, fontWeight:900, color:'var(--text3)', textTransform:'uppercase', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><Camera size={12} /> Job Photos</div>

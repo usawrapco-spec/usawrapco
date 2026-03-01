@@ -10,7 +10,8 @@ import {
   MessageSquare, Camera, FileImage, History,
   Users, Palette, Receipt, ShoppingCart, CreditCard, FileText, Pencil,
   MoreHorizontal, Copy, Archive, Trash2, Link2, DollarSign as TransactionIcon,
-  ChevronRight, Loader2, Truck,
+  ChevronRight, Loader2, Truck, List, Image as ImageIcon,
+  AlertCircle, CheckCircle2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Project, PipeStage, ProjectFinancials } from '@/types'
@@ -71,7 +72,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
 
 const PIPE_STAGES: PipeStage[] = ['sales_in', 'production', 'install', 'prod_review', 'sales_close', 'done']
 
-type Tab = 'overview' | 'timeline' | 'comments' | 'photos' | 'proofs'
+type Tab = 'overview' | 'timeline' | 'comments' | 'photos' | 'proofs' | 'vehicle_info' | 'design_brief' | 'scope' | 'signoff' | 'mockup'
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JobDetailClient({
@@ -96,6 +97,17 @@ export default function JobDetailClient({
 
   // Connected jobs
   const [connectedJobs, setConnectedJobs] = useState<ConnectedJob[]>([])
+
+  // Intake tab state
+  const [designBrief, setDesignBrief] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).design_brief as string) || '')
+  const [designNotes, setDesignNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).design_notes as string) || '')
+  const [vehicleNotes, setVehicleNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).vehicle_notes as string) || '')
+  const [scopeNotes, setScopeNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).scope_notes as string) || '')
+  const [signoffConfirmed, setSignoffConfirmed] = useState<boolean>(!!(((project.form_data ?? {}) as Record<string, unknown>).signoff_confirmed))
+  const [signoffName, setSignoffName] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).signoff_name as string) || '')
+  const [intakePhotoCount, setIntakePhotoCount] = useState(0)
+  const [intakeLineItemCount, setIntakeLineItemCount] = useState(0)
+  const [savingIntake, setSavingIntake] = useState(false)
 
   // Three-dot menu
   const [menuOpen, setMenuOpen] = useState(false)
@@ -210,6 +222,28 @@ export default function JobDetailClient({
       })
     })
   }, [project.id])
+
+  // Load intake counts (photos + line items)
+  useEffect(() => {
+    const pid = project.id
+    Promise.all([
+      supabase.from('job_images').select('id', { count: 'exact', head: true }).eq('project_id', pid),
+      supabase.from('line_items').select('id', { count: 'exact', head: true }).eq('parent_id', pid),
+    ]).then(([photos, items]) => {
+      setIntakePhotoCount(photos.count ?? 0)
+      setIntakeLineItemCount(items.count ?? 0)
+    })
+  }, [project.id, supabase])
+
+  // Save intake field to form_data
+  const saveIntakeField = useCallback(async (field: string, value: unknown) => {
+    setSavingIntake(true)
+    const current = (project.form_data ?? {}) as Record<string, unknown>
+    const updated = { ...current, [field]: value }
+    await supabase.from('projects').update({ form_data: updated }).eq('id', project.id)
+    setProject(p => ({ ...p, form_data: updated }))
+    setSavingIntake(false)
+  }, [project.id, project.form_data, supabase])
 
   // Load connected jobs
   const loadConnectedJobs = useCallback(async () => {
@@ -400,12 +434,24 @@ export default function JobDetailClient({
     router.push('/jobs')
   }
 
-  const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'overview',  label: 'Overview',  icon: <User size={14} /> },
-    { key: 'timeline',  label: 'Timeline',  icon: <History size={14} /> },
-    { key: 'comments',  label: 'Comments',  icon: <MessageSquare size={14} /> },
-    { key: 'photos',    label: 'Photos',    icon: <Camera size={14} /> },
-    { key: 'proofs',    label: 'Proofs',    icon: <FileImage size={14} /> },
+  // Intake completeness checks
+  const intakeVehicleDone  = !!(vehicleYear && vehicleMake && vehicleModel && intakePhotoCount > 0)
+  const intakeDesignDone   = !!designBrief.trim()
+  const intakeScopeDone    = intakeLineItemCount > 0
+  const intakeSignoffDone  = signoffConfirmed && !!signoffName.trim()
+  const intakeCount        = [intakeVehicleDone, intakeDesignDone, intakeScopeDone, intakeSignoffDone].filter(Boolean).length
+
+  const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: string }[] = [
+    { key: 'overview',     label: 'Overview',      icon: <User size={14} /> },
+    { key: 'vehicle_info', label: 'Vehicle',        icon: <Car size={14} />,          badge: intakeVehicleDone ? 'done' : 'req' },
+    { key: 'design_brief', label: 'Design Brief',   icon: <Palette size={14} />,      badge: intakeDesignDone ? 'done' : 'req' },
+    { key: 'scope',        label: 'Scope',          icon: <List size={14} />,         badge: intakeScopeDone ? 'done' : 'req' },
+    { key: 'signoff',      label: 'Sign-off',       icon: <UserCheck size={14} />,    badge: intakeSignoffDone ? 'done' : 'req' },
+    { key: 'mockup',       label: 'Mockups',        icon: <ImageIcon size={14} /> },
+    { key: 'timeline',     label: 'Timeline',       icon: <History size={14} /> },
+    { key: 'comments',     label: 'Comments',       icon: <MessageSquare size={14} /> },
+    { key: 'photos',       label: 'Photos',         icon: <Camera size={14} /> },
+    { key: 'proofs',       label: 'Proofs',         icon: <FileImage size={14} /> },
   ]
 
   return (
@@ -819,6 +865,44 @@ export default function JobDetailClient({
 
         {/* Left: tab content */}
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Intake Progress Bar */}
+          {project.pipe_stage === 'sales_in' && (
+            <div style={{ marginBottom: 14, padding: '10px 16px', background: intakeCount === 4 ? 'rgba(34,192,122,0.08)' : 'rgba(79,127,255,0.06)', border: `1px solid ${intakeCount === 4 ? 'rgba(34,192,122,0.3)' : 'rgba(79,127,255,0.2)'}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {intakeCount === 4
+                  ? <CheckCircle2 size={14} style={{ color: 'var(--green)' }} />
+                  : <AlertCircle size={14} style={{ color: 'var(--accent)' }} />}
+                <span style={{ fontSize: 12, fontWeight: 700, color: intakeCount === 4 ? 'var(--green)' : 'var(--accent)' }}>
+                  Intake: {intakeCount}/4 tabs complete
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Vehicle', done: intakeVehicleDone, tab: 'vehicle_info' as Tab },
+                  { label: 'Design Brief', done: intakeDesignDone, tab: 'design_brief' as Tab },
+                  { label: 'Scope', done: intakeScopeDone, tab: 'scope' as Tab },
+                  { label: 'Sign-off', done: intakeSignoffDone, tab: 'signoff' as Tab },
+                ].map(item => (
+                  <button
+                    key={item.label}
+                    onClick={() => setTab(item.tab)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                      background: item.done ? 'rgba(34,192,122,0.15)' : 'rgba(242,90,90,0.1)',
+                      color: item.done ? 'var(--green)' : 'var(--red)',
+                    }}
+                  >
+                    {item.done ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              {intakeCount < 4 && project.pipe_stage === 'sales_in' && (
+                <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>Complete all tabs before moving to Production</span>
+              )}
+            </div>
+          )}
+
           {/* Tab bar */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--surface2)', marginBottom: 20, overflowX: 'auto' }}>
             {TABS.map(t => (
@@ -827,15 +911,21 @@ export default function JobDetailClient({
                 onClick={() => setTab(t.key)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '10px 16px', borderRadius: '8px 8px 0 0',
-                  border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                  padding: '10px 14px', borderRadius: '8px 8px 0 0',
+                  border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                   background: tab === t.key ? 'var(--surface)' : 'transparent',
                   color: tab === t.key ? 'var(--accent)' : 'var(--text2)',
                   borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                  whiteSpace: 'nowrap', transition: 'color 0.12s',
+                  whiteSpace: 'nowrap', transition: 'color 0.12s', position: 'relative',
                 }}
               >
                 {t.icon} {t.label}
+                {t.badge && (
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                    background: t.badge === 'done' ? 'var(--green)' : 'var(--red)',
+                  }} />
+                )}
               </button>
             ))}
           </div>
@@ -856,6 +946,8 @@ export default function JobDetailClient({
               orgId={project.org_id}
               currentUserId={profile.id}
               currentUserName={profile.name}
+              customerName={customer?.name}
+              installerName={teammates.find(t => t.id === project.installer_id)?.name}
             />
           )}
           {tab === 'photos' && (
@@ -867,6 +959,52 @@ export default function JobDetailClient({
           )}
           {tab === 'proofs' && (
             <ProofingPanel project={project} profile={profile} />
+          )}
+
+          {/* ── Vehicle Info Tab ── */}
+          {tab === 'vehicle_info' && (
+            <IntakeVehicleTab
+              vehicleYear={vehicleYear} vehicleMake={vehicleMake} vehicleModel={vehicleModel}
+              vehicleVin={vehicleVin} vehicleColor={vehicleColor} vehicleNotes={vehicleNotes}
+              photoCount={intakePhotoCount}
+              onNotesBlur={v => { setVehicleNotes(v); saveIntakeField('vehicle_notes', v) }}
+              onGoToPhotos={() => setTab('photos')}
+            />
+          )}
+
+          {/* ── Design Brief Tab ── */}
+          {tab === 'design_brief' && (
+            <IntakeDesignBriefTab
+              designBrief={designBrief} designNotes={designNotes}
+              onBriefChange={v => setDesignBrief(v)}
+              onBriefBlur={v => saveIntakeField('design_brief', v)}
+              onNotesBlur={v => { setDesignNotes(v); saveIntakeField('design_notes', v) }}
+            />
+          )}
+
+          {/* ── Scope Tab ── */}
+          {tab === 'scope' && (
+            <IntakeScopeTab
+              projectId={project.id}
+              lineItemCount={intakeLineItemCount}
+              scopeNotes={scopeNotes}
+              onNotesBlur={v => { setScopeNotes(v); saveIntakeField('scope_notes', v) }}
+              onLineItemCountChange={n => setIntakeLineItemCount(n)}
+            />
+          )}
+
+          {/* ── Customer Sign-off Tab ── */}
+          {tab === 'signoff' && (
+            <IntakeSignoffTab
+              signoffConfirmed={signoffConfirmed} signoffName={signoffName}
+              onConfirmChange={v => { setSignoffConfirmed(v); saveIntakeField('signoff_confirmed', v) }}
+              onNameBlur={v => { setSignoffName(v); saveIntakeField('signoff_name', v) }}
+            />
+          )}
+
+          {/* ── Mockup Tab ── */}
+          {tab === 'mockup' && (
+            <MockupTab projectId={project.id} />
           )}
         </div>
 
@@ -1227,6 +1365,413 @@ export default function JobDetailClient({
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
+// ─── Shared intake styles ─────────────────────────────────────────────────────
+const intakeCard: React.CSSProperties = {
+  background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: 12, padding: 20,
+}
+const intakeLabel: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, color: 'var(--text3)',
+  textTransform: 'uppercase', letterSpacing: '0.08em',
+  display: 'block', marginBottom: 6,
+}
+const intakeInput: React.CSSProperties = {
+  width: '100%', padding: '9px 12px', borderRadius: 8,
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'var(--bg)', color: 'var(--text1)',
+  fontSize: 13, outline: 'none', boxSizing: 'border-box',
+}
+const intakeTextarea: React.CSSProperties = {
+  ...intakeInput, minHeight: 90, resize: 'vertical',
+}
+
+function InternalNotesCollapse({ value, onBlur }: { value: string; onBlur: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [local, setLocal] = useState(value)
+  return (
+    <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>
+      <button onClick={() => setOpen(v => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: 'var(--surface)', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>Internal Notes (team only)</span>
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+      </button>
+      {open && (
+        <div style={{ padding: '10px 14px', background: 'var(--bg)' }}>
+          <textarea
+            value={local}
+            onChange={e => setLocal(e.target.value)}
+            onBlur={() => onBlur(local)}
+            placeholder="Internal team notes — not visible to customer…"
+            style={{ ...intakeTextarea, minHeight: 70, fontSize: 12 }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Intake: Vehicle Info ─────────────────────────────────────────────────────
+function IntakeVehicleTab({
+  vehicleYear, vehicleMake, vehicleModel, vehicleVin, vehicleColor, vehicleNotes,
+  photoCount, onNotesBlur, onGoToPhotos,
+}: {
+  vehicleYear: string; vehicleMake: string; vehicleModel: string
+  vehicleVin: string; vehicleColor: string; vehicleNotes: string
+  photoCount: number
+  onNotesBlur: (v: string) => void
+  onGoToPhotos: () => void
+}) {
+  const vehicleFilled = !!(vehicleYear && vehicleMake && vehicleModel)
+  const hasPhoto = photoCount > 0
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Completion Status */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Year/Make/Model', done: vehicleFilled },
+          { label: 'Vehicle Photo (min 1)', done: hasPhoto },
+        ].map(item => (
+          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, background: item.done ? 'rgba(34,192,122,0.1)' : 'rgba(242,90,90,0.08)', border: `1px solid ${item.done ? 'rgba(34,192,122,0.3)' : 'rgba(242,90,90,0.2)'}` }}>
+            {item.done
+              ? <CheckCircle2 size={12} style={{ color: 'var(--green)' }} />
+              : <AlertCircle size={12} style={{ color: 'var(--red)' }} />}
+            <span style={{ fontSize: 11, fontWeight: 700, color: item.done ? 'var(--green)' : 'var(--red)' }}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={intakeCard}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <Car size={14} style={{ color: 'var(--accent)' }} /> Vehicle Details
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          {[
+            { label: 'Year', value: vehicleYear },
+            { label: 'Make', value: vehicleMake },
+            { label: 'Model', value: vehicleModel },
+            { label: 'Color', value: vehicleColor },
+            { label: 'VIN', value: vehicleVin },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <label style={intakeLabel}>{label}</label>
+              <div style={{ padding: '7px 10px', background: 'var(--bg)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: value ? 'var(--text1)' : 'var(--text3)' }}>
+                {value || `No ${label.toLowerCase()} set`}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+          Vehicle year/make/model is managed in the Vehicle panel on the right sidebar.
+        </div>
+      </div>
+
+      {/* Photos requirement */}
+      <div style={intakeCard}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Camera size={14} style={{ color: 'var(--accent)' }} /> Vehicle Photos
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: hasPhoto ? 'var(--green)' : 'var(--text2)' }}>
+            {photoCount} photo{photoCount !== 1 ? 's' : ''} uploaded
+            {!hasPhoto && ' — minimum 1 required'}
+          </span>
+          <button
+            onClick={onGoToPhotos}
+            style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Camera size={13} /> {hasPhoto ? 'View Photos' : 'Upload Photos'}
+          </button>
+        </div>
+      </div>
+
+      {/* Condition notes */}
+      <div style={intakeCard}>
+        <label style={{ ...intakeLabel, fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>Condition Notes</label>
+        <textarea
+          defaultValue={vehicleNotes}
+          onBlur={e => onNotesBlur(e.target.value)}
+          placeholder="Vehicle condition, existing damage, paint quality notes…"
+          style={intakeTextarea}
+        />
+      </div>
+
+      <InternalNotesCollapse value={vehicleNotes} onBlur={onNotesBlur} />
+    </div>
+  )
+}
+
+// ─── Intake: Design Brief ─────────────────────────────────────────────────────
+function IntakeDesignBriefTab({
+  designBrief, designNotes,
+  onBriefChange, onBriefBlur, onNotesBlur,
+}: {
+  designBrief: string; designNotes: string
+  onBriefChange: (v: string) => void
+  onBriefBlur: (v: string) => void
+  onNotesBlur: (v: string) => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Completion indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: designBrief.trim() ? 'rgba(34,192,122,0.08)' : 'rgba(242,90,90,0.06)', border: `1px solid ${designBrief.trim() ? 'rgba(34,192,122,0.25)' : 'rgba(242,90,90,0.2)'}` }}>
+        {designBrief.trim()
+          ? <CheckCircle2 size={13} style={{ color: 'var(--green)' }} />
+          : <AlertCircle size={13} style={{ color: 'var(--red)' }} />}
+        <span style={{ fontSize: 12, fontWeight: 700, color: designBrief.trim() ? 'var(--green)' : 'var(--red)' }}>
+          {designBrief.trim() ? 'Design brief complete' : 'Design brief required — describe design direction'}
+        </span>
+      </div>
+
+      <div style={intakeCard}>
+        <label style={intakeLabel}>Design Direction *</label>
+        <textarea
+          value={designBrief}
+          onChange={e => onBriefChange(e.target.value)}
+          onBlur={e => onBriefBlur(e.target.value)}
+          placeholder="Describe the design direction, customer's vision, style preferences…"
+          style={{ ...intakeTextarea, minHeight: 120, borderColor: !designBrief.trim() ? 'rgba(242,90,90,0.4)' : undefined }}
+        />
+      </div>
+
+      <div style={intakeCard}>
+        <label style={intakeLabel}>Color Preferences</label>
+        <textarea
+          defaultValue=""
+          onBlur={e => onNotesBlur(e.target.value)}
+          placeholder="Primary colors, accent colors, color restrictions…"
+          style={intakeTextarea}
+        />
+      </div>
+
+      <div style={intakeCard}>
+        <label style={intakeLabel}>Brand / Logo Notes</label>
+        <textarea
+          defaultValue=""
+          placeholder="Brand guidelines, logo provided (yes/no), file format…"
+          style={intakeTextarea}
+        />
+      </div>
+
+      <InternalNotesCollapse value={designNotes} onBlur={onNotesBlur} />
+    </div>
+  )
+}
+
+// ─── Intake: Scope ────────────────────────────────────────────────────────────
+function IntakeScopeTab({
+  projectId, lineItemCount, scopeNotes,
+  onNotesBlur, onLineItemCountChange,
+}: {
+  projectId: string; lineItemCount: number; scopeNotes: string
+  onNotesBlur: (v: string) => void
+  onLineItemCountChange: (n: number) => void
+}) {
+  const supabase = createClient()
+  const [lineItems, setLineItems] = useState<Array<{ id: string; name: string; unit_price: number; total_price: number }>>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('line_items')
+      .select('id, name, unit_price, total_price')
+      .eq('parent_id', projectId)
+      .order('sort_order')
+      .then(({ data }) => {
+        const items = (data || []) as Array<{ id: string; name: string; unit_price: number; total_price: number }>
+        setLineItems(items)
+        onLineItemCountChange(items.length)
+        setLoading(false)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
+
+  const total = lineItems.reduce((s, li) => s + (li.total_price || li.unit_price || 0), 0)
+  const fmtC = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: lineItemCount > 0 ? 'rgba(34,192,122,0.08)' : 'rgba(242,90,90,0.06)', border: `1px solid ${lineItemCount > 0 ? 'rgba(34,192,122,0.25)' : 'rgba(242,90,90,0.2)'}` }}>
+        {lineItemCount > 0
+          ? <CheckCircle2 size={13} style={{ color: 'var(--green)' }} />
+          : <AlertCircle size={13} style={{ color: 'var(--red)' }} />}
+        <span style={{ fontSize: 12, fontWeight: 700, color: lineItemCount > 0 ? 'var(--green)' : 'var(--red)' }}>
+          {lineItemCount > 0 ? `${lineItemCount} line item${lineItemCount !== 1 ? 's' : ''} · Total: ${fmtC(total)}` : 'At least 1 line item required'}
+        </span>
+      </div>
+
+      <div style={intakeCard}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <List size={14} style={{ color: 'var(--accent)' }} /> Line Items
+        </div>
+        {loading ? (
+          <div style={{ color: 'var(--text3)', fontSize: 13 }}>Loading…</div>
+        ) : lineItems.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+            No line items yet. Add line items from the estimates or sales orders linked to this job.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {lineItems.map(li => (
+              <div key={li.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <span style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 600 }}>{li.name}</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
+                  {fmtC(li.total_price || li.unit_price || 0)}
+                </span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>{fmtC(total)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <InternalNotesCollapse value={scopeNotes} onBlur={onNotesBlur} />
+    </div>
+  )
+}
+
+// ─── Intake: Customer Sign-off ────────────────────────────────────────────────
+function IntakeSignoffTab({
+  signoffConfirmed, signoffName,
+  onConfirmChange, onNameBlur,
+}: {
+  signoffConfirmed: boolean; signoffName: string
+  onConfirmChange: (v: boolean) => void
+  onNameBlur: (v: string) => void
+}) {
+  const [nameLocal, setNameLocal] = useState(signoffName)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: signoffConfirmed && signoffName ? 'rgba(34,192,122,0.08)' : 'rgba(242,90,90,0.06)', border: `1px solid ${signoffConfirmed && signoffName ? 'rgba(34,192,122,0.25)' : 'rgba(242,90,90,0.2)'}` }}>
+        {signoffConfirmed && signoffName
+          ? <CheckCircle2 size={13} style={{ color: 'var(--green)' }} />
+          : <AlertCircle size={13} style={{ color: 'var(--red)' }} />}
+        <span style={{ fontSize: 12, fontWeight: 700, color: signoffConfirmed && signoffName ? 'var(--green)' : 'var(--red)' }}>
+          {signoffConfirmed && signoffName ? `Signed off by ${signoffName}` : 'Customer sign-off required'}
+        </span>
+      </div>
+
+      <div style={intakeCard}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <UserCheck size={14} style={{ color: 'var(--accent)' }} /> Customer Approval
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={intakeLabel}>Customer Name *</label>
+          <input
+            value={nameLocal}
+            onChange={e => setNameLocal(e.target.value)}
+            onBlur={() => onNameBlur(nameLocal)}
+            placeholder="Full name of approving customer…"
+            style={{ ...intakeInput, borderColor: !nameLocal.trim() && signoffConfirmed ? 'rgba(242,90,90,0.5)' : undefined }}
+          />
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '14px 16px', background: signoffConfirmed ? 'rgba(34,192,122,0.08)' : 'var(--bg)', borderRadius: 10, border: `1px solid ${signoffConfirmed ? 'rgba(34,192,122,0.3)' : 'rgba(255,255,255,0.08)'}`, transition: 'all 0.15s' }}>
+          <input
+            type="checkbox"
+            checked={signoffConfirmed}
+            onChange={e => onConfirmChange(e.target.checked)}
+            style={{ width: 18, height: 18, accentColor: 'var(--green)', cursor: 'pointer', flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: signoffConfirmed ? 'var(--green)' : 'var(--text1)' }}>
+              Customer has approved the scope of work
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3 }}>
+              By checking this box, you confirm the customer has reviewed and approved the job scope, pricing, and design direction.
+            </div>
+          </div>
+        </label>
+
+        {signoffConfirmed && nameLocal && (
+          <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(34,192,122,0.06)', borderRadius: 8, border: '1px solid rgba(34,192,122,0.2)', fontSize: 12, color: 'var(--green)' }}>
+            Signed off by <b>{nameLocal}</b>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Mockup Tab ───────────────────────────────────────────────────────────────
+function MockupTab({ projectId }: { projectId: string }) {
+  const supabase = createClient()
+  const [mockups, setMockups] = useState<Array<{ id: string; title: string; render_images: string[][] | null; concept_images: string[] | null; created_at: string }>>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('design_mockups')
+      .select('id, title, render_images, concept_images, created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setMockups((data || []) as typeof mockups)
+        setLoading(false)
+      })
+  }, [projectId, supabase])
+
+  const firstImage = (m: typeof mockups[0]) => {
+    if (m.render_images?.[0]?.[0]) return m.render_images[0][0]
+    if (m.concept_images?.[0]) return m.concept_images[0]
+    return null
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+          AI-generated vehicle wrap mockups linked to this job.
+        </div>
+        <a
+          href={`/mockup`}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+        >
+          <ImageIcon size={13} /> Create New Mockup
+        </a>
+      </div>
+
+      {loading ? (
+        <div style={{ color: 'var(--text3)', fontSize: 13, padding: 20, textAlign: 'center' }}>Loading mockups…</div>
+      ) : mockups.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)' }}>
+          <ImageIcon size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3, color: 'var(--text3)' }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>No mockups yet</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Use the AI mockup generator to create vehicle wrap visualizations</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
+          {mockups.map(m => {
+            const img = firstImage(m)
+            return (
+              <div key={m.id} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                {img ? (
+                  <img src={img} alt={m.title || 'Mockup'} style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', aspectRatio: '16/9', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <ImageIcon size={24} style={{ opacity: 0.2, color: 'var(--text3)' }} />
+                  </div>
+                )}
+                <div style={{ padding: '10px 12px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>
+                    {m.title || 'Untitled Mockup'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                    {new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
