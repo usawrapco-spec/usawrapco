@@ -34,6 +34,8 @@ import {
   ShieldCheck,
   MapPin,
   CalendarCheck,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react'
 
 interface PortalClientProps {
@@ -169,6 +171,7 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [feedbackId, setFeedbackId] = useState<string | null>(null)
   const [feedbackText, setFeedbackText] = useState('')
+  const [supabaseDown, setSupabaseDown] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const displayName = userName || userEmail.split('@')[0]
@@ -247,6 +250,25 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
 
   useEffect(() => { loadData() }, [loadData])
 
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const { error } = await supabase.auth.getSession()
+        if (error) {
+          setSupabaseDown(true)
+        } else {
+          setSupabaseDown(false)
+        }
+      } catch {
+        setSupabaseDown(true)
+      }
+    }
+    checkHealth()
+    const interval = setInterval(checkHealth, 30000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/portal/login')
@@ -292,6 +314,7 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
   const activeProjects = projects.filter(p => p.pipe_stage !== 'done')
   const pendingProofs = proofs.filter(p => p.status === 'pending')
   const openInvoices = invoices.filter(i => i.status !== 'paid' && i.status !== 'void')
+  const overdueInvoices = invoices.filter(i => i.status === 'overdue')
   const selectedJob = projects.find(p => p.id === selectedJobId)
   const jobPhotos = files.filter(f => f.project_id === selectedJobId)
 
@@ -302,6 +325,35 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
       date: i <= currentIdx ? (i === 0 ? project.created_at : null) : null,
       completed: i < currentIdx, current: i === currentIdx,
     }))
+  }
+
+  if (supabaseDown) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: colors.bg, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Inter', sans-serif",
+      }}>
+        <div style={{
+          background: `${colors.red}10`, border: `2px solid ${colors.red}50`,
+          borderRadius: 20, padding: '40px 32px', maxWidth: 440, width: '100%', textAlign: 'center',
+        }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${colors.red}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <AlertTriangle size={32} style={{ color: colors.red }} />
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif", color: colors.text1, marginBottom: 10 }}>
+            Portal Temporarily Unavailable
+          </div>
+          <div style={{ fontSize: 14, color: colors.text2, lineHeight: 1.6, marginBottom: 24 }}>
+            We&apos;re having trouble connecting to our servers. Please try again in a moment.
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 12, color: colors.text3 }}>
+            <RefreshCw size={13} style={{ animation: 'spin 2s linear infinite' }} />
+            Auto-retrying every 30 seconds...
+          </div>
+        </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      </div>
+    )
   }
 
   return (
@@ -332,6 +384,47 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
                 <div style={{ fontSize: 10, color: colors.text3, marginTop: 4 }}>{fmt(n.created_at)}</div>
               </div>
             ))}
+        </div>
+      )}
+
+      {/* Persistent Action-Required Banners — visible on all views, never auto-dismiss */}
+      {!loading && (pendingProofs.length > 0 || overdueInvoices.length > 0) && (
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '10px 16px 0' }}>
+          {pendingProofs.length > 0 && (
+            <button
+              onClick={() => setView('design')}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                background: `${colors.amber}12`, border: `1px solid ${colors.amber}45`,
+                borderRadius: 12, padding: '12px 16px', cursor: 'pointer',
+                color: colors.text1, textAlign: 'left', marginBottom: 6,
+              }}
+            >
+              <AlertTriangle size={18} style={{ color: colors.amber, flexShrink: 0 }} />
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 800, color: colors.amber }}>
+                Action Required: Your design proof is waiting for approval
+              </div>
+              <ChevronRight size={16} style={{ color: colors.amber, flexShrink: 0 }} />
+            </button>
+          )}
+          {overdueInvoices.map(inv => (
+            <button
+              key={inv.id}
+              onClick={() => setView('invoices')}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                background: `${colors.red}12`, border: `1px solid ${colors.red}45`,
+                borderRadius: 12, padding: '12px 16px', cursor: 'pointer',
+                color: colors.text1, textAlign: 'left', marginBottom: 6,
+              }}
+            >
+              <AlertTriangle size={18} style={{ color: colors.red, flexShrink: 0 }} />
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 800, color: colors.red }}>
+                Invoice #{String(inv.invoice_number).padStart(4, '0')} is overdue
+              </div>
+              <ChevronRight size={16} style={{ color: colors.red, flexShrink: 0 }} />
+            </button>
+          ))}
         </div>
       )}
 

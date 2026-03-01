@@ -43,9 +43,9 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }
 }
 
 const SERVICE_ICONS: Record<string, string> = {
-  vehicle_wrap: '🚗', commercial_fleet: '🚛', trailer_wrap: '🚐',
-  marine_boat: '⛵', storefront: '🏪', logo_design: '🎨',
-  brand_package: '📦', social_media: '📱',
+  vehicle_wrap: 'V', commercial_fleet: 'F', trailer_wrap: 'T',
+  marine_boat: 'B', storefront: 'S', logo_design: 'L',
+  brand_package: 'P', social_media: 'M',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -184,30 +184,33 @@ export default function DesignIntakesClient({ profile, referrals = [] }: { profi
         background: 'var(--surface)',
         flexShrink: 0,
       }}>
-        {tabList.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTopTab(t.key)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '9px 18px',
-              borderRadius: '8px 8px 0 0',
-              border: 'none',
-              background: topTab === t.key ? 'var(--surface2)' : 'transparent',
-              borderBottom: topTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-              color: topTab === t.key ? 'var(--text1)' : 'var(--text3)',
-              fontSize: 13, fontWeight: topTab === t.key ? 700 : 500,
-              cursor: 'pointer',
-            }}
-          >
-            <t.icon size={14} /> {t.label}
-            {t.key === 'referrals' && referrals.length > 0 && (
-              <span style={{ padding: '0 6px', borderRadius: 10, fontSize: 10, background: 'var(--surface)', color: 'var(--text3)' }}>
-                {referrals.length}
-              </span>
-            )}
-          </button>
-        ))}
+        {tabList.map(t => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTopTab(t.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '9px 18px',
+                borderRadius: '8px 8px 0 0',
+                border: 'none',
+                background: topTab === t.key ? 'var(--surface2)' : 'transparent',
+                borderBottom: topTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
+                color: topTab === t.key ? 'var(--text1)' : 'var(--text3)',
+                fontSize: 13, fontWeight: topTab === t.key ? 700 : 500,
+                cursor: 'pointer',
+              }}
+            >
+              <Icon size={14} /> {t.label}
+              {t.key === 'referrals' && referrals.length > 0 && (
+                <span style={{ padding: '0 6px', borderRadius: 10, fontSize: 10, background: 'var(--surface)', color: 'var(--text3)' }}>
+                  {referrals.length}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Referrals Tab ───────────────────────────────────────────────────── */}
