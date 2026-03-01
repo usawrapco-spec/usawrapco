@@ -2,14 +2,16 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, Mail, Phone, MessageSquare, Edit2, MoreHorizontal,
   Tag, Plus, DollarSign, Briefcase, TrendingUp, CreditCard,
   StickyNote, FileText, User, MapPin, Building2, Calendar,
   Clock, CheckCircle2, Send, XCircle, ChevronDown, Paperclip,
-  ListChecks, FolderOpen, Receipt,
+  ListChecks, FolderOpen, Receipt, Link2,
 } from 'lucide-react'
 import type { Profile } from '@/types'
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 // ── Types ─────────────────────────────────────────────────────────
 export interface ContactDetailClientProps {
@@ -295,6 +297,7 @@ export default function ContactDetailClient({
   profile, contact, activities, jobs, estimates, invoices,
 }: ContactDetailClientProps) {
   const router = useRouter()
+  const supabase = createClient()
   const [activeTab, setActiveTab] = useState<TabKey>('timeline')
   const [newNote, setNewNote] = useState('')
   const [showNoteInput, setShowNoteInput] = useState(false)
@@ -302,6 +305,22 @@ export default function ContactDetailClient({
   const [newTagValue, setNewTagValue] = useState('')
   const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set())
   const [showMore, setShowMore] = useState(false)
+  const [linkedAccount, setLinkedAccount] = useState<CustomerRow | null>(
+    contact?.linked_account_id
+      ? { id: contact.linked_account_id, name: contact.linked_account_name || 'Linked Account', email: null, phone: null, company_name: null, lifetime_spend: null }
+      : null
+  )
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
+
+  const isDemo = !contact?.id || contact.id.startsWith('demo')
+
+  async function handleSelectAccount(c: CustomerRow) {
+    setLinkedAccount(c)
+    setAccountModalOpen(false)
+    if (!isDemo && contact?.id) {
+      await supabase.from('customers').update({ linked_account_id: c.id }).eq('id', contact.id)
+    }
+  }
 
   const hasRealData = contact && (jobs.length > 0 || estimates.length > 0)
 
@@ -637,7 +656,76 @@ export default function ContactDetailClient({
             </div>
           </div>
         </div>
+
+        {/* Linked Account */}
+        <div style={{
+          padding: '16px 18px', background: 'var(--surface)',
+          border: '1px solid var(--border)', borderRadius: 10,
+        }}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginBottom: 12,
+          }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, color: 'var(--text3)',
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+              fontFamily: 'Barlow Condensed, sans-serif',
+            }}>
+              Linked Account
+            </div>
+            {linkedAccount && (
+              <button
+                onClick={() => setAccountModalOpen(true)}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--accent)',
+                  fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0,
+                }}
+              >
+                Change
+              </button>
+            )}
+          </div>
+          {linkedAccount ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'rgba(79,127,255,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <User size={14} style={{ color: 'var(--accent)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linkedAccount.name}</div>
+                {linkedAccount.company_name && (
+                  <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{linkedAccount.company_name}</div>
+                )}
+                {linkedAccount.phone && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace' }}>{linkedAccount.phone}</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAccountModalOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                width: '100%', padding: '10px 12px', borderRadius: 8,
+                border: '1px dashed var(--border)', background: 'transparent',
+                color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              <Link2 size={13} /> Link customer account
+            </button>
+          )}
+        </div>
       </div>
+
+      <CustomerSearchModal
+        open={accountModalOpen}
+        onClose={() => setAccountModalOpen(false)}
+        orgId={profile.org_id || ''}
+        onSelect={handleSelectAccount}
+      />
 
       {/* ── Tabs ──────────────────────────────────────────────── */}
       <div style={{

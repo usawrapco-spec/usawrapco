@@ -9,6 +9,7 @@ import {
   Truck, Star, AlertCircle, ListFilter,
 } from 'lucide-react'
 import type { Profile } from '@/types'
+import CustomerSearchModal from '@/components/shared/CustomerSearchModal'
 
 // ── Types ─────────────────────────────────────────────────────────
 interface Contact {
@@ -255,6 +256,9 @@ export default function ContactsClient({ profile, initialContacts }: ContactsCli
   const [showSmartLists, setShowSmartLists] = useState(false)
   const [showTagFilter, setShowTagFilter] = useState(false)
 
+  // Customer search modal (Add Contact)
+  const [addContactModalOpen, setAddContactModalOpen] = useState(false)
+
   // All unique tags
   const allTags = useMemo(() => {
     const s = new Set<string>()
@@ -414,7 +418,7 @@ export default function ContactsClient({ profile, initialContacts }: ContactsCli
           </div>
 
           <button
-            onClick={() => router.push('/customers')}
+            onClick={() => setAddContactModalOpen(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 16px', borderRadius: 8, border: 'none',
@@ -944,6 +948,17 @@ export default function ContactsClient({ profile, initialContacts }: ContactsCli
           </div>
         </div>
       </div>
+
+      {/* ── Add Contact Modal ────────────────────────────────── */}
+      <CustomerSearchModal
+        open={addContactModalOpen}
+        onClose={() => setAddContactModalOpen(false)}
+        orgId={profile.org_id || ''}
+        onSelect={(c) => {
+          setAddContactModalOpen(false)
+          router.push(`/contacts/${c.id}`)
+        }}
+      />
     </div>
   )
 }
