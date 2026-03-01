@@ -17,16 +17,7 @@ import type { Profile, Project, PipeStage, ProjectFinancials } from '@/types'
 import JobChat from '@/components/chat/JobChat'
 import JobPhotosTab from '@/components/projects/JobPhotosTab'
 import ProofingPanel from '@/components/projects/ProofingPanel'
-
-// ─── Extended types ────────────────────────────────────────────────────────────
-interface CustomerRow {
-  id: string
-  name: string
-  email: string | null
-  phone: string | null
-  company_name: string | null
-  lifetime_spend: number | null
-}
+import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
 export interface StageApproval {
   id: string
@@ -168,7 +159,10 @@ export default function JobDetailClient({
   const [editInstallDate, setEditInstallDate] = useState(project.install_date || '')
   const [editDueDate, setEditDueDate] = useState(project.due_date || '')
 
-  const customer = (project.customer as unknown) as CustomerRow | null | undefined
+  const initialCustomer = (project.customer as unknown) as CustomerRow | null | undefined
+  const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(initialCustomer ?? null)
+  const [customerModalOpen, setCustomerModalOpen] = useState(false)
+  const customer = linkedCustomer
   const stage = STAGE_CONFIG[project.pipe_stage] ?? STAGE_CONFIG.sales_in
   const priority = PRIORITY_CONFIG[project.priority] ?? PRIORITY_CONFIG.normal
   const fd = (project.form_data ?? {}) as Record<string, any>
@@ -722,22 +716,48 @@ export default function JobDetailClient({
         <div style={{ background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Customer</div>
           {customer ? (
-            <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4f7fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
-                  {(customer.name || '?')[0].toUpperCase()}
+            <div>
+              <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4f7fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                    {(customer.name || '?')[0].toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.name}</div>
+                    {customer.company_name && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.company_name}</div>
+                    )}
+                    {customer.phone && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.phone}</div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.name}</div>
-                  {customer.company_name && (
-                    <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customer.company_name}</div>
-                  )}
-                </div>
-              </div>
-            </Link>
+              </Link>
+              <button
+                onClick={() => setCustomerModalOpen(true)}
+                style={{ marginTop: 6, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600 }}
+              >
+                Change
+              </button>
+            </div>
           ) : (
-            <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No customer</div>
+            <button
+              onClick={() => setCustomerModalOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            >
+              <User size={12} /> Add Customer
+            </button>
           )}
+          <CustomerSearchModal
+            open={customerModalOpen}
+            onClose={() => setCustomerModalOpen(false)}
+            orgId={project.org_id}
+            onSelect={async (c) => {
+              setLinkedCustomer(c)
+              setCustomerModalOpen(false)
+              await supabase.from('projects').update({ customer_id: c.id }).eq('id', project.id)
+            }}
+          />
         </div>
 
         {/* Team multi-select grid */}
