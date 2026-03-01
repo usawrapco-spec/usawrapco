@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Upload, Star, Briefcase, X, ZoomIn, ChevronLeft, ChevronRight, Camera, Loader2 } from 'lucide-react'
+import { Upload, Star, Briefcase, X, ZoomIn, ChevronLeft, ChevronRight, Camera, Loader2, Search, Tag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const C = {
   bg: '#0d0f14', surface: '#13151c', surface2: '#1a1d27', border: '#1e2738',
   accent: '#4f7fff', green: '#22c07a', red: '#f25a5a', amber: '#f59e0b',
+  cyan: '#22d3ee', purple: '#8b5cf6',
   text1: '#e8eaed', text2: '#9299b5', text3: '#5a6080',
 }
 
@@ -23,24 +24,37 @@ interface JobPhoto {
   is_portfolio: boolean
   uploaded_by: string | null
   created_at: string
+  inspector_tag?: string | null
+  line_item_id?: string | null
 }
 
 const PHOTO_TYPES: { key: PhotoType; label: string; color: string }[] = [
-  { key: 'before', label: 'Before', color: '#f59e0b' },
-  { key: 'after', label: 'After', color: '#22c07a' },
+  { key: 'before',   label: 'Before',   color: '#f59e0b' },
+  { key: 'after',    label: 'After',    color: '#22c07a' },
   { key: 'progress', label: 'Progress', color: '#4f7fff' },
-  { key: 'detail', label: 'Detail', color: '#8b5cf6' },
+  { key: 'detail',   label: 'Detail',   color: '#8b5cf6' },
 ]
 
 const ZONES: { key: Zone; label: string }[] = [
-  { key: 'front', label: 'Front' },
-  { key: 'rear', label: 'Rear' },
-  { key: 'driver_side', label: 'Driver Side' },
+  { key: 'front',          label: 'Front' },
+  { key: 'rear',           label: 'Rear' },
+  { key: 'driver_side',    label: 'Driver Side' },
   { key: 'passenger_side', label: 'Pass. Side' },
-  { key: 'roof', label: 'Roof' },
-  { key: 'interior', label: 'Interior' },
-  { key: 'full', label: 'Full View' },
+  { key: 'roof',           label: 'Roof' },
+  { key: 'interior',       label: 'Interior' },
+  { key: 'full',           label: 'Full View' },
 ]
+
+const INSPECTOR_TAGS = [
+  'Hood Damage', 'Rust Spot', 'Existing Wrap', 'Dent', 'Paint Chip',
+  'Scratches', 'Clear Coat Failure', 'Trim Damage', 'Door Ding',
+  'Windshield Chip', 'Vinyl Lift', 'Bubble', 'Crease', 'Survey Photo',
+]
+
+interface LineItemStub {
+  id: string
+  name: string
+}
 
 export default function JobPhotosTab({ projectId, orgId, currentUserId }: { projectId: string; orgId: string; currentUserId: string }) {
   const supabase = createClient()
@@ -51,6 +65,8 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
   const [uploadType, setUploadType] = useState<PhotoType>('after')
   const [uploadZone, setUploadZone] = useState<Zone>('')
   const [filterType, setFilterType] = useState<PhotoType | 'all'>('all')
+  const [inspectorMode, setInspectorMode] = useState(false)
+  const [lineItems, setLineItems] = useState<LineItemStub[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -62,6 +78,17 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
   }, [projectId])
 
   useEffect(() => { load() }, [load])
+
+  // Load line items for inspector tagging
+  useEffect(() => {
+    if (!inspectorMode) return
+    supabase
+      .from('line_items')
+      .select('id, name')
+      .eq('parent_id', projectId)
+      .order('sort_order')
+      .then(({ data }) => setLineItems((data || []) as LineItemStub[]))
+  }, [inspectorMode, projectId, supabase])
 
   const handleUpload = async (files: FileList) => {
     setUploading(true)
@@ -100,11 +127,48 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
     if (lightboxIdx !== null) setLightboxIdx(null)
   }
 
+  // Inspector: tag a photo to a line item (or a new line item)
+  const tagPhoto = async (photo: JobPhoto, tag: string, lineItemId?: string | null) => {
+    const updates: Record<string, string | null> = { inspector_tag: tag }
+    if (lineItemId !== undefined) updates.line_item_id = lineItemId
+
+    setPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, inspector_tag: tag, line_item_id: lineItemId ?? p.line_item_id } : p))
+    await fetch('/api/job-photos', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: photo.id, ...updates }),
+    })
+  }
+
+  // Inspector: auto-create a new line item from a tag
+  const createLineItemFromTag = async (photo: JobPhoto, tagName: string) => {
+    const { data } = await supabase
+      .from('line_items')
+      .insert({
+        org_id: orgId,
+        parent_id: projectId,
+        parent_type: 'project',
+        name: tagName,
+        description: `Created from photo inspection — ${tagName}`,
+        quantity: 1,
+        unit_price: 0,
+        total_price: 0,
+        sort_order: lineItems.length,
+      })
+      .select('id, name')
+      .single()
+    if (data) {
+      const newItem = data as LineItemStub
+      setLineItems(prev => [...prev, newItem])
+      await tagPhoto(photo, tagName, newItem.id)
+    }
+  }
+
   const filtered = filterType === 'all' ? photos : photos.filter(p => p.photo_type === filterType)
 
   const groupedByType: Record<PhotoType, JobPhoto[]> = {
     before: photos.filter(p => p.photo_type === 'before'),
-    after: photos.filter(p => p.photo_type === 'after'),
+    after:  photos.filter(p => p.photo_type === 'after'),
     progress: photos.filter(p => p.photo_type === 'progress'),
     detail: photos.filter(p => p.photo_type === 'detail'),
   }
@@ -112,7 +176,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Upload Controls */}
+      {/* Upload Controls + Inspector Toggle */}
       <div style={{ background: C.surface2, borderRadius: 12, padding: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
         {/* Photo type selector */}
         <div style={{ display: 'flex', gap: 4 }}>
@@ -142,6 +206,24 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
           {ZONES.map(z => <option key={z.key} value={z.key}>{z.label}</option>)}
         </select>
 
+        {/* Inspector toggle */}
+        <button
+          onClick={() => setInspectorMode(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
+            borderRadius: 8, border: `1px solid ${inspectorMode ? C.amber : C.border}`,
+            background: inspectorMode ? `${C.amber}18` : 'transparent',
+            color: inspectorMode ? C.amber : C.text2,
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          <Search size={13} />
+          Photo Inspector
+          {inspectorMode && (
+            <span style={{ padding: '1px 6px', background: C.amber, color: '#000', borderRadius: 10, fontSize: 9, fontWeight: 900 }}>ON</span>
+          )}
+        </button>
+
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => e.target.files && handleUpload(e.target.files)} />
         <button
           onClick={() => fileRef.current?.click()}
@@ -156,6 +238,14 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
           {uploading ? 'Uploading...' : 'Upload Photos'}
         </button>
       </div>
+
+      {/* Inspector Mode Banner */}
+      {inspectorMode && (
+        <div style={{ padding: '10px 16px', background: `${C.amber}12`, border: `1px solid ${C.amber}40`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.amber }}>
+          <Tag size={14} />
+          <span><b>Photo Inspector active</b> — tag each photo to a line item or create a new one. Tagged photos feed the intake survey.</span>
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: 4 }}>
@@ -188,7 +278,6 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
       )}
 
       {!loading && filterType === 'all' ? (
-        /* Grouped view */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {PHOTO_TYPES.map(pt => {
             const group = groupedByType[pt.key]
@@ -199,13 +288,29 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: pt.color }} />
                   {pt.label} Photos
                 </div>
-                <PhotoGrid photos={group} allPhotos={photos} onToggleFlag={toggleFlag} onDelete={deletePhoto} onLightbox={idx => setLightboxIdx(photos.indexOf(group[idx]))} />
+                <PhotoGrid
+                  photos={group} allPhotos={photos}
+                  inspectorMode={inspectorMode}
+                  lineItems={lineItems}
+                  onToggleFlag={toggleFlag} onDelete={deletePhoto}
+                  onLightbox={idx => setLightboxIdx(photos.indexOf(group[idx]))}
+                  onTagPhoto={tagPhoto}
+                  onCreateLineItemFromTag={createLineItemFromTag}
+                />
               </div>
             )
           })}
         </div>
       ) : !loading ? (
-        <PhotoGrid photos={filtered} allPhotos={photos} onToggleFlag={toggleFlag} onDelete={deletePhoto} onLightbox={idx => setLightboxIdx(photos.indexOf(filtered[idx]))} />
+        <PhotoGrid
+          photos={filtered} allPhotos={photos}
+          inspectorMode={inspectorMode}
+          lineItems={lineItems}
+          onToggleFlag={toggleFlag} onDelete={deletePhoto}
+          onLightbox={idx => setLightboxIdx(photos.indexOf(filtered[idx]))}
+          onTagPhoto={tagPhoto}
+          onCreateLineItemFromTag={createLineItemFromTag}
+        />
       ) : null}
 
       {!loading && photos.length === 0 && (
@@ -246,7 +351,6 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
           >
             <X size={18} />
           </button>
-          {/* Photo actions in lightbox */}
           <div style={{ position: 'absolute', bottom: 24, display: 'flex', gap: 8 }}>
             <button
               onClick={e => { e.stopPropagation(); lightboxIdx !== null && toggleFlag(photos[lightboxIdx], 'is_featured') }}
@@ -277,44 +381,155 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
   )
 }
 
-function PhotoGrid({ photos, allPhotos, onToggleFlag, onDelete, onLightbox }: {
+// ─── Photo Grid ───────────────────────────────────────────────────────────────
+function PhotoGrid({
+  photos, allPhotos, inspectorMode, lineItems,
+  onToggleFlag, onDelete, onLightbox, onTagPhoto, onCreateLineItemFromTag,
+}: {
   photos: JobPhoto[]
   allPhotos: JobPhoto[]
+  inspectorMode: boolean
+  lineItems: LineItemStub[]
   onToggleFlag: (p: JobPhoto, f: 'is_featured' | 'is_portfolio') => void
   onDelete: (p: JobPhoto) => void
   onLightbox: (idx: number) => void
+  onTagPhoto: (p: JobPhoto, tag: string, lineItemId?: string | null) => void
+  onCreateLineItemFromTag: (p: JobPhoto, tagName: string) => void
 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
       {photos.map((photo, i) => (
-        <div key={photo.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '4/3', background: '#1a1d27', cursor: 'pointer', border: `1px solid ${C.border}` }}>
-          <img src={photo.url} alt={photo.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={() => onLightbox(i)} />
-          {/* Badges */}
-          <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', gap: 4 }}>
-            {photo.is_featured && <span style={{ background: C.amber, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3 }}>FEATURED</span>}
-            {photo.is_portfolio && <span style={{ background: C.green, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3 }}>PORTFOLIO</span>}
-            {photo.zone && <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 3 }}>{photo.zone.replace('_', ' ')}</span>}
-          </div>
-          {/* Hover actions */}
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.15s', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 6, gap: 4, opacity: 0 }}
-            className="photo-hover"
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.5)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0'; (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)' }}
-          >
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button onClick={e => { e.stopPropagation(); onLightbox(i) }} style={{ flex: 1, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 4, color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 0', cursor: 'pointer' }}>
-                <ZoomIn size={11} />
-              </button>
-              <button onClick={e => { e.stopPropagation(); onToggleFlag(photo, 'is_featured') }} style={{ flex: 1, background: photo.is_featured ? C.amber : 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 4, color: photo.is_featured ? '#000' : '#fff', fontSize: 10, fontWeight: 700, padding: '4px 0', cursor: 'pointer' }}>
-                <Star size={11} />
-              </button>
-              <button onClick={e => { e.stopPropagation(); onDelete(photo) }} style={{ flex: 1, background: 'rgba(242,90,90,0.3)', border: 'none', borderRadius: 4, color: C.red, fontSize: 10, fontWeight: 700, padding: '4px 0', cursor: 'pointer' }}>
-                <X size={11} />
-              </button>
+        <div key={photo.id} style={{ borderRadius: 8, overflow: 'hidden', background: C.surface2, border: `1px solid ${photo.inspector_tag && inspectorMode ? C.amber : C.border}` }}>
+          {/* Thumbnail */}
+          <div style={{ position: 'relative', aspectRatio: '4/3', cursor: 'pointer' }}>
+            <img src={photo.url} alt={photo.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={() => onLightbox(i)} />
+            {/* Badges */}
+            <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {photo.is_featured && <span style={{ background: C.amber, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3 }}>FEATURED</span>}
+              {photo.is_portfolio && <span style={{ background: C.green, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3 }}>PORTFOLIO</span>}
+              {photo.zone && <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 3 }}>{photo.zone.replace('_', ' ')}</span>}
+              {photo.inspector_tag && (
+                <span style={{ background: `${C.amber}dd`, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Tag size={8} /> {photo.inspector_tag}
+                </span>
+              )}
+            </div>
+            {/* Hover actions */}
+            <div
+              style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.15s', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 6, gap: 4, opacity: 0 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.5)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0'; (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)' }}
+            >
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={e => { e.stopPropagation(); onLightbox(i) }} style={{ flex: 1, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 4, color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ZoomIn size={11} />
+                </button>
+                <button onClick={e => { e.stopPropagation(); onToggleFlag(photo, 'is_featured') }} style={{ flex: 1, background: photo.is_featured ? C.amber : 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 4, color: photo.is_featured ? '#000' : '#fff', fontSize: 10, fontWeight: 700, padding: '4px 0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Star size={11} />
+                </button>
+                <button onClick={e => { e.stopPropagation(); onDelete(photo) }} style={{ flex: 1, background: 'rgba(242,90,90,0.3)', border: 'none', borderRadius: 4, color: C.red, fontSize: 10, fontWeight: 700, padding: '4px 0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={11} />
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Inspector Tag Row */}
+          {inspectorMode && (
+            <InspectorTagRow
+              photo={photo}
+              lineItems={lineItems}
+              onTagPhoto={onTagPhoto}
+              onCreateLineItemFromTag={onCreateLineItemFromTag}
+            />
+          )}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ─── Inspector Tag Row ────────────────────────────────────────────────────────
+function InspectorTagRow({
+  photo, lineItems, onTagPhoto, onCreateLineItemFromTag,
+}: {
+  photo: JobPhoto
+  lineItems: LineItemStub[]
+  onTagPhoto: (p: JobPhoto, tag: string, lineItemId?: string | null) => void
+  onCreateLineItemFromTag: (p: JobPhoto, tagName: string) => void
+}) {
+  const [tagValue, setTagValue] = useState(photo.inspector_tag || '')
+  const [lineItemValue, setLineItemValue] = useState(photo.line_item_id || '')
+  const [customTag, setCustomTag] = useState('')
+  const [showCustom, setShowCustom] = useState(false)
+
+  const applyTag = (tag: string) => {
+    setTagValue(tag)
+    setShowCustom(false)
+    onTagPhoto(photo, tag, lineItemValue || null)
+  }
+
+  const handleLineItemChange = (val: string) => {
+    setLineItemValue(val)
+    if (val === '__new__' && tagValue) {
+      onCreateLineItemFromTag(photo, tagValue)
+    } else {
+      onTagPhoto(photo, tagValue || '', val || null)
+    }
+  }
+
+  return (
+    <div style={{ padding: '8px 8px 10px', borderTop: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Tag dropdown */}
+      <div style={{ fontSize: 9, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Tag</div>
+      <select
+        value={tagValue}
+        onChange={e => {
+          if (e.target.value === '__custom__') {
+            setShowCustom(true)
+          } else {
+            applyTag(e.target.value)
+          }
+        }}
+        style={{ width: '100%', padding: '5px 8px', background: C.surface, border: `1px solid ${tagValue ? C.amber : C.border}`, borderRadius: 6, color: tagValue ? C.amber : C.text2, fontSize: 11, cursor: 'pointer' }}
+      >
+        <option value="">— Select tag —</option>
+        {INSPECTOR_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+        <option value="__custom__">+ Custom tag…</option>
+      </select>
+      {showCustom && (
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input
+            value={customTag}
+            onChange={e => setCustomTag(e.target.value)}
+            placeholder="Custom tag name…"
+            style={{ flex: 1, padding: '4px 8px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 5, color: C.text1, fontSize: 11 }}
+            onKeyDown={e => { if (e.key === 'Enter' && customTag) applyTag(customTag) }}
+          />
+          <button
+            onClick={() => customTag && applyTag(customTag)}
+            style={{ padding: '4px 8px', background: C.amber, border: 'none', borderRadius: 5, color: '#000', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Set
+          </button>
+        </div>
+      )}
+
+      {/* Line item assignment */}
+      {tagValue && (
+        <>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Link to Line Item</div>
+          <select
+            value={lineItemValue}
+            onChange={e => handleLineItemChange(e.target.value)}
+            style={{ width: '100%', padding: '5px 8px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text2, fontSize: 11, cursor: 'pointer' }}
+          >
+            <option value="">— Unlinked —</option>
+            {lineItems.map(li => <option key={li.id} value={li.id}>{li.name}</option>)}
+            <option value="__new__">+ New Line Item ({tagValue})</option>
+          </select>
+        </>
+      )}
     </div>
   )
 }

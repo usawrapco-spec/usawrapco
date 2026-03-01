@@ -49,10 +49,11 @@ export const VINYL_MATERIALS = [
 
 export const LAMINATE_RATE = 0.60
 export const DESIGN_FEE_DEFAULT = 150
-export const GPM_TARGET = 0.73
+export const GPM_TARGET = 0.75
+export const GPM_MIN = 0.65
 
-export function autoPrice(cogs: number): number {
-  return cogs > 0 ? cogs / (1 - GPM_TARGET) : 0
+export function autoPrice(cogs: number, target = GPM_TARGET): number {
+  return cogs > 0 ? cogs / (1 - target) : 0
 }
 
 export function calcGPMPct(salePrice: number, cogs: number): number {
