@@ -11,7 +11,7 @@ import {
   Users, Palette, Receipt, ShoppingCart, CreditCard, FileText, Pencil,
   MoreHorizontal, Copy, Archive, Trash2, Link2, DollarSign as TransactionIcon,
   ChevronRight, Loader2, Truck, List, Image as ImageIcon,
-  AlertCircle, CheckCircle2,
+  AlertCircle, CheckCircle2, FileDown,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Project, PipeStage, ProjectFinancials } from '@/types'
@@ -441,6 +441,223 @@ export default function JobDetailClient({
   const intakeSignoffDone  = signoffConfirmed && !!signoffName.trim()
   const intakeCount        = [intakeVehicleDone, intakeDesignDone, intakeScopeDone, intakeSignoffDone].filter(Boolean).length
 
+  // ── PDF Document Downloads ─────────────────────────────────────────────────
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null)
+
+  const downloadPdf = async (type: 'estimate' | 'invoice' | 'workorder' | 'salesorder') => {
+    setPdfLoading(type)
+    try {
+      // Fetch line items for this project
+      const { data: lineItems } = await supabase
+        .from('line_items')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at')
+
+      const proj = project as unknown as Record<string, unknown>
+      const customer = (proj.customer ?? {}) as Record<string, unknown>
+      const agent    = (proj.agent    ?? {}) as Record<string, unknown>
+      const installer = (proj.installer ?? {}) as Record<string, unknown>
+      const designer  = (proj.designer  ?? {}) as Record<string, unknown>
+      const fd        = (project.form_data ?? {}) as Record<string, unknown>
+      const fin       = (project.fin_data  ?? {}) as Record<string, unknown>
+
+      const clientName  = (customer.name  as string) ?? (customer.company_name as string) ?? 'Client'
+      const clientPhone = (customer.phone as string) ?? ''
+      const clientEmail = (customer.email as string) ?? ''
+      const clientAddr  = (customer.address as string) ?? ''
+      const agentName   = (agent.name as string) ?? ''
+      const installerName = (installer.name as string) ?? ''
+      const designerName  = (designer.name  as string) ?? ''
+
+      const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const installStr = project.install_date
+        ? new Date(project.install_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'TBD'
+
+      const mappedLineItems = (lineItems ?? []).map((li: Record<string, unknown>) => ({
+        name:         (li.description as string) ?? (li.name as string) ?? 'Item',
+        desc:         (li.notes as string) ?? '',
+        vehicle:      project.vehicle_desc ?? '',
+        sub:          (li.notes as string) ?? '',
+        bullets:      [],
+        qty:          `${li.quantity ?? 1}`,
+        amount:       `$${Number(li.unit_price ?? li.total ?? 0).toFixed(2)}`,
+        revenue:      Number(li.unit_price ?? li.total ?? 0),
+        material_cost: 0,
+        labor_cost:   0,
+        design_cost:  0,
+      }))
+
+      const subtotalNum = (lineItems ?? []).reduce((s, li: Record<string, unknown>) => s + Number(li.unit_price ?? li.total ?? 0), 0)
+      const subtotalStr = `$${subtotalNum.toFixed(2)}`
+      const taxAmt      = subtotalNum * 0.081
+      const balanceNum  = subtotalNum + taxAmt - 250
+      const refStr      = project.id.slice(0, 8).toUpperCase()
+
+      let payload: Record<string, unknown>
+
+      if (type === 'estimate') {
+        payload = {
+          ref:          refStr,
+          date:         todayStr,
+          status:       'Estimate Sent',
+          valid_days:   30,
+          client_name:  clientName,
+          client_phone: clientPhone,
+          client_email: clientEmail,
+          client_addr:  clientAddr,
+          client_zip:   (fd.zip as string) ?? '98332',
+          agent:        agentName,
+          install_date: installStr,
+          b2b_exempt:   false,
+          exempt_cert:  null,
+          primary_film: 'Avery MPI 1105 EZ-RS',
+          overlaminate: 'Avery DOL 1060',
+          client_brand: {},
+          line_items:   mappedLineItems,
+          subtotal:     subtotalStr,
+          inclusions:   ['12-month workmanship warranty', 'Pre & post-install vehicle photos', 'Client walkthrough & sign-off', 'Wrap care guide provided', 'Online customer portal access'],
+        }
+      } else if (type === 'invoice') {
+        payload = {
+          ref:             `INV-${refStr}`,
+          date:            todayStr,
+          due_date:        'Net 10',
+          status:          'PAYMENT DUE',
+          status_color:    'due',
+          agent:           agentName,
+          install_date:    installStr,
+          client_name:     clientName,
+          client_phone:    clientPhone,
+          client_email:    clientEmail,
+          client_addr:     clientAddr,
+          linked_ref:      refStr,
+          line_items:      mappedLineItems,
+          subtotal:        subtotalStr,
+          tax_label:       'Sales Tax (8.1%)',
+          tax_amount:      `$${taxAmt.toFixed(2)}`,
+          deposit_paid:    '$250.00',
+          balance:         `$${Math.max(0, balanceNum).toFixed(2)}`,
+          payments:        [],
+          payment_methods: 'Credit Card  -  Check payable to USA Wrap Co  -  Pay online at portal.usawrapco.com',
+          notes:           `Thank you for your business, ${clientName}.`,
+        }
+      } else if (type === 'workorder') {
+        const vehicleParts = (project.vehicle_desc ?? '').split(' ')
+        payload = {
+          ref:           `WO-${refStr}`,
+          so_ref:        refStr,
+          date:          todayStr,
+          status:        'READY TO INSTALL',
+          priority:      project.priority?.toUpperCase() ?? 'NORMAL',
+          installer:     installerName,
+          bay:           (fd.bay as string) ?? 'Bay 1',
+          est_hours:     String(fin.laborHrs ?? '8'),
+          installer_pay: `$${Number(fin.labor ?? 0).toFixed(2)}`,
+          pay_type:      'Flat Rate',
+          client_name:   clientName,
+          client_phone:  clientPhone,
+          client_contact: clientName,
+          drop_off:      installStr,
+          pick_up:       installStr,
+          year:          (fd.vehicle_year as string) ?? '',
+          make:          (fd.vehicle_make as string) ?? '',
+          model:         (fd.vehicle_model as string) ?? '',
+          color:         (fd.vehicle_color as string) ?? '',
+          vin:           (fd.vin as string) ?? '',
+          plate:         (fd.plate as string) ?? '',
+          mileage:       (fd.mileage as string) ?? '',
+          scope:         project.title ?? 'Vehicle Wrap',
+          material:      'Avery MPI 1105 EZ-RS  -  54" wide roll',
+          sqft:          String(fd.sqft ?? '0'),
+          linear_ft:     String(fd.linear_ft ?? '0') + ' lin ft',
+          panels:        (fd.panels as string[]) ?? [],
+          special_notes: (fd.special_notes as string) ?? '',
+          pre_checks:    [],
+          post_checks:   [],
+        }
+      } else {
+        // salesorder
+        const gpm     = Number(project.gpm ?? 0)
+        const revenue = Number(project.revenue ?? subtotalNum)
+        const profit  = Number(project.profit ?? 0)
+        payload = {
+          ref:               `SO-${refStr}`,
+          est_ref:           refStr,
+          date:              todayStr,
+          install_date:      installStr,
+          status:            'APPROVED',
+          priority:          project.priority?.toUpperCase() ?? 'NORMAL',
+          division:          project.division?.toUpperCase() ?? 'WRAPS',
+          agent:             agentName,
+          agent_type:        'inbound',
+          installer:         installerName,
+          designer:          designerName,
+          client_name:       clientName,
+          client_phone:      clientPhone,
+          client_email:      clientEmail,
+          client_company:    (customer.company_name as string) ?? clientName,
+          vehicle:           project.vehicle_desc ?? '',
+          vin:               (fd.vin as string) ?? '',
+          color:             (fd.vehicle_color as string) ?? '',
+          plates:            (fd.plate as string) ?? '',
+          scope:             project.title ?? 'Vehicle Wrap',
+          sqft:              String(fd.sqft ?? '0'),
+          material:          'Avery MPI 1105 EZ-RS + DOL 1460 Overlaminate',
+          panels:            (fd.panels as string[]) ?? [],
+          sale_price:        revenue,
+          deposit_paid:      250,
+          balance_due:       Math.max(0, revenue + taxAmt - 250),
+          material_cost:     Number(fin.material ?? 0),
+          installer_pay:     Number(fin.labor    ?? 0),
+          design_fee:        Number(fin.designFee ?? 0),
+          production_bonus:  0,
+          misc_cost:         Number(fin.misc ?? 0),
+          gross_profit:      profit,
+          gpm:               gpm,
+          gpm_target:        75,
+          gpm_bonus_thresh:  73,
+          commission_type:   'inbound',
+          commission_rate:   gpm >= 73 ? 7.5 : (gpm >= 65 ? 5.5 : 4.5),
+          commission_base:   4.5,
+          commission_bonus:  gpm >= 73 ? 3.0 : 0,
+          commission_amount: Number(project.commission ?? 0),
+          torq_completed:    false,
+          gpm_bonus_earned:  gpm >= 73,
+          line_items:        mappedLineItems,
+          agent_notes:       '',
+          prod_notes:        '',
+          internal_notes:    '',
+        }
+      }
+
+      const res = await fetch(`/api/pdf/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(err.error ?? `HTTP ${res.status}`)
+      }
+
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `${type}-${refStr}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('[PDF download]', err)
+      alert(`PDF generation failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setPdfLoading(null)
+    }
+  }
+
   const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { key: 'overview',     label: 'Overview',      icon: <User size={14} /> },
     { key: 'vehicle_info', label: 'Vehicle',        icon: <Car size={14} />,          badge: intakeVehicleDone ? 'done' : 'req' },
@@ -856,6 +1073,35 @@ export default function JobDetailClient({
             }}>
               {d.icon} {d.count} {d.label}
             </span>
+          ))}
+        </div>
+
+        {/* ── Download Documents ──────────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 4 }}>Download:</span>
+          {([
+            { type: 'estimate'   as const, label: 'Estimate',    roles: ['owner','admin','sales_agent','manager'] },
+            { type: 'invoice'    as const, label: 'Invoice',     roles: ['owner','admin','sales_agent','manager'] },
+            { type: 'workorder'  as const, label: 'Work Order',  roles: ['owner','admin','sales_agent','manager','installer'] },
+            { type: 'salesorder' as const, label: 'Sales Order', roles: ['owner','admin'] },
+          ] as const).filter(d => (d.roles as readonly string[]).includes(profile.role ?? '')).map(d => (
+            <button
+              key={d.type}
+              onClick={() => downloadPdf(d.type)}
+              disabled={pdfLoading !== null}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 6, cursor: pdfLoading !== null ? 'not-allowed' : 'pointer',
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                color: pdfLoading === d.type ? 'var(--accent)' : 'var(--text2)',
+                fontSize: 11, fontWeight: 600, opacity: pdfLoading !== null && pdfLoading !== d.type ? 0.5 : 1,
+              }}
+            >
+              {pdfLoading === d.type
+                ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                : <FileDown size={11} />}
+              {d.label}
+            </button>
           ))}
         </div>
       </div>
