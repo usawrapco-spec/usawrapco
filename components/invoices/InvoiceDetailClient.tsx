@@ -6,7 +6,7 @@ import {
   ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
   ExternalLink, Ban, Link2, Copy, Check, Plus, Users,
-  Layers, ClipboardCheck, PenLine, Camera, Package, StickyNote, Car,
+  Layers, ClipboardCheck, PenLine, Camera, Package, StickyNote, Car, Save,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
@@ -247,6 +247,8 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
 
   const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
 
+  const [title, setTitle] = useState(inv.title || '')
+  const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<InvoiceStatus>(inv.status)
   const [notes, setNotes] = useState(inv.notes || '')
   const [showNotes, setShowNotes] = useState(!!inv.notes)
@@ -407,6 +409,30 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
       }
     } else {
       showToast(`Demo: Payment of ${fmtCurrency(amount)} recorded`)
+    }
+  }
+
+  async function handleSave() {
+    if (!canWrite) { showToast('No permission to save'); return }
+    if (isDemo) { showToast('Demo mode — cannot save'); return }
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('invoices').update({
+        title: title || null,
+        notes,
+        updated_at: new Date().toISOString(),
+      }).eq('id', invoiceId)
+      if (error) {
+        console.error('Invoice save error:', error)
+        showToast(`Save failed: ${error.message}`)
+        return
+      }
+      showToast('Invoice saved')
+    } catch (err) {
+      console.error('Invoice save error:', err)
+      showToast(`Save failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -582,6 +608,11 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               <Download size={13} /> Export PDF
             </button>
           )}
+          {canWrite && (
+            <button onClick={handleSave} disabled={saving} className="btn-primary btn-sm">
+              <Save size={13} /> {saving ? 'Saving...' : 'Save'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -595,10 +626,11 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               <div>
                 <label className="field-label">Title</label>
                 <input
-                  value={inv.title || ''}
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
                   className="field"
-                  disabled
-                  style={{ opacity: 0.7 }}
+                  disabled={!canWrite}
+                  placeholder="Invoice title"
                 />
               </div>
               <div>

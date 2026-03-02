@@ -350,12 +350,14 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   }
 
   async function handleSave() {
-    if (!canWrite || isDemo) { showToastMsg('Demo mode - cannot save'); return }
+    if (!canWrite) { showToastMsg('No permission to save'); return }
+    if (isDemo) { showToastMsg('Demo mode — cannot save'); return }
     setSaving(true)
     try {
       const { error } = await supabase.from('sales_orders').update({
         title, notes, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
+        customer_id: linkedCustomer?.id || so.customer_id || null,
         so_date: soDate || null, due_date: dueDate || null,
         install_date: installDate || null,
         payment_terms: paymentTerms, down_payment_pct: downPaymentPct,
@@ -373,12 +375,17 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         production_manager_ids: productionMgrIds,
         project_manager_id: null,
         form_data: { ...so.form_data, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined, survey: surveyData },
-      }).eq('id', orderId)
-      if (error) throw error
+      }).eq('id', orderId).eq('org_id', so.org_id || profile.org_id)
+      if (error) {
+        console.error('Sales order save error:', error)
+        showToastMsg(`Save failed: ${error.message}`)
+        setSaving(false)
+        return
+      }
       showToastMsg('Sales order saved')
     } catch (err) {
-      console.error('Save error:', err)
-      showToastMsg('Error saving sales order')
+      console.error('Sales order save exception:', err)
+      showToastMsg(`Save error: ${err instanceof Error ? err.message : String(err)}`)
     }
     setSaving(false)
   }

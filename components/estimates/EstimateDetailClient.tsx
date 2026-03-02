@@ -722,12 +722,14 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   // ─── Save handlers ─────────────────────────────────────────────────────────
   async function handleSave() {
-    if (!canWrite || isDemo) { showToast('Demo mode -- cannot save'); return }
+    if (!canWrite) { showToast('No permission to save'); return }
+    if (isDemo) { showToast('Demo mode — cannot save'); return }
     setSaving(true)
     try {
       const payload = {
         title, notes, customer_note: customerNote, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
+        customer_id: linkedCustomer?.id || est.customer_id || null,
         quote_date: quoteDate || null, due_date: dueDate || null,
         vehicle_year: vehicleYear || null,
         vehicle_make: vehicleMake || null,
@@ -750,7 +752,12 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           division: 'wraps',
           ...payload,
         }).select().single()
-        if (error) throw error
+        if (error) {
+          console.error('Estimate create error:', error)
+          showToast(`Save failed: ${error.message}`)
+          setSaving(false)
+          return
+        }
         if (data) {
           setSavedId(data.id)
           // Save any pending line items
@@ -777,13 +784,18 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           router.replace(`/estimates/${data.id}`)
         }
       } else {
-        const { error } = await supabase.from('estimates').update(payload).eq('id', savedId)
-        if (error) throw error
+        const { error } = await supabase.from('estimates').update(payload).eq('id', savedId).eq('org_id', profile.org_id)
+        if (error) {
+          console.error('Estimate save error:', error)
+          showToast(`Save failed: ${error.message}`)
+          setSaving(false)
+          return
+        }
         showToast('Estimate saved')
       }
     } catch (err) {
-      console.error('Save error:', err)
-      showToast('Error saving estimate')
+      console.error('Estimate save exception:', err)
+      showToast(`Save error: ${err instanceof Error ? err.message : String(err)}`)
     }
     setSaving(false)
   }
