@@ -25,6 +25,35 @@ export async function POST(req: NextRequest) {
 
   const orgId = org_id || 'd34a6c47-1ac0-4008-87d2-0f7741eebc4f'
 
+  // Fetch mockup + template dimension metadata for PDF annotation
+  let vehicleLabel = ''
+  let widthInches: number | null = null
+  let heightInches: number | null = null
+  let scaleFactor: number | null = null
+  let fullWrapSqft: number | null = null
+  try {
+    const { data: mockupRow } = await admin
+      .from('mockup_results')
+      .select('company_name, template_id:template_id')
+      .eq('id', mockup_id)
+      .single()
+
+    if (mockupRow?.template_id) {
+      const { data: tpl } = await admin
+        .from('vehicle_templates')
+        .select('make, model, year_start, year_end, width_inches, height_inches, scale_factor, sqft')
+        .eq('id', mockupRow.template_id)
+        .single()
+      if (tpl) {
+        vehicleLabel = `${tpl.year_start ?? ''}${tpl.year_end && tpl.year_end !== tpl.year_start ? `–${tpl.year_end}` : ''} ${tpl.make} ${tpl.model}`.trim()
+        widthInches  = tpl.width_inches ?? null
+        heightInches = tpl.height_inches ?? null
+        scaleFactor  = tpl.scale_factor ?? null
+        fullWrapSqft = tpl.sqft ?? null
+      }
+    }
+  } catch { /* metadata is optional — continue */ }
+
   await admin.from('mockup_results').update({
     current_step: 6,
     step_name: 'Creating print-ready PDF…',
@@ -91,10 +120,15 @@ export async function POST(req: NextRequest) {
     pageDict.set(PDFName.of('BleedBox'), pdfDoc.context.obj(bleedBoxPt.map(v => PDFNumber.of(v))))
     pageDict.set(PDFName.of('MediaBox'), pdfDoc.context.obj(bleedBoxPt.map(v => PDFNumber.of(v))))
 
-    // PDF/X metadata
-    pdfDoc.setTitle('Vehicle Wrap Print-Ready File')
+    // PDF/X metadata with vehicle dimension info
+    const dimNote = widthInches && heightInches
+      ? ` | Vehicle: ${widthInches}"W × ${heightInches}"H (1:${scaleFactor ?? 20} scale)`
+      : ''
+    const sqftNote = fullWrapSqft ? ` | ${fullWrapSqft} sqft full wrap` : ''
+    pdfDoc.setTitle(vehicleLabel ? `Vehicle Wrap — ${vehicleLabel}` : 'Vehicle Wrap Print-Ready File')
     pdfDoc.setCreator('USA Wrap Co — AI Mockup Generator')
-    pdfDoc.setSubject(`Print-ready wrap art — 300 DPI, ${BLEED_INCHES}" bleed`)
+    pdfDoc.setSubject(`Print-ready wrap art — 300 DPI, ${BLEED_INCHES}" bleed${dimNote}${sqftNote}`)
+    if (vehicleLabel) pdfDoc.setKeywords([vehicleLabel, 'vehicle wrap', 'print-ready', '300dpi'])
 
     const pdfBytes = await pdfDoc.save()
     const pdfBuffer = Buffer.from(pdfBytes)
@@ -126,6 +160,11 @@ export async function POST(req: NextRequest) {
         format: 'PDF',
         width_px: finalW,
         height_px: finalH,
+        vehicle: vehicleLabel || null,
+        width_inches: widthInches,
+        height_inches: heightInches,
+        scale_factor: scaleFactor,
+        full_wrap_sqft: fullWrapSqft,
       },
     })
   } catch (err: any) {

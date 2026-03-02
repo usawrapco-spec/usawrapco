@@ -6,7 +6,7 @@ import {
   Wand2, Car, Building2, Palette, ChevronRight, ChevronLeft,
   Download, RefreshCw, Save, Check, Loader2, Upload, X,
   Sparkles, ImageIcon, Search, Type, FileText, Printer,
-  ThumbsUp, ZoomIn, ZoomOut,
+  ThumbsUp, ZoomIn, ZoomOut, Database, AlertCircle, Ruler,
 } from 'lucide-react'
 
 interface VehicleTemplate {
@@ -18,6 +18,25 @@ interface VehicleTemplate {
   sqft: number | null
   thumbnail_url: string | null
   status: string
+  // Scale-aware fields
+  width_inches: number | null
+  height_inches: number | null
+  scale_factor: number | null
+  source_format: string | null
+  vehicle_db_id: string | null
+}
+
+interface VehicleDbRow {
+  id: string
+  make: string
+  model: string
+  year_start: number | null
+  year_end: number | null
+  full_wrap_sqft: number | null
+  side_sqft: number | null
+  hood_sqft: number | null
+  roof_sqft: number | null
+  linear_feet: number | null
 }
 
 interface MockupStatus {
@@ -57,6 +76,13 @@ const FONTS = [
   { value: 'Roboto Condensed', label: 'Roboto Condensed', preview: 'COMPANY NAME' },
 ]
 
+const SCALE_OPTIONS = [
+  { label: '1:1 (actual size)', value: 1 },
+  { label: '1/10 scale', value: 10 },
+  { label: '1/20 scale (ProVehicleOutlines)', value: 20 },
+  { label: '1/25 scale', value: 25 },
+]
+
 const PIPELINE_STEPS = [
   { key: 'brand', label: 'Analyzing brand…', icon: '🎨' },
   { key: 'artwork', label: 'Creating custom artwork…', icon: '🖌️' },
@@ -78,6 +104,29 @@ const STEPS = [
   { id: 4, label: 'Generate', icon: Sparkles },
   { id: 5, label: 'Result', icon: ImageIcon },
 ]
+
+/** Client-side parse of AI BoundingBox header (first 8KB of file) */
+function clientParseAIBBox(text: string): { w: number; h: number } | null {
+  const hi = text.match(/%%HiResBoundingBox:\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/)
+  if (hi) return { w: parseFloat(hi[3]) - parseFloat(hi[1]), h: parseFloat(hi[4]) - parseFloat(hi[2]) }
+  const bb = text.match(/%%BoundingBox:\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/)
+  if (bb) return { w: parseFloat(bb[3]) - parseFloat(bb[1]), h: parseFloat(bb[4]) - parseFloat(bb[2]) }
+  return null
+}
+
+/** Client-side parse of SVG dimensions (returns in points) */
+function clientParseSVGDims(text: string): { w: number; h: number } | null {
+  const vb = text.match(/viewBox=["']\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*["']/)
+  if (vb) return { w: parseFloat(vb[3]), h: parseFloat(vb[4]) }
+  const wm = text.match(/\bwidth=["']([\d.]+)(px|pt|in|mm)?["']/)
+  const hm = text.match(/\bheight=["']([\d.]+)(px|pt|in|mm)?["']/)
+  if (wm && hm) {
+    const toPt: Record<string, number> = { pt: 1, px: 0.75, in: 72, mm: 2.835 }
+    const f = toPt[wm[2] || 'px'] || 1
+    return { w: parseFloat(wm[1]) * f, h: parseFloat(hm[1]) * f }
+  }
+  return null
+}
 
 export default function MockupGeneratorPage() {
   const supabase = createClient()
@@ -120,33 +169,173 @@ export default function MockupGeneratorPage() {
   const [upscaledUrl, setUpscaledUrl] = useState<string | null>(null)
   const [zoomed, setZoomed] = useState(false)
 
+  // Upload modal state
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadMake, setUploadMake] = useState('')
+  const [uploadModel, setUploadModel] = useState('')
+  const [uploadYearStart, setUploadYearStart] = useState('2020')
+  const [uploadYearEnd, setUploadYearEnd] = useState('2025')
+  const [uploadScaleFactor, setUploadScaleFactor] = useState(20)
+  const [uploadCustomScale, setUploadCustomScale] = useState('')
+  const [uploadSqft, setUploadSqft] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+  // Live bbox preview (parsed client-side)
+  const [bboxPts, setBboxPts] = useState<{ w: number; h: number } | null>(null)
+  // Vehicle DB match
+  const [matchingVehicle, setMatchingVehicle] = useState(false)
+  const [matchedVehicle, setMatchedVehicle] = useState<VehicleDbRow | null>(null)
+  const [noVehicleMatch, setNoVehicleMatch] = useState(false)
+  const uploadFileRef = useRef<HTMLInputElement>(null)
+
+  // Service availability (checked server-side via API)
+  const [serviceStatus, setServiceStatus] = useState<{ replicate: boolean; anthropic: boolean; twilio: boolean } | null>(null)
+
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    async function loadTemplates() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
-      if (!profile) return
-      const { data } = await supabase
-        .from('vehicle_templates')
-        .select('id, make, model, year_start, year_end, sqft, thumbnail_url, status')
-        .eq('org_id', profile.org_id)
-        .eq('status', 'active')
-        .order('make')
-      setTemplates(data || [])
-      setTLoading(false)
-    }
     loadTemplates()
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-    }
+    fetch('/api/health/services')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setServiceStatus(d) })
+      .catch(() => {})
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current) }
   }, [])
+
+  async function loadTemplates() {
+    setTLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
+    if (!profile) return
+    const { data } = await supabase
+      .from('vehicle_templates')
+      .select('id, make, model, year_start, year_end, sqft, thumbnail_url, status, width_inches, height_inches, scale_factor, source_format, vehicle_db_id')
+      .eq('org_id', profile.org_id)
+      .eq('status', 'active')
+      .order('make')
+    setTemplates(data || [])
+    setTLoading(false)
+  }
 
   const filteredTemplates = templates.filter(t => {
     const q = templateSearch.toLowerCase()
     return !q || t.make.toLowerCase().includes(q) || t.model.toLowerCase().includes(q)
   })
+
+  // Compute effective scale factor for upload
+  const effectiveScale = uploadCustomScale ? parseFloat(uploadCustomScale) || 20 : uploadScaleFactor
+
+  // Live dimension preview: parse BoundingBox when file changes
+  async function handleUploadFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setUploadFile(f)
+    setBboxPts(null)
+
+    const name = f.name.toLowerCase()
+    if (name.endsWith('.ai') || name.endsWith('.svg')) {
+      try {
+        const slice = f.slice(0, 8192)
+        const text = await slice.text()
+        const dims = name.endsWith('.ai') ? clientParseAIBBox(text) : clientParseSVGDims(text)
+        setBboxPts(dims)
+      } catch { /* ignore */ }
+    }
+  }
+
+  // Computed real dimensions from bbox + scale
+  const filePtsW = bboxPts?.w ?? null
+  const filePtsH = bboxPts?.h ?? null
+  const realWInches = filePtsW ? parseFloat(((filePtsW / 72) * effectiveScale).toFixed(1)) : null
+  const realHInches = filePtsH ? parseFloat(((filePtsH / 72) * effectiveScale).toFixed(1)) : null
+  const computedSqft = realWInches && realHInches
+    ? parseFloat(((realWInches * realHInches) / 144).toFixed(0))
+    : null
+
+  // Vehicle DB match
+  async function handleMatchVehicle() {
+    if (!uploadMake || !uploadModel) return
+    setMatchingVehicle(true)
+    setMatchedVehicle(null)
+    setNoVehicleMatch(false)
+    try {
+      const { data } = await supabase
+        .from('vehicle_measurements')
+        .select('id, make, model, year_start, year_end, full_wrap_sqft, side_sqft, hood_sqft, roof_sqft, linear_feet')
+        .ilike('make', uploadMake)
+        .ilike('model', `%${uploadModel}%`)
+        .limit(1)
+        .single()
+      if (data) {
+        setMatchedVehicle(data)
+        if (!uploadSqft && data.full_wrap_sqft) {
+          setUploadSqft(String(data.full_wrap_sqft))
+        }
+      } else {
+        setNoVehicleMatch(true)
+      }
+    } catch {
+      setNoVehicleMatch(true)
+    }
+    setMatchingVehicle(false)
+  }
+
+  async function handleUpload() {
+    if (!uploadFile || !uploadMake || !uploadModel) return
+    setUploading(true)
+    setUploadError(null)
+
+    try {
+      const fd = new FormData()
+      fd.append('image', uploadFile)
+      fd.append('make', uploadMake)
+      fd.append('model', uploadModel)
+      fd.append('year_start', uploadYearStart)
+      fd.append('year_end', uploadYearEnd)
+      fd.append('scale_factor', String(effectiveScale))
+      if (uploadSqft) fd.append('sqft', uploadSqft)
+
+      const res = await fetch('/api/mockup/upload-template', { method: 'POST', body: fd })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setUploadError(data.error || 'Upload failed')
+        setUploading(false)
+        return
+      }
+
+      setUploadSuccess(true)
+      setUploading(false)
+      // Reload templates after short delay
+      setTimeout(() => {
+        loadTemplates()
+        setShowUploadModal(false)
+        resetUploadModal()
+      }, 1500)
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed')
+      setUploading(false)
+    }
+  }
+
+  function resetUploadModal() {
+    setUploadFile(null)
+    setUploadMake('')
+    setUploadModel('')
+    setUploadYearStart('2020')
+    setUploadYearEnd('2025')
+    setUploadScaleFactor(20)
+    setUploadCustomScale('')
+    setUploadSqft('')
+    setUploadError(null)
+    setUploadSuccess(false)
+    setBboxPts(null)
+    setMatchedVehicle(null)
+    setNoVehicleMatch(false)
+  }
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -179,12 +368,9 @@ export default function MockupGeneratorPage() {
         if (!res.ok) return
         const data: MockupStatus = await res.json()
         setMockupStatus(data)
-
-        // Map DB step → pipeline step display
         const dbStep = data.current_step || 0
         const displayStep = Math.max(0, Math.min(dbStep - 1, PIPELINE_STEPS.length - 1))
         setPipelineStep(displayStep)
-
         if (data.status === 'concept_ready' || data.status === 'complete' || data.status === 'failed') {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
           setPipelineStep(PIPELINE_STEPS.length - 1)
@@ -208,16 +394,13 @@ export default function MockupGeneratorPage() {
 
     try {
       const logoUrl = await getLogoUrl()
-
       const res = await fetch('/api/mockup/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           template_id: selectedTemplate.id,
           company_name: companyName,
-          tagline,
-          phone,
-          website,
+          tagline, phone, website,
           logo_url: logoUrl,
           brand_colors: brandColors,
           industry,
@@ -226,13 +409,11 @@ export default function MockupGeneratorPage() {
         }),
       })
       const data = await res.json()
-
       if (!res.ok) {
         setGenError(data.error || 'Generation failed')
         setGenerating(false)
         return
       }
-
       setMockupId(data.mockup_id)
       setMockupStatus({
         id: data.mockup_id,
@@ -256,11 +437,8 @@ export default function MockupGeneratorPage() {
     }
   }
 
-  // Start polling when generating is triggered (for live updates)
   useEffect(() => {
-    if (generating && mockupId) {
-      startPolling(mockupId)
-    }
+    if (generating && mockupId) startPolling(mockupId)
   }, [generating, mockupId])
 
   async function handleApprove() {
@@ -268,14 +446,11 @@ export default function MockupGeneratorPage() {
     setApproving(true)
     setApproveError(null)
     setApproveStep(0)
-
-    // Animate approve steps
-    let step = 0
+    let s = 0
     const timer = setInterval(() => {
-      step = Math.min(step + 1, APPROVE_STEPS.length - 2)
-      setApproveStep(step)
+      s = Math.min(s + 1, APPROVE_STEPS.length - 2)
+      setApproveStep(s)
     }, 8000)
-
     try {
       const res = await fetch('/api/mockup/approve', {
         method: 'POST',
@@ -284,13 +459,11 @@ export default function MockupGeneratorPage() {
       })
       const data = await res.json()
       clearInterval(timer)
-
       if (!res.ok) {
         setApproveError(data.error || 'Approval failed')
         setApproving(false)
         return
       }
-
       setUpscaledUrl(data.upscaled_url)
       setPrintUrl(data.print_url)
       setApproveStep(APPROVE_STEPS.length - 1)
@@ -340,6 +513,13 @@ export default function MockupGeneratorPage() {
   }
 
   const conceptImageUrl = mockupStatus?.concept_url || mockupStatus?.final_mockup_url
+
+  // Compute material estimate for selected template
+  const selW = selectedTemplate?.width_inches
+  const selH = selectedTemplate?.height_inches
+  const selSqft = selectedTemplate?.sqft
+  const wasteQty = selSqft ? Math.ceil(selSqft * 1.1) : null
+  const linearFeet54 = wasteQty ? Math.ceil(wasteQty / (54 / 12)) : null
 
   return (
     <div style={{ maxWidth: 920, margin: '0 auto', padding: '24px 0' }}>
@@ -405,7 +585,20 @@ export default function MockupGeneratorPage() {
       {/* ── STEP 1: Vehicle Template ─────────────────────────────────────────── */}
       {step === 1 && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 24, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Select Vehicle</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>Select Vehicle</h2>
+            <button
+              onClick={() => { resetUploadModal(); setShowUploadModal(true) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8,
+                background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
+                color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              <Upload size={12} /> Upload Template
+            </button>
+          </div>
           <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
             Choose the vehicle template that matches your client's vehicle.
           </p>
@@ -432,40 +625,132 @@ export default function MockupGeneratorPage() {
               </div>
               {templates.length === 0 && (
                 <div style={{ fontSize: 12 }}>
-                  Go to <a href="/admin/templates" style={{ color: 'var(--accent)' }}>Admin → Templates</a> to upload vehicle base images.
+                  Click <strong>Upload Template</strong> above or go to{' '}
+                  <a href="/admin/templates" style={{ color: 'var(--accent)' }}>Admin → Templates</a>.
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
-              {filteredTemplates.map(t => (
-                <div
-                  key={t.id}
-                  onClick={() => setTemplate(t)}
-                  style={{
-                    border: selectedTemplate?.id === t.id ? '2px solid var(--accent)' : '1px solid var(--border)',
-                    borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
-                    background: selectedTemplate?.id === t.id ? 'rgba(79,127,255,0.05)' : 'var(--surface2)',
-                    position: 'relative', transition: 'border-color 0.15s',
-                  }}
-                >
-                  <div style={{ height: 110, overflow: 'hidden', background: 'var(--bg)' }}>
-                    {t.thumbnail_url
-                      ? <img src={t.thumbnail_url} alt={`${t.make} ${t.model}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Car size={24} style={{ color: 'var(--text3)' }} /></div>
-                    }
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+              {filteredTemplates.map(t => {
+                const isSelected = selectedTemplate?.id === t.id
+                const hasDb = !!t.vehicle_db_id
+                const hasDims = !!(t.width_inches && t.height_inches)
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => setTemplate(t)}
+                    style={{
+                      border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+                      background: isSelected ? 'rgba(79,127,255,0.05)' : 'var(--surface2)',
+                      position: 'relative', transition: 'border-color 0.15s',
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    <div style={{ height: 110, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
+                      {t.thumbnail_url
+                        ? <img src={t.thumbnail_url} alt={`${t.make} ${t.model}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Car size={24} style={{ color: 'var(--text3)' }} /></div>
+                      }
+                      {/* DB matched / Manual badge */}
+                      <div style={{ position: 'absolute', top: 6, left: 6 }}>
+                        {hasDb ? (
+                          <span style={{ padding: '2px 7px', borderRadius: 10, fontSize: 9, fontWeight: 700, background: 'rgba(34,192,122,0.85)', color: '#fff', display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Database size={8} /> DB Match
+                          </span>
+                        ) : (
+                          <span style={{ padding: '2px 7px', borderRadius: 10, fontSize: 9, fontWeight: 700, background: 'rgba(245,158,11,0.8)', color: '#fff' }}>
+                            Manual
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card body */}
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>{t.make} {t.model}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{t.year_start}–{t.year_end}</div>
+                      {/* Real dimensions */}
+                      {hasDims && (
+                        <div style={{ fontSize: 10, color: 'var(--accent)', marginTop: 3, fontFamily: 'JetBrains Mono, monospace', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <Ruler size={8} />
+                          {t.width_inches}&Prime; × {t.height_inches}&Prime;
+                        </div>
+                      )}
+                      {/* Sqft */}
+                      {t.sqft && (
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>
+                          {t.sqft} sqft full wrap
+                        </div>
+                      )}
+                    </div>
+
+                    {isSelected && (
+                      <div style={{ position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Check size={10} style={{ color: '#fff' }} />
+                      </div>
+                    )}
                   </div>
-                  <div style={{ padding: '8px 10px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>{t.make} {t.model}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>{t.year_start}–{t.year_end}{t.sqft ? ` · ${t.sqft} sqft` : ''}</div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Selected template info panel */}
+          {selectedTemplate && (
+            <div style={{
+              marginTop: 20, padding: 16, borderRadius: 10,
+              background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)',
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Ruler size={12} /> Template Specs
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>VEHICLE</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
+                    {selectedTemplate.year_start}–{selectedTemplate.year_end} {selectedTemplate.make} {selectedTemplate.model}
                   </div>
-                  {selectedTemplate?.id === t.id && (
-                    <div style={{ position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Check size={10} style={{ color: '#fff' }} />
+                </div>
+                {selW && selH && (
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>TEMPLATE DIMS (ACTUAL)</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {selW}&Prime; × {selH}&Prime;
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>
+                      scaled from 1/{selectedTemplate.scale_factor ?? 20}th
+                    </div>
+                  </div>
+                )}
+                {selSqft && (
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>FULL WRAP</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{selSqft} sqft</div>
+                    {wasteQty && <div style={{ fontSize: 10, color: 'var(--text3)' }}>+10% waste = {wasteQty} sqft</div>}
+                  </div>
+                )}
+                {linearFeet54 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>MATERIAL @ 54" WIDE</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linearFeet54} lin ft</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>Avery MPI 1105 / equiv</div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>DB STATUS</div>
+                  {selectedTemplate.vehicle_db_id ? (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Database size={11} /> Matched
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <AlertCircle size={11} /> Manual entry
                     </div>
                   )}
                 </div>
-              ))}
+              </div>
             </div>
           )}
 
@@ -679,9 +964,24 @@ export default function MockupGeneratorPage() {
       {step === 4 && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 24, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Generate AI Mockup</h2>
-          <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
+          <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
             AI will analyze your brand, create custom artwork, add your text, and apply photorealism.
           </p>
+
+          {/* Service availability warnings */}
+          {serviceStatus && (!serviceStatus.replicate || !serviceStatus.anthropic) && (
+            <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 20, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <AlertCircle size={14} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12, color: 'var(--amber)', lineHeight: 1.5 }}>
+                <strong>API keys not configured:</strong>{' '}
+                {[
+                  !serviceStatus.replicate && 'REPLICATE_API_TOKEN (artwork generation)',
+                  !serviceStatus.anthropic && 'ANTHROPIC_API_KEY (brand analysis)',
+                ].filter(Boolean).join(', ')}.
+                {' '}Add these to your Vercel environment variables.
+              </div>
+            </div>
+          )}
 
           {/* Summary */}
           <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, marginBottom: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -726,7 +1026,7 @@ export default function MockupGeneratorPage() {
                       }
                     </div>
                     <span style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)' }}>
-                      {ps.icon} {ps.label}
+                      {ps.label}
                     </span>
                   </div>
                 )
@@ -842,7 +1142,6 @@ export default function MockupGeneratorPage() {
                   Approve this concept to generate upscaled (4x) print-ready files. This triggers Real-ESRGAN upscaling and creates a print-ready PDF with 0.125" bleed at 300 DPI.
                 </div>
 
-                {/* Approve progress */}
                 {approving && (
                   <div style={{ marginBottom: 16 }}>
                     {APPROVE_STEPS.map((as, i) => {
@@ -854,7 +1153,7 @@ export default function MockupGeneratorPage() {
                             {done ? <Check size={11} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={11} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)' }}>{i + 1}</span>}
                           </div>
                           <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)' }}>
-                            {as.icon} {as.label}
+                            {as.label}
                           </span>
                         </div>
                       )
@@ -889,13 +1188,18 @@ export default function MockupGeneratorPage() {
                   <Check size={15} style={{ color: 'var(--green)' }} /> Print Files Ready!
                 </div>
 
-                {/* Print specs badge */}
+                {/* Print specs badges */}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
                   {['300 DPI', 'CMYK-ready', '0.125" bleed', 'PDF/X'].map(spec => (
                     <span key={spec} style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: 'rgba(34,192,122,0.12)', border: '1px solid rgba(34,192,122,0.3)', color: 'var(--green)' }}>
                       {spec}
                     </span>
                   ))}
+                  {selectedTemplate?.sqft && (
+                    <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.25)', color: 'var(--accent)' }}>
+                      {selectedTemplate.sqft} sqft · {Math.ceil(selectedTemplate.sqft * 1.1)} w/waste
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -919,6 +1223,266 @@ export default function MockupGeneratorPage() {
             </button>
             <div style={{ fontSize: 11, color: 'var(--text3)' }}>
               ID: <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--text2)' }}>{mockupId?.slice(0, 8)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── UPLOAD TEMPLATE MODAL ─────────────────────────────────────────────── */}
+      {showUploadModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowUploadModal(false); resetUploadModal() } }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--border)' }}>
+            {/* Modal header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Upload size={15} style={{ color: 'var(--accent)' }} /> Upload Vehicle Template
+              </div>
+              <button onClick={() => { setShowUploadModal(false); resetUploadModal() }} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {uploadSuccess ? (
+                <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(34,192,122,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                    <Check size={24} style={{ color: 'var(--green)' }} />
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green)', marginBottom: 6 }}>Template uploaded!</div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>Reloading template list…</div>
+                </div>
+              ) : (
+                <>
+                  {/* File drop zone */}
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>TEMPLATE FILE *</label>
+                    <div
+                      onClick={() => uploadFileRef.current?.click()}
+                      style={{
+                        border: `2px dashed ${uploadFile ? 'var(--green)' : 'var(--border)'}`,
+                        borderRadius: 10, padding: 20, textAlign: 'center', cursor: 'pointer',
+                        background: uploadFile ? 'rgba(34,192,122,0.05)' : 'var(--surface2)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <Upload size={20} style={{ color: uploadFile ? 'var(--green)' : 'var(--text3)', margin: '0 auto 8px', display: 'block' }} />
+                      {uploadFile ? (
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>{uploadFile.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                            {(uploadFile.size / 1024).toFixed(0)} KB · Click to change
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>Click to select file</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>PNG, JPG, SVG, AI supported</div>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      ref={uploadFileRef}
+                      type="file"
+                      accept="image/*,.ai,.svg"
+                      style={{ display: 'none' }}
+                      onChange={handleUploadFileChange}
+                    />
+                  </div>
+
+                  {/* Scale factor selector */}
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6 }}>SCALE FACTOR</label>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                      {SCALE_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => { setUploadScaleFactor(opt.value); setUploadCustomScale('') }}
+                          style={{
+                            padding: '6px 12px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                            border: uploadScaleFactor === opt.value && !uploadCustomScale ? '2px solid var(--accent)' : '1px solid var(--border)',
+                            background: uploadScaleFactor === opt.value && !uploadCustomScale ? 'rgba(79,127,255,0.1)' : 'var(--surface2)',
+                            color: uploadScaleFactor === opt.value && !uploadCustomScale ? 'var(--accent)' : 'var(--text2)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Custom:</span>
+                      <input
+                        value={uploadCustomScale}
+                        onChange={e => setUploadCustomScale(e.target.value)}
+                        placeholder="e.g. 15"
+                        style={{ ...inputStyle, width: 80 }}
+                      />
+                    </div>
+
+                    {/* Live dimension calculation */}
+                    {bboxPts && (
+                      <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(79,127,255,0.08)', border: '1px solid rgba(79,127,255,0.2)', fontSize: 12 }}>
+                        <div style={{ color: 'var(--text3)', marginBottom: 4 }}>
+                          File units: <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--text2)' }}>{bboxPts.w.toFixed(1)} × {bboxPts.h.toFixed(1)} pts</span>
+                        </div>
+                        <div style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                          At 1/{effectiveScale} scale → real size:{' '}
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                            {realWInches}&Prime; × {realHInches}&prime; actual
+                          </span>
+                        </div>
+                        {computedSqft && (
+                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>
+                            Computed sqft: <span style={{ color: 'var(--text1)', fontWeight: 600 }}>{computedSqft} sqft</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Make / Model / Year */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>MAKE *</label>
+                      <input style={inputStyle} placeholder="e.g. Ford" value={uploadMake} onChange={e => setUploadMake(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>MODEL *</label>
+                      <input style={inputStyle} placeholder="e.g. Transit 250" value={uploadModel} onChange={e => setUploadModel(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>YEAR START</label>
+                      <input style={inputStyle} placeholder="2020" value={uploadYearStart} onChange={e => setUploadYearStart(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>YEAR END</label>
+                      <input style={inputStyle} placeholder="2025" value={uploadYearEnd} onChange={e => setUploadYearEnd(e.target.value)} />
+                    </div>
+                  </div>
+
+                  {/* Match Vehicle button */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={handleMatchVehicle}
+                        disabled={!uploadMake || !uploadModel || matchingVehicle}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '7px 14px', borderRadius: 7,
+                          background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
+                          color: (!uploadMake || !uploadModel) ? 'var(--text3)' : 'var(--accent)',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          opacity: (!uploadMake || !uploadModel) ? 0.5 : 1,
+                        }}
+                      >
+                        {matchingVehicle
+                          ? <><Loader2 size={11} className="animate-spin" /> Searching…</>
+                          : <><Database size={11} /> Match Vehicle DB</>
+                        }
+                      </button>
+                      {matchedVehicle && (
+                        <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Check size={11} /> Matched
+                        </span>
+                      )}
+                      {noVehicleMatch && (
+                        <span style={{ fontSize: 11, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <AlertCircle size={11} /> No DB match
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Matched vehicle card */}
+                    {matchedVehicle && (
+                      <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(34,192,122,0.07)', border: '1px solid rgba(34,192,122,0.25)', fontSize: 11 }}>
+                        <div style={{ fontWeight: 700, color: 'var(--green)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <Check size={11} /> {matchedVehicle.year_start ?? ''}–{matchedVehicle.year_end ?? ''} {matchedVehicle.make} {matchedVehicle.model}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                          {matchedVehicle.full_wrap_sqft && (
+                            <div>
+                              <div style={{ color: 'var(--text3)' }}>Full wrap</div>
+                              <div style={{ fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{matchedVehicle.full_wrap_sqft} sqft</div>
+                            </div>
+                          )}
+                          {matchedVehicle.side_sqft && (
+                            <div>
+                              <div style={{ color: 'var(--text3)' }}>Side sqft</div>
+                              <div style={{ fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{matchedVehicle.side_sqft} sqft</div>
+                            </div>
+                          )}
+                          {matchedVehicle.linear_feet && (
+                            <div>
+                              <div style={{ color: 'var(--text3)' }}>Linear ft</div>
+                              <div style={{ fontWeight: 700, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{matchedVehicle.linear_feet} ft</div>
+                            </div>
+                          )}
+                        </div>
+                        {/* Compare template vs DB sqft */}
+                        {computedSqft && matchedVehicle.full_wrap_sqft && (
+                          <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', fontSize: 11 }}>
+                            <span style={{ color: 'var(--text3)' }}>Template sqft: </span>
+                            <span style={{ color: 'var(--text1)', fontWeight: 700 }}>{computedSqft}</span>
+                            <span style={{ color: 'var(--text3)', margin: '0 6px' }}>vs DB:</span>
+                            <span style={{ color: 'var(--text1)', fontWeight: 700 }}>{matchedVehicle.full_wrap_sqft}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Manual sqft input (shown when no match or always) */}
+                    {(noVehicleMatch || !matchedVehicle) && (
+                      <div style={{ marginTop: 10 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>SQFT (MANUAL)</label>
+                        <input
+                          style={{ ...inputStyle, width: 140 }}
+                          placeholder={computedSqft ? `${computedSqft} (computed)` : 'e.g. 485'}
+                          value={uploadSqft}
+                          onChange={e => setUploadSqft(e.target.value)}
+                        />
+                        {computedSqft && !uploadSqft && (
+                          <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>Leave blank to use computed {computedSqft} sqft</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {uploadError && (
+                    <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 12, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <AlertCircle size={13} /> {uploadError}
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+                    <button
+                      onClick={() => { setShowUploadModal(false); resetUploadModal() }}
+                      style={{ padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpload}
+                      disabled={!uploadFile || !uploadMake || !uploadModel || uploading}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 7,
+                        padding: '9px 22px', borderRadius: 8,
+                        background: (!uploadFile || !uploadMake || !uploadModel || uploading) ? 'rgba(79,127,255,0.4)' : 'var(--accent)',
+                        color: '#fff', fontSize: 13, fontWeight: 700, border: 'none',
+                        cursor: (!uploadFile || !uploadMake || !uploadModel || uploading) ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {uploading
+                        ? <><Loader2 size={14} className="animate-spin" /> Uploading…</>
+                        : <><Upload size={14} /> Match & Upload</>
+                      }
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -171,6 +171,9 @@ export function TopNav({ profile }: { profile: Profile }) {
   const [systemAlerts, setSystemAlerts] = useState<any[]>([])
   const [resolving,    setResolving]    = useState<string | null>(null)
 
+  // Service availability (env key check, runs server-side via API)
+  const [serviceStatus, setServiceStatus] = useState<{ replicate: boolean; anthropic: boolean; twilio: boolean } | null>(null)
+
   // Misc
   const [showDesignIntakeModal, setShowDesignIntakeModal] = useState(false)
   const [installPrompt,         setInstallPrompt]         = useState<any>(null)
@@ -318,6 +321,13 @@ export function TopNav({ profile }: { profile: Profile }) {
   }, [profile.org_id])
 
   useEffect(() => {
+    fetch('/api/health/services')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setServiceStatus(d) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
       return
@@ -449,6 +459,30 @@ export function TopNav({ profile }: { profile: Profile }) {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
       />
+
+      {/* ── Service Key Warning Banner ─────────────────────────────────────── */}
+      {serviceStatus && (!serviceStatus.replicate || !serviceStatus.anthropic || !serviceStatus.twilio) && systemAlerts.length === 0 && (
+        <div style={{
+          background: 'rgba(245,158,11,0.08)',
+          borderBottom: '1px solid rgba(245,158,11,0.25)',
+          padding: '6px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexShrink: 0,
+        }}>
+          <AlertTriangle size={13} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: 'var(--amber)', flex: 1 }}>
+            <strong>API keys missing:</strong>{' '}
+            {[
+              !serviceStatus.replicate && 'REPLICATE_API_TOKEN',
+              !serviceStatus.anthropic && 'ANTHROPIC_API_KEY',
+              !serviceStatus.twilio    && 'TWILIO credentials',
+            ].filter(Boolean).join(', ')}
+            {' '}— some AI features will not work.
+          </span>
+        </div>
+      )}
 
       {/* ── System Health Alert Banner ─────────────────────────────────────── */}
       {systemAlerts.length > 0 && (
