@@ -16,7 +16,7 @@ import {
   Hammer, ShoppingBag, Banknote, MessageSquare,
   Map, Package, BookOpen, Phone, TrendingUp,
   Receipt, Send, Globe, Printer, Activity, Rocket, Brain,
-  Workflow as WorkflowIcon, Anchor, Tag,
+  Workflow as WorkflowIcon, Anchor, Tag, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import { ProductTour, WhatsNewModal, useTour } from '@/components/tour/ProductTour'
@@ -167,6 +167,10 @@ export function TopNav({ profile }: { profile: Profile }) {
   // Inbox unread count
   const [inboxUnread, setInboxUnread] = useState(0)
 
+  // System health alerts
+  const [systemAlerts, setSystemAlerts] = useState<any[]>([])
+  const [resolving,    setResolving]    = useState<string | null>(null)
+
   // Misc
   const [showDesignIntakeModal, setShowDesignIntakeModal] = useState(false)
   const [installPrompt,         setInstallPrompt]         = useState<any>(null)
@@ -274,6 +278,45 @@ export function TopNav({ profile }: { profile: Profile }) {
     loadUnread()
   }, [profile.org_id])
 
+  // ── System health alerts ──────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchAlerts() {
+      const { data } = await supabase
+        .from('system_health')
+        .select('*')
+        .eq('org_id', profile.org_id)
+        .is('resolved_at', null)
+        .order('created_at', { ascending: false })
+      setSystemAlerts(data || [])
+    }
+    fetchAlerts()
+
+    const channel = supabase
+      .channel('system_health_alerts')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'system_health',
+        filter: `org_id=eq.${profile.org_id}`,
+      }, payload => {
+        setSystemAlerts(prev => [payload.new as any, ...prev])
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'system_health',
+        filter: `org_id=eq.${profile.org_id}`,
+      }, payload => {
+        const updated = payload.new as any
+        if (updated.resolved_at) {
+          setSystemAlerts(prev => prev.filter(a => a.id !== updated.id))
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [profile.org_id])
+
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
@@ -328,6 +371,16 @@ export function TopNav({ profile }: { profile: Profile }) {
     }, 300)
     return () => clearTimeout(t)
   }, [searchQuery, profile.org_id])
+
+  async function resolveAlert(id: string) {
+    setResolving(id)
+    await supabase
+      .from('system_health')
+      .update({ resolved_at: new Date().toISOString(), resolved_by: profile.id })
+      .eq('id', id)
+    setSystemAlerts(prev => prev.filter(a => a.id !== id))
+    setResolving(null)
+  }
 
   async function markAllRead() {
     const ids = notifications.map(n => n.id).filter((id: any) => !String(id).startsWith('sb-') && !String(id).startsWith('od-'))
@@ -396,6 +449,38 @@ export function TopNav({ profile }: { profile: Profile }) {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
       />
+
+      {/* ── System Health Alert Banner ─────────────────────────────────────── */}
+      {systemAlerts.length > 0 && (
+        <div style={{
+          background: 'rgba(242,90,90,0.12)',
+          borderBottom: '1px solid rgba(242,90,90,0.35)',
+          padding: '7px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexShrink: 0,
+        }}>
+          <AlertTriangle size={14} className="animate-pulse" style={{ color: 'var(--red)', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: '#f98080', flex: 1, lineHeight: 1.4 }}>
+            <strong style={{ color: 'var(--red)' }}>System Alert ({systemAlerts[0].service}):</strong>{' '}
+            {systemAlerts[0].error_message}
+            {systemAlerts.length > 1 && ` (+${systemAlerts.length - 1} more)`}
+          </span>
+          <button
+            onClick={() => resolveAlert(systemAlerts[0].id)}
+            disabled={resolving === systemAlerts[0].id}
+            style={{
+              padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+              background: 'rgba(242,90,90,0.25)', border: '1px solid rgba(242,90,90,0.45)',
+              color: '#f98080', cursor: 'pointer', flexShrink: 0,
+              opacity: resolving === systemAlerts[0].id ? 0.5 : 1,
+            }}
+          >
+            {resolving === systemAlerts[0].id ? 'Resolving…' : 'Resolve'}
+          </button>
+        </div>
+      )}
 
       <header
         style={{

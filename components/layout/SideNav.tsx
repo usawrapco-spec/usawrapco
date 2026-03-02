@@ -15,7 +15,8 @@ import {
   Trophy, UserPlus,
   Printer, Truck,
   Shield, Rocket, UserCheck,
-  Globe, LayoutGrid,
+  Globe, LayoutGrid, Navigation,
+  Wand2, LayoutTemplate,
 } from 'lucide-react'
 
 interface NavItem {
@@ -79,8 +80,9 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Palette,
     roles: ['owner', 'admin', 'designer', 'sales_agent'],
     items: [
-      { href: '/design',          label: 'Design Studio', icon: LayoutGrid, roles: ['owner', 'admin', 'designer'] },
-      { href: '/design/intakes',  label: 'Design Intake', icon: FileInput,  badge: 'intakes' },
+      { href: '/design',              label: 'Design Studio',    icon: LayoutGrid,    roles: ['owner', 'admin', 'designer'] },
+      { href: '/design/intakes',      label: 'Design Intake',    icon: FileInput,     badge: 'intakes' },
+      { href: '/mockup-generator',    label: 'Mockup Generator', icon: Wand2 },
     ],
   },
   {
@@ -89,9 +91,10 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Shield,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/admin/access',   label: 'Access Manager',    icon: UserCheck },
-      { href: '/admin/portals',  label: 'Employee Portals',  icon: Printer },
-      { href: '/settings',       label: 'System Settings',   icon: Settings },
+      { href: '/admin/access',     label: 'Access Manager',    icon: UserCheck },
+      { href: '/admin/portals',    label: 'Employee Portals',  icon: Printer },
+      { href: '/admin/templates',  label: 'Templates',         icon: LayoutTemplate },
+      { href: '/settings',         label: 'System Settings',   icon: Settings },
     ],
   },
   {
