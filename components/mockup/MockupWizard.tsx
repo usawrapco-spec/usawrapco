@@ -1,13 +1,39 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   ChevronRight, ChevronLeft, Upload, Loader2, Play,
-  Lock, Check, Sparkles, Car,
+  Lock, Check, Sparkles, Car, ChevronDown, AlertTriangle, Zap, Bot,
 } from 'lucide-react'
 import { MockupState, INDUSTRIES, STYLE_VIBES, estimateWrapPrice } from '@/lib/mockup/types'
 
 const STEPS = ['Vehicle', 'Brand', 'Style', 'Your Concepts', 'Book It']
+
+// Popular vehicles for quick-pick chips
+const POPULAR_VEHICLES = [
+  { label: 'Ford Transit',      year: '2024', make: 'Ford',          model: 'Transit' },
+  { label: 'Sprinter',          year: '2024', make: 'Mercedes-Benz', model: 'Sprinter' },
+  { label: 'RAM ProMaster',     year: '2024', make: 'Ram',           model: 'ProMaster' },
+  { label: 'Ford F-150',        year: '2024', make: 'Ford',          model: 'F-150' },
+  { label: 'Chevy Silverado',   year: '2024', make: 'Chevrolet',     model: 'Silverado 1500' },
+  { label: 'Toyota Tacoma',     year: '2024', make: 'Toyota',        model: 'Tacoma' },
+  { label: 'Tesla Model Y',     year: '2023', make: 'Tesla',         model: 'Model Y' },
+  { label: 'Box Truck',         year: '2024', make: 'Ford',          model: 'E-Series' },
+] as const
+
+const YEARS = Array.from({ length: 2026 - 1990 + 1 }, (_, i) => 2026 - i)
+
+function bodyStyleToRenderCategory(bodyStyle: string): string {
+  const bs = (bodyStyle || '').toLowerCase()
+  if (bs.includes('box truck') || bs.includes('box_truck')) return 'box_truck'
+  if (bs.includes('trailer')) return 'trailer'
+  if (bs.includes('sprinter') || (bs.includes('van') && bs.includes('high'))) return 'sprinter'
+  if (bs.includes('van') || bs.includes('cargo')) return 'van'
+  if (bs.includes('pickup') || bs.includes('truck')) return 'pickup'
+  if (bs.includes('suv') || bs.includes('crossover')) return 'suv'
+  if (bs.includes('sedan') || bs.includes('coupe') || bs.includes('hatch')) return 'car'
+  return 'van'
+}
 
 const BRAND_COLORS_PRESET = [
   '#1a1a2e', '#16213e', '#0f3460', '#e94560',
@@ -30,6 +56,19 @@ export default function MockupWizard() {
     generationStatus: 'pending',
   })
 
+  // YMM cascade state
+  const [selectedYear, setSelectedYear] = useState('')
+  const [selectedMake, setSelectedMake] = useState('')
+  const [selectedModel, setSelectedModel] = useState('')
+  const [makes, setMakes] = useState<string[]>([])
+  const [modelOptions, setModelOptions] = useState<{ model: string; sqft: number | null }[]>([])
+  const [loadingMakes, setLoadingMakes] = useState(false)
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [vehicleMeasurement, setVehicleMeasurement] = useState<Record<string, unknown> | null>(null)
+  const [dbError, setDbError] = useState(false)
+  const [templateTier, setTemplateTier] = useState<1 | 2 | 3 | null>(null)
+  const [templateMatchName, setTemplateMatchName] = useState('')
+  // Fallback text search
   const [vehicleSearch, setVehicleSearch] = useState('')
   const [vehicleResults, setVehicleResults] = useState<any[]>([])
   const [vehicleLoading, setVehicleLoading] = useState(false)
@@ -42,7 +81,120 @@ export default function MockupWizard() {
   const update = useCallback((patch: Partial<MockupState>) =>
     setState(prev => ({ ...prev, ...patch })), [])
 
-  // ── Vehicle search ─────────────────────────────────────────────────────────
+  // ── YMM cascade: Year → Makes ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedYear) { setMakes([]); setSelectedMake(''); setSelectedModel(''); return }
+    setLoadingMakes(true)
+    fetch(`/api/vehicles/makes?year=${selectedYear}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setDbError(true); setMakes([]) }
+        else { setMakes(d.makes || []); setDbError(false) }
+      })
+      .catch(() => setDbError(true))
+      .finally(() => setLoadingMakes(false))
+  }, [selectedYear])
+
+  // ── YMM cascade: Make → Models ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedYear || !selectedMake) { setModelOptions([]); setSelectedModel(''); return }
+    setLoadingModels(true)
+    fetch(`/api/vehicles/models?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setDbError(true); setModelOptions([]) }
+        else { setModelOptions(d.models || []); setDbError(false) }
+      })
+      .catch(() => setDbError(true))
+      .finally(() => setLoadingModels(false))
+  }, [selectedYear, selectedMake])
+
+  // ── YMM cascade: Model → Full Measurement ──────────────────────────────────
+  useEffect(() => {
+    if (!selectedYear || !selectedMake || !selectedModel) return
+    fetch(`/api/vehicles/lookup?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}`)
+      .then(r => r.json())
+      .then(d => {
+        const m = d.measurement as Record<string, unknown> | null
+        setVehicleMeasurement(m ?? null)
+        if (m) {
+          const sqft = Number(m.full_wrap_sqft || m.total_sqft || 0) || 280
+          const bodyStyle = String(m.body_style || 'van')
+          const renderCat = bodyStyleToRenderCategory(bodyStyle)
+          const price = estimateWrapPrice(sqft, renderCat)
+          update({
+            vehicleYear: selectedYear,
+            vehicleMake: selectedMake,
+            vehicleModel: selectedModel,
+            vehicleBodyStyle: bodyStyle,
+            renderCategory: renderCat,
+            sqftFull: sqft,
+            estimatedPrice: price,
+            vehicleHoodSqft: (m.hood_sqft as number) ?? null,
+            vehicleRoofSqft: (m.roof_sqft as number) ?? null,
+            vehicleSidesSqft: (m.doors_sqft as number) ?? null,
+            vehicleBackSqft: (m.trunk_sqft as number) ?? null,
+            vehicleLength: (m.side_width as number) ?? null,
+            vehicleHeight: (m.side_height as number) ?? null,
+          })
+          // Check for template match
+          checkTemplate(selectedYear, selectedMake, selectedModel, bodyStyle)
+        } else {
+          // No measurement row — use sqft from the models list fallback
+          const modelInfo = modelOptions.find(mo => mo.model === selectedModel)
+          const sqft = modelInfo?.sqft || 280
+          const renderCat = 'van'
+          update({
+            vehicleYear: selectedYear,
+            vehicleMake: selectedMake,
+            vehicleModel: selectedModel,
+            vehicleBodyStyle: '',
+            renderCategory: renderCat,
+            sqftFull: sqft,
+            estimatedPrice: estimateWrapPrice(sqft, renderCat),
+          })
+          checkTemplate(selectedYear, selectedMake, selectedModel, '')
+        }
+      })
+      .catch(() => {
+        const modelInfo = modelOptions.find(mo => mo.model === selectedModel)
+        const sqft = modelInfo?.sqft || 280
+        update({
+          vehicleYear: selectedYear,
+          vehicleMake: selectedMake,
+          vehicleModel: selectedModel,
+          vehicleBodyStyle: '',
+          renderCategory: 'van',
+          sqftFull: sqft,
+          estimatedPrice: estimateWrapPrice(sqft, 'van'),
+        })
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear, selectedMake, selectedModel])
+
+  async function checkTemplate(year: string, make: string, model: string, bodyStyle: string) {
+    try {
+      const res = await fetch(
+        `/api/vehicles/template?year=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&body_style=${encodeURIComponent(bodyStyle)}`
+      )
+      const d = await res.json()
+      setTemplateTier(d.tier as 1 | 2 | 3 || 3)
+      setTemplateMatchName(d.matched_vehicle || '')
+      update({ templateTier: d.tier, templateMatchName: d.matched_vehicle || null, templateUrl: d.template_url || null, templateType: d.template_type || null })
+    } catch {
+      setTemplateTier(3)
+    }
+  }
+
+  function applyYMM(year: string, make: string, model: string) {
+    setSelectedYear(year)
+    setSelectedMake(make)
+    setSelectedModel(model)
+    // Clear existing vehicle data until cascade fires
+    update({ vehicleMake: '', vehicleModel: '', vehicleYear: '' })
+  }
+
+  // ── Fallback text search (legacy vehicle_database) ──────────────────────────
   async function searchVehicles(q: string) {
     if (q.length < 2) { setVehicleResults([]); return }
     setVehicleLoading(true)
@@ -67,6 +219,9 @@ export default function MockupWizard() {
       sqftFull: v.sqft_full,
       estimatedPrice: price,
     })
+    setSelectedYear(String(v.year || ''))
+    setSelectedMake(v.make || '')
+    setSelectedModel(v.model || '')
     setVehicleSearch(`${v.year} ${v.make} ${v.model}`)
     setVehicleResults([])
   }
@@ -267,21 +422,118 @@ export default function MockupWizard() {
   }
 
   // ── Step 0: Vehicle ────────────────────────────────────────────────────────
+  const dropdownStyle: React.CSSProperties = {
+    width: '100%', background: '#0a1020', border: '1px solid #2a3a55', borderRadius: 8,
+    padding: '11px 32px 11px 12px', color: '#ffffff', fontSize: 14, outline: 'none',
+    appearance: 'none', cursor: 'pointer',
+  }
+  const dropdownDisabled: React.CSSProperties = {
+    ...dropdownStyle, opacity: 0.4, cursor: 'not-allowed',
+  }
+
+  const templateBadge = (() => {
+    if (!state.vehicleMake || templateTier === null) return null
+    if (templateTier === 1) return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0c2a1a', border: '1px solid #22c07a', borderRadius: 8, padding: '7px 12px', fontSize: 12 }}>
+        <Check size={13} color="#22c07a" />
+        <span style={{ color: '#22c07a', fontWeight: 600 }}>Exact Template Available</span>
+      </div>
+    )
+    if (templateTier === 2) return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1a1a00', border: '1px solid #f59e0b', borderRadius: 8, padding: '7px 12px', fontSize: 12 }}>
+        <Zap size={13} color="#f59e0b" />
+        <span style={{ color: '#f59e0b', fontWeight: 600 }}>Using similar template{templateMatchName ? `: ${templateMatchName}` : ''}</span>
+      </div>
+    )
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1a0d00', border: '1px solid #f77f00', borderRadius: 8, padding: '7px 12px', fontSize: 12 }}>
+        <Bot size={13} color="#f77f00" />
+        <span style={{ color: '#f77f00', fontWeight: 600 }}>AI-Generated Template (upload exact template for best results)</span>
+      </div>
+    )
+  })()
+
   const stepVehicle = (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>What vehicle are we wrapping?</h2>
-      <p style={{ color: '#8899aa', marginBottom: 28 }}>Search by year, make, or model. We'll show you real pricing instantly.</p>
+      {/* DB error alert */}
+      {dbError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#2a0000', border: '1px solid #f25a5a', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+          <AlertTriangle size={18} color="#f25a5a" style={{ flexShrink: 0 }} />
+          <span style={{ color: '#f25a5a', fontSize: 13, fontWeight: 600 }}>
+            Vehicle database connection failed — use text search below
+          </span>
+        </div>
+      )}
 
-      <div style={{ marginBottom: 16, position: 'relative' }}>
-        <label style={s.label}>Search Vehicle</label>
+      <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>What vehicle are we wrapping?</h2>
+      <p style={{ color: '#8899aa', marginBottom: 24 }}>Select year, make, and model for accurate sqft pricing.</p>
+
+      {/* ── Year / Make / Model dropdowns ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+        {/* Year */}
+        <div>
+          <label style={s.label}>Year</label>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={selectedYear}
+              onChange={e => { setSelectedYear(e.target.value); setSelectedMake(''); setSelectedModel('') }}
+              style={dropdownStyle}
+            >
+              <option value="">Year</option>
+              {YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}
+            </select>
+            <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#505a6b', pointerEvents: 'none' }} />
+          </div>
+        </div>
+        {/* Make */}
+        <div>
+          <label style={s.label}>Make</label>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={selectedMake}
+              onChange={e => { setSelectedMake(e.target.value); setSelectedModel('') }}
+              style={!selectedYear || loadingMakes ? dropdownDisabled : dropdownStyle}
+              disabled={!selectedYear || loadingMakes}
+            >
+              <option value="">{loadingMakes ? 'Loading...' : 'Make'}</option>
+              {makes.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#505a6b', pointerEvents: 'none' }} />
+          </div>
+        </div>
+        {/* Model */}
+        <div>
+          <label style={s.label}>Model</label>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={selectedModel}
+              onChange={e => setSelectedModel(e.target.value)}
+              style={!selectedMake || loadingModels ? dropdownDisabled : dropdownStyle}
+              disabled={!selectedMake || loadingModels}
+            >
+              <option value="">{loadingModels ? 'Loading...' : 'Model'}</option>
+              {modelOptions.map(m => <option key={m.model} value={m.model}>{m.model}{m.sqft ? ` — ${m.sqft} sqft` : ''}</option>)}
+            </select>
+            <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#505a6b', pointerEvents: 'none' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── OR text search fallback ── */}
+      <div style={{ position: 'relative', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1, height: 1, background: '#1e2d45' }} />
+          <span style={{ color: '#505a6b', fontSize: 12 }}>OR search</span>
+          <div style={{ flex: 1, height: 1, background: '#1e2d45' }} />
+        </div>
         <input
           style={s.input}
-          placeholder="e.g. 2022 Ford Transit, Sprinter, Silverado..."
+          placeholder="Search make or model..."
           value={vehicleSearch}
           onChange={e => { setVehicleSearch(e.target.value); searchVehicles(e.target.value) }}
         />
         {vehicleLoading && (
-          <div style={{ position: 'absolute', right: 12, top: 38 }}>
+          <div style={{ position: 'absolute', right: 12, bottom: 14 }}>
             <Loader2 size={16} color="#64d2ff" style={{ animation: 'spin 1s linear infinite' }} />
           </div>
         )}
@@ -298,20 +550,78 @@ export default function MockupWizard() {
         )}
       </div>
 
+      {/* ── Selected vehicle card ── */}
       {state.vehicleMake && (
-        <div style={{ background: '#0a1020', border: '1px solid #22c07a', borderRadius: 12, padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{state.vehicleYear} {state.vehicleMake} {state.vehicleModel}</div>
-            <div style={{ color: '#8899aa', fontSize: 13, marginTop: 2 }}>{state.vehicleBodyStyle} &middot; ~{state.sqftFull} sqft</div>
+        <div style={{ background: '#0a1020', border: '1px solid #22c07a', borderRadius: 14, padding: 20, marginBottom: 16 }}>
+          {/* Header row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>{state.vehicleYear} {state.vehicleMake} {state.vehicleModel}</div>
+              <div style={{ color: '#8899aa', fontSize: 13, marginTop: 2 }}>
+                {state.vehicleBodyStyle || 'Vehicle'} &middot; {state.sqftFull ? `${state.sqftFull} sqft` : 'sqft calculating...'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: '#64d2ff', fontWeight: 800, fontSize: 22 }}>${state.estimatedPrice?.toLocaleString()}</div>
+              <div style={{ color: '#505a6b', fontSize: 11 }}>est. full wrap</div>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: '#64d2ff', fontWeight: 800, fontSize: 22 }}>${state.estimatedPrice?.toLocaleString()}</div>
-            <div style={{ color: '#505a6b', fontSize: 11 }}>estimated full wrap</div>
-          </div>
+
+          {/* Panel breakdown (only if measurement data available) */}
+          {vehicleMeasurement && (state.vehicleHoodSqft || state.vehicleRoofSqft || state.vehicleSidesSqft || state.vehicleBackSqft) ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+              {[
+                { label: 'Hood', val: state.vehicleHoodSqft },
+                { label: 'Roof', val: state.vehicleRoofSqft },
+                { label: 'Sides', val: state.vehicleSidesSqft },
+                { label: 'Back', val: state.vehicleBackSqft },
+              ].map(p => p.val ? (
+                <div key={p.label} style={{ background: '#0d1830', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ color: '#64d2ff', fontWeight: 700, fontSize: 14 }}>{p.val}</div>
+                  <div style={{ color: '#505a6b', fontSize: 10, marginTop: 2 }}>{p.label} sqft</div>
+                </div>
+              ) : null)}
+            </div>
+          ) : null}
+
+          {/* Dimensions */}
+          {(state.vehicleLength || state.vehicleHeight) ? (
+            <div style={{ color: '#505a6b', fontSize: 11, marginBottom: 12 }}>
+              {state.vehicleLength ? `${state.vehicleLength}" L` : ''}
+              {state.vehicleLength && state.vehicleHeight ? ' · ' : ''}
+              {state.vehicleHeight ? `${state.vehicleHeight}" H` : ''}
+            </div>
+          ) : null}
+
+          {/* Template badge */}
+          {templateBadge}
         </div>
       )}
 
-      <div style={{ marginTop: 16, color: '#505a6b', fontSize: 12 }}>
+      {/* ── Popular vehicle quick-picks ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ color: '#505a6b', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+          Popular Vehicles
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {POPULAR_VEHICLES.map(v => (
+            <button
+              key={v.label}
+              onClick={() => applyYMM(v.year, v.make, v.model)}
+              style={{
+                background: (selectedMake === v.make && selectedModel === v.model) ? '#0f2640' : '#0a1220',
+                border: `1px solid ${(selectedMake === v.make && selectedModel === v.model) ? '#64d2ff' : '#2a3a55'}`,
+                borderRadius: 20, padding: '6px 14px', color: '#c0cce0',
+                fontSize: 13, cursor: 'pointer', fontWeight: 500,
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ color: '#505a6b', fontSize: 12 }}>
         Don&apos;t see your vehicle?{' '}
         <button
           onClick={() => update({ vehicleMake: 'Custom', vehicleModel: 'Vehicle', renderCategory: 'van', estimatedPrice: 3800, sqftFull: 280, vehicleYear: '', vehicleBodyStyle: '' })}

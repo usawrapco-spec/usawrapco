@@ -28,6 +28,19 @@ export interface MockupState {
   renderCategory: string
   sqftFull: number
   estimatedPrice: number
+  // Vehicle panel measurements (from vehicle_measurements table)
+  vehicleHoodSqft?: number | null
+  vehicleRoofSqft?: number | null
+  vehicleSidesSqft?: number | null  // doors_sqft
+  vehicleBackSqft?: number | null   // trunk_sqft
+  vehicleLength?: number | null     // side_width (overall length)
+  vehicleHeight?: number | null     // side_height (overall height)
+  vehicleWheelbase?: number | null
+  // Template matching
+  templateTier?: 1 | 2 | 3 | null
+  templateMatchName?: string | null
+  templateUrl?: string | null
+  templateType?: string | null
   // Brand
   businessName: string
   phone: string
