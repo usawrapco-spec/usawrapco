@@ -23,38 +23,40 @@ interface CompactCalculatorProps {
   targetGpm: number
   onResult?: (result: CalcResult) => void
   initialData?: Partial<CalcResult>
+  hideResult?: boolean
+  initialSqft?: number
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const QUICK_SELECT = [
-  { name: 'Sm Car',   sqft: 180 },
-  { name: 'Med Car',  sqft: 220 },
-  { name: 'Full Car', sqft: 260 },
-  { name: 'Sm Truck', sqft: 200 },
-  { name: 'Med Truck',sqft: 250 },
-  { name: 'Full Truck',sqft:300 },
-  { name: 'Med Van',  sqft: 240 },
-  { name: 'Lg Van',   sqft: 310 },
-  { name: 'XL Van',   sqft: 360 },
-  { name: 'XXL Van',  sqft: 420 },
+  { name: 'Sm Car',    sqft: 180 },
+  { name: 'Med Car',   sqft: 220 },
+  { name: 'Lg Car',    sqft: 260 },
+  { name: 'Sm Truck',  sqft: 200 },
+  { name: 'Med Truck', sqft: 250 },
+  { name: 'Lg Truck',  sqft: 300 },
+  { name: 'Med Van',   sqft: 240 },
+  { name: 'Lg Van',    sqft: 310 },
+  { name: 'XL Van',    sqft: 360 },
+  { name: 'XXL Van',   sqft: 420 },
 ]
 
 const COVERAGES = [
-  { label: 'Full Wrap',    mult: 1.00 },
-  { label: '3/4 Wrap',     mult: 0.75 },
-  { label: 'Half Wrap',    mult: 0.50 },
-  { label: 'Hood Only',    mult: 0.12 },
-  { label: 'Roof Only',    mult: 0.10 },
-  { label: 'Custom Zones', mult: 0    },
-  { label: 'Install Only', mult: 0    },
+  { label: 'Full',    mult: 1.00 },
+  { label: '3/4',     mult: 0.75 },
+  { label: 'Half',    mult: 0.50 },
+  { label: 'Hood',    mult: 0.12 },
+  { label: 'Roof',    mult: 0.10 },
+  { label: 'Zones',   mult: 0    },
+  { label: 'Install', mult: 0    },
 ]
 
-const ZONES = ['Hood', 'Roof', 'Trunk', 'Driver Side', 'Pass Side', 'Front Bumper', 'Rear Bumper', 'Mirrors', 'Pillars']
+const ZONES = ['Hood', 'Roof', 'Trunk', 'Driver', 'Passenger', 'Fr Bumper', 'Rr Bumper', 'Mirrors', 'Pillars']
 
 const ZONE_SQFT: Record<string, number> = {
-  'Hood': 28, 'Roof': 35, 'Trunk': 18, 'Driver Side': 65, 'Pass Side': 65,
-  'Front Bumper': 15, 'Rear Bumper': 15, 'Mirrors': 6, 'Pillars': 10,
+  'Hood': 28, 'Roof': 35, 'Trunk': 18, 'Driver': 65, 'Passenger': 65,
+  'Fr Bumper': 15, 'Rr Bumper': 15, 'Mirrors': 6, 'Pillars': 10,
 }
 
 const MATERIALS = [
@@ -70,18 +72,18 @@ const MATERIALS = [
 const WASTE_OPTIONS = [5, 10, 15, 20]
 
 const PPF_PACKAGES = [
-  { name: 'Full Hood',      yds: 4.2, price: 899  },
-  { name: 'Partial Hood',   yds: 2.1, price: 549  },
-  { name: 'Front Fenders',  yds: 3.5, price: 749  },
-  { name: 'Mirrors',        yds: 0.8, price: 249  },
-  { name: 'Front Bumper',   yds: 2.8, price: 649  },
-  { name: 'Rocker Panels',  yds: 2.4, price: 449  },
-  { name: 'A-Pillars',      yds: 0.6, price: 199  },
-  { name: 'Full Front',     yds: 9.0, price: 1799 },
+  { name: 'Full Hood',     yds: 4.2, price: 899  },
+  { name: 'Partial Hood',  yds: 2.1, price: 549  },
+  { name: 'Fr Fenders',    yds: 3.5, price: 749  },
+  { name: 'Mirrors',       yds: 0.8, price: 249  },
+  { name: 'Fr Bumper',     yds: 2.8, price: 649  },
+  { name: 'Rocker Panels', yds: 2.4, price: 449  },
+  { name: 'A-Pillars',     yds: 0.6, price: 199  },
+  { name: 'Full Front',    yds: 9.0, price: 1799 },
 ]
 
-const LABOR_RATE     = 35    // $/hr
-const SQFT_PER_HOUR  = 35.71 // sqft/hr
+const LABOR_RATE    = 35
+const SQFT_PER_HOUR = 35.71
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -105,45 +107,55 @@ function fmt(n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
+// ─── Shared compact styles ─────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
-  padding: '7px 10px', background: 'var(--bg)',
-  border: '1px solid var(--surface2)', borderRadius: 7,
-  color: 'var(--text1)', fontSize: 13, outline: 'none',
+  padding: '4px 8px', background: 'var(--bg)',
+  border: '1px solid var(--surface2)', borderRadius: 5,
+  color: 'var(--text1)', fontSize: 12, outline: 'none',
   boxSizing: 'border-box', width: '100%',
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, color: 'var(--text3)',
-  textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5,
+  fontSize: 10, color: 'var(--text3)',
+  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2,
 }
+
+const pillBtn = (active: boolean, color = 'var(--accent)'): React.CSSProperties => ({
+  padding: '3px 8px', borderRadius: 20, fontSize: 10, cursor: 'pointer',
+  border: `1px solid ${active ? color : 'var(--surface2)'}`,
+  background: active ? color + '20' : 'transparent',
+  color: active ? color : 'var(--text2)',
+  whiteSpace: 'nowrap' as const,
+})
+
+// ─── ResultBar ────────────────────────────────────────────────────────────────
 
 function ResultBar({ result }: { result: CalcResult }) {
   const color = gpmColor(result.gpm)
   return (
     <div style={{
-      background: 'var(--bg)', borderRadius: 8, padding: '10px 14px',
-      display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8,
-      border: '1px solid var(--surface2)',
+      background: 'var(--bg)', borderRadius: 6, padding: '8px 10px',
+      display: 'flex', gap: 12, flexWrap: 'wrap',
+      border: '1px solid var(--surface2)', marginTop: 6,
     }}>
       <div>
-        <div style={labelStyle}>Sale Price</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', fontFamily: 'var(--font-mono)' }}>
+        <div style={labelStyle}>Sale</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', fontFamily: 'var(--font-mono)' }}>
           ${fmt(result.salePrice)}
         </div>
       </div>
       <div>
         <div style={labelStyle}>Material</div>
-        <div style={{ fontSize: 13, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>${fmt(result.materialCost)}</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>${fmt(result.materialCost)}</div>
       </div>
       <div>
         <div style={labelStyle}>Labor</div>
-        <div style={{ fontSize: 13, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>${fmt(result.laborCost)}</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>${fmt(result.laborCost)}</div>
       </div>
       <div>
         <div style={labelStyle}>GPM</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{result.gpm}%</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{result.gpm}%</div>
       </div>
     </div>
   )
@@ -151,8 +163,15 @@ function ResultBar({ result }: { result: CalcResult }) {
 
 // ─── Commercial Calculator ────────────────────────────────────────────────────
 
-function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r: CalcResult) => void }) {
-  const [baseSqft, setBaseSqft] = useState(0)
+function CommercialCalc({
+  targetGpm, onResult, hideResult, initialSqft,
+}: {
+  targetGpm: number
+  onResult?: (r: CalcResult) => void
+  hideResult?: boolean
+  initialSqft?: number
+}) {
+  const [baseSqft, setBaseSqft] = useState(initialSqft || 0)
   const [coverage, setCoverage] = useState(COVERAGES[0])
   const [zones, setZones] = useState<string[]>([])
   const [matIdx, setMatIdx] = useState(0)
@@ -163,7 +182,7 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
 
   const calculate = useCallback(() => {
     let sqft = 0
-    if (coverage.label === 'Custom Zones') {
+    if (coverage.label === 'Zones') {
       sqft = zones.reduce((acc, z) => acc + (ZONE_SQFT[z] || 0), 0)
     } else {
       sqft = baseSqft * coverage.mult
@@ -179,13 +198,10 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
     const salePrice = calcRevFromGpm(totalCost, targetGpm)
     const gpm = calcGpm(salePrice, totalCost)
     const r: CalcResult = {
-      salePrice: Math.round(salePrice),
-      materialCost: Math.round(materialCost),
-      laborCost: Math.round(laborCost),
-      gpm, netSqft: Math.round(netSqft),
-      totalSqft: Math.round(withWaste),
-      linearFt: Math.round(linearFt),
-      laborHrs: Math.round(laborHrs * 10) / 10,
+      salePrice: Math.round(salePrice), materialCost: Math.round(materialCost),
+      laborCost: Math.round(laborCost), gpm,
+      netSqft: Math.round(netSqft), totalSqft: Math.round(withWaste),
+      linearFt: Math.round(linearFt), laborHrs: Math.round(laborHrs * 10) / 10,
     }
     setResult(r)
     onResult?.(r)
@@ -198,61 +214,53 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Quick select */}
       <div>
-        <div style={labelStyle}>Quick Select Vehicle</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5 }}>
+        <div style={labelStyle}>Quick Select</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
           {QUICK_SELECT.map(v => (
             <button
               key={v.name}
               onClick={() => setBaseSqft(v.sqft)}
               style={{
-                padding: '6px 4px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                padding: '3px 2px', borderRadius: 20, fontSize: 9, cursor: 'pointer', textAlign: 'center',
                 border: `1px solid ${baseSqft === v.sqft ? 'var(--accent)' : 'var(--surface2)'}`,
                 background: baseSqft === v.sqft ? '#4f7fff20' : 'transparent',
                 color: baseSqft === v.sqft ? 'var(--accent)' : 'var(--text2)',
+                lineHeight: 1.3,
               }}
             >
               {v.name}<br />
-              <span style={{ fontSize: 10, opacity: 0.7 }}>{v.sqft} sf</span>
+              <span style={{ fontSize: 8, opacity: 0.7 }}>{v.sqft}sf</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Sqft manual input */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+      {/* Sqft + Install Only */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div style={{ flex: 1 }}>
           <div style={labelStyle}>Base Sqft</div>
           <input
             type="number" min="0" value={baseSqft || ''}
             onChange={e => setBaseSqft(Number(e.target.value))}
-            placeholder="Enter sqft"
+            placeholder="sqft"
             style={inputStyle}
           />
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', paddingBottom: 8 }}>
-          <input type="checkbox" checked={installOnly} onChange={e => setInstallOnly(e.target.checked)} />
-          <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Only</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', paddingBottom: 6, whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={installOnly} onChange={e => setInstallOnly(e.target.checked)} style={{ margin: 0 }} />
+          <span style={{ fontSize: 10, color: 'var(--text2)' }}>Install Only</span>
         </label>
       </div>
 
       {/* Coverage */}
       <div>
         <div style={labelStyle}>Coverage</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {COVERAGES.map(c => (
-            <button
-              key={c.label}
-              onClick={() => setCoverage(c)}
-              style={{
-                padding: '5px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${coverage.label === c.label ? 'var(--accent)' : 'var(--surface2)'}`,
-                background: coverage.label === c.label ? '#4f7fff20' : 'transparent',
-                color: coverage.label === c.label ? 'var(--accent)' : 'var(--text2)',
-              }}
-            >
+            <button key={c.label} onClick={() => setCoverage(c)} style={pillBtn(coverage.label === c.label)}>
               {c.label}
             </button>
           ))}
@@ -260,24 +268,15 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
       </div>
 
       {/* Zone picker */}
-      {coverage.label === 'Custom Zones' && (
+      {coverage.label === 'Zones' && (
         <div>
           <div style={labelStyle}>Zones</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {ZONES.map(z => {
               const active = zones.includes(z)
               return (
-                <button
-                  key={z}
-                  onClick={() => toggleZone(z)}
-                  style={{
-                    padding: '5px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                    border: `1px solid ${active ? 'var(--cyan)' : 'var(--surface2)'}`,
-                    background: active ? '#22d3ee20' : 'transparent',
-                    color: active ? 'var(--cyan)' : 'var(--text2)',
-                  }}
-                >
-                  {z} <span style={{ fontSize: 10, opacity: 0.7 }}>{ZONE_SQFT[z]}sf</span>
+                <button key={z} onClick={() => toggleZone(z)} style={pillBtn(active, 'var(--cyan)')}>
+                  {z} <span style={{ opacity: 0.7 }}>{ZONE_SQFT[z]}sf</span>
                 </button>
               )
             })}
@@ -285,9 +284,9 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
         </div>
       )}
 
-      {/* Material + Laminate + Waste */}
-      <div style={{ display: 'flex', gap: 10 }}>
-        <div style={{ flex: 2 }}>
+      {/* Material + Laminate row */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ flex: 1 }}>
           <div style={labelStyle}>Material</div>
           <select
             value={matIdx}
@@ -299,21 +298,12 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
             ))}
           </select>
         </div>
-        <div>
-          <div style={labelStyle}>Laminate</div>
-          <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ flexShrink: 0 }}>
+          <div style={labelStyle}>Lam</div>
+          <div style={{ display: 'flex', gap: 3 }}>
             {([false, true] as const).map(v => (
-              <button
-                key={String(v)}
-                onClick={() => setLaminate(v)}
-                style={{
-                  padding: '7px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                  border: `1px solid ${laminate === v ? 'var(--accent)' : 'var(--surface2)'}`,
-                  background: laminate === v ? '#4f7fff20' : 'transparent',
-                  color: laminate === v ? 'var(--accent)' : 'var(--text2)',
-                }}
-              >
-                {v ? '+$0.60/sf' : 'No Lam'}
+              <button key={String(v)} onClick={() => setLaminate(v)} style={pillBtn(laminate === v)}>
+                {v ? '+$0.60' : 'None'}
               </button>
             ))}
           </div>
@@ -323,17 +313,12 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
       {/* Waste */}
       <div>
         <div style={labelStyle}>Waste Buffer</div>
-        <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {WASTE_OPTIONS.map(w => (
             <button
               key={w}
               onClick={() => setWaste(w)}
-              style={{
-                flex: 1, padding: '6px 0', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${waste === w ? 'var(--accent)' : 'var(--surface2)'}`,
-                background: waste === w ? '#4f7fff20' : 'transparent',
-                color: waste === w ? 'var(--accent)' : 'var(--text2)',
-              }}
+              style={{ ...pillBtn(waste === w), flex: 1 }}
             >
               {w}%
             </button>
@@ -341,14 +326,14 @@ function CommercialCalc({ targetGpm, onResult }: { targetGpm: number; onResult?:
         </div>
       </div>
 
-      {result && <ResultBar result={result} />}
+      {!hideResult && result && <ResultBar result={result} />}
     </div>
   )
 }
 
 // ─── Box Truck Calculator ─────────────────────────────────────────────────────
 
-function BoxTruckCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r: CalcResult) => void }) {
+function BoxTruckCalc({ targetGpm, onResult, hideResult }: { targetGpm: number; onResult?: (r: CalcResult) => void; hideResult?: boolean }) {
   const [length, setLength] = useState('')
   const [height, setHeight] = useState('')
   const [sides, setSides] = useState<string[]>(['left', 'right', 'rear'])
@@ -359,15 +344,12 @@ function BoxTruckCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (
   const SIDE_SQFT = useCallback(() => {
     const l = parseFloat(length) || 0
     const h = parseFloat(height) || 0
-    const map: Record<string, number> = {
-      left: l * h, right: l * h, rear: h * 8, front: h * 8,
-    }
-    return map
+    return { left: l * h, right: l * h, rear: h * 8, front: h * 8 }
   }, [length, height])
 
   const calculate = useCallback(() => {
     const sqftMap = SIDE_SQFT()
-    const netSqft = sides.reduce((acc, s) => acc + (sqftMap[s] || 0), 0)
+    const netSqft = sides.reduce((acc, s) => acc + (sqftMap[s as keyof typeof sqftMap] || 0), 0)
     if (netSqft === 0) return
     const withWaste = netSqft * 1.10
     const materialCost = withWaste * MATERIALS[matIdx].ppsf
@@ -389,13 +371,9 @@ function BoxTruckCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (
 
   useEffect(() => { calculate() }, [calculate])
 
-  function toggleSide(s: string) {
-    setSides(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1 }}>
           <div style={labelStyle}>Length (ft)</div>
           <input type="number" value={length} onChange={e => setLength(e.target.value)} placeholder="20" style={inputStyle} />
@@ -408,21 +386,12 @@ function BoxTruckCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (
 
       <div>
         <div style={labelStyle}>Sides</div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {['left', 'right', 'rear', 'front'].map(s => {
             const active = sides.includes(s)
             return (
-              <button
-                key={s}
-                onClick={() => toggleSide(s)}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: 7, fontSize: 12, cursor: 'pointer',
-                  textTransform: 'capitalize',
-                  border: `1px solid ${active ? 'var(--accent)' : 'var(--surface2)'}`,
-                  background: active ? '#4f7fff20' : 'transparent',
-                  color: active ? 'var(--accent)' : 'var(--text2)',
-                }}
-              >
+              <button key={s} onClick={() => setSides(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                style={{ ...pillBtn(active), flex: 1, textTransform: 'capitalize' }}>
                 {s}
               </button>
             )
@@ -430,31 +399,28 @@ function BoxTruckCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-        <div style={{ flex: 2 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
           <div style={labelStyle}>Material</div>
-          <select
-            value={matIdx}
-            onChange={e => setMatIdx(Number(e.target.value))}
-            style={{ ...inputStyle, appearance: 'none' as React.CSSProperties['appearance'] }}
-          >
+          <select value={matIdx} onChange={e => setMatIdx(Number(e.target.value))}
+            style={{ ...inputStyle, appearance: 'none' as React.CSSProperties['appearance'] }}>
             {MATERIALS.map((m, i) => <option key={m.label} value={i}>{m.label} ${m.ppsf.toFixed(2)}/sf</option>)}
           </select>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', paddingBottom: 8, whiteSpace: 'nowrap' }}>
-          <input type="checkbox" checked={cabAddon} onChange={e => setCabAddon(e.target.checked)} />
-          <span style={{ fontSize: 12, color: 'var(--text2)' }}>Cab +$1,950</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', paddingBottom: 6, whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={cabAddon} onChange={e => setCabAddon(e.target.checked)} style={{ margin: 0 }} />
+          <span style={{ fontSize: 10, color: 'var(--text2)' }}>Cab +$1,950</span>
         </label>
       </div>
 
-      {result && <ResultBar result={result} />}
+      {!hideResult && result && <ResultBar result={result} />}
     </div>
   )
 }
 
 // ─── Trailer Calculator ───────────────────────────────────────────────────────
 
-function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r: CalcResult) => void }) {
+function TrailerCalc({ targetGpm, onResult, hideResult }: { targetGpm: number; onResult?: (r: CalcResult) => void; hideResult?: boolean }) {
   const [length, setLength] = useState('')
   const [height, setHeight] = useState('')
   const [sides, setSides] = useState<string[]>(['left', 'right'])
@@ -469,16 +435,11 @@ function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r
     const l = parseFloat(length) || 0
     const h = parseFloat(height) || 0
     if (!l || !h) return
-    const sideArea = l * h
-    let netSqft = sides.length * sideArea
+    let netSqft = sides.length * l * h
     const frontMults: Record<string, number> = { full: 1, '3-4': 0.75, half: 0.5 }
     netSqft += (h * 8) * (frontMults[frontCov] || 1)
     if (vnose === 'half') netSqft += (h * 4) * 0.5
-    if (vnose === 'custom') {
-      const vh = parseFloat(vnoseH) || 0
-      const vl = parseFloat(vnoseL) || 0
-      netSqft += vh * vl
-    }
+    if (vnose === 'custom') netSqft += (parseFloat(vnoseH) || 0) * (parseFloat(vnoseL) || 0)
     const withWaste = netSqft * 1.10
     const materialCost = withWaste * MATERIALS[matIdx].ppsf
     const laborHrs = netSqft / SQFT_PER_HOUR
@@ -499,8 +460,8 @@ function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r
   useEffect(() => { calculate() }, [calculate])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1 }}>
           <div style={labelStyle}>Length (ft)</div>
           <input type="number" value={length} onChange={e => setLength(e.target.value)} placeholder="53" style={inputStyle} />
@@ -513,21 +474,12 @@ function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r
 
       <div>
         <div style={labelStyle}>Sides</div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {['left', 'right'].map(s => {
             const active = sides.includes(s)
             return (
-              <button
-                key={s}
-                onClick={() => setSides(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: 7, fontSize: 12, cursor: 'pointer',
-                  textTransform: 'capitalize',
-                  border: `1px solid ${active ? 'var(--accent)' : 'var(--surface2)'}`,
-                  background: active ? '#4f7fff20' : 'transparent',
-                  color: active ? 'var(--accent)' : 'var(--text2)',
-                }}
-              >
+              <button key={s} onClick={() => setSides(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                style={{ ...pillBtn(active), flex: 1, textTransform: 'capitalize' }}>
                 {s}
               </button>
             )
@@ -537,18 +489,9 @@ function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r
 
       <div>
         <div style={labelStyle}>Front Coverage</div>
-        <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {(['full', '3-4', 'half'] as const).map(c => (
-            <button
-              key={c}
-              onClick={() => setFrontCov(c)}
-              style={{
-                flex: 1, padding: '7px 0', borderRadius: 7, fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${frontCov === c ? 'var(--accent)' : 'var(--surface2)'}`,
-                background: frontCov === c ? '#4f7fff20' : 'transparent',
-                color: frontCov === c ? 'var(--accent)' : 'var(--text2)',
-              }}
-            >
+            <button key={c} onClick={() => setFrontCov(c)} style={{ ...pillBtn(frontCov === c), flex: 1 }}>
               {c === '3-4' ? '3/4' : c.charAt(0).toUpperCase() + c.slice(1)}
             </button>
           ))}
@@ -557,31 +500,21 @@ function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r
 
       <div>
         <div style={labelStyle}>V-Nose</div>
-        <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {(['none', 'half', 'custom'] as const).map(c => (
-            <button
-              key={c}
-              onClick={() => setVnose(c)}
-              style={{
-                flex: 1, padding: '7px 0', borderRadius: 7, fontSize: 12, cursor: 'pointer',
-                textTransform: 'capitalize',
-                border: `1px solid ${vnose === c ? 'var(--purple)' : 'var(--surface2)'}`,
-                background: vnose === c ? '#8b5cf620' : 'transparent',
-                color: vnose === c ? 'var(--purple)' : 'var(--text2)',
-              }}
-            >
+            <button key={c} onClick={() => setVnose(c)} style={{ ...pillBtn(vnose === c, 'var(--purple)'), flex: 1, textTransform: 'capitalize' }}>
               {c}
             </button>
           ))}
         </div>
         {vnose === 'custom' && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
             <div style={{ flex: 1 }}>
-              <div style={labelStyle}>V-Nose Height (ft)</div>
+              <div style={labelStyle}>V-Nose Ht (ft)</div>
               <input type="number" value={vnoseH} onChange={e => setVnoseH(e.target.value)} placeholder="4" style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={labelStyle}>V-Nose Length (ft)</div>
+              <div style={labelStyle}>V-Nose Len (ft)</div>
               <input type="number" value={vnoseL} onChange={e => setVnoseL(e.target.value)} placeholder="6" style={inputStyle} />
             </div>
           </div>
@@ -590,23 +523,20 @@ function TrailerCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r
 
       <div>
         <div style={labelStyle}>Material</div>
-        <select
-          value={matIdx}
-          onChange={e => setMatIdx(Number(e.target.value))}
-          style={{ ...inputStyle, appearance: 'none' as React.CSSProperties['appearance'] }}
-        >
+        <select value={matIdx} onChange={e => setMatIdx(Number(e.target.value))}
+          style={{ ...inputStyle, appearance: 'none' as React.CSSProperties['appearance'] }}>
           {MATERIALS.map((m, i) => <option key={m.label} value={i}>{m.label} ${m.ppsf.toFixed(2)}/sf</option>)}
         </select>
       </div>
 
-      {result && <ResultBar result={result} />}
+      {!hideResult && result && <ResultBar result={result} />}
     </div>
   )
 }
 
 // ─── Marine Calculator ────────────────────────────────────────────────────────
 
-function MarineCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r: CalcResult) => void }) {
+function MarineCalc({ targetGpm, onResult, hideResult }: { targetGpm: number; onResult?: (r: CalcResult) => void; hideResult?: boolean }) {
   const [hullLength, setHullLength] = useState('')
   const [hullHeight, setHullHeight] = useState('')
   const [passes, setPasses] = useState(1)
@@ -619,13 +549,12 @@ function MarineCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r:
     const l = parseFloat(hullLength) || 0
     const h = parseFloat(hullHeight) || 0
     if (!l || !h) return
-    let netSqft = l * h * passes * 2 // both sides
+    let netSqft = l * h * passes * 2
     if (transom) netSqft += h * 8
     const withWaste = netSqft * 1.20
     const materialCost = withWaste * MATERIALS[matIdx].ppsf
     const wrapHrs = netSqft / SQFT_PER_HOUR
-    const pHrs = parseFloat(prepHrs) || 0
-    const laborHrs = wrapHrs + pHrs
+    const laborHrs = wrapHrs + (parseFloat(prepHrs) || 0)
     const laborCost = laborHrs * LABOR_RATE
     const totalCost = materialCost + laborCost
     const salePrice = calcRevFromGpm(totalCost, targetGpm)
@@ -643,8 +572,8 @@ function MarineCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r:
   useEffect(() => { calculate() }, [calculate])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1 }}>
           <div style={labelStyle}>Hull Length (ft)</div>
           <input type="number" value={hullLength} onChange={e => setHullLength(e.target.value)} placeholder="24" style={inputStyle} />
@@ -657,56 +586,42 @@ function MarineCalc({ targetGpm, onResult }: { targetGpm: number; onResult?: (r:
 
       <div>
         <div style={labelStyle}>Passes</div>
-        <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {[1, 2, 3].map(p => (
-            <button
-              key={p}
-              onClick={() => setPasses(p)}
-              style={{
-                flex: 1, padding: '8px 0', borderRadius: 7, fontSize: 13, cursor: 'pointer',
-                border: `1px solid ${passes === p ? 'var(--cyan)' : 'var(--surface2)'}`,
-                background: passes === p ? '#22d3ee20' : 'transparent',
-                color: passes === p ? 'var(--cyan)' : 'var(--text2)',
-              }}
-            >
+            <button key={p} onClick={() => setPasses(p)} style={{ ...pillBtn(passes === p, 'var(--cyan)'), flex: 1 }}>
               {p}x
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 2 }}>
           <div style={labelStyle}>Material</div>
-          <select
-            value={matIdx}
-            onChange={e => setMatIdx(Number(e.target.value))}
-            style={{ ...inputStyle, appearance: 'none' as React.CSSProperties['appearance'] }}
-          >
+          <select value={matIdx} onChange={e => setMatIdx(Number(e.target.value))}
+            style={{ ...inputStyle, appearance: 'none' as React.CSSProperties['appearance'] }}>
             {MATERIALS.map((m, i) => <option key={m.label} value={i}>{m.label} ${m.ppsf.toFixed(2)}/sf</option>)}
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={labelStyle}>Prep Hours</div>
+          <div style={labelStyle}>Prep Hrs</div>
           <input type="number" value={prepHrs} onChange={e => setPrepHrs(e.target.value)} placeholder="0" style={inputStyle} />
         </div>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-        <input type="checkbox" checked={transom} onChange={e => setTransom(e.target.checked)} />
-        <span style={{ fontSize: 13, color: 'var(--text2)' }}>Include Transom</span>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+        <input type="checkbox" checked={transom} onChange={e => setTransom(e.target.checked)} style={{ margin: 0 }} />
+        <span style={{ fontSize: 11, color: 'var(--text2)' }}>Include Transom</span>
       </label>
 
-      <div style={{ fontSize: 11, color: 'var(--text3)' }}>20% waste allowance applied automatically</div>
-
-      {result && <ResultBar result={result} />}
+      {!hideResult && result && <ResultBar result={result} />}
     </div>
   )
 }
 
 // ─── PPF Calculator ───────────────────────────────────────────────────────────
 
-function PPFCalc({ onResult }: { onResult?: (r: CalcResult) => void }) {
+function PPFCalc({ onResult, hideResult }: { onResult?: (r: CalcResult) => void; hideResult?: boolean }) {
   const [selected, setSelected] = useState<string[]>([])
   const [result, setResult] = useState<CalcResult | null>(null)
 
@@ -715,7 +630,7 @@ function PPFCalc({ onResult }: { onResult?: (r: CalcResult) => void }) {
     if (pkgs.length === 0) return
     const totalYds = pkgs.reduce((acc, p) => acc + p.yds, 0)
     const salePrice = pkgs.reduce((acc, p) => acc + p.price, 0)
-    const materialCost = totalYds * 9 * 2.80 // yd→sqft * cost
+    const materialCost = totalYds * 9 * 2.80
     const laborHrs = totalYds * 9 / SQFT_PER_HOUR
     const laborCost = laborHrs * LABOR_RATE
     const totalCost = materialCost + laborCost
@@ -731,56 +646,52 @@ function PPFCalc({ onResult }: { onResult?: (r: CalcResult) => void }) {
 
   useEffect(() => { calculate() }, [calculate])
 
-  function toggle(name: string) {
-    setSelected(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
         {PPF_PACKAGES.map(pkg => {
           const active = selected.includes(pkg.name)
           return (
             <button
               key={pkg.name}
-              onClick={() => toggle(pkg.name)}
+              onClick={() => setSelected(prev => prev.includes(pkg.name) ? prev.filter(x => x !== pkg.name) : [...prev, pkg.name])}
               style={{
-                padding: '10px 12px', borderRadius: 8, textAlign: 'left', cursor: 'pointer',
+                padding: '7px 10px', borderRadius: 7, textAlign: 'left', cursor: 'pointer',
                 border: `1px solid ${active ? 'var(--accent)' : 'var(--surface2)'}`,
                 background: active ? '#4f7fff15' : 'var(--bg)',
                 position: 'relative',
               }}
             >
               {active && (
-                <div style={{ position: 'absolute', top: 6, right: 6 }}>
-                  <Check size={12} color="var(--accent)" />
+                <div style={{ position: 'absolute', top: 4, right: 4 }}>
+                  <Check size={11} color="var(--accent)" />
                 </div>
               )}
-              <div style={{ fontSize: 12, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text1)', marginBottom: 1 }}>
                 {pkg.name}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{pkg.yds} yds</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text2)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: 'var(--text3)' }}>{pkg.yds} yds</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text2)', fontFamily: 'var(--font-mono)' }}>
                 ${pkg.price.toLocaleString()}
               </div>
             </button>
           )
         })}
       </div>
-      {result && <ResultBar result={result} />}
+      {!hideResult && result && <ResultBar result={result} />}
     </div>
   )
 }
 
 // ─── CompactCalculator (main export) ─────────────────────────────────────────
 
-export function CompactCalculator({ type, targetGpm, onResult }: CompactCalculatorProps) {
+export function CompactCalculator({ type, targetGpm, onResult, hideResult, initialSqft }: CompactCalculatorProps) {
   switch (type) {
-    case 'commercial': return <CommercialCalc targetGpm={targetGpm} onResult={onResult} />
-    case 'box_truck':  return <BoxTruckCalc   targetGpm={targetGpm} onResult={onResult} />
-    case 'trailer':    return <TrailerCalc    targetGpm={targetGpm} onResult={onResult} />
-    case 'marine':     return <MarineCalc     targetGpm={targetGpm} onResult={onResult} />
-    case 'ppf':        return <PPFCalc        onResult={onResult} />
+    case 'commercial': return <CommercialCalc targetGpm={targetGpm} onResult={onResult} hideResult={hideResult} initialSqft={initialSqft} />
+    case 'box_truck':  return <BoxTruckCalc   targetGpm={targetGpm} onResult={onResult} hideResult={hideResult} />
+    case 'trailer':    return <TrailerCalc    targetGpm={targetGpm} onResult={onResult} hideResult={hideResult} />
+    case 'marine':     return <MarineCalc     targetGpm={targetGpm} onResult={onResult} hideResult={hideResult} />
+    case 'ppf':        return <PPFCalc        onResult={onResult}   hideResult={hideResult} />
     default:           return null
   }
 }
