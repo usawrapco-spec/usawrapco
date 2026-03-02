@@ -1,15 +1,16 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Calculator, FileText } from 'lucide-react'
+import { Calculator, FileText, ClipboardList } from 'lucide-react'
 
 interface EditPageTabsProps {
   orderEditor: ReactNode
   lineItemsEngine: ReactNode
+  surveyBuilder?: ReactNode
 }
 
-export default function EditPageTabs({ orderEditor, lineItemsEngine }: EditPageTabsProps) {
-  const [mode, setMode] = useState<'classic' | 'engine'>('engine')
+export default function EditPageTabs({ orderEditor, lineItemsEngine, surveyBuilder }: EditPageTabsProps) {
+  const [mode, setMode] = useState<'classic' | 'engine' | 'survey'>('survey')
 
   return (
     <div>
@@ -18,12 +19,28 @@ export default function EditPageTabs({ orderEditor, lineItemsEngine }: EditPageT
         display: 'flex', gap: 2, marginBottom: 16, padding: 3,
         background: 'var(--surface2)', borderRadius: 10, width: 'fit-content',
       }}>
+        {surveyBuilder && (
+          <button
+            onClick={() => setMode('survey')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 18px', borderRadius: 8, border: 'none',
+              background: mode === 'survey' ? 'var(--accent)' : 'transparent',
+              color: mode === 'survey' ? '#fff' : 'var(--text3)',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}
+          >
+            <ClipboardList size={14} />
+            Survey + Build
+          </button>
+        )}
         <button
           onClick={() => setMode('engine')}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 18px', borderRadius: 8,
-            border: 'none',
+            padding: '8px 18px', borderRadius: 8, border: 'none',
             background: mode === 'engine' ? 'var(--accent)' : 'transparent',
             color: mode === 'engine' ? '#fff' : 'var(--text3)',
             fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -38,8 +55,7 @@ export default function EditPageTabs({ orderEditor, lineItemsEngine }: EditPageT
           onClick={() => setMode('classic')}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 18px', borderRadius: 8,
-            border: 'none',
+            padding: '8px 18px', borderRadius: 8, border: 'none',
             background: mode === 'classic' ? 'var(--accent)' : 'transparent',
             color: mode === 'classic' ? '#fff' : 'var(--text3)',
             fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -53,7 +69,9 @@ export default function EditPageTabs({ orderEditor, lineItemsEngine }: EditPageT
       </div>
 
       {/* Content */}
-      {mode === 'engine' ? lineItemsEngine : orderEditor}
+      {mode === 'survey' && surveyBuilder}
+      {mode === 'engine' && lineItemsEngine}
+      {mode === 'classic' && orderEditor}
     </div>
   )
 }

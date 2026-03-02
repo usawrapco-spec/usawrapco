@@ -5,6 +5,7 @@ import { MobileNav } from '@/components/layout/MobileNav'
 import OrderEditor from '@/components/projects/OrderEditor'
 import LineItemsEngine from '@/components/estimator/LineItemsEngine'
 import EditPageTabs from '@/components/estimator/EditPageTabs'
+import SurveyBuilder from '@/components/estimator/SurveyBuilder'
 import type { Profile, Project } from '@/types'
 
 export default async function EditProjectPage({ params }: { params: { id: string } }) {
@@ -41,6 +42,12 @@ export default async function EditProjectPage({ params }: { params: { id: string
       <TopNav profile={profile as Profile} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', paddingBottom: 80 }}>
         <EditPageTabs
+          surveyBuilder={
+            <SurveyBuilder
+              projectId={params.id}
+              initialSurveyVehicles={(project as Project & { form_data?: Record<string, unknown> }).form_data?.survey_vehicles as never[] | undefined}
+            />
+          }
           orderEditor={
             <OrderEditor
               profile={profile as Profile}
