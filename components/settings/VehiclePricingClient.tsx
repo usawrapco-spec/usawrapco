@@ -37,7 +37,7 @@ interface VehiclePricingProps {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const VEHICLES_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
+const VEHICLES_DB: VehicleEntry[] = vehiclesData as unknown as VehicleEntry[]
 const ALL_MAKES = [...new Set(VEHICLES_DB.map(v => v.make))].sort()
 
 // ─── Styles ──────────────────────────────────────────────────────────────────

@@ -3,29 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import Anthropic from '@anthropic-ai/sdk'
 import { randomUUID } from 'crypto'
+import {
+  logHealth,
+  generateArtwork,
+  compositeText,
+  polishMockup,
+} from '@/lib/mockup/pipeline'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-async function logHealth(orgId: string, service: string, message: string) {
-  try {
-    await getSupabaseAdmin()
-      .from('system_health')
-      .insert({ org_id: orgId, service, error_message: message, severity: 'error' })
-  } catch { /* silent */ }
-}
-
-async function callRoute(path: string, body: object): Promise<any> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-  const res = await fetch(`${baseUrl}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `${path} failed`)
-  return data
-}
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -133,16 +118,15 @@ ${logo_url ? 'LOGO: See image above' : 'NO LOGO PROVIDED'}`,
       brand_analysis: brandAnalysis,
     }).eq('id', mockupId)
 
-    // ── Step 2: Generate artwork (Ideogram) ────────────────────────────────────
-    const artResult = await callRoute('/api/mockup/generate-artwork', {
+    // ── Step 2: Generate artwork (Ideogram) — direct function call ────────────
+    const { artwork_url: artworkUrl } = await generateArtwork({
       mockup_id: mockupId,
       ideogram_prompt: ideogramPrompt,
       org_id: orgId,
     })
-    const artworkUrl = artResult.artwork_url
 
-    // ── Step 3: Composite text ─────────────────────────────────────────────────
-    const compResult = await callRoute('/api/mockup/composite-text', {
+    // ── Step 3: Composite text — direct function call ─────────────────────────
+    const { composited_url: compositedUrl } = await compositeText({
       mockup_id: mockupId,
       template_id,
       artwork_url: artworkUrl,
@@ -154,15 +138,13 @@ ${logo_url ? 'LOGO: See image above' : 'NO LOGO PROVIDED'}`,
       brand_colors,
       org_id: orgId,
     })
-    const compositedUrl = compResult.composited_url
 
-    // ── Step 4: Polish (Flux img2img) ──────────────────────────────────────────
-    const polishResult = await callRoute('/api/mockup/polish', {
+    // ── Step 4: Polish (Flux img2img) — direct function call ──────────────────
+    const { concept_url: conceptUrl } = await polishMockup({
       mockup_id: mockupId,
       composited_url: compositedUrl,
       org_id: orgId,
     })
-    const conceptUrl = polishResult.concept_url
 
     // ── Done: concept ready for approval ──────────────────────────────────────
     await admin.from('mockup_results').update({

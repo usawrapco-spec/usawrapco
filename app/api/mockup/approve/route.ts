@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
-
-async function callRoute(path: string, body: object): Promise<any> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const res = await fetch(`${baseUrl}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `${path} failed`)
-  return data
-}
+import { upscaleMockup, exportPrint } from '@/lib/mockup/pipeline'
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -24,7 +13,6 @@ export async function POST(req: NextRequest) {
 
   if (!mockup_id) return NextResponse.json({ error: 'mockup_id required' }, { status: 400 })
 
-  // Fetch current mockup record
   const { data: mockup, error: fetchErr } = await admin
     .from('mockup_results')
     .select('concept_url, org_id')
@@ -52,27 +40,25 @@ export async function POST(req: NextRequest) {
   }).eq('id', mockup_id)
 
   try {
-    // ── Upscale ───────────────────────────────────────────────────────────────
-    const upscaleResult = await callRoute('/api/mockup/upscale', {
+    // ── Upscale — direct function call ────────────────────────────────────────
+    const { upscaled_url: upscaledUrl } = await upscaleMockup({
       mockup_id,
       concept_url: conceptUrl,
       org_id: orgId,
     })
-    const upscaledUrl = upscaleResult.upscaled_url
 
-    // ── Print Export ──────────────────────────────────────────────────────────
-    const printResult = await callRoute('/api/mockup/export-print', {
+    // ── Print Export — direct function call ───────────────────────────────────
+    const { print_url: printUrl, specs } = await exportPrint({
       mockup_id,
       upscaled_url: upscaledUrl,
       org_id: orgId,
     })
-    const printUrl = printResult.print_url
 
     return NextResponse.json({
       mockup_id,
       upscaled_url: upscaledUrl,
       print_url: printUrl,
-      specs: printResult.specs,
+      specs,
     })
   } catch (err: any) {
     await admin.from('mockup_results').update({

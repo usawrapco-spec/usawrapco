@@ -19,7 +19,7 @@ interface VehicleEntry {
   sqft: number; basePrice: number; installHours: number; tier: string
 }
 
-const LEGACY_DB: VehicleEntry[] = vehiclesData as VehicleEntry[]
+const LEGACY_DB: VehicleEntry[] = vehiclesData as unknown as VehicleEntry[]
 const YEARS = Array.from({ length: 37 }, (_, i) => 2026 - i)
 const COVERAGES: Coverage[] = ['half', 'threequarter', 'full']
 
