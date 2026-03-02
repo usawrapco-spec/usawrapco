@@ -15,7 +15,7 @@ import {
   Trophy, UserPlus,
   Printer, Truck,
   Shield, Rocket, UserCheck,
-  Globe, LayoutGrid, Navigation,
+  Globe, LayoutGrid, Navigation, Compass,
   Wand2, LayoutTemplate,
 } from 'lucide-react'
 

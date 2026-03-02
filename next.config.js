@@ -14,7 +14,7 @@ const nextConfig = {
   // Treat heavy SDK packages as external so they are required at runtime,
   // not bundled+evaluated during Next.js build page-data collection.
   experimental: {
-    serverComponentsExternalPackages: ['@anthropic-ai/sdk', 'twilio', 'replicate'],
+    serverComponentsExternalPackages: ['@anthropic-ai/sdk', 'twilio', 'replicate', 'sharp', 'canvas', 'fabric', 'pdf-lib'],
     // Include /sql directory in the serverless bundle for the migration runner
     outputFileTracingIncludes: {
       '/api/admin/migrate': ['./sql/**/*.sql'],
