@@ -237,11 +237,13 @@ Generate a concise owner brief as JSON. Focus on what actually matters. If a dat
     }
 
     // Save to DB
+    const today = new Date().toISOString().split('T')[0]
     const cachedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString()
-    const { data: saved } = await admin
+    const { data: saved, error: insertError } = await admin
       .from('ai_recaps')
       .insert({
         org_id: orgId,
+        recap_date: today,
         recap_text: recapText,
         sections,
         action_items: actionItems,
@@ -249,6 +251,10 @@ Generate a concise owner brief as JSON. Focus on what actually matters. If a dat
       })
       .select()
       .single()
+
+    if (insertError) {
+      console.error('[ai/recap] Failed to cache brief to ai_recaps:', insertError)
+    }
 
     return NextResponse.json({
       id: saved?.id,
