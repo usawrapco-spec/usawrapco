@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Calculator, FileText, ClipboardList } from 'lucide-react'
+import { Calculator, FileText, ClipboardList, ClipboardCheck } from 'lucide-react'
 
 interface EditPageTabsProps {
   orderEditor: ReactNode
   lineItemsEngine: ReactNode
   surveyBuilder?: ReactNode
+  intakeSurvey?: ReactNode
 }
 
-export default function EditPageTabs({ orderEditor, lineItemsEngine, surveyBuilder }: EditPageTabsProps) {
-  const [mode, setMode] = useState<'classic' | 'engine' | 'survey'>('survey')
+export default function EditPageTabs({ orderEditor, lineItemsEngine, surveyBuilder, intakeSurvey }: EditPageTabsProps) {
+  const [mode, setMode] = useState<'intake' | 'classic' | 'engine' | 'survey'>(intakeSurvey ? 'intake' : 'survey')
 
   return (
     <div>
@@ -19,6 +20,23 @@ export default function EditPageTabs({ orderEditor, lineItemsEngine, surveyBuild
         display: 'flex', gap: 2, marginBottom: 16, padding: 3,
         background: 'var(--surface2)', borderRadius: 10, width: 'fit-content',
       }}>
+        {intakeSurvey && (
+          <button
+            onClick={() => setMode('intake')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 18px', borderRadius: 8, border: 'none',
+              background: mode === 'intake' ? 'var(--accent)' : 'transparent',
+              color: mode === 'intake' ? '#fff' : 'var(--text3)',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              fontFamily: "'Barlow Condensed', sans-serif",
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}
+          >
+            <ClipboardCheck size={14} />
+            Intake Survey
+          </button>
+        )}
         {surveyBuilder && (
           <button
             onClick={() => setMode('survey')}
@@ -33,7 +51,7 @@ export default function EditPageTabs({ orderEditor, lineItemsEngine, surveyBuild
             }}
           >
             <ClipboardList size={14} />
-            Survey + Build
+            Vehicle Builder
           </button>
         )}
         <button
@@ -69,6 +87,7 @@ export default function EditPageTabs({ orderEditor, lineItemsEngine, surveyBuild
       </div>
 
       {/* Content */}
+      {mode === 'intake' && intakeSurvey}
       {mode === 'survey' && surveyBuilder}
       {mode === 'engine' && lineItemsEngine}
       {mode === 'classic' && orderEditor}
