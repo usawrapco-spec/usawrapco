@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import {
   GripVertical, ChevronDown, ChevronRight, Edit2, Check, X,
   Camera, Upload, Flag, AlertTriangle, CheckCircle, Trash2,
@@ -68,10 +69,10 @@ const STYLE_PRESETS = [
 ]
 
 const DESIGN_STATUSES: { value: DesignStatus; label: string; color: string }[] = [
-  { value: 'not_started', label: 'Not Started', color: 'var(--text3)' },
-  { value: 'in_progress', label: 'In Progress',  color: '#f59e0b'      },
-  { value: 'proof_sent',  label: 'Proof Sent',   color: 'var(--cyan)'  },
-  { value: 'approved',    label: 'Approved',     color: 'var(--green)' },
+  { value: 'not_started', label: 'Not Started', color: 'var(--text3)'  },
+  { value: 'in_progress', label: 'In Progress',  color: '#f59e0b'       },
+  { value: 'proof_sent',  label: 'Proof Sent',   color: 'var(--cyan)'   },
+  { value: 'approved',    label: 'Approved',     color: 'var(--green)'  },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ function NumbersPanel({ item, onUpdate }: { item: LineItemData; onUpdate: (u: Li
           type="number" min="0"
           value={item.salePrice || ''}
           onChange={e => {
-            const sp = Number(e.target.value) || 0
+            const sp     = Number(e.target.value) || 0
             const newGpm = sp > 0 ? Math.round(((sp - cogs) / sp) * 1000) / 10 : 0
             onUpdate({ ...item, salePrice: sp, gpm: newGpm })
           }}
@@ -145,19 +146,16 @@ function NumbersPanel({ item, onUpdate }: { item: LineItemData; onUpdate: (u: Li
         />
       </div>
 
-      {/* Costs */}
+      {/* Cost breakdown */}
       <div style={{ borderTop: '1px solid var(--surface2)', paddingTop: 6 }}>
-        {/* Material */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
           <span style={numLabel}>Material</span>
           <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>${fmt(item.materialCost)}</span>
         </div>
-        {/* Install Pay */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
           <span style={numLabel}>Install Pay</span>
           <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>${fmt(item.laborCost)}</span>
         </div>
-        {/* Design Fee — editable */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
           <span style={numLabel}>Design Fee</span>
           <input
@@ -172,7 +170,6 @@ function NumbersPanel({ item, onUpdate }: { item: LineItemData; onUpdate: (u: Li
             }}
           />
         </div>
-        {/* COGS */}
         <div style={{
           display: 'flex', justifyContent: 'space-between',
           padding: '4px 0', borderTop: '1px solid var(--surface2)',
@@ -214,14 +211,13 @@ function InlineVehicleSelector({
   onSelect: (v: { year: string; make: string; model: string; sqft: number }) => void
 }) {
   const supabase = createClient()
-  const [years, setYears]   = useState<string[]>([])
-  const [makes, setMakes]   = useState<string[]>([])
-  const [models, setModels] = useState<string[]>([])
+  const [years,    setYears]    = useState<string[]>([])
+  const [makes,    setMakes]    = useState<string[]>([])
+  const [models,   setModels]   = useState<string[]>([])
   const [selYear,  setSelYear]  = useState(value.year)
   const [selMake,  setSelMake]  = useState(value.make)
   const [selModel, setSelModel] = useState(value.model)
 
-  // Load years once
   useEffect(() => {
     supabase
       .from('vehicle_measurements')
@@ -233,7 +229,6 @@ function InlineVehicleSelector({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Load makes when year changes
   useEffect(() => {
     if (!selYear) { setMakes([]); setSelMake(''); setModels([]); setSelModel(''); return }
     supabase
@@ -247,7 +242,6 @@ function InlineVehicleSelector({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selYear])
 
-  // Load models when make changes
   useEffect(() => {
     if (!selYear || !selMake) { setModels([]); setSelModel(''); return }
     supabase
@@ -262,7 +256,6 @@ function InlineVehicleSelector({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selYear, selMake])
 
-  // Fetch sqft and call onSelect when model is picked
   useEffect(() => {
     if (!selYear || !selMake || !selModel) return
     supabase
@@ -367,6 +360,7 @@ function PhotosTab({ item, onUpdate }: { item: LineItemData; onUpdate: (updated:
         </div>
       )}
 
+      {/* Angle selector pills */}
       <div>
         <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Angle</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -383,6 +377,7 @@ function PhotosTab({ item, onUpdate }: { item: LineItemData; onUpdate: (updated:
         </div>
       </div>
 
+      {/* Take Photo / Upload buttons */}
       <div style={{ display: 'flex', gap: 6 }}>
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} style={{ display: 'none' }} />
         <input ref={fileInputRef}   type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
@@ -403,6 +398,7 @@ function PhotosTab({ item, onUpdate }: { item: LineItemData; onUpdate: (updated:
         </button>
       </div>
 
+      {/* Photo grid (2 cols) */}
       {item.photos.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           {item.photos.map(photo => (
@@ -455,12 +451,18 @@ function PhotosTab({ item, onUpdate }: { item: LineItemData; onUpdate: (updated:
 
 // ─── MockupTab ────────────────────────────────────────────────────────────────
 
-function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectId: string; onUpdate: (u: LineItemData) => void }) {
-  const [stylePreset, setStylePreset] = useState(STYLE_PRESETS[0])
-  const [customPrompt, setCustomPrompt] = useState('')
-  const [generating, setGenerating] = useState(false)
+function MockupTab({
+  item, projectId, onUpdate,
+}: {
+  item: LineItemData
+  projectId: string
+  onUpdate: (u: LineItemData) => void
+}) {
+  const [stylePreset,   setStylePreset]   = useState(STYLE_PRESETS[0])
+  const [customPrompt,  setCustomPrompt]  = useState('')
+  const [generating,    setGenerating]    = useState(false)
   const [generatedUrls, setGeneratedUrls] = useState<string[]>([])
-  const [error, setError] = useState('')
+  const [error,         setError]         = useState('')
 
   async function generate() {
     setGenerating(true)
@@ -470,14 +472,15 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          year: item.vehicleYear,
-          make: item.vehicleMake || 'Commercial',
-          model: item.vehicleModel || item.name,
-          wrapStyle: stylePreset.wrapStyle,
-          specificElements: customPrompt,
+          prompt:      `${stylePreset.wrapStyle}${customPrompt ? '. ' + customPrompt : ''}`,
           projectId,
-          itemId: item.id,
+          itemId:      item.id,
           vehicleDesc: [item.vehicleYear, item.vehicleMake, item.vehicleModel].filter(Boolean).join(' ') || item.name,
+          year:        item.vehicleYear,
+          make:        item.vehicleMake || 'Commercial',
+          model:       item.vehicleModel || item.name,
+          wrapStyle:   stylePreset.wrapStyle,
+          specificElements: customPrompt,
         }),
       })
       const data = await res.json() as { status: string; imageUrl?: string; predictionId?: string; error?: string }
@@ -489,7 +492,7 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         while (attempts < 40) {
           await new Promise(r => setTimeout(r, 3000))
           const poll = await fetch(`/api/ai/generate-mockup?id=${id}`)
-          const pd = await poll.json() as { status: string; imageUrl?: string }
+          const pd   = await poll.json() as { status: string; imageUrl?: string }
           if (pd.status === 'succeeded' && pd.imageUrl) { setGeneratedUrls(prev => [pd.imageUrl!, ...prev]); break }
           if (pd.status === 'failed' || pd.status === 'canceled') { setError('Generation failed.'); break }
           attempts++
@@ -505,6 +508,7 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Style presets */}
       <div>
         <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Style Preset</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -521,6 +525,7 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         </div>
       </div>
 
+      {/* Custom prompt */}
       <textarea
         value={customPrompt}
         onChange={e => setCustomPrompt(e.target.value)}
@@ -537,6 +542,7 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         <div style={{ fontSize: 11, color: 'var(--red)', padding: '5px 8px', background: '#f25a5a15', borderRadius: 6 }}>{error}</div>
       )}
 
+      {/* Generate button */}
       <button onClick={() => { void generate() }} disabled={generating} style={{
         padding: '8px 0', borderRadius: 7, border: 'none',
         background: generating ? 'var(--surface2)' : 'var(--purple)',
@@ -548,16 +554,24 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         {generating ? 'Generating (30-60s)...' : 'Generate Mockup'}
       </button>
 
+      {/* Mockup grid */}
       {generatedUrls.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {generatedUrls.map((url, idx) => {
             const isSelected = item.selectedMockupUrl === url
             return (
-              <div key={idx} style={{ position: 'relative', borderRadius: 7, overflow: 'hidden', border: `2px solid ${isSelected ? 'var(--green)' : 'var(--surface2)'}` }}>
+              <div key={idx} style={{
+                position: 'relative', borderRadius: 7, overflow: 'hidden',
+                border: `2px solid ${isSelected ? 'var(--green)' : 'var(--surface2)'}`,
+              }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt={`Mockup ${idx + 1}`} style={{ width: '100%', display: 'block', borderRadius: 5 }} />
                 {isSelected && (
-                  <div style={{ position: 'absolute', top: 6, right: 6, background: 'var(--green)', borderRadius: 20, padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#fff' }}>
+                  <div style={{
+                    position: 'absolute', top: 6, right: 6,
+                    background: 'var(--green)', borderRadius: 20,
+                    padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#fff',
+                  }}>
                     <CheckCircle size={10} /> Selected
                   </div>
                 )}
@@ -580,11 +594,18 @@ function MockupTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
 
 // ─── DesignTab ────────────────────────────────────────────────────────────────
 
-function DesignTab({ item, projectId, onUpdate }: { item: LineItemData; projectId: string; onUpdate: (u: LineItemData) => void }) {
+function DesignTab({
+  item, projectId, onUpdate,
+}: {
+  item: LineItemData
+  projectId: string
+  onUpdate: (u: LineItemData) => void
+}) {
   const statusCfg = DESIGN_STATUSES.find(s => s.value === item.designStatus) ?? DESIGN_STATUSES[0]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Design status select */}
       <div>
         <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Design Status</div>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -604,6 +625,7 @@ function DesignTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         </div>
       </div>
 
+      {/* Selected mockup preview */}
       {item.selectedMockupUrl && (
         <div>
           <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>Selected Mockup</div>
@@ -612,6 +634,7 @@ function DesignTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         </div>
       )}
 
+      {/* Design notes */}
       <div>
         <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Design Notes</div>
         <textarea
@@ -628,15 +651,19 @@ function DesignTab({ item, projectId, onUpdate }: { item: LineItemData; projectI
         />
       </div>
 
-      <a href={`/design/${projectId}/${item.id}`} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        padding: '8px 0', borderRadius: 7,
-        border: '1px solid var(--accent)', background: '#4f7fff15',
-        color: 'var(--accent)', fontSize: 12, fontWeight: 600, textDecoration: 'none',
-      }}>
+      {/* Open Design Studio — uses Link per navigation rules */}
+      <Link
+        href={`/design/${projectId}/${item.id}`}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          padding: '8px 0', borderRadius: 7,
+          border: '1px solid var(--accent)', background: '#4f7fff15',
+          color: 'var(--accent)', fontSize: 12, fontWeight: 600, textDecoration: 'none',
+        }}
+      >
         <ExternalLink size={13} />
         Open Design Studio
-      </a>
+      </Link>
     </div>
   )
 }
@@ -658,37 +685,35 @@ export function LineItemEditor({
   onUpdate: (updated: LineItemData) => void
   onRemove: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<ItemTab>('calculator')
+  const [expanded,    setExpanded]    = useState(false)
+  const [activeTab,   setActiveTab]   = useState<ItemTab>('calculator')
   const [editingName, setEditingName] = useState(false)
-  const [draftName, setDraftName] = useState(item.name)
-  const [calcKey, setCalcKey] = useState(0)
+  const [draftName,   setDraftName]   = useState(item.name)
+  const [calcKey,     setCalcKey]     = useState(0)
 
-  // Suppress unused var warning for surveyVehicles — kept for API compat
-  void surveyVehicles
+  void surveyVehicles  // kept for API compat
 
   const flaggedPhotos = item.photos.filter(p => p.flagged).length
   const typeBadge     = JOB_TYPES.find(t => t.value === item.type)?.badge ?? 'WRAP'
   const vehicleDesc   = [item.vehicleYear, item.vehicleMake, item.vehicleModel].filter(Boolean).join(' ')
 
   function handleCalcResult(r: CalcResult) {
-    // Keep user's manually set sale price if it differs from calculator suggestion
     onUpdate({
       ...item,
       materialCost: r.materialCost,
       laborCost: r.laborCost,
       salePrice: item.salePrice > 0 ? item.salePrice : r.salePrice,
       gpm: item.salePrice > 0
-        ? (item.salePrice > 0 ? Math.round(((item.salePrice - r.materialCost - r.laborCost - item.designFee) / item.salePrice) * 1000) / 10 : 0)
+        ? Math.round(((item.salePrice - r.materialCost - r.laborCost - item.designFee) / item.salePrice) * 1000) / 10
         : r.gpm,
     })
   }
 
   const tabs: { id: ItemTab; label: string; badge?: number }[] = [
-    { id: 'calculator', label: 'Calc' },
-    { id: 'photos',     label: 'Photos', badge: flaggedPhotos > 0 ? flaggedPhotos : undefined },
-    { id: 'mockup',     label: 'Mockup', badge: item.selectedMockupUrl ? 1 : undefined },
-    { id: 'design',     label: 'Design' },
+    { id: 'calculator', label: 'CALCULATOR' },
+    { id: 'photos',     label: 'PHOTOS',  badge: flaggedPhotos > 0 ? flaggedPhotos : undefined },
+    { id: 'mockup',     label: 'MOCKUP',  badge: item.selectedMockupUrl ? 1 : undefined },
+    { id: 'design',     label: 'DESIGN' },
   ]
 
   return (
@@ -696,7 +721,7 @@ export function LineItemEditor({
       background: 'var(--surface)', border: '1px solid var(--surface2)',
       borderRadius: 8, overflow: 'hidden',
     }}>
-      {/* ─── Collapsed / Header Row ─────────────────────────────────────────── */}
+      {/* ─── Collapsed / Header Row ─────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px',
         borderBottom: expanded ? '1px solid var(--surface2)' : 'none',
@@ -714,16 +739,25 @@ export function LineItemEditor({
           {index + 1}
         </div>
 
-        {/* Type badge */}
-        <span style={{
-          fontSize: 8, padding: '2px 5px', borderRadius: 3,
-          background: '#4f7fff15', color: 'var(--accent)',
-          fontWeight: 700, letterSpacing: '0.04em', flexShrink: 0,
-        }}>
-          {typeBadge}
-        </span>
+        {/* Type dropdown */}
+        <select
+          value={item.type}
+          onChange={e => onUpdate({ ...item, type: e.target.value as CalcType })}
+          onClick={e => e.stopPropagation()}
+          style={{
+            padding: '2px 5px', borderRadius: 4,
+            background: '#4f7fff15', border: '1px solid #4f7fff40',
+            color: 'var(--accent)', fontSize: 9, fontWeight: 700,
+            letterSpacing: '0.04em', cursor: 'pointer', outline: 'none',
+            appearance: 'none' as React.CSSProperties['appearance'], flexShrink: 0,
+          }}
+        >
+          {JOB_TYPES.map(t => (
+            <option key={t.value} value={t.value}>{t.badge}</option>
+          ))}
+        </select>
 
-        {/* Name */}
+        {/* Editable name */}
         {editingName ? (
           <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 3 }} onClick={e => e.stopPropagation()}>
             <input
@@ -735,7 +769,7 @@ export function LineItemEditor({
                 color: 'var(--text1)', fontSize: 12, outline: 'none',
               }}
               onKeyDown={e => {
-                if (e.key === 'Enter') { onUpdate({ ...item, name: draftName }); setEditingName(false) }
+                if (e.key === 'Enter')  { onUpdate({ ...item, name: draftName }); setEditingName(false) }
                 if (e.key === 'Escape') { setDraftName(item.name); setEditingName(false) }
               }}
             />
@@ -758,7 +792,7 @@ export function LineItemEditor({
           </span>
         )}
 
-        {/* Vehicle desc */}
+        {/* Linked vehicle tags */}
         {vehicleDesc && (
           <span style={{
             fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -768,7 +802,6 @@ export function LineItemEditor({
           </span>
         )}
 
-        {/* Sqft */}
         {item.vehicleSqft > 0 && (
           <span style={{
             fontSize: 9, color: 'var(--text2)', fontFamily: 'var(--font-mono)',
@@ -780,14 +813,12 @@ export function LineItemEditor({
 
         <div style={{ flex: 1 }} />
 
-        {/* Sale price */}
+        {/* Financial summary */}
         {item.salePrice > 0 && (
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             ${fmt(item.salePrice)}
           </span>
         )}
-
-        {/* GPM badge */}
         {item.gpm > 0 && (
           <span style={{
             fontSize: 10, padding: '1px 6px', borderRadius: 20,
@@ -815,7 +846,7 @@ export function LineItemEditor({
         </button>
       </div>
 
-      {/* ─── Expanded Content ───────────────────────────────────────────────── */}
+      {/* ─── Expanded Content ───────────────────────────────────────────── */}
       {expanded && (
         <div>
           {/* Tab bar */}
@@ -825,11 +856,12 @@ export function LineItemEditor({
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 style={{
-                  flex: 1, padding: '7px 0', border: 'none', cursor: 'pointer', fontSize: 11,
+                  flex: 1, padding: '7px 0', border: 'none', cursor: 'pointer', fontSize: 10,
                   background: activeTab === t.id ? 'var(--bg)' : 'transparent',
                   color: activeTab === t.id ? 'var(--accent)' : 'var(--text2)',
                   borderBottom: activeTab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
-                  fontWeight: activeTab === t.id ? 600 : 400,
+                  fontWeight: activeTab === t.id ? 700 : 400,
+                  letterSpacing: '0.04em',
                   position: 'relative',
                 }}
               >
@@ -853,24 +885,6 @@ export function LineItemEditor({
           <div style={{ padding: 12 }}>
             {activeTab === 'calculator' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {/* Type selector */}
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {JOB_TYPES.map(t => (
-                    <button
-                      key={t.value}
-                      onClick={() => onUpdate({ ...item, type: t.value })}
-                      style={{
-                        padding: '3px 9px', borderRadius: 20, fontSize: 10, cursor: 'pointer',
-                        border: `1px solid ${item.type === t.value ? 'var(--accent)' : 'var(--surface2)'}`,
-                        background: item.type === t.value ? '#4f7fff20' : 'transparent',
-                        color: item.type === t.value ? 'var(--accent)' : 'var(--text2)',
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-
                 {/* Two-column: Calculator (left) + Numbers (right) */}
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ flex: '1 1 60%', minWidth: 0 }}>
@@ -888,7 +902,7 @@ export function LineItemEditor({
                   </div>
                 </div>
 
-                {/* Vehicle selector — bottom of calculator tab */}
+                {/* Vehicle selector */}
                 <InlineVehicleSelector
                   value={{ year: item.vehicleYear, make: item.vehicleMake, model: item.vehicleModel, sqft: item.vehicleSqft }}
                   onSelect={v => {
@@ -901,6 +915,29 @@ export function LineItemEditor({
             {activeTab === 'photos' && <PhotosTab item={item} onUpdate={onUpdate} />}
             {activeTab === 'mockup' && <MockupTab item={item} projectId={projectId} onUpdate={onUpdate} />}
             {activeTab === 'design' && <DesignTab item={item} projectId={projectId} onUpdate={onUpdate} />}
+          </div>
+
+          {/* Bottom summary bar */}
+          <div style={{
+            display: 'flex', gap: 0, borderTop: '1px solid var(--surface2)',
+            background: 'var(--bg)',
+          }}>
+            {[
+              { label: 'Sale',     value: `$${fmt(item.salePrice)}` },
+              { label: 'Material', value: `$${fmt(item.materialCost)}` },
+              { label: 'Labor',    value: `$${fmt(item.laborCost)}` },
+              { label: 'GPM',      value: `${item.gpm}%`, color: item.gpm > 0 ? gpmColor(item.gpm) : 'var(--text3)' },
+            ].map((s, i) => (
+              <div key={i} style={{
+                flex: 1, padding: '5px 8px', textAlign: 'center',
+                borderRight: i < 3 ? '1px solid var(--surface2)' : 'none',
+              }}>
+                <div style={{ fontSize: 8, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: s.color ?? 'var(--text2)', fontFamily: 'var(--font-mono)' }}>
+                  {s.value}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -935,7 +972,9 @@ export function LineItemsList({
 
   const totalRevenue = items.reduce((acc, x) => acc + x.salePrice, 0)
   const totalCogs    = items.reduce((acc, x) => acc + x.materialCost + x.laborCost + x.designFee, 0)
-  const blendedGpm   = totalRevenue > 0 ? Math.round(((totalRevenue - totalCogs) / totalRevenue) * 100 * 10) / 10 : 0
+  const blendedGpm   = totalRevenue > 0
+    ? Math.round(((totalRevenue - totalCogs) / totalRevenue) * 100 * 10) / 10
+    : 0
 
   void targetGpm
 
@@ -953,7 +992,7 @@ export function LineItemsList({
         />
       ))}
 
-      {/* Add buttons */}
+      {/* Add Line Item buttons per type */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
         {JOB_TYPES.map(t => (
           <button
