@@ -206,18 +206,22 @@ export default function MockupGeneratorPage() {
 
   async function loadTemplates() {
     setTLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
-    if (!profile) return
-    const { data } = await supabase
-      .from('vehicle_templates')
-      .select('id, make, model, year_start, year_end, sqft, thumbnail_url, status, width_inches, height_inches, scale_factor, source_format, vehicle_db_id')
-      .eq('org_id', profile.org_id)
-      .eq('status', 'active')
-      .order('make')
-    setTemplates(data || [])
-    setTLoading(false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setTLoading(false); return }
+      const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
+      if (!profile) { setTLoading(false); return }
+      const { data, error } = await supabase
+        .from('vehicle_templates')
+        .select('id, make, model, year_start, year_end, sqft, thumbnail_url, status, width_inches, height_inches, scale_factor, source_format, vehicle_db_id')
+        .eq('org_id', profile.org_id)
+        .eq('status', 'active')
+        .order('make')
+      if (error) console.error('vehicle_templates fetch error:', error)
+      setTemplates(data || [])
+    } finally {
+      setTLoading(false)
+    }
   }
 
   const filteredTemplates = templates.filter(t => {
