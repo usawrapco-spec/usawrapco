@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import {
   Map, Fish, Waves, Cloud, Navigation, BookOpen, Users, Route,
-  Layers, Anchor, ChevronDown, ChevronUp
+  Layers, Anchor, ChevronDown, ChevronUp, MapPin, Radio, Compass,
 } from 'lucide-react'
 
 interface PNWTopNavProps {
@@ -19,13 +19,28 @@ interface LayerDef {
   color: string
 }
 
-const TABS = [
-  { id: 'map', label: 'LIVE MAP', icon: Map },
-  { id: 'fishing', label: 'FISHING', icon: Fish },
+interface TabDef {
+  id: string
+  label: string
+  icon: React.ElementType
+  divider?: boolean
+}
+
+const TABS: TabDef[] = [
+  { id: 'map',          label: 'LIVE MAP',     icon: Map },
+  { id: 'fishing',      label: 'FISH GUIDE',   icon: Fish },
   { id: 'trip-planner', label: 'TRIP PLANNER', icon: Route },
-  { id: 'trip-tracker', label: 'GPS TRACKER', icon: Navigation },
-  { id: 'heritage', label: 'HERITAGE', icon: BookOpen },
-  { id: 'feed', label: 'COMMUNITY', icon: Users },
+  { id: 'trip-tracker', label: 'GPS TRACKER',  icon: Navigation },
+  { id: 'heritage',     label: 'HERITAGE',     icon: BookOpen },
+  { id: 'feed',         label: 'COMMUNITY',    icon: Users },
+  // Marine section
+  { id: 'marine',       label: 'MARINE HUB',   icon: Anchor,    divider: true },
+  { id: 'catch-log',    label: 'CATCH LOG',    icon: Fish },
+  { id: 'spots',        label: 'SPOTS',        icon: MapPin },
+  { id: 'tides',        label: 'TIDES',        icon: Waves },
+  { id: 'marinas',      label: 'MARINAS',      icon: Compass },
+  { id: 'vhf',          label: 'VHF',          icon: Radio },
+  { id: 'regs',         label: 'REGS',         icon: BookOpen },
 ]
 
 const LAYERS: LayerDef[] = [
@@ -117,29 +132,33 @@ export default function PNWTopNav({ activeLayers, onLayerToggle, onTabChange, ac
 
       <div style={{
         display: 'flex', overflowX: 'auto', borderTop: '1px solid rgba(255,255,255,0.06)',
-        scrollbarWidth: 'none'
+        scrollbarWidth: 'none', alignItems: 'stretch'
       }}>
         {TABS.map(tab => {
           const Icon = tab.icon
           const active = activeTab === tab.id
           return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '10px 16px', whiteSpace: 'nowrap',
-                background: 'none', border: 'none', cursor: 'pointer',
-                borderBottom: active ? '2px solid #22d3ee' : '2px solid transparent',
-                color: active ? '#22d3ee' : 'var(--text2)',
-                fontSize: 11, fontFamily: 'Barlow Condensed, sans-serif',
-                letterSpacing: 1, fontWeight: active ? 700 : 500,
-                transition: 'all 0.15s'
-              }}
-            >
-              <Icon size={13} />
-              {tab.label}
-            </button>
+            <div key={tab.id} style={{ display: 'flex', alignItems: 'stretch' }}>
+              {tab.divider && (
+                <div style={{ width: 1, background: 'rgba(255,255,255,0.1)', margin: '6px 4px', flexShrink: 0 }} />
+              )}
+              <button
+                onClick={() => onTabChange(tab.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '10px 14px', whiteSpace: 'nowrap',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  borderBottom: active ? '2px solid #22d3ee' : '2px solid transparent',
+                  color: active ? '#22d3ee' : tab.divider ? '#f59e0b' : 'var(--text2)',
+                  fontSize: 11, fontFamily: 'Barlow Condensed, sans-serif',
+                  letterSpacing: 1, fontWeight: active ? 700 : 500,
+                  transition: 'all 0.15s'
+                }}
+              >
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            </div>
           )
         })}
       </div>

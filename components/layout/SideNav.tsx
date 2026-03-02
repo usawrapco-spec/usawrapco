@@ -17,6 +17,7 @@ import {
   Shield, Rocket, UserCheck,
   Globe, LayoutGrid, Navigation, Compass,
   Wand2, LayoutTemplate, Car,
+  Anchor, Fish, MapPin, Waves,
 } from 'lucide-react'
 
 interface NavItem {
@@ -42,12 +43,13 @@ const NAV_SECTIONS: NavSection[] = [
     icon: LayoutDashboard,
     roles: ['owner', 'admin', 'sales_agent', 'designer', 'production', 'installer', 'viewer'],
     items: [
-      { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-      { href: '/jobs',       label: 'Jobs',        icon: ClipboardList },
-      { href: '/pipeline',   label: 'Pipeline',    icon: Kanban,   roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/estimates',  label: 'Estimates',   icon: FileText, roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/customers',  label: 'Customers',   icon: Users,    roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/invoices',   label: 'Invoices',    icon: Receipt,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/dashboard',  label: 'Dashboard',       icon: LayoutDashboard },
+      { href: '/jobs',       label: 'Jobs',             icon: ClipboardList },
+      { href: '/pipeline',   label: 'Pipeline',         icon: Kanban,   roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/estimates',  label: 'Estimates',        icon: FileText, roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/customers',  label: 'Customers',        icon: Users,    roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/invoices',   label: 'Invoices',         icon: Receipt,  roles: ['owner', 'admin', 'sales_agent'] },
+      { href: '/portal',     label: 'Customer Portal',  icon: Globe,    roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
@@ -99,16 +101,28 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    id: 'marine',
+    label: 'MARINE',
+    icon: Anchor,
+    roles: ['owner', 'admin'],
+    items: [
+      { href: '/pnw',                 label: 'PNW Navigator', icon: Compass },
+      { href: '/fishing',             label: 'Marine Hub',    icon: Anchor },
+      { href: '/fishing/catch-log',   label: 'Catch Log',     icon: Fish },
+      { href: '/fishing/spots',       label: 'Spots',         icon: MapPin },
+      { href: '/fishing/tides',       label: 'Tides',         icon: Waves },
+    ],
+  },
+  {
     id: 'advanced',
     label: 'ADVANCED',
     icon: Rocket,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/analytics',   label: 'Analytics',   icon: BarChart3 },
-      { href: '/fleet-map',   label: 'Fleet',        icon: Map },
-      { href: '/pnw',         label: 'PNW Navigator', icon: Compass },
-      { href: '/leaderboard', label: 'Leaderboard',  icon: Trophy },
-      { href: '/engine',      label: 'V.I.N.Y.L.',   icon: Brain },
+      { href: '/analytics',   label: 'Analytics',    icon: BarChart3 },
+      { href: '/fleet-map',   label: 'Fleet',         icon: Map },
+      { href: '/leaderboard', label: 'Leaderboard',   icon: Trophy },
+      { href: '/engine',      label: 'V.I.N.Y.L.',    icon: Brain },
     ],
   },
 ]

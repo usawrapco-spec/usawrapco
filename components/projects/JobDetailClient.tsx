@@ -127,6 +127,7 @@ export default function JobDetailClient({
     customer: true, line_items: true, vehicle_info: true, notes: true,
   })
   const [copying, setCopying] = useState(false)
+  const [portalCopied, setPortalCopied] = useState(false)
 
   // Transaction panel state
   const [txAmount, setTxAmount] = useState('')
@@ -1103,6 +1104,41 @@ export default function JobDetailClient({
               {d.label}
             </button>
           ))}
+        </div>
+
+        {/* ── Customer Quick Links ─────────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 4 }}>Quick Links:</span>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText('https://portal.usawrapco.com')
+              setPortalCopied(true)
+              setTimeout(() => setPortalCopied(false), 2000)
+            }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+              background: portalCopied ? 'rgba(34,192,122,0.12)' : 'var(--surface2)',
+              border: `1px solid ${portalCopied ? 'rgba(34,192,122,0.4)' : 'var(--border)'}`,
+              color: portalCopied ? 'var(--green)' : 'var(--text2)',
+              fontSize: 11, fontWeight: 600, transition: 'all 0.15s',
+            }}
+          >
+            {portalCopied ? <Check size={11} /> : <Copy size={11} />}
+            {portalCopied ? 'Copied!' : 'Customer Portal'}
+          </button>
+          <Link
+            href="/design/intakes"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 6,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              color: 'var(--text2)', fontSize: 11, fontWeight: 600, textDecoration: 'none',
+            }}
+          >
+            <FileText size={11} />
+            Design Intake
+          </Link>
         </div>
       </div>
 

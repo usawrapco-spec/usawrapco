@@ -30,6 +30,14 @@ export default function PNWPageClient() {
     else if (tab === 'feed') router.push('/pnw/feed')
     else if (tab === 'trip-tracker') router.push('/pnw/trip-tracker')
     else if (tab === 'trip-planner') router.push('/pnw/trip-planner')
+    // Marine tabs
+    else if (tab === 'marine') router.push('/fishing')
+    else if (tab === 'catch-log') router.push('/fishing/catch-log')
+    else if (tab === 'spots') router.push('/fishing/spots')
+    else if (tab === 'tides') router.push('/fishing/tides')
+    else if (tab === 'marinas') router.push('/fishing/marinas')
+    else if (tab === 'vhf') router.push('/fishing/vhf')
+    else if (tab === 'regs') router.push('/fishing/regulations')
   }
 
   return (
