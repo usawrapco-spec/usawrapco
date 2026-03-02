@@ -16,7 +16,7 @@ export function getSupabaseAdmin(): SupabaseClient<any, any, any> {
   if (!_admin) {
     _admin = createClient<any, any, any>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!,
       {
         auth: {
           autoRefreshToken: false,
