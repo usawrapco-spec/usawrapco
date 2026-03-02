@@ -6,7 +6,7 @@ import { C, PORTAL_STAGES, getPortalStageIndex, fmt } from '@/lib/portal-theme'
 import Link from 'next/link'
 import {
   CheckCircle2, Circle, MapPin, Calendar, MessageSquare,
-  Image, ArrowLeft, Clock,
+  Image as ImageIcon, ArrowLeft, Clock, FileText, CreditCard, ClipboardList, ChevronRight,
 } from 'lucide-react'
 
 interface Props {
@@ -19,9 +19,13 @@ interface Props {
   photos: { id: string; image_url: string; category: string | null; description: string | null; created_at: string }[]
   proofs: { id: string; image_url: string; version_number: number; customer_status: string; created_at: string }[]
   milestones: { id: string; stage: string; approved_at: string | null; notes: string | null }[]
+  hasEstimate?: boolean
+  hasInvoice?: boolean
+  invoicePaid?: boolean
+  hasSalesOrder?: boolean
 }
 
-export default function PortalJobDetail({ project, photos, proofs, milestones }: Props) {
+export default function PortalJobDetail({ project, photos, proofs, milestones, hasEstimate, hasInvoice, invoicePaid, hasSalesOrder }: Props) {
   const { token } = usePortal()
   const base = `/portal/${token}`
   const currentIdx = getPortalStageIndex(project.pipe_stage)
@@ -177,7 +181,7 @@ export default function PortalJobDetail({ project, photos, proofs, milestones }:
           marginBottom: 20,
         }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-            <Image size={16} style={{ display: 'inline', marginRight: 6 }} />
+            <ImageIcon size={16} style={{ display: 'inline', marginRight: 6 }} />
             Photos
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -201,6 +205,53 @@ export default function PortalJobDetail({ project, photos, proofs, milestones }:
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Documents section */}
+      {(hasEstimate || hasInvoice || hasSalesOrder) && (
+        <section style={{
+          background: C.surface,
+          border: `1px solid ${C.border}`,
+          borderRadius: 12,
+          overflow: 'hidden',
+          marginBottom: 20,
+        }}>
+          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Documents</h2>
+          </div>
+          {hasEstimate && (
+            <Link href={`${base}/jobs/${project.id}/estimate`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: (hasInvoice || hasSalesOrder) ? `1px solid ${C.border}` : 'none' }}>
+                <FileText size={18} color={C.accent} strokeWidth={1.8} />
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>Estimate</span>
+                <ChevronRight size={16} color={C.text3} />
+              </div>
+            </Link>
+          )}
+          {hasSalesOrder && (
+            <Link href={`${base}/jobs/${project.id}/sales-order`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: hasInvoice ? `1px solid ${C.border}` : 'none' }}>
+                <ClipboardList size={18} color={'#8b5cf6'} strokeWidth={1.8} />
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>Sales Order</span>
+                <ChevronRight size={16} color={C.text3} />
+              </div>
+            </Link>
+          )}
+          {hasInvoice && (
+            <Link href={`${base}/jobs/${project.id}/invoice`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                <CreditCard size={18} color={invoicePaid ? '#22c07a' : '#f59e0b'} strokeWidth={1.8} />
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>Invoice</span>
+                {invoicePaid ? (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#22c07a', padding: '2px 8px', background: '#22c07a18', borderRadius: 5 }}>PAID</span>
+                ) : (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', padding: '2px 8px', background: '#f59e0b18', borderRadius: 5 }}>DUE</span>
+                )}
+                <ChevronRight size={16} color={C.text3} />
+              </div>
+            </Link>
+          )}
         </section>
       )}
 

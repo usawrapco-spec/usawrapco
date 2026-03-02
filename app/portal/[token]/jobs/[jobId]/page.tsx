@@ -31,7 +31,7 @@ export default async function PortalJobDetailPage({
 
   if (!project) return notFound()
 
-  const [photosRes, proofsRes, milestonesRes] = await Promise.all([
+  const [photosRes, proofsRes, milestonesRes, estimateRes, invoiceRes, salesOrderRes] = await Promise.all([
     supabase
       .from('job_images')
       .select('id, image_url, category, description, created_at')
@@ -48,6 +48,25 @@ export default async function PortalJobDetailPage({
       .select('id, stage, approved_by, approved_at, notes')
       .eq('project_id', project.id)
       .order('approved_at', { ascending: true }),
+    supabase
+      .from('estimates')
+      .select('id')
+      .eq('project_id', project.id)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('invoices')
+      .select('id, status')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('sales_orders')
+      .select('id')
+      .eq('project_id', project.id)
+      .limit(1)
+      .maybeSingle(),
   ])
 
   return (
@@ -56,6 +75,10 @@ export default async function PortalJobDetailPage({
       photos={(photosRes.data || []) as any[]}
       proofs={(proofsRes.data || []) as any[]}
       milestones={(milestonesRes.data || []) as any[]}
+      hasEstimate={!!estimateRes.data}
+      hasInvoice={!!invoiceRes.data}
+      invoicePaid={invoiceRes.data?.status === 'paid'}
+      hasSalesOrder={!!salesOrderRes.data}
     />
   )
 }

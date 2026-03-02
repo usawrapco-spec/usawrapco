@@ -4,9 +4,10 @@ import dynamic from 'next/dynamic'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Map, Fish, Anchor, BookOpen, User, ChevronDown, ChevronUp,
-  Fuel, Waves, Wifi, Zap, ShowerHead, Wind, AlertTriangle,
+  Fuel, Waves, Wifi, Zap, ShowerHead, Wind, AlertTriangle, Shield,
   Navigation, Phone, Radio, Plus, Trash2, ArrowRight, ExternalLink, MapPin,
-  Star, Clock, Thermometer, Eye, FileText, X,
+  Star, Clock, Thermometer, Eye, FileText, X, Search,
+  Droplets, Sun, Cloud, Gauge, Compass, Home, Menu, LayoutGrid, ChevronRight,
 } from 'lucide-react'
 import type { Profile } from '@/types'
 
@@ -66,6 +67,11 @@ interface Waypoint {
   id: string; name: string; lat: number; lng: number
   waypoint_type: string; notes: string; created_at: string
 }
+interface Weather {
+  temperature_2m: number; apparent_temperature: number
+  weather_code: number; wind_speed_10m: number
+  wind_direction_10m: number; relative_humidity_2m: number
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TABS = [
@@ -119,6 +125,30 @@ const REGS = [
   { id: 'canada', icon: '🍁', title: 'Entering Canada by Vessel',               critical: false, penalty: 'Up to $25,000 CDN',      items: ['Must report to CBSA immediately upon entering Canadian waters','Call CBSA: 1-888-226-7277 (or use NEXUS)','Must land at designated port of entry FIRST','Declare all weapons, alcohol, and goods'] },
 ]
 
+const LAYERS = [
+  { id: 'spots',     label: 'Fish Spots', icon: Fish },
+  { id: 'marinas',   label: 'Marinas',    icon: Anchor },
+  { id: 'satellite', label: 'Satellite',  icon: Map },
+  { id: 'noaa',      label: 'NOAA Chart', icon: Compass },
+  { id: 'tides',     label: 'Tide Sta.',  icon: Waves },
+  { id: 'launches',  label: 'Launches',   icon: Navigation },
+  { id: 'fuel',      label: 'Fuel',       icon: Fuel },
+  { id: 'hazards',   label: 'Hazards',    icon: AlertTriangle },
+  { id: 'wildlife',  label: 'Wildlife',   icon: Eye },
+]
+
+const FISHING_REGS: Record<string, { area: string; salmon: string; halibut: string; rockfish: string; dungeness: string }> = {
+  '5':  { area: 'Sekiu / Pillar Point',     salmon: 'Chinook: Jun–Sep, 6/day. Coho: Aug–Nov, 2/day.',                   halibut: 'May–Jul (quota), 1/day, 32" min.',           rockfish: 'Closed Jan–Apr; May–Dec: 2/day. No widow rockfish.', dungeness: 'Oct 1–Apr 30: males 6.25"+, 6/day.' },
+  '6':  { area: 'Strait of Juan de Fuca',   salmon: 'Chinook: Jun–Sep selective. Coho: Aug–Nov 2/day.',                  halibut: 'Quota-based; verify dates on WDFW.',         rockfish: '2/day; cabezon/lingcod counted separately.',        dungeness: 'Oct 1–Apr 30: male 6.25"+, 6/day.' },
+  '7':  { area: 'San Juan Islands',          salmon: 'Chinook: Jul–Aug selective. Coho varies by stock.',                halibut: 'Closed most subareas; Westcott Bay seasonal.', rockfish: 'Boccaccio/canary prohibited; 2/day others.',       dungeness: 'Oct 1–Apr 30: male 6.25"+, 5/day.' },
+  '8':  { area: 'Deception Pass / Saratoga', salmon: 'Chinook: Jun selective. Coho: Aug–Oct.',                           halibut: 'Usually closed; verify WDFW.',               rockfish: '2/day; boccaccio/yelloweye/canary prohibited.',    dungeness: 'Oct 1–Apr 30: male 6.25"+, 6/day.' },
+  '9':  { area: 'Admiralty Inlet',           salmon: 'Chinook: Jun–Sep selective. Coho: Aug–Sep.',                       halibut: 'Periodic openings; check WDFW.',             rockfish: '2/day; yelloweye/canary prohibited.',               dungeness: 'Oct 1–Apr 30: male 6.25"+, 6/day.' },
+  '10': { area: 'Port Susan / Port Gardner', salmon: 'Snohomish R. restrictions; hatchery-only periods.',                halibut: 'No season most years.',                      rockfish: 'Check WDFW subarea rules.',                         dungeness: 'Oct 1–Apr 30: male 6.25"+, 6/day.' },
+  '11': { area: 'Skagit Bay',                salmon: 'Wild Chinook/coho restricted; hatchery-only periods.',             halibut: 'No season.',                                 rockfish: 'Limited openings; check WDFW.',                     dungeness: 'Oct 1–Apr 30: male 6.25"+, 6/day.' },
+  '12': { area: 'Hood Canal',                salmon: 'Chinook: Jun–Jul selective. Coho: Aug–Oct.',                       halibut: 'No season.',                                 rockfish: '2/day; closed to YE/canary/boccaccio.',            dungeness: 'Jul–Oct (N. Canal) or Oct–Apr (S. Canal): male 6.25"+, 5/day.' },
+  '13': { area: 'South Puget Sound',         salmon: 'Chinook: Jun selective. Coho: Aug–Nov.',                           halibut: 'No season.',                                 rockfish: '2/day; yelloweye/canary prohibited.',               dungeness: 'Oct 1–Apr 30: male 6.25"+, 5/day.' },
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getBiteStatus(predictions: TidePrediction[]) {
   if (!predictions.length) return { label: '—', color: 'var(--text3)', detail: '' }
@@ -139,100 +169,149 @@ function successStars(n: number) {
   return '★'.repeat(n) + '☆'.repeat(5 - n)
 }
 
+function moonPhase(): { phase: number; name: string } {
+  const d = new Date()
+  let y = d.getFullYear(); let m = d.getMonth() + 1
+  if (m < 3) { y--; m += 12 }
+  const a = Math.floor(y / 100)
+  const b = 2 - a + Math.floor(a / 4)
+  const jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d.getDate() + b - 1524.5
+  const p = ((((jd - 2451549.5) / 29.53059) % 1) + 1) % 1
+  const names = ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent']
+  return { phase: p, name: names[Math.round(p * 8) % 8] }
+}
+
+function wmoDesc(code: number) {
+  if (code === 0)  return 'Clear'
+  if (code <= 3)   return 'Partly Cloudy'
+  if (code <= 49)  return 'Fog / Haze'
+  if (code <= 69)  return 'Rain'
+  if (code <= 79)  return 'Snow'
+  if (code <= 84)  return 'Showers'
+  return 'Storm'
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function PNWNavigatorClient({ profile }: { profile: Profile }) {
-  const [tab, setTab] = useState('map')
-  const [spots, setSpots] = useState<FishingSpot[]>([])
-  const [species, setSpecies] = useState<FishSpecies[]>([])
-  const [marinas, setMarinas] = useState<Marina[]>([])
-  const [tides, setTides] = useState<{ station: string; predictions: TidePrediction[] }>({ station: 'Seattle', predictions: [] })
-  const [catches, setCatches] = useState<CatchEntry[]>([])
-  const [reports, setReports] = useState<FishingReport[]>([])
+  const [screen, setScreen] = useState<'home' | 'map' | 'hub'>('home')
+  const [panel, setPanel]   = useState<string | null>(null)
+  const [panelData, setPanelData] = useState<any>(null)
+  const [moreOpen, setMoreOpen]   = useState(false)
+  const [aiOpen,   setAiOpen]     = useState(false)
+  const [errors,   setErrors]     = useState<string[]>([])
+  const [activeLayers, setActiveLayers] = useState<string[]>(['spots', 'marinas'])
+
+  const [spots,     setSpots]     = useState<FishingSpot[]>([])
+  const [species,   setSpecies]   = useState<FishSpecies[]>([])
+  const [marinas,   setMarinas]   = useState<Marina[]>([])
+  const [tides,     setTides]     = useState<{ station: string; predictions: TidePrediction[] }>({ station: 'Seattle', predictions: [] })
+  const [weather,   setWeather]   = useState<Weather | null>(null)
+  const [catches,   setCatches]   = useState<CatchEntry[]>([])
+  const [reports,   setReports]   = useState<FishingReport[]>([])
   const [waypoints, setWaypoints] = useState<Waypoint[]>([])
 
   useEffect(() => {
-    fetch('/api/pnw-navigator/spots').then(r => r.json()).then(d => setSpots(d.spots || [])).catch((error) => { console.error(error); })
-    fetch('/api/pnw-navigator/species').then(r => r.json()).then(d => setSpecies(d.species || [])).catch((error) => { console.error(error); })
-    fetch('/api/pnw-navigator/marinas').then(r => r.json()).then(d => setMarinas(d.marinas || [])).catch((error) => { console.error(error); })
-    fetch('/api/pnw-navigator/tides?station=seattle').then(r => r.json()).then(d => setTides({ station: d.station || 'Seattle', predictions: d.predictions || [] })).catch((error) => { console.error(error); })
-    fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch((error) => { console.error(error); })
-    fetch('/api/pnw-navigator/reports').then(r => r.json()).then(d => setReports(d.reports || [])).catch((error) => { console.error(error); })
-    fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => setWaypoints(d.waypoints || [])).catch((error) => { console.error(error); })
+    const addErr = (m: string) => setErrors(e => e.includes(m) ? e : [...e, m])
+    fetch('/api/pnw-navigator/spots').then(r => r.json()).then(d => setSpots(d.spots || [])).catch(() => addErr('Fish spots offline'))
+    fetch('/api/pnw-navigator/species').then(r => r.json()).then(d => setSpecies(d.species || [])).catch(() => addErr('Species data offline'))
+    fetch('/api/pnw-navigator/marinas').then(r => r.json()).then(d => setMarinas(d.marinas || [])).catch(() => addErr('Marinas offline'))
+    fetch('/api/pnw-navigator/tides?station=seattle').then(r => r.json()).then(d => setTides({ station: d.station || 'Seattle', predictions: d.predictions || [] })).catch(() => addErr('Tides offline'))
+    fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch(() => {})
+    fetch('/api/pnw-navigator/reports').then(r => r.json()).then(d => setReports(d.reports || [])).catch(() => {})
+    fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => setWaypoints(d.waypoints || [])).catch(() => {})
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=47.35&longitude=-122.43&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&wind_speed_unit=mph&temperature_unit=fahrenheit&forecast_days=1')
+      .then(r => r.json()).then(d => setWeather(d.current || null)).catch(() => addErr('Weather offline'))
   }, [])
 
-  const refreshCatches     = useCallback(() => fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch((error) => { console.error(error); }), [])
-  const refreshReports     = useCallback(() => fetch('/api/pnw-navigator/reports').then(r => r.json()).then(d => setReports(d.reports || [])).catch((error) => { console.error(error); }), [])
-  const refreshWaypoints   = useCallback(() => fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => setWaypoints(d.waypoints || [])).catch((error) => { console.error(error); }), [])
+  const refreshCatches   = useCallback(() => fetch('/api/pnw-navigator/catch-log').then(r => r.json()).then(d => setCatches(d.catches || [])).catch(() => {}), [])
+  const refreshReports   = useCallback(() => fetch('/api/pnw-navigator/reports').then(r => r.json()).then(d => setReports(d.reports || [])).catch(() => {}), [])
+  const refreshWaypoints = useCallback(() => fetch('/api/pnw-navigator/waypoints').then(r => r.json()).then(d => setWaypoints(d.waypoints || [])).catch(() => {}), [])
 
-  const now = new Date()
-  const nextTide = tides.predictions.find(p => new Date(p.time) > now)
+  const now        = new Date()
+  const nextTide   = tides.predictions.find(p => new Date(p.time) > now) ?? null
   const biteStatus = getBiteStatus(tides.predictions)
+  const moon       = moonPhase()
+
+  const openPanel  = useCallback((id: string, data?: any) => { setPanel(id); setPanelData(data ?? null); setMoreOpen(false) }, [])
+  const closePanel = useCallback(() => { setPanel(null); setPanelData(null) }, [])
+  const toggleLayer = useCallback((id: string) =>
+    setActiveLayers(prev => prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]), [])
+
+  const mapSpots   = spots.map(s => ({ id: s.id, name: s.name, region: s.region, water_type: s.water_type, lat: s.lat, lng: s.lng, difficulty: s.difficulty, access_type: s.access_type }))
+  const mapMarinas = marinas.map(m => ({ id: m.id, name: m.name, city: m.city, lat: m.lat, lng: m.lng, has_fuel_dock: m.has_fuel_dock, usa_wrapco_authorized: m.usa_wrapco_authorized }))
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text1)' }}>
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--bg)', color: 'var(--text1)' }}>
 
-      {/* ── App Header ─────────────────────────────────────────────────────── */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#1e40af,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Navigation size={16} color="#fff" />
-            </div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif', letterSpacing: '0.06em' }}>PNW NAVIGATOR</div>
-              <div style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: '0.08em' }}>PUGET SOUND · SAN JUANS · PACIFIC COAST</div>
-            </div>
-          </div>
-          {/* Tide + Bite chips */}
-          <div style={{ display: 'flex', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface2)', borderRadius: 8, padding: '5px 9px', fontSize: 10 }}>
-              <Waves size={11} color="var(--cyan)" />
-              {nextTide ? (
-                <span>
-                  <span style={{ fontWeight: 700, color: nextTide.type === 'H' ? 'var(--cyan)' : 'var(--amber)' }}>
-                    {nextTide.type === 'H' ? 'HI' : 'LO'}
-                  </span>
-                  <span style={{ color: 'var(--text3)', marginLeft: 3 }}>
-                    {new Date(nextTide.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </span>
-              ) : <span style={{ color: 'var(--text3)' }}>tides…</span>}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface2)', borderRadius: 8, padding: '5px 9px', fontSize: 10 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: biteStatus.color }} />
-              <span style={{ fontWeight: 700, color: biteStatus.color }}>{biteStatus.label}</span>
-            </div>
-          </div>
+      {/* ── Always-mounted map (z-index 0) ──────────────────────────────── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <PNWMap
+          activeLayers={activeLayers}
+          spots={mapSpots}
+          marinas={mapMarinas}
+          onSpotClick={s => openPanel('spot-detail', s)}
+          onMarinaClick={m => openPanel('marina-detail', m)}
+        />
+      </div>
+
+      {/* ── Error banner ────────────────────────────────────────────────── */}
+      {errors.length > 0 && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 600, background: 'rgba(242,90,90,0.93)', backdropFilter: 'blur(8px)', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertTriangle size={13} color="#fff" />
+          <span style={{ flex: 1, fontSize: 11, color: '#fff', fontWeight: 600 }}>{errors.join(' · ')}</span>
+          <button onClick={() => setErrors([])} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 2 }}><X size={13} /></button>
         </div>
+      )}
 
-        {/* Tab bar */}
-        <div style={{ display: 'flex', padding: '0 4px', marginTop: 6 }}>
-          {TABS.map(t => {
-            const Icon = t.icon
-            const active = tab === t.id
+      {/* ── Home screen ─────────────────────────────────────────────────── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: screen === 'home' ? 10 : -1, opacity: screen === 'home' ? 1 : 0, pointerEvents: screen === 'home' ? 'auto' : 'none', transition: 'opacity 0.25s', background: 'var(--bg)', overflowY: 'auto', paddingTop: 56, paddingBottom: 72 }}>
+        <HomeScreen tides={tides} weather={weather} moon={moon} biteStatus={biteStatus} nextTide={nextTide} reports={reports} marinas={marinas} openPanel={openPanel} />
+      </div>
+
+      {/* ── Hub screen ──────────────────────────────────────────────────── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: screen === 'hub' ? 10 : -1, opacity: screen === 'hub' ? 1 : 0, pointerEvents: screen === 'hub' ? 'auto' : 'none', transition: 'opacity 0.25s', background: 'var(--bg)', overflowY: 'auto', paddingTop: 56, paddingBottom: 72 }}>
+        <HubScreen openPanel={openPanel} onScreen={setScreen} />
+      </div>
+
+      {/* ── Layer pills — map screen only ───────────────────────────────── */}
+      <div style={{ position: 'absolute', top: 56, left: 0, right: 0, zIndex: screen === 'map' ? 50 : -1, opacity: screen === 'map' ? 1 : 0, pointerEvents: screen === 'map' ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
+        <div style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {LAYERS.map(l => {
+            const active = activeLayers.includes(l.id)
+            const Icon = l.icon
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                padding: '7px 4px', border: 'none', background: 'none', cursor: 'pointer',
-                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                color: active ? 'var(--accent)' : 'var(--text3)', transition: 'color 0.15s',
-              }}>
-                <Icon size={16} />
-                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em' }}>{t.label}</span>
+              <button key={l.id} onClick={() => toggleLayer(l.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', background: active ? 'rgba(255,255,255,0.9)' : 'rgba(13,15,20,0.78)', color: active ? '#0d0f14' : 'rgba(255,255,255,0.75)', backdropFilter: 'blur(8px)', boxShadow: active ? '0 2px 8px rgba(0,0,0,0.4)' : 'none', transition: 'all 0.15s' }}>
+                <Icon size={11} />
+                {l.label}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* ── Content ─────────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {tab === 'map'     && <MapTab spots={spots} marinas={marinas} biteStatus={biteStatus} tides={tides} />}
-        {tab === 'fish'    && <FishTab species={species} spots={spots} reports={reports} onRefreshReports={refreshReports} profile={profile} />}
-        {tab === 'marinas' && <MarinasTab marinas={marinas} />}
-        {tab === 'mystuff' && <MyStuffTab catches={catches} waypoints={waypoints} profile={profile} onRefresh={refreshCatches} onRefreshWaypoints={refreshWaypoints} />}
-        {tab === 'regs'    && <RegsTab />}
-      </div>
+      {/* ── Panel drawer ────────────────────────────────────────────────── */}
+      {panel && (
+        <PanelDrawer
+          panel={panel} panelData={panelData} onClose={closePanel}
+          spots={spots} species={species} marinas={marinas}
+          tides={tides} weather={weather} catches={catches}
+          reports={reports} waypoints={waypoints} profile={profile}
+          onRefreshCatches={refreshCatches} onRefreshReports={refreshReports}
+          onRefreshWaypoints={refreshWaypoints} openPanel={openPanel}
+        />
+      )}
+
+      {/* ── More menu ───────────────────────────────────────────────────── */}
+      {moreOpen && <MoreMenu onClose={() => setMoreOpen(false)} openPanel={openPanel} />}
+
+      {/* ── AI search overlay ───────────────────────────────────────────── */}
+      {aiOpen && <AISearchOverlay onClose={() => setAiOpen(false)} />}
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <PNWHeader screen={screen} nextTide={nextTide} weather={weather} biteStatus={biteStatus} onSearchOpen={() => setAiOpen(true)} />
+
+      {/* ── Bottom tab bar ──────────────────────────────────────────────── */}
+      <BottomTabBar screen={screen} onScreen={setScreen} panel={panel} openPanel={openPanel} onMore={() => setMoreOpen(true)} />
     </div>
   )
 }
@@ -1239,6 +1318,749 @@ function RegsTab() {
       </div>
       <div style={{ padding: '8px 14px 24px', fontSize: 10, color: 'var(--text3)', lineHeight: 1.5 }}>
         General guidance only. Always verify with WDFW, USCG, and NOAA. Regulations change frequently.
+      </div>
+    </div>
+  )
+}
+
+// ─── PNWHeader ────────────────────────────────────────────────────────────────
+function PNWHeader({ screen, nextTide, weather, biteStatus, onSearchOpen }: {
+  screen: 'home' | 'map' | 'hub'
+  nextTide: TidePrediction | null
+  weather: Weather | null
+  biteStatus: { label: string; color: string; detail: string }
+  onSearchOpen: () => void
+}) {
+  const onMap = screen === 'map'
+  return (
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, background: onMap ? 'rgba(13,15,20,0.78)' : 'var(--surface)', backdropFilter: onMap ? 'blur(10px)' : undefined, borderBottom: onMap ? 'none' : '1px solid rgba(255,255,255,0.06)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 7, transition: 'background 0.25s' }}>
+      <div style={{ width: 28, height: 28, borderRadius: 7, background: 'linear-gradient(135deg,#1e40af,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Navigation size={13} color="#fff" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif', letterSpacing: '0.06em', lineHeight: 1 }}>PNW NAVIGATOR</div>
+        <div style={{ fontSize: 8, color: 'var(--text3)', letterSpacing: '0.06em' }}>PUGET SOUND · SAN JUANS · PACIFIC COAST</div>
+      </div>
+      {nextTide && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 20, padding: '4px 8px', fontSize: 10 }}>
+          <Waves size={10} color="var(--cyan)" />
+          <span style={{ fontWeight: 700, color: nextTide.type === 'H' ? 'var(--cyan)' : 'var(--amber)' }}>{nextTide.type === 'H' ? 'HI' : 'LO'}</span>
+          <span style={{ color: 'var(--text3)' }}>{new Date(nextTide.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+      )}
+      {weather && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 20, padding: '4px 8px', fontSize: 10 }}>
+          <Thermometer size={10} color="var(--text3)" />
+          <span style={{ fontWeight: 700 }}>{Math.round(weather.temperature_2m)}°</span>
+          <span style={{ color: 'var(--text3)' }}>{Math.round(weather.wind_speed_10m)}mph</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 20, padding: '4px 8px', fontSize: 10 }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: biteStatus.color, flexShrink: 0 }} />
+        <span style={{ fontWeight: 700, color: biteStatus.color, fontSize: 9 }}>{biteStatus.label}</span>
+      </div>
+      <button onClick={onSearchOpen} style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', color: 'var(--text2)', display: 'flex', flexShrink: 0 }}>
+        <Search size={14} />
+      </button>
+    </div>
+  )
+}
+
+// ─── BottomTabBar ─────────────────────────────────────────────────────────────
+function BottomTabBar({ screen, onScreen, panel, openPanel, onMore }: {
+  screen: 'home' | 'map' | 'hub'
+  onScreen: (s: 'home' | 'map' | 'hub') => void
+  panel: string | null
+  openPanel: (id: string) => void
+  onMore: () => void
+}) {
+  const fishActive = panel === 'fish-guide'
+  const tabs = [
+    { id: 'home', label: 'Home', icon: Home,        action: () => onScreen('home'),       active: screen === 'home' && !fishActive },
+    { id: 'map',  label: 'Map',  icon: Map,         action: () => onScreen('map'),        active: screen === 'map'  && !fishActive },
+    { id: 'fish', label: 'Fish', icon: Fish,        action: () => openPanel('fish-guide'), active: fishActive },
+    { id: 'hub',  label: 'Hub',  icon: LayoutGrid,  action: () => onScreen('hub'),        active: screen === 'hub'  && !fishActive },
+    { id: 'more', label: 'More', icon: Menu,        action: onMore,                        active: false },
+  ]
+  return (
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(13,15,20,0.95)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex' }}>
+      {tabs.map(t => {
+        const Icon = t.icon
+        return (
+          <button key={t.id} onClick={t.action} style={{ flex: 1, padding: '10px 4px 8px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: t.active ? 'var(--accent)' : 'var(--text3)', transition: 'color 0.15s' }}>
+            <Icon size={20} />
+            <span style={{ fontSize: 10, fontWeight: 600 }}>{t.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── HomeScreen ───────────────────────────────────────────────────────────────
+function HomeScreen({ tides, weather, moon, biteStatus, nextTide, reports, marinas, openPanel }: {
+  tides: { station: string; predictions: TidePrediction[] }
+  weather: Weather | null
+  moon: { phase: number; name: string }
+  biteStatus: { label: string; color: string; detail: string }
+  nextTide: TidePrediction | null
+  reports: FishingReport[]
+  marinas: Marina[]
+  openPanel: (id: string, data?: any) => void
+}) {
+  const moonEmoji = moon.phase < 0.05 || moon.phase > 0.95 ? '🌑' : moon.phase < 0.25 ? '🌒' : moon.phase < 0.5 ? '🌓' : moon.phase < 0.75 ? '🌔' : moon.phase < 0.85 ? '🌕' : '🌖'
+  const gigHarbor = marinas.find(m => m.city?.toLowerCase().includes('gig harbor') || m.name?.toLowerCase().includes('gig harbor'))
+
+  const card = (children: React.ReactNode, accent?: string) => (
+    <div style={{ background: 'var(--surface)', borderRadius: 12, border: `1px solid ${accent || 'rgba(255,255,255,0.07)'}`, padding: 14, marginBottom: 10 }}>
+      {children}
+    </div>
+  )
+
+  const quickItems = [
+    { label: 'Fish Guide',    icon: Fish,      panel: 'fish-guide' },
+    { label: 'Tides',         icon: Waves,     panel: 'tides' },
+    { label: 'Fishing Regs',  icon: BookOpen,  panel: 'fishing-regs' },
+    { label: 'VHF Channels',  icon: Radio,     panel: 'vhf' },
+    { label: 'Marinas',       icon: Anchor,    panel: 'marinas' },
+    { label: 'My Catches',    icon: Star,      panel: 'my-stuff' },
+    { label: 'Safety Regs',   icon: Shield,    panel: 'regs' },
+    { label: 'Weather',       icon: Cloud,     panel: 'weather' },
+  ]
+
+  return (
+    <div style={{ padding: '10px 12px' }}>
+
+      {/* Tide hero card */}
+      {card(
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Next Tide · {tides.station}</div>
+            {nextTide ? (
+              <>
+                <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'JetBrains Mono,monospace', color: nextTide.type === 'H' ? 'var(--cyan)' : 'var(--amber)', lineHeight: 1 }}>
+                  {nextTide.height_ft.toFixed(1)}<span style={{ fontSize: 16 }}>ft</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginTop: 2 }}>
+                  {nextTide.type === 'H' ? 'High Water' : 'Low Water'} · {new Date(nextTide.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </>
+            ) : <div style={{ fontSize: 14, color: 'var(--text3)' }}>Loading tides…</div>}
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 28 }}>{moonEmoji}</div>
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3, maxWidth: 72 }}>{moon.name}</div>
+          </div>
+        </div>,
+        nextTide?.type === 'H' ? 'rgba(34,211,238,0.2)' : 'rgba(245,158,11,0.2)'
+      )}
+
+      {/* Weather + bite status row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', padding: 12 }}>
+          <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Gig Harbor Weather</div>
+          {weather ? (
+            <>
+              <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'JetBrains Mono,monospace', lineHeight: 1 }}>{Math.round(weather.temperature_2m)}°<span style={{ fontSize: 12, color: 'var(--text3)' }}>F</span></div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>{wmoDesc(weather.weather_code)}</div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Wind {Math.round(weather.wind_speed_10m)} mph · Humidity {Math.round(weather.relative_humidity_2m)}%</div>
+            </>
+          ) : <div style={{ fontSize: 12, color: 'var(--text3)' }}>Loading…</div>}
+        </div>
+        <div onClick={() => openPanel('tides')} style={{ background: 'var(--surface)', borderRadius: 12, border: `1px solid rgba(${biteStatus.color === 'var(--green)' ? '34,192,122' : biteStatus.color === 'var(--amber)' ? '245,158,11' : '90,96,128'},0.25)`, padding: 12, cursor: 'pointer' }}>
+          <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Solunar Bite</div>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: biteStatus.color, marginBottom: 6 }} />
+          <div style={{ fontSize: 14, fontWeight: 800, color: biteStatus.color, lineHeight: 1 }}>{biteStatus.label}</div>
+          {biteStatus.detail && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>{biteStatus.detail}</div>}
+        </div>
+      </div>
+
+      {/* Quick grid */}
+      <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Quick Access</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 14 }}>
+        {quickItems.map(item => {
+          const Icon = item.icon
+          return (
+            <button key={item.panel} onClick={() => openPanel(item.panel)} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 4px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+              <Icon size={18} color="var(--accent)" />
+              <span style={{ fontSize: 9, color: 'var(--text2)', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>{item.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Recent reports */}
+      {reports.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recent Reports</div>
+            <button onClick={() => openPanel('reports')} style={{ fontSize: 10, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>View all</button>
+          </div>
+          {reports.slice(0, 2).map(r => (
+            <div key={r.id} style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px', marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span style={{ color: 'var(--amber)', fontSize: 11 }}>{successStars(r.success_level || 0)}</span>
+                <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{r.spot?.name || r.custom_location_name || 'Unknown spot'}</span>
+                <span style={{ fontSize: 10, color: 'var(--text3)' }}>{r.report_date}</span>
+              </div>
+              {r.notes && <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.notes}</div>}
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* Gig Harbor Marina card */}
+      {gigHarbor && (
+        <div onClick={() => openPanel('gig-harbor')} style={{ background: 'linear-gradient(135deg,rgba(8,145,178,0.08),rgba(79,127,255,0.08))', borderRadius: 12, border: '1px solid rgba(8,145,178,0.2)', padding: 14, marginBottom: 10, cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Anchor size={14} color="var(--cyan)" />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>{gigHarbor.name}</span>
+            {gigHarbor.usa_wrapco_authorized && <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(34,192,122,0.15)', color: 'var(--green)', fontWeight: 700 }}>USA WRAP CO</span>}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Gig Harbor · VHF {gigHarbor.vhf_channel} · Hull wraps, DekWave decking available</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: 'var(--accent)' }}>
+            <span>View marina details</span><ChevronRight size={11} />
+          </div>
+        </div>
+      )}
+
+      {/* Boat wrap CTA */}
+      <div onClick={() => openPanel('boat-wrap')} style={{ background: 'linear-gradient(135deg,rgba(34,192,122,0.08),rgba(79,127,255,0.06))', borderRadius: 12, border: '1px solid rgba(34,192,122,0.2)', padding: 14, cursor: 'pointer' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif', marginBottom: 3 }}>DECK UPGRADE WITH DEKWAVE</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>Non-slip EVA foam decking · Hull wraps · Marine vinyl graphics from USA Wrap Co</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>
+          Get a free estimate <ArrowRight size={11} />
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+// ─── HubScreen ────────────────────────────────────────────────────────────────
+function HubScreen({ openPanel, onScreen }: { openPanel: (id: string) => void; onScreen: (s: 'home' | 'map' | 'hub') => void }) {
+  const sections = [
+    {
+      title: 'Navigation',
+      items: [
+        { label: 'Live Map',       icon: Map,      panel: 'map-note',      desc: 'Interactive nautical chart' },
+        { label: 'Tides',          icon: Waves,    panel: 'tides',         desc: 'NOAA tide predictions' },
+        { label: 'Weather',        icon: Cloud,    panel: 'weather',       desc: 'Open-Meteo forecast' },
+        { label: 'VHF Channels',   icon: Radio,    panel: 'vhf',           desc: 'Marine radio reference' },
+      ],
+    },
+    {
+      title: 'Fishing',
+      items: [
+        { label: 'Fish Guide',     icon: Fish,     panel: 'fish-guide',    desc: 'Species ID & techniques' },
+        { label: 'Fishing Regs',   icon: BookOpen, panel: 'fishing-regs',  desc: 'WDFW marine areas 5–13' },
+        { label: 'Catch Log',      icon: Star,     panel: 'my-stuff',      desc: 'Your catch journal' },
+        { label: 'Trip Reports',   icon: FileText, panel: 'reports',       desc: 'Community fish reports' },
+      ],
+    },
+    {
+      title: 'Marinas & Services',
+      items: [
+        { label: 'Gig Harbor',     icon: Anchor,   panel: 'gig-harbor',    desc: 'Featured marina + wraps' },
+        { label: 'All Marinas',    icon: MapPin,   panel: 'marinas',       desc: 'Find marinas nearby' },
+        { label: 'Boat Wraps',     icon: Zap,      panel: 'boat-wrap',     desc: 'DekWave + hull wraps' },
+      ],
+    },
+    {
+      title: 'Safety & Reference',
+      items: [
+        { label: 'Safety Regs',    icon: Shield,   panel: 'regs',          desc: 'USCG + WA boating law' },
+        { label: 'Waypoints',      icon: Navigation, panel: 'my-stuff',    desc: 'My saved GPS points' },
+      ],
+    },
+  ]
+
+  return (
+    <div style={{ padding: '10px 12px' }}>
+      {sections.map(sec => (
+        <div key={sec.title} style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 8 }}>{sec.title}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {sec.items.map(item => {
+              const Icon = item.icon
+              return (
+                <button key={item.panel + item.label} onClick={() => item.panel === 'map-note' ? onScreen('map') : openPanel(item.panel)} style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '12px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(79,127,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={16} color="var(--accent)" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>{item.label}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>{item.desc}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── MoreMenu ─────────────────────────────────────────────────────────────────
+function MoreMenu({ onClose, openPanel }: { onClose: () => void; openPanel: (id: string) => void }) {
+  const items = [
+    { label: 'Fish Guide',      icon: Fish,     panel: 'fish-guide' },
+    { label: 'Marinas',         icon: Anchor,   panel: 'marinas' },
+    { label: 'Gig Harbor',      icon: MapPin,   panel: 'gig-harbor' },
+    { label: 'Tides',           icon: Waves,    panel: 'tides' },
+    { label: 'Weather',         icon: Cloud,    panel: 'weather' },
+    { label: 'Fishing Regs',    icon: BookOpen, panel: 'fishing-regs' },
+    { label: 'Safety Regs',     icon: Shield,   panel: 'regs' },
+    { label: 'VHF Channels',    icon: Radio,    panel: 'vhf' },
+    { label: 'Catch Log',       icon: Star,     panel: 'my-stuff' },
+    { label: 'Waypoints',       icon: Navigation, panel: 'my-stuff' },
+    { label: 'Boat Wraps',      icon: Zap,      panel: 'boat-wrap' },
+    { label: 'Trip Reports',    icon: FileText, panel: 'reports' },
+  ]
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 299, background: 'rgba(0,0,0,0.6)' }} />
+      <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '80vw', maxWidth: 320, zIndex: 300, background: 'var(--surface)', borderLeft: '1px solid rgba(255,255,255,0.1)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+          <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif', letterSpacing: '0.04em' }}>PNW NAVIGATOR</span>
+          <button onClick={onClose} style={{ background: 'var(--surface2)', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', color: 'var(--text2)', display: 'flex' }}><X size={16} /></button>
+        </div>
+        <div style={{ padding: 12, flex: 1 }}>
+          {items.map(item => {
+            const Icon = item.icon
+            return (
+              <button key={item.label} onClick={() => openPanel(item.panel)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 10px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', textAlign: 'left' }}>
+                <Icon size={16} color="var(--accent)" />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{item.label}</span>
+                <ChevronRight size={13} color="var(--text3)" style={{ marginLeft: 'auto' }} />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── AISearchOverlay ──────────────────────────────────────────────────────────
+function AISearchOverlay({ onClose }: { onClose: () => void }) {
+  const [query, setQuery] = useState('')
+  const [answer, setAnswer] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const ask = async () => {
+    if (!query.trim()) return
+    setLoading(true); setAnswer('')
+    try {
+      const r = await fetch('/api/pnw/ai-search', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) })
+      const d = await r.json()
+      setAnswer(d.answer || 'No answer returned.')
+    } catch { setAnswer('Unable to connect to AI search. Check your connection.') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 399, background: 'rgba(0,0,0,0.7)' }} />
+      <div style={{ position: 'absolute', top: '10vh', left: '5vw', right: '5vw', zIndex: 400, background: 'var(--surface)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', padding: 16, maxHeight: '80vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Search size={16} color="var(--accent)" />
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>AI Fishing & Navigation Search</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><X size={16} /></button>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <input
+            type="text" value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && ask()}
+            placeholder="Ask about fishing regulations, species, tides, marinas…"
+            style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 12px', color: 'var(--text1)', fontSize: 13 }}
+            autoFocus
+          />
+          <button onClick={ask} disabled={loading || !query.trim()} style={{ padding: '9px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+            {loading ? '…' : 'Ask'}
+          </button>
+        </div>
+        {answer && (
+          <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 14, fontSize: 13, color: 'var(--text2)', lineHeight: 1.65, whiteSpace: 'pre-wrap', border: '1px solid rgba(255,255,255,0.07)' }}>
+            {answer}
+          </div>
+        )}
+        {!answer && !loading && (
+          <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', padding: '12px 0' }}>
+            Powered by Claude AI · Ask about WDFW regs, species ID, tides, marinas, and more
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─── PanelDrawer ──────────────────────────────────────────────────────────────
+interface PanelDrawerProps {
+  panel: string; panelData: any; onClose: () => void
+  spots: FishingSpot[]; species: FishSpecies[]; marinas: Marina[]
+  tides: { station: string; predictions: TidePrediction[] }
+  weather: Weather | null; catches: CatchEntry[]; reports: FishingReport[]
+  waypoints: Waypoint[]; profile: Profile
+  onRefreshCatches: () => void; onRefreshReports: () => void; onRefreshWaypoints: () => void
+  openPanel: (id: string, data?: any) => void
+}
+
+const PANEL_TITLES: Record<string, string> = {
+  'fish-guide':   'Fish Guide',   'marinas':      'Marinas',
+  'my-stuff':     'My Stuff',     'regs':         'Safety Regs',
+  'fishing-regs': 'Fishing Regs', 'tides':        'Tides',
+  'weather':      'Weather',      'vhf':          'VHF Channels',
+  'spot-detail':  'Spot Detail',  'marina-detail':'Marina',
+  'boat-wrap':    'Boat Services','reports':      'Trip Reports',
+  'gig-harbor':   'Gig Harbor',   'account':      'My Account',
+}
+
+function PanelDrawer(props: PanelDrawerProps) {
+  const { panel, panelData, onClose, spots, species, marinas, tides, weather, catches, reports, waypoints, profile, onRefreshCatches, onRefreshReports, onRefreshWaypoints, openPanel } = props
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 200, background: 'var(--surface)', borderRadius: '16px 16px 0 0', border: '1px solid rgba(255,255,255,0.1)', height: '85vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '10px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif', letterSpacing: '0.04em' }}>{PANEL_TITLES[panel] || panel}</span>
+          <button onClick={onClose} style={{ background: 'var(--surface2)', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', color: 'var(--text2)', display: 'flex' }}><X size={16} /></button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {panel === 'fish-guide'   && <FishTab species={species} spots={spots} reports={reports} onRefreshReports={onRefreshReports} profile={profile} />}
+          {panel === 'marinas'      && <MarinasTab marinas={marinas} />}
+          {panel === 'my-stuff'     && <MyStuffTab catches={catches} waypoints={waypoints} profile={profile} onRefresh={onRefreshCatches} onRefreshWaypoints={onRefreshWaypoints} />}
+          {panel === 'regs'         && <RegsTab />}
+          {panel === 'fishing-regs' && <FishingRegsPanel />}
+          {panel === 'tides'        && <TidesPanel tides={tides} />}
+          {panel === 'weather'      && <WeatherPanel weather={weather} />}
+          {panel === 'vhf'          && <VHFPanel />}
+          {panel === 'reports'      && <ReportsFeed reports={reports} spots={spots} profile={profile} onRefresh={onRefreshReports} />}
+          {panel === 'gig-harbor'   && <GigHarborPanel marinas={marinas} />}
+          {panel === 'boat-wrap'    && <BoatWrapPanel profile={profile} />}
+          {panel === 'account'      && <AccountPanel profile={profile} />}
+          {panel === 'spot-detail'  && panelData && <SpotDetailPanel spot={panelData as FishingSpot} />}
+          {panel === 'marina-detail'&& panelData && <MarinaDetailPanel marina={panelData as Marina} />}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── TidesPanel ───────────────────────────────────────────────────────────────
+function TidesPanel({ tides }: { tides: { station: string; predictions: TidePrediction[] } }) {
+  const now = new Date()
+  const pred = tides.predictions
+  const next = pred.find(p => new Date(p.time) > now)
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>Station: {tides.station} · NOAA CO-OPS</div>
+      {pred.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>No tide data available</div>}
+      {next && (
+        <div style={{ background: 'rgba(34,211,238,0.07)', borderRadius: 12, border: '1px solid rgba(34,211,238,0.2)', padding: 16, marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Next {next.type === 'H' ? 'High' : 'Low'} Water</div>
+          <div style={{ fontSize: 36, fontWeight: 800, fontFamily: 'JetBrains Mono,monospace', color: next.type === 'H' ? 'var(--cyan)' : 'var(--amber)', lineHeight: 1 }}>
+            {next.height_ft.toFixed(1)}<span style={{ fontSize: 18 }}> ft</span>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>{new Date(next.time).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+      )}
+      {pred.map((p, i) => {
+        const isPast = new Date(p.time) < now
+        const isNext = next && p.time === next.time
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--surface)', borderRadius: 8, marginBottom: 4, border: `1px solid ${isPast ? 'rgba(255,255,255,0.04)' : p.type === 'H' ? 'rgba(34,211,238,0.15)' : 'rgba(245,158,11,0.15)'}`, opacity: isPast ? 0.5 : 1 }}>
+            <Waves size={14} color={p.type === 'H' ? 'var(--cyan)' : 'var(--amber)'} />
+            <span style={{ fontWeight: 700, fontSize: 12, color: p.type === 'H' ? 'var(--cyan)' : 'var(--amber)', width: 28 }}>{p.type === 'H' ? 'HI' : 'LO'}</span>
+            <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 14, fontWeight: 700, color: 'var(--text1)', width: 52 }}>{p.height_ft.toFixed(1)} ft</span>
+            <span style={{ fontSize: 12, color: 'var(--text2)' }}>{new Date(p.time).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            {isNext && <span style={{ marginLeft: 'auto', fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(34,211,238,0.15)', color: 'var(--cyan)', fontWeight: 700 }}>NEXT</span>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── WeatherPanel ─────────────────────────────────────────────────────────────
+function WeatherPanel({ weather }: { weather: Weather | null }) {
+  if (!weather) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Weather data unavailable</div>
+  const stats = [
+    { label: 'Feels Like',   value: `${Math.round(weather.apparent_temperature)}°F`, icon: Thermometer },
+    { label: 'Wind Speed',   value: `${Math.round(weather.wind_speed_10m)} mph`,      icon: Wind },
+    { label: 'Wind Dir.',    value: `${Math.round(weather.wind_direction_10m)}°`,     icon: Compass },
+    { label: 'Humidity',     value: `${Math.round(weather.relative_humidity_2m)}%`,  icon: Droplets },
+  ]
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ background: 'rgba(79,127,255,0.07)', borderRadius: 12, border: '1px solid rgba(79,127,255,0.18)', padding: 16, marginBottom: 14 }}>
+        <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Gig Harbor, WA · Open-Meteo</div>
+        <div style={{ fontSize: 40, fontWeight: 800, fontFamily: 'JetBrains Mono,monospace', lineHeight: 1 }}>{Math.round(weather.temperature_2m)}°<span style={{ fontSize: 20 }}>F</span></div>
+        <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4 }}>{wmoDesc(weather.weather_code)}</div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+        {stats.map(s => {
+          const Icon = s.icon
+          return (
+            <div key={s.label} style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon size={16} color="var(--accent)" />
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'JetBrains Mono,monospace' }}>{s.value}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8, fontSize: 11, color: 'var(--text3)' }}>
+        Monitor VHF WX1 (162.400 MHz) for NOAA marine weather forecasts and storm warnings.
+      </div>
+    </div>
+  )
+}
+
+// ─── VHFPanel ─────────────────────────────────────────────────────────────────
+function VHFPanel() {
+  return (
+    <div style={{ padding: '8px' }}>
+      <div style={{ padding: '8px 6px 10px', fontSize: 11, color: 'var(--text3)' }}>
+        Always monitor Channel 16 while underway. Switch to working channel after hailing.
+      </div>
+      {VHF_CHANNELS.map(ch => (
+        <div key={ch.ch} style={{ padding: '10px 12px', borderRadius: 10, marginBottom: 5, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, flexShrink: 0, background: ch.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: ch.color, fontFamily: 'JetBrains Mono,monospace' }}>{ch.ch}</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>{ch.name}</span>
+              <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: ch.color + '20', color: ch.color, fontWeight: 700 }}>{ch.cat}</span>
+            </div>
+            <span style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.4 }}>{ch.desc}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── FishingRegsPanel ─────────────────────────────────────────────────────────
+function FishingRegsPanel() {
+  const [area, setArea] = useState<string | null>(null)
+  const sel = area ? FISHING_REGS[area] : null
+  return (
+    <div style={{ padding: 12 }}>
+      <div style={{ background: 'rgba(245,158,11,0.07)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.2)', padding: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700, marginBottom: 2 }}>WDFW Quick Reference — Marine Areas 5–13</div>
+        <div style={{ fontSize: 10, color: 'var(--text3)' }}>Always verify current rules at wdfw.wa.gov. Seasons and quotas change yearly.</div>
+      </div>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+        {Object.keys(FISHING_REGS).map(k => (
+          <button key={k} onClick={() => setArea(area === k ? null : k)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', background: area === k ? 'var(--accent)' : 'var(--surface2)', color: area === k ? '#fff' : 'var(--text2)' }}>
+            Area {k}
+          </button>
+        ))}
+      </div>
+      {sel ? (
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 14 }}>
+          <div style={{ padding: '12px 14px', background: 'rgba(79,127,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif' }}>MARINE AREA {area}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>{sel.area}</div>
+          </div>
+          {([['Salmon', sel.salmon, 'var(--red)'], ['Halibut', sel.halibut, 'var(--cyan)'], ['Rockfish', sel.rockfish, 'var(--purple)'], ['Dungeness', sel.dungeness, 'var(--amber)']] as [string, string, string][]).map(([label, value, color]) => (
+            <div key={label} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ fontSize: 10, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.55 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text3)', fontSize: 13 }}>Select a marine area above</div>
+      )}
+      <a href="https://wdfw.wa.gov/fishing/regulations" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', padding: 12, borderRadius: 10, background: 'rgba(34,192,122,0.08)', border: '1px solid rgba(34,192,122,0.18)', color: 'var(--green)', textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>
+        <BookOpen size={13} /> Official WDFW Regulations <ExternalLink size={11} />
+      </a>
+    </div>
+  )
+}
+
+// ─── GigHarborPanel ───────────────────────────────────────────────────────────
+function GigHarborPanel({ marinas }: { marinas: Marina[] }) {
+  const gh = marinas.find(m => m.city?.toLowerCase().includes('gig harbor') || m.name?.toLowerCase().includes('gig harbor'))
+  const amenities = gh ? [
+    gh.has_fuel_dock         && { icon: Fuel,       label: 'Fuel',      color: 'var(--amber)' },
+    gh.has_launch_ramp       && { icon: Navigation, label: 'Launch',    color: 'var(--green)' },
+    gh.has_transient_moorage && { icon: Anchor,     label: 'Transient', color: 'var(--accent)' },
+    gh.has_pump_out          && { icon: Wind,       label: 'Pump-Out',  color: 'var(--cyan)' },
+    gh.has_showers           && { icon: ShowerHead, label: 'Showers',   color: 'var(--text3)' },
+    gh.has_wifi              && { icon: Wifi,       label: 'WiFi',      color: 'var(--text3)' },
+    gh.has_repair_yard       && { icon: Zap,        label: 'Repair',    color: 'var(--purple)' },
+  ].filter(Boolean) as any[] : []
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ background: 'linear-gradient(135deg,rgba(8,145,178,0.1),rgba(79,127,255,0.08))', borderRadius: 12, border: '1px solid rgba(8,145,178,0.2)', padding: 16, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <Anchor size={16} color="var(--cyan)" />
+          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif' }}>{gh?.name || 'GIG HARBOR MARINA'}</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>Gig Harbor, WA · VHF {gh?.vhf_channel || '16'}{gh?.phone ? ` · ${gh.phone}` : ''}</div>
+        {gh?.description && <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.55, margin: 0 }}>{gh.description}</p>}
+      </div>
+      {amenities.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+          {amenities.map((a: any) => { const Icon = a.icon; return <span key={a.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, padding: '4px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: a.color }}><Icon size={11} /> {a.label}</span> })}
+        </div>
+      )}
+      <div style={{ background: 'rgba(34,192,122,0.07)', borderRadius: 12, border: '1px solid rgba(34,192,122,0.2)', padding: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>USA Wrap Co — Authorized Here</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 10 }}>Hull wraps · DekWave non-slip decking · Marine vinyl graphics</div>
+        {gh?.phone && <a href={`tel:${gh.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, background: 'rgba(34,192,122,0.12)', border: '1px solid rgba(34,192,122,0.25)', color: 'var(--green)', textDecoration: 'none', fontSize: 12, fontWeight: 600 }}><Phone size={12} /> Call Marina</a>}
+      </div>
+    </div>
+  )
+}
+
+// ─── SpotDetailPanel ──────────────────────────────────────────────────────────
+function SpotDetailPanel({ spot: s }: { spot: FishingSpot }) {
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ fontSize: 17, fontWeight: 800 }}>{s.name}</span>
+            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 4, background: (DIFF_COLOR[s.difficulty] || 'var(--text3)') + '25', color: DIFF_COLOR[s.difficulty] || 'var(--text3)', fontWeight: 700, textTransform: 'uppercase' }}>{s.difficulty}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{REGIONS[s.region] || s.region}{s.depth_range_ft ? ` · ${s.depth_range_ft}ft` : ''}{s.best_tides ? ` · ${s.best_tides} tide` : ''}</div>
+        </div>
+      </div>
+      {s.description && <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.55, margin: '0 0 12px' }}>{s.description}</p>}
+      {Array.isArray(s.species_present) && s.species_present.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
+          {s.species_present.slice(0, 6).map((sp: any, i: number) => (
+            <span key={i} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, background: 'rgba(79,127,255,0.1)', color: 'var(--accent)', fontWeight: 600 }}>
+              {'★'.repeat(Math.min(sp.rating || 3, 5))} {(sp.species_id || '').replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )}
+      {Array.isArray(s.best_techniques) && s.best_techniques.length > 0 && (
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
+          <span style={{ color: 'var(--text3)' }}>Techniques: </span>
+          {s.best_techniques.map((t: any) => typeof t === 'string' ? t : (t?.name ?? String(t))).join(', ')}
+        </div>
+      )}
+      {s.hazards && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          <AlertTriangle size={12} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: 11, color: 'var(--amber)' }}>{s.hazards}</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+        <a href={`https://www.google.com/maps?q=${s.lat},${s.lng}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>
+          <MapPin size={11} /> Open in Maps
+        </a>
+        <span style={{ fontSize: 11, color: 'var(--text3)' }}>{s.lat.toFixed(4)}°N {Math.abs(s.lng).toFixed(4)}°W</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── MarinaDetailPanel ────────────────────────────────────────────────────────
+function MarinaDetailPanel({ marina: m }: { marina: Marina }) {
+  const amenities = [
+    m.has_fuel_dock         && { icon: Fuel,       label: 'Fuel',      color: 'var(--amber)' },
+    m.has_launch_ramp       && { icon: Navigation, label: 'Launch',    color: 'var(--green)' },
+    m.has_transient_moorage && { icon: Anchor,     label: 'Transient', color: 'var(--accent)' },
+    m.has_pump_out          && { icon: Wind,       label: 'Pump-Out',  color: 'var(--cyan)' },
+    m.has_showers           && { icon: ShowerHead, label: 'Showers',   color: 'var(--text3)' },
+    m.has_wifi              && { icon: Wifi,       label: 'WiFi',      color: 'var(--text3)' },
+    m.has_repair_yard       && { icon: Zap,        label: 'Repair',    color: 'var(--purple)' },
+  ].filter(Boolean) as any[]
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <Anchor size={14} color={m.usa_wrapco_authorized ? 'var(--green)' : 'var(--text3)'} />
+        <span style={{ fontSize: 16, fontWeight: 800 }}>{m.name}</span>
+        {m.usa_wrapco_authorized && <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(34,192,122,0.15)', color: 'var(--green)', fontWeight: 700 }}>USA WRAP CO</span>}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>{m.city} · VHF {m.vhf_channel}{m.transient_rate_per_ft_per_night ? ` · $${m.transient_rate_per_ft_per_night}/ft/night` : ''}</div>
+      {m.description && <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, margin: '0 0 12px' }}>{m.description}</p>}
+      {amenities.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+          {amenities.map((a: any) => { const Icon = a.icon; return <span key={a.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, padding: '3px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', color: a.color }}><Icon size={10} /> {a.label}</span> })}
+        </div>
+      )}
+      {m.usa_wrapco_authorized && (
+        <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(34,192,122,0.08)', border: '1px solid rgba(34,192,122,0.2)', marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', marginBottom: 2 }}>USA Wrap Co — Authorized Here</div>
+          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Hull wraps · DekWave decking · Marine vinyl graphics</div>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 12 }}>
+        {m.phone && <a href={`tel:${m.phone}`} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}><Phone size={12} /> Call</a>}
+        <a href={`https://www.google.com/maps/search/${encodeURIComponent(m.name + ' ' + m.city)}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}><MapPin size={12} /> Directions</a>
+      </div>
+    </div>
+  )
+}
+
+// ─── BoatWrapPanel ────────────────────────────────────────────────────────────
+function BoatWrapPanel({ profile }: { profile: Profile }) {
+  const [sent, setSent] = useState(false)
+  const [form, setForm] = useState({ boat: '', service: 'full_wrap', email: (profile as any).email || '' })
+  const inp: React.CSSProperties = { width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, padding: '8px 10px', color: 'var(--text1)', fontSize: 13, boxSizing: 'border-box' }
+  if (sent) return (
+    <div style={{ padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)', marginBottom: 8 }}>Request Sent!</div>
+      <p style={{ fontSize: 13, color: 'var(--text2)' }}>USA Wrap Co will follow up within 1 business day.</p>
+    </div>
+  )
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ background: 'linear-gradient(135deg,rgba(34,192,122,0.08),rgba(79,127,255,0.08))', borderRadius: 12, border: '1px solid rgba(34,192,122,0.2)', padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'Barlow Condensed,sans-serif', marginBottom: 4 }}>FREE QUOTE — USA WRAP CO</div>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>Hull wraps · Partial wraps · DekWave decking · Marine vinyl graphics</div>
+      </div>
+      {[{ key: 'boat', label: 'Boat (Year / Make / Model / Length)', placeholder: '2019 Bayliner 21ft' }, { key: 'email', label: 'Email', placeholder: 'you@email.com', type: 'email' }].map(f => (
+        <div key={f.key} style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{f.label}</label>
+          <input type={(f as any).type || 'text'} placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={inp} />
+        </div>
+      ))}
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Service</label>
+        <select value={form.service} onChange={e => setForm(p => ({ ...p, service: e.target.value }))} style={{ ...inp }}>
+          <option value="full_wrap">Full Hull Wrap</option>
+          <option value="partial_wrap">Partial Wrap</option>
+          <option value="dekwave">DekWave Non-Slip Decking</option>
+          <option value="graphics">Marine Vinyl Graphics</option>
+          <option value="both">Wrap + DekWave Package</option>
+        </select>
+      </div>
+      <button onClick={() => setSent(true)} disabled={!form.boat || !form.email}
+        style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', cursor: form.boat && form.email ? 'pointer' : 'default', fontSize: 13, fontWeight: 700, background: form.boat && form.email ? 'var(--green)' : 'rgba(255,255,255,0.05)', color: form.boat && form.email ? '#fff' : 'var(--text3)' }}>
+        Send to USA Wrap Co →
+      </button>
+    </div>
+  )
+}
+
+// ─── AccountPanel ─────────────────────────────────────────────────────────────
+function AccountPanel({ profile }: { profile: Profile }) {
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--surface2)', borderRadius: 12, marginBottom: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#1e40af,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, color: '#fff', fontWeight: 800 }}>
+          {profile.name?.charAt(0)?.toUpperCase() || '?'}
+        </div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{profile.name || 'PNW Angler'}</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'capitalize' }}>{profile.role?.replace('_', ' ')}</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text3)', padding: '8px 0', textAlign: 'center' }}>
+        Manage your account at the main CRM portal.
       </div>
     </div>
   )
