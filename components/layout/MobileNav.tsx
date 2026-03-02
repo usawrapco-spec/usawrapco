@@ -182,6 +182,7 @@ const MORE_SECTIONS: MoreSection[] = [
   {
     label: 'Marine / Fishing',
     items: [
+      { href: '/pnw',               label: 'PNW Nav',    icon: Navigation },
       { href: '/fishing',             label: 'Dashboard',  icon: Anchor },
       { href: '/fishing/catch-log',   label: 'Catch Log',  icon: Fish },
       { href: '/fishing/spots',       label: 'Spots',      icon: MapPin },
