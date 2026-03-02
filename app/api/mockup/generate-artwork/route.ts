@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
           negative_prompt: negativePrompt,
           width: 2160,
           height: 1080,
-          style_type: 'DESIGN',
-          magic_prompt_option: 'OFF',
+          style_type: 'Design',
+          magic_prompt_option: 'Off',
         },
       }),
     })
