@@ -18,6 +18,7 @@ import type { Profile, Project, PipeStage, ProjectFinancials } from '@/types'
 import JobChat from '@/components/chat/JobChat'
 import JobPhotosTab from '@/components/projects/JobPhotosTab'
 import ProofingPanel from '@/components/projects/ProofingPanel'
+import DeptSignOffChecklist from '@/components/projects/DeptSignOffChecklist'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import SharedVehicleSelector from '@/components/shared/VehicleSelector'
 
@@ -72,7 +73,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
 
 const PIPE_STAGES: PipeStage[] = ['sales_in', 'production', 'install', 'prod_review', 'sales_close', 'done']
 
-type Tab = 'overview' | 'timeline' | 'comments' | 'photos' | 'proofs' | 'vehicle_info' | 'design_brief' | 'scope' | 'signoff' | 'mockup'
+type Tab = 'overview' | 'timeline' | 'comments' | 'photos' | 'proofs' | 'vehicle_info' | 'design_brief' | 'scope' | 'signoff' | 'mockup' | 'checklist'
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JobDetailClient({
@@ -422,6 +423,26 @@ export default function JobDetailClient({
     setConnectedJobs(prev => prev.filter(c => c.id !== connectionId))
   }
 
+  // ── Close Job (dept sign-off) ──
+  const closeJob = async () => {
+    await supabase.from('projects').update({
+      pipe_stage: 'done',
+      status: 'closed',
+    }).eq('id', project.id)
+    setProject(p => ({ ...p, pipe_stage: 'done', status: 'closed' as any }))
+    fetch('/api/xp/award', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deal_won', sourceType: 'project', sourceId: project.id }),
+    }).catch(() => {})
+    fetch('/api/webhooks/stage-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: project.id, event: 'job_closed' }),
+    }).catch(() => {})
+    router.push('/jobs')
+  }
+
   // ── Archive / Delete ──
   const archiveJob = async () => {
     await supabase.from('projects').update({ pipe_stage: 'done' }).eq('id', project.id)
@@ -670,6 +691,7 @@ export default function JobDetailClient({
     { key: 'comments',     label: 'Comments',       icon: <MessageSquare size={14} /> },
     { key: 'photos',       label: 'Photos',         icon: <Camera size={14} /> },
     { key: 'proofs',       label: 'Proofs',         icon: <FileImage size={14} /> },
+    { key: 'checklist',    label: 'Sign-Off',       icon: <CheckCircle2 size={14} /> },
   ]
 
   return (
@@ -1241,6 +1263,15 @@ export default function JobDetailClient({
           )}
           {tab === 'proofs' && (
             <ProofingPanel project={project} profile={profile} />
+          )}
+
+          {tab === 'checklist' && (
+            <DeptSignOffChecklist
+              projectId={project.id}
+              orgId={project.org_id}
+              profile={profile}
+              onCloseJob={closeJob}
+            />
           )}
 
           {/* ── Vehicle Info Tab ── */}

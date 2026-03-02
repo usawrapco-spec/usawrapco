@@ -179,14 +179,14 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
     return () => { supabase.removeChannel(channel) }
   }, [profile.org_id])
 
-  // Active jobs filtered by pipeline type (exclude done/cancelled)
+  // Active jobs filtered by division (exclude done/cancelled)
   const activeJobs = useMemo(() => {
-    const divTypes = DIVISION_TYPES[activePipeline] ?? [activePipeline]
-    return projects.filter(p =>
-      p.pipe_stage !== 'done' &&
-      p.status !== 'cancelled' &&
-      divTypes.includes(p.pipeline_type || 'wraps')
-    )
+    return projects.filter(p => {
+      if (p.pipe_stage === 'done' || p.status === 'cancelled') return false
+      if (activePipeline === 'dekwave') return p.division === 'decking'
+      // usawrapco: wraps division OR null/undefined (default)
+      return p.division !== 'decking'
+    })
   }, [projects, activePipeline])
 
   const filtered = useMemo(() => {
@@ -268,8 +268,11 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
         {PIPELINES.map(pl => {
           const isActive = activePipeline === pl.key
           const Icon = pl.icon
-          const plTypes = DIVISION_TYPES[pl.key] ?? [pl.key]
-          const pipeCount = projects.filter(p => plTypes.includes(p.pipeline_type || 'wraps') && p.pipe_stage !== 'done' && p.status !== 'cancelled').length
+          const pipeCount = projects.filter(p => {
+            if (p.pipe_stage === 'done' || p.status === 'cancelled') return false
+            if (pl.key === 'dekwave') return p.division === 'decking'
+            return p.division !== 'decking'
+          }).length
           return (
             <button
               key={pl.key}
@@ -394,11 +397,11 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
             router={router}
           />
         ) : deptView === 'sales' ? (
-          <SalesPipeline orgId={orgId} profileId={profile.id} role={profile.role} />
+          <SalesPipeline orgId={orgId} profileId={profile.id} role={profile.role} divisionFilter={activePipeline} />
         ) : deptView === 'production' ? (
-          <ProductionPipeline orgId={orgId} profileId={profile.id} role={profile.role} />
+          <ProductionPipeline orgId={orgId} profileId={profile.id} role={profile.role} divisionFilter={activePipeline} />
         ) : (
-          <InstallPipeline orgId={orgId} profileId={profile.id} role={profile.role} />
+          <InstallPipeline orgId={orgId} profileId={profile.id} role={profile.role} divisionFilter={activePipeline} />
         )}
       </div>
 

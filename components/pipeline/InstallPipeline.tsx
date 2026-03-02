@@ -10,6 +10,7 @@ interface InstallPipelineProps {
   orgId: string
   profileId: string
   role: string
+  divisionFilter?: string
 }
 
 const COLUMNS: KanbanColumn[] = [
@@ -67,7 +68,7 @@ function getInstallStatus(p: any): string {
   return fd.install_status || ''
 }
 
-export default function InstallPipeline({ orgId, profileId, role }: InstallPipelineProps) {
+export default function InstallPipeline({ orgId, profileId, role, divisionFilter }: InstallPipelineProps) {
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -128,10 +129,15 @@ export default function InstallPipeline({ orgId, profileId, role }: InstallPipel
 
   if (loading) return <LoadingState />
 
+  // Apply division filter
+  const divFiltered = divisionFilter === 'dekwave'
+    ? projects.filter(p => p.division === 'decking')
+    : projects.filter(p => p.division !== 'decking')
+
   // Filter for installer role
   const filtered = ['admin', 'owner', 'production'].includes(role)
-    ? projects
-    : projects.filter(p => {
+    ? divFiltered
+    : divFiltered.filter(p => {
         const fd = (p.form_data as any) || {}
         return fd.installer === profileId || p.installer_id === profileId || !getInstaller(p)
       })
@@ -166,7 +172,7 @@ export default function InstallPipeline({ orgId, profileId, role }: InstallPipel
           department="install"
           profileId={profileId}
           orgId={orgId}
-          onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
+          onProjectClick={(p) => router.push(`/projects/${p.id}`)}
           onStageChange={handleStageChange}
           showGhosts={false}
         />

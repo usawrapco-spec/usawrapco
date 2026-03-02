@@ -10,6 +10,7 @@ interface ProductionPipelineProps {
   orgId: string
   profileId: string
   role: string
+  divisionFilter?: string
 }
 
 const COLUMNS: KanbanColumn[] = [
@@ -76,7 +77,7 @@ function getDesignStatus(project: any): string {
   return fd.production_status || fd.approvalStatus || ''
 }
 
-export default function ProductionPipeline({ orgId, profileId, role }: ProductionPipelineProps) {
+export default function ProductionPipeline({ orgId, profileId, role, divisionFilter }: ProductionPipelineProps) {
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -158,10 +159,15 @@ export default function ProductionPipeline({ orgId, profileId, role }: Productio
 
   if (loading) return <LoadingState />
 
+  // Apply division filter
+  const divFiltered = divisionFilter === 'dekwave'
+    ? projects.filter(p => p.division === 'decking')
+    : projects.filter(p => p.division !== 'decking')
+
   // Stats
-  const inDesign = projects.filter(p => ['needed', 'in_progress'].includes(getDesignStatus(p))).length
-  const awaitingApproval = projects.filter(p => getDesignStatus(p) === 'proof_sent').length
-  const readyToPrint = projects.filter(p => ['approved', 'printing'].includes(getDesignStatus(p))).length
+  const inDesign = divFiltered.filter(p => ['needed', 'in_progress'].includes(getDesignStatus(p))).length
+  const awaitingApproval = divFiltered.filter(p => getDesignStatus(p) === 'proof_sent').length
+  const readyToPrint = divFiltered.filter(p => ['approved', 'printing'].includes(getDesignStatus(p))).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -171,7 +177,7 @@ export default function ProductionPipeline({ orgId, profileId, role }: Productio
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
         flexShrink: 0,
       }}>
-        <PipeStat label="Total in Production" value={projects.length.toString()} color="var(--accent)" />
+        <PipeStat label="Total in Production" value={divFiltered.length.toString()} color="var(--accent)" />
         <PipeStat label="In Design" value={inDesign.toString()} color="#ec4899" />
         <PipeStat label="Awaiting Approval" value={awaitingApproval.toString()} color="#06b6d4" />
         <PipeStat label="Ready to Print" value={readyToPrint.toString()} color="#22c55e" />
@@ -181,12 +187,12 @@ export default function ProductionPipeline({ orgId, profileId, role }: Productio
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <KanbanBoard
           columns={COLUMNS}
-          projects={projects}
+          projects={divFiltered}
           department="production"
           profileId={profileId}
           orgId={orgId}
           horizontal={true}
-          onProjectClick={(p) => router.push(`/jobs/${p.id}`)}
+          onProjectClick={(p) => router.push(`/projects/${p.id}`)}
           onStageChange={handleStageChange}
           showGhosts={false}
         />
