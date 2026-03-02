@@ -190,17 +190,10 @@ export default function MockupGeneratorPage() {
   const [noVehicleMatch, setNoVehicleMatch] = useState(false)
   const uploadFileRef = useRef<HTMLInputElement>(null)
 
-  // Service availability (checked server-side via API)
-  const [serviceStatus, setServiceStatus] = useState<{ replicate: boolean; anthropic: boolean; twilio: boolean } | null>(null)
-
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     loadTemplates()
-    fetch('/api/health/services')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setServiceStatus(d) })
-      .catch(() => {})
     return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current) }
   }, [])
 
@@ -971,21 +964,6 @@ export default function MockupGeneratorPage() {
           <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
             AI will analyze your brand, create custom artwork, add your text, and apply photorealism.
           </p>
-
-          {/* Service availability warnings */}
-          {serviceStatus && (!serviceStatus.replicate || !serviceStatus.anthropic) && (
-            <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 20, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <AlertCircle size={14} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
-              <div style={{ fontSize: 12, color: 'var(--amber)', lineHeight: 1.5 }}>
-                <strong>API keys not configured:</strong>{' '}
-                {[
-                  !serviceStatus.replicate && 'REPLICATE_API_TOKEN (artwork generation)',
-                  !serviceStatus.anthropic && 'ANTHROPIC_API_KEY (brand analysis)',
-                ].filter(Boolean).join(', ')}.
-                {' '}Add these to your Vercel environment variables.
-              </div>
-            </div>
-          )}
 
           {/* Summary */}
           <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, marginBottom: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
