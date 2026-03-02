@@ -16,7 +16,7 @@ import {
   Printer, Truck,
   Shield, Rocket, UserCheck,
   Globe, LayoutGrid, Navigation, Compass,
-  Wand2, LayoutTemplate,
+  Wand2, LayoutTemplate, Car,
 } from 'lucide-react'
 
 interface NavItem {
@@ -91,10 +91,11 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Shield,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/admin/access',     label: 'Access Manager',    icon: UserCheck },
-      { href: '/admin/portals',    label: 'Employee Portals',  icon: Printer },
-      { href: '/admin/templates',  label: 'Templates',         icon: LayoutTemplate },
-      { href: '/settings',         label: 'System Settings',   icon: Settings },
+      { href: '/admin/access',        label: 'Access Manager',    icon: UserCheck },
+      { href: '/admin/portals',       label: 'Employee Portals',  icon: Printer },
+      { href: '/admin/templates',     label: 'Templates',         icon: LayoutTemplate },
+      { href: '/dashboard/vehicles',  label: 'Vehicle Database',  icon: Car },
+      { href: '/settings',            label: 'System Settings',   icon: Settings },
     ],
   },
   {
