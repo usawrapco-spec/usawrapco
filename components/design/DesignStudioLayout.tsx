@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import { Menu, Palette } from 'lucide-react'
 import { SideNav } from '@/components/layout/SideNav'
 import { QuickPermissionsWidget } from '@/components/ui/QuickPermissionsWidget'
-import { DesignHealthBanner } from '@/components/design/DesignHealthBanner'
 import type { Profile } from '@/types'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -140,7 +139,6 @@ export function DesignStudioLayout({ profile, children, actions }: Props) {
             paddingBottom: 24,
           }}
         >
-          <DesignHealthBanner />
           {children}
         </main>
       </div>
