@@ -11,21 +11,28 @@ export interface VehicleMeasurements {
   year_range: string
   year_start: number
   year_end: number
-  driver_side_sqft: number | null
-  passenger_side_sqft: number | null
-  both_sides_sqft: number | null
-  rear_sqft: number | null
+  // Panel sqft (DB columns)
+  driver_sqft: number | null
+  passenger_sqft: number | null
+  side_sqft: number | null
+  back_sqft: number | null
   hood_sqft: number | null
   roof_sqft: number | null
+  // Wrap totals
+  full_wrap_sqft: number | null
+  three_quarter_wrap_sqft: number | null
+  half_wrap_sqft: number | null
   total_sqft: number | null
-  side_width_in: number | null
-  side_height_in: number | null
-  rear_width_in: number | null
-  rear_height_in: number | null
-  hood_width_in: number | null
-  hood_length_in: number | null
-  roof_width_in: number | null
-  roof_length_in: number | null
+  linear_feet: number | null
+  // Dimensions
+  side_width: number | null
+  side_height: number | null
+  back_width: number | null
+  back_height: number | null
+  hood_width: number | null
+  hood_length: number | null
+  roof_width: number | null
+  roof_length: number | null
 }
 
 export interface VehiclePanelSelection {
@@ -57,9 +64,9 @@ const PANEL_CONFIG: Array<{ key: keyof VehiclePanelSelection; label: string; col
 ]
 
 function getPanelSqft(v: VehicleMeasurements, key: keyof VehiclePanelSelection): number | null {
-  if (key === 'driverSide') return v.driver_side_sqft
-  if (key === 'passengerSide') return v.passenger_side_sqft
-  if (key === 'rear') return v.rear_sqft
+  if (key === 'driverSide') return v.driver_sqft
+  if (key === 'passengerSide') return v.passenger_sqft
+  if (key === 'rear') return v.back_sqft
   if (key === 'hood') return v.hood_sqft
   return v.roof_sqft
 }
@@ -342,22 +349,22 @@ export default function VehicleSelectorFull({
             })}
           </div>
 
-          {!compact && (vehicle.side_width_in || vehicle.rear_width_in || vehicle.hood_width_in || vehicle.roof_width_in) && (
+          {!compact && (vehicle.side_width || vehicle.back_width || vehicle.hood_width || vehicle.roof_width) && (
             <div style={{
               marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--surface2)',
               display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4,
             }}>
-              {vehicle.side_width_in && (
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Side: {vehicle.side_width_in}" x {vehicle.side_height_in}"</div>
+              {vehicle.side_width && (
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Side: {vehicle.side_width}" x {vehicle.side_height}"</div>
               )}
-              {vehicle.rear_width_in && (
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Rear: {vehicle.rear_width_in}" x {vehicle.rear_height_in}"</div>
+              {vehicle.back_width && (
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Rear: {vehicle.back_width}" x {vehicle.back_height}"</div>
               )}
-              {vehicle.hood_width_in && (
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Hood: {vehicle.hood_width_in}" x {vehicle.hood_length_in}"</div>
+              {vehicle.hood_width && (
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Hood: {vehicle.hood_width}" x {vehicle.hood_length}"</div>
               )}
-              {vehicle.roof_width_in && (
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Roof: {vehicle.roof_width_in}" x {vehicle.roof_length_in}"</div>
+              {vehicle.roof_width && (
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Roof: {vehicle.roof_width}" x {vehicle.roof_length}"</div>
               )}
             </div>
           )}

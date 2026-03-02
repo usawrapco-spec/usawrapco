@@ -95,14 +95,14 @@ export function calculateSelectedSqft(
   const breakdown: Record<string, number> = {}
   let total = 0
 
-  if (panels.driverSide !== false && vehicle.driver_side_sqft) {
-    breakdown.driverSide = vehicle.driver_side_sqft; total += vehicle.driver_side_sqft
+  if (panels.driverSide !== false && vehicle.driver_sqft) {
+    breakdown.driverSide = vehicle.driver_sqft; total += vehicle.driver_sqft
   }
-  if (panels.passengerSide !== false && vehicle.passenger_side_sqft) {
-    breakdown.passengerSide = vehicle.passenger_side_sqft; total += vehicle.passenger_side_sqft
+  if (panels.passengerSide !== false && vehicle.passenger_sqft) {
+    breakdown.passengerSide = vehicle.passenger_sqft; total += vehicle.passenger_sqft
   }
-  if (panels.rear !== false && vehicle.rear_sqft) {
-    breakdown.rear = vehicle.rear_sqft; total += vehicle.rear_sqft
+  if (panels.rear !== false && vehicle.back_sqft) {
+    breakdown.rear = vehicle.back_sqft; total += vehicle.back_sqft
   }
   if (panels.hood !== false && vehicle.hood_sqft) {
     breakdown.hood = vehicle.hood_sqft; total += vehicle.hood_sqft

@@ -140,29 +140,31 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
               <th style={{ ...col, textAlign: 'center', color: '#f59e0b' }}>Rear</th>
               <th style={{ ...col, textAlign: 'center', color: '#22c07a' }}>Hood</th>
               <th style={{ ...col, textAlign: 'center', color: '#ec4899' }}>Roof</th>
-              <th style={{ ...col, textAlign: 'center', color: 'var(--amber)' }}>TOTAL SQ FT</th>
+              <th style={{ ...col, textAlign: 'center', color: 'var(--cyan)' }}>Lin. Ft</th>
+              <th style={{ ...col, textAlign: 'center', color: 'var(--amber)' }}>FULL WRAP SQFT</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>Loading...</td>
+                <td colSpan={10} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>Loading...</td>
               </tr>
             ) : vehicles.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>No vehicles found</td>
+                <td colSpan={10} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>No vehicles found</td>
               </tr>
             ) : vehicles.map((v, i) => (
               <tr key={v.id} style={{ background: i % 2 === 0 ? 'var(--bg)' : 'var(--surface)' }}>
                 <td style={{ ...cell, color: 'var(--text2)', fontWeight: 500 }}>{v.make}</td>
                 <td style={{ ...cell, color: 'var(--text1)' }}>{v.model}</td>
                 <td style={{ ...cell, color: 'var(--text3)', textAlign: 'center' }}>{v.year_range}</td>
-                <td style={{ ...cell, color: '#4f7fff', textAlign: 'center', fontWeight: 600 }}>{v.driver_side_sqft ?? '—'}</td>
-                <td style={{ ...cell, color: '#8b5cf6', textAlign: 'center', fontWeight: 600 }}>{v.passenger_side_sqft ?? '—'}</td>
-                <td style={{ ...cell, color: '#f59e0b', textAlign: 'center', fontWeight: 600 }}>{v.rear_sqft ?? '—'}</td>
+                <td style={{ ...cell, color: '#4f7fff', textAlign: 'center', fontWeight: 600 }}>{v.driver_sqft ?? '—'}</td>
+                <td style={{ ...cell, color: '#8b5cf6', textAlign: 'center', fontWeight: 600 }}>{v.passenger_sqft ?? '—'}</td>
+                <td style={{ ...cell, color: '#f59e0b', textAlign: 'center', fontWeight: 600 }}>{v.back_sqft ?? '—'}</td>
                 <td style={{ ...cell, color: '#22c07a', textAlign: 'center', fontWeight: 600 }}>{v.hood_sqft ?? '—'}</td>
                 <td style={{ ...cell, color: '#ec4899', textAlign: 'center', fontWeight: 600 }}>{v.roof_sqft ?? '—'}</td>
-                <td style={{ ...cell, color: 'var(--amber)', textAlign: 'center', fontWeight: 700, fontSize: 14 }}>{v.total_sqft ?? '—'}</td>
+                <td style={{ ...cell, color: 'var(--cyan)', textAlign: 'center', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>{v.linear_feet ?? '—'}</td>
+                <td style={{ ...cell, color: 'var(--amber)', textAlign: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }}>{v.full_wrap_sqft ?? v.total_sqft ?? '—'}</td>
               </tr>
             ))}
           </tbody>

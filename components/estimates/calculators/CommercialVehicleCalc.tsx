@@ -43,10 +43,15 @@ interface VehicleRecord {
   make: string
   model: string
   full_wrap_sqft: number | null
-  partial_wrap_sqft: number | null
+  three_quarter_wrap_sqft: number | null
+  half_wrap_sqft: number | null
   hood_sqft: number | null
   roof_sqft: number | null
+  driver_sqft: number | null
+  passenger_sqft: number | null
+  back_sqft: number | null
   side_sqft: number | null
+  linear_feet: number | null
   doors_sqft: number | null
 }
 
@@ -59,8 +64,8 @@ interface Props {
 
 const COVERAGE = [
   { key: 'full',          label: 'Full Wrap',    sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
-  { key: 'three_quarter', label: '3/4 Wrap',     sqftFn: (v: VehicleRecord) => Math.round((v.full_wrap_sqft || 0) * 0.75) },
-  { key: 'half',          label: 'Half Wrap',    sqftFn: (v: VehicleRecord) => Math.round((v.full_wrap_sqft || 0) * 0.50) },
+  { key: 'three_quarter', label: '3/4 Wrap',     sqftFn: (v: VehicleRecord) => v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75) },
+  { key: 'half',          label: 'Half Wrap',    sqftFn: (v: VehicleRecord) => v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50) },
   { key: 'hood',          label: 'Hood Only',    sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
   { key: 'roof',          label: 'Roof Only',    sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
   { key: 'custom',        label: 'Custom Zones', sqftFn: () => 0 },
@@ -107,15 +112,26 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         .then(d => {
           if (d.measurement) {
             const m = d.measurement as Record<string, unknown>
+            const fullSqft = Number(m.full_wrap_sqft) || 0
             setVehicle({
               make: mk, model: mdl,
-              full_wrap_sqft: (m.full_wrap_sqft as number) || null,
-              partial_wrap_sqft: (m.partial_wrap_sqft as number) || null,
+              full_wrap_sqft: fullSqft || null,
+              three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
+              half_wrap_sqft: (m.half_wrap_sqft as number) || null,
               hood_sqft: (m.hood_sqft as number) || null,
               roof_sqft: (m.roof_sqft as number) || null,
+              driver_sqft: (m.driver_sqft as number) || null,
+              passenger_sqft: (m.passenger_sqft as number) || null,
+              back_sqft: (m.back_sqft as number) || null,
               side_sqft: (m.side_sqft as number) || null,
+              linear_feet: (m.linear_feet as number) || null,
               doors_sqft: (m.doors_sqft as number) || null,
             })
+            if (fullSqft > 0) {
+              const tierKey = autoDetectTierKey(fullSqft)
+              const tier = FLAT_RATE_TIERS.find(t => t.key === tierKey)
+              if (tier) { setSelectedTierKey(tier.key); setInstallerPay(tier.installerPay); setInstallHours(tier.installHours) }
+            }
           }
         })
         .catch(() => {})
@@ -145,10 +161,15 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
       setVehicle({
         make: result.make, model: result.model,
         full_wrap_sqft: fullSqft || null,
-        partial_wrap_sqft: (m.partial_wrap_sqft as number) || null,
+        three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
+        half_wrap_sqft: (m.half_wrap_sqft as number) || null,
         hood_sqft: (m.hood_sqft as number) || null,
         roof_sqft: (m.roof_sqft as number) || null,
+        driver_sqft: (m.driver_sqft as number) || null,
+        passenger_sqft: (m.passenger_sqft as number) || null,
+        back_sqft: (m.back_sqft as number) || null,
         side_sqft: (m.side_sqft as number) || null,
+        linear_feet: (m.linear_feet as number) || null,
         doors_sqft: (m.doors_sqft as number) || null,
       })
       // Auto-detect and apply install tier from sqft
@@ -173,11 +194,12 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     if (!vehicle) return 0
     if (coverage === 'custom') {
       let t = 0
-      const sides2 = (vehicle.side_sqft || 0) / 2
+      const driverSqft = vehicle.driver_sqft || (vehicle.side_sqft || 0) / 2
+      const passSqft   = vehicle.passenger_sqft || (vehicle.side_sqft || 0) / 2
       if (customZones.hood)         t += vehicle.hood_sqft || 0
       if (customZones.roof)         t += vehicle.roof_sqft || 0
-      if (customZones.driver_side)  t += sides2
-      if (customZones.pass_side)    t += sides2
+      if (customZones.driver_side)  t += driverSqft
+      if (customZones.pass_side)    t += passSqft
       if (customZones.front_bumper) t += Math.round((vehicle.full_wrap_sqft || 0) * 0.05)
       if (customZones.rear_bumper)  t += Math.round((vehicle.full_wrap_sqft || 0) * 0.05)
       if (customZones.mirrors)      t += 6
@@ -188,11 +210,12 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     return cov ? cov.sqftFn(vehicle) : (vehicle.full_wrap_sqft || 0)
   }, [vehicle, coverage, customZones])
 
-  const matRate         = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
-  const matLabel        = VINYL_MATERIALS.find(m => m.key === material)?.label ?? material
-  const laminateAdd     = laminate ? LAMINATE_RATE : 0
-  const sqftOrdered     = isInstallOnly ? 0 : Math.ceil(sqft * (1 + waste / 100))
-  const materialCost    = isInstallOnly ? 0 : sqftOrdered * (matRate + laminateAdd)
+  const matRate          = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
+  const matLabel         = VINYL_MATERIALS.find(m => m.key === material)?.label ?? material
+  const laminateAdd      = laminate ? LAMINATE_RATE : 0
+  const sqftOrdered      = isInstallOnly ? 0 : Math.ceil(sqft * (1 + waste / 100))
+  const linearFeetToOrder = sqftOrdered > 0 ? Math.ceil(sqftOrdered / 4.5) : 0
+  const materialCost     = isInstallOnly ? 0 : sqftOrdered * (matRate + laminateAdd)
   const effectiveDFee   = isInstallOnly ? 0 : designFee
   const cogs            = materialCost + installerPay + effectiveDFee
   const gpm             = calcGPMPct(salePrice, cogs)
@@ -278,14 +301,27 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
           onVehicleSelect={handleVehicleSelect}
         />
         {vehicle && (
-          <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 11, color: 'var(--text2)', flexWrap: 'wrap' }}>
-            <span>Full: <b style={{ color: 'var(--cyan)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.full_wrap_sqft}</b> sqft</span>
-            <span>Hood: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.hood_sqft}</b></span>
-            <span>Roof: <b style={{ color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>{vehicle.roof_sqft}</b></span>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
+              {[
+                { label: 'Driver Side', val: vehicle.driver_sqft,    color: '#4f7fff' },
+                { label: 'Pass Side',   val: vehicle.passenger_sqft,  color: '#8b5cf6' },
+                { label: 'Rear',        val: vehicle.back_sqft,       color: '#f59e0b' },
+                { label: 'Hood',        val: vehicle.hood_sqft,       color: '#22c07a' },
+                { label: 'Roof',        val: vehicle.roof_sqft,       color: '#ec4899' },
+                { label: 'Full Wrap',   val: vehicle.full_wrap_sqft,  color: 'var(--cyan)' },
+              ].map(p => (
+                <div key={p.label} style={{ padding: '5px 6px', borderRadius: 6, background: 'var(--surface)', textAlign: 'center', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 9, color: p.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif' }}>{p.label}</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{p.val ?? '—'}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text3)' }}>sqft</div>
+                </div>
+              ))}
+            </div>
             {selectedTierKey && (
-              <span style={{ color: 'var(--green)' }}>
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--green)' }}>
                 Auto-tier: <b style={{ fontFamily: 'JetBrains Mono, monospace' }}>{autoSelectedTierLabel}</b>
-              </span>
+              </div>
             )}
           </div>
         )}
@@ -329,8 +365,8 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
             {[
               { key: 'hood',         label: `Hood (${vehicle.hood_sqft} sqft)` },
               { key: 'roof',         label: `Roof (${vehicle.roof_sqft} sqft)` },
-              { key: 'driver_side',  label: `Driver Side (~${Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
-              { key: 'pass_side',    label: `Pass Side (~${Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
+              { key: 'driver_side',  label: `Driver Side (${vehicle.driver_sqft ?? Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
+              { key: 'pass_side',    label: `Pass Side (${vehicle.passenger_sqft ?? Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
               { key: 'front_bumper', label: 'Front Bumper (~est)' },
               { key: 'rear_bumper',  label: 'Rear Bumper (~est)' },
               { key: 'mirrors',      label: 'Mirrors (6 sqft)' },
@@ -574,6 +610,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         ] : [
           ['Sqft (Coverage)',      `${sqft} sqft`],
           ['Material to Order',   `${sqftOrdered} sqft (+${waste}% waste)`],
+          ['Linear Feet to Order', `${linearFeetToOrder} ft`],
           ['Material Cost',       fmtC(materialCost)],
           ['Install Hours',       `${installHours}h`],
           ['Installer Pay',       fmtC(installerPay)],
