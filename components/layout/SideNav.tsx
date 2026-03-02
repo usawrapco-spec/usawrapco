@@ -102,7 +102,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/analytics',   label: 'Analytics',   icon: BarChart3 },
       { href: '/fleet-map',   label: 'Fleet',        icon: Map },
-      { href: '/pnw',         label: 'PNW Navigator', icon: Navigation },
+      { href: '/pnw',         label: 'PNW Navigator', icon: Compass },
       { href: '/leaderboard', label: 'Leaderboard',  icon: Trophy },
       { href: '/engine',      label: 'V.I.N.Y.L.',   icon: Brain },
     ],
