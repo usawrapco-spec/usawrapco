@@ -15,9 +15,21 @@ const BLEED_PX = Math.round(BLEED_INCHES * PRINT_DPI) // 37px at 300dpi
 
 export async function logHealth(orgId: string, service: string, message: string) {
   try {
-    await getSupabaseAdmin()
+    const admin = getSupabaseAdmin()
+    // Deduplicate: only insert if no unresolved alert for this service exists
+    const { data: existing } = await admin
       .from('system_health')
-      .insert({ org_id: orgId, service, error_message: message, severity: 'error' })
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('service', service)
+      .is('resolved_at', null)
+      .limit(1)
+      .maybeSingle()
+    if (!existing) {
+      await admin
+        .from('system_health')
+        .insert({ org_id: orgId, service, error_message: message, severity: 'error' })
+    }
   } catch { /* silent */ }
 }
 

@@ -19,9 +19,20 @@ Include only panels that are clearly visible in the image.`
 
 async function logSystemHealth(orgId: string, service: string, message: string) {
   try {
-    await getSupabaseAdmin()
+    const admin = getSupabaseAdmin()
+    const { data: existing } = await admin
       .from('system_health')
-      .insert({ org_id: orgId, service, error_message: message, severity: 'error' })
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('service', service)
+      .is('resolved_at', null)
+      .limit(1)
+      .maybeSingle()
+    if (!existing) {
+      await admin
+        .from('system_health')
+        .insert({ org_id: orgId, service, error_message: message, severity: 'error' })
+    }
   } catch { /* silent */ }
 }
 
