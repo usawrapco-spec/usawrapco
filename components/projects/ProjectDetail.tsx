@@ -22,6 +22,7 @@ import SalesTabBuilder from '@/components/projects/SalesTabBuilder'
 import ProofingPanel from '@/components/projects/ProofingPanel'
 import TimeTrackingTab from '@/components/projects/TimeTrackingTab'
 import CustomerCommsPanel from '@/components/comms/CustomerCommsPanel'
+import SMSThread from '@/components/sms/SMSThread'
 import RenderEngine from '@/components/renders/RenderEngine'
 import JobPhotosTab from '@/components/projects/JobPhotosTab'
 import UpsellWidget from '@/components/projects/UpsellWidget'
@@ -908,13 +909,22 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                 <JobImages projectId={project.id} orgId={project.org_id} currentUserId={profile.id} vehicleType={(project.form_data as any)?.selectedVehicle?.name || ''} wrapScope={(project.form_data as any)?.wrapDetail || ''} />
               </div>
               <div style={{ borderTop:'1px solid var(--border)', paddingTop:16 }}>
-                <CustomerCommsPanel
-                  customerId={(project.form_data as any)?.customerId || project.customer_id || null}
-                  projectId={project.id}
-                  customerPhone={(project.form_data as any)?.phone || null}
-                  customerEmail={(project.form_data as any)?.email || null}
-                  customerName={(project.form_data as any)?.client || project.title || 'Customer'}
-                />
+                {(project.form_data as any)?.phone ? (
+                  <SMSThread
+                    customerId={(project.form_data as any)?.customerId || project.customer_id || null}
+                    customerPhone={(project.form_data as any)?.phone}
+                    customerName={(project.form_data as any)?.client || project.title || 'Customer'}
+                    projectId={project.id}
+                  />
+                ) : (
+                  <CustomerCommsPanel
+                    customerId={(project.form_data as any)?.customerId || project.customer_id || null}
+                    projectId={project.id}
+                    customerPhone={(project.form_data as any)?.phone || null}
+                    customerEmail={(project.form_data as any)?.email || null}
+                    customerName={(project.form_data as any)?.client || project.title || 'Customer'}
+                  />
+                )}
               </div>
             </div>
           )}
