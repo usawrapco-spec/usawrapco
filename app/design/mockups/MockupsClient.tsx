@@ -16,7 +16,6 @@ import {
   Loader2,
   RefreshCw,
 } from 'lucide-react'
-import { DesignHealthBanner } from '@/components/design/DesignHealthBanner'
 
 interface DesignMockup {
   id: string
@@ -204,8 +203,6 @@ export default function MockupsClient() {
 
   return (
     <>
-      <DesignHealthBanner />
-
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <h2
