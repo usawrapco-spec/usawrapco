@@ -192,10 +192,8 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite }: Props) {
 
       <OutputBar
         items={[
-          { label: 'Total Sqft', value: `${sqft} sqft`, color: 'var(--cyan)' },
-          { label: 'Mat Cost', value: `${fmtC(materialCost)} ($${matRate}/sqft)` },
+          { label: 'Material', value: fmtC(materialCost) },
           { label: 'Labor', value: fmtC(installerPay), color: 'var(--cyan)' },
-          ...(logoInlay ? [{ label: 'Logo', value: fmtC(350), color: 'var(--purple)' }] : []),
           { label: 'COGS', value: fmtC(cogs), color: 'var(--red)' },
         ]}
         gpm={gpm}

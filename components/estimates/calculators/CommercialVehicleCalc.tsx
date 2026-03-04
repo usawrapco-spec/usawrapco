@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Car, ChevronDown, ChevronRight, Info } from 'lucide-react'
+import { Car, Info } from 'lucide-react'
 import SharedVehicleSelector, { type VehicleSelectResult } from '@/components/shared/VehicleSelector'
 import type { LineItemSpecs } from '@/types'
 import {
@@ -10,7 +10,7 @@ import {
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
-import { calculateInstallPay, INSTALL_TIERS } from '@/lib/estimator/vehicleDb'
+import { calculateInstallPay } from '@/lib/estimator/vehicleDb'
 
 // ─── Vehicle measurement record from DB ─────────────────────────────────────
 interface VehicleRecord {
@@ -66,7 +66,6 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const [salePrice, setSalePrice]             = useState((specs.unitPriceSaved as number) || 0)
   const [installOverride, setInstallOverride] = useState(!!(specs.installOverride as boolean))
   const [gpmTarget, setGpmTarget]             = useState((specs.gpmTarget as number) || 75)
-  const [advancedOpen, setAdvancedOpen]       = useState(false)
   const [matTooltipOpen, setMatTooltipOpen]   = useState(false)
   const matTooltipRef = useRef<HTMLDivElement>(null)
 
@@ -156,7 +155,6 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         setInstallerPay(inst.pay)
         setInstallHours(inst.hours)
       }
-      setAdvancedOpen(false)
     } else if (!result.model) {
       setVehicle(null)
     }
@@ -196,7 +194,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const wrapSqftForTier  = vehicle?.full_wrap_sqft || 0
   const formulaResult    = wrapSqftForTier > 0 ? calculateInstallPay(wrapSqftForTier) : null
   const currentTierLabel = formulaResult?.tierLabel || '--'
-  const collapsedLabel   = `${isInstallOnly ? '' : `Waste: ${waste}% · `}${currentTierLabel} install`
+
 
   useEffect(() => {
     const covLabel = COVERAGE.find(c => c.key === coverage)?.label || coverage
@@ -265,32 +263,16 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         />
       </div>
 
-      {/* Panel grid: 7-col single row (compact micro-badges) */}
+      {/* Compact vehicle info line */}
       {vehicle && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 8 }}>
-          {[
-            { label: 'Driver', val: vehicle.driver_sqft,   color: '#4f7fff' },
-            { label: 'Pass',   val: vehicle.passenger_sqft, color: '#8b5cf6' },
-            { label: 'Rear',   val: vehicle.back_sqft,      color: '#f59e0b' },
-            { label: 'Hood',   val: vehicle.hood_sqft,      color: '#22c07a' },
-            { label: 'Roof',   val: vehicle.roof_sqft,      color: '#ec4899' },
-            { label: 'Full',   val: vehicle.full_wrap_sqft, color: 'var(--cyan)' },
-            { label: 'W/ Roof', val: vehicle.full_wrap_with_roof_sqft, color: 'var(--text3)' },
-          ].map(p => (
-            <div key={p.label} style={{ padding: '3px 4px', borderRadius: 5, background: 'var(--surface)', textAlign: 'center', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 8, color: p.color, fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{p.label}</div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--text1)' }}>{p.val ?? '--'}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {vehicle && formulaResult && (
-        <div style={{ marginBottom: 6, fontSize: 10, color: 'var(--green)' }}>
-          Tier: <b style={{ fontFamily: 'JetBrains Mono, monospace' }}>{currentTierLabel}</b>
-          <span style={{ color: 'var(--text3)', marginLeft: 6 }}>
-            ({formulaResult.hours}h x ${formulaResult.hourlyRate}/hr = {fmtC(formulaResult.pay)})
-          </span>
-          {installOverride && <span style={{ color: 'var(--amber)', marginLeft: 6 }}>(overridden)</span>}
+        <div style={{ marginBottom: 6, padding: '4px 8px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10, color: 'var(--text2)', alignItems: 'center' }}>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--cyan)', fontWeight: 700 }}>{sqft} sqft</span>
+          {formulaResult && <>
+            <span>·</span>
+            <span style={{ color: 'var(--green)', fontWeight: 700 }}>{currentTierLabel}</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{formulaResult.hours}h · {fmtC(formulaResult.pay)}</span>
+            {installOverride && <span style={{ color: 'var(--amber)', fontWeight: 700 }}>(override)</span>}
+          </>}
         </div>
       )}
 
@@ -362,19 +344,6 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
               </div>
             )}
           </div>
-          {vehicle && sqft > 0 && !isInstallOnly && (
-            <div style={{ marginTop: 4, padding: '3px 8px', background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.15)', borderRadius: 5, fontSize: 10, color: 'var(--text2)', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--cyan)', fontWeight: 700 }}>{sqft} sqft</span>
-              <span>·</span>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>${matRate}/sqft</span>
-              <span>·</span>
-              <span>{waste}% waste</span>
-              <span>·</span>
-              <span style={{ color: autoTargetPrice > 0 ? 'var(--green)' : 'var(--text3)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-                Est. {autoTargetPrice > 0 ? fmtC(autoTargetPrice) : '—'}
-              </span>
-            </div>
-          )}
         </div>
       )}
 
@@ -391,146 +360,28 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         </div>
       )}
 
-      {/* Collapsible: Waste + Installer Pay */}
-      <div style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <button
-          onClick={() => setAdvancedOpen(v => !v)}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--surface)', border: 'none', cursor: 'pointer', color: 'var(--text2)' }}
-        >
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
-            {advancedOpen ? 'Waste & Installer Pay' : collapsedLabel}
-          </span>
-          {advancedOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        </button>
-        {advancedOpen && (
-          <div style={{ padding: 10, background: 'var(--bg)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Waste */}
-            {!isInstallOnly && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif', minWidth: 40 }}>Waste</span>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  {WASTE_OPTS.map(w => (
-                    <button key={w} onClick={() => canWrite && setWaste(w)}
-                      style={{ ...pillBtnCompact(waste === w, 'var(--amber)') }}>
-                      {w}%
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* Installer Pay Card */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
-                  Installer Pay
-                </span>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  <button onClick={() => { if (canWrite) { setInstallOverride(false); if (formulaResult) { setInstallerPay(formulaResult.pay); setInstallHours(formulaResult.hours) } } }}
-                    style={pillBtnCompact(!installOverride, 'var(--cyan)')}>Formula</button>
-                  <button onClick={() => canWrite && setInstallOverride(true)}
-                    style={pillBtnCompact(installOverride, 'var(--amber)')}>Override</button>
-                </div>
-              </div>
-              {/* Formula summary */}
-              {formulaResult && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 8 }}>
-                  {[
-                    { label: 'Hours', val: `${formulaResult.hours}h`, color: 'var(--text1)' },
-                    { label: 'Rate', val: `$${formulaResult.hourlyRate}/hr`, color: 'var(--text2)' },
-                    { label: 'Pay', val: fmtC(installOverride ? installerPay : formulaResult.pay), color: installOverride ? 'var(--amber)' : 'var(--cyan)' },
-                    { label: 'Tier', val: formulaResult.tierLabel, color: 'var(--green)' },
-                  ].map(c => (
-                    <div key={c.label} style={{ padding: '4px 6px', borderRadius: 6, background: 'var(--surface)', textAlign: 'center', border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 8, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{c.label}</div>
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: c.color }}>{c.val}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Tier reference grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: 3 }}>
-                {INSTALL_TIERS.map(tier => {
-                  const isActive = tier.label === currentTierLabel
-                  return (
-                    <div key={tier.label}
-                      style={{
-                        padding: '3px 4px', borderRadius: 6, textAlign: 'center',
-                        border: isActive ? '1.5px solid var(--cyan)' : '1px solid var(--border)',
-                        background: isActive ? 'rgba(34,211,238,0.08)' : 'var(--surface)',
-                      }}>
-                      <div style={{ fontSize: 8, fontWeight: 700, color: isActive ? 'var(--cyan)' : 'var(--text3)', textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{tier.label}</div>
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, color: isActive ? 'var(--cyan)' : 'var(--text2)' }}>{fmtC(tier.pay)}</div>
-                      <div style={{ fontSize: 7, color: 'var(--text3)' }}>{tier.hours}h</div>
-                    </div>
-                  )
-                })}
-              </div>
-              {/* COGS breakdown */}
-              {vehicle && sqft > 0 && (
-                <div style={{ marginTop: 8, padding: '6px 8px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 4 }}>COGS Breakdown</div>
-                  {[
-                    ...(!isInstallOnly ? [{ label: `Materials (${sqftOrdered} sqft x $${matRate})`, val: fmtC(materialCost) }] : []),
-                    { label: `Install (${installHours}h x $${formulaResult?.hourlyRate || 35}/hr)`, val: fmtC(installerPay) },
-                    ...(!isInstallOnly ? [{ label: 'Design', val: fmtC(effectiveDFee) }] : []),
-                    { label: 'Total COGS', val: fmtC(cogs), bold: true },
-                    { label: `${gpmTarget}% GPM`, val: fmtC(autoTargetPrice), bold: true, color: 'var(--green)' },
-                  ].map(row => (
-                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 10, color: 'var(--text2)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                      <span>{row.label}</span>
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: row.bold ? 700 : 400, color: row.color || (row.bold ? 'var(--text1)' : 'var(--text2)') }}>{row.val}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* GPM Target Slider + Manual Override side-by-side */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: belowFloor ? 6 : 8 }}>
-        {/* GPM Slider */}
-        <div style={{ padding: '7px 10px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>Target GPM</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 800, color: gpmTarget >= 75 ? 'var(--green)' : gpmTarget >= 65 ? 'var(--amber)' : 'var(--red)' }}>
-              {gpmTarget}%
-            </span>
-          </div>
-          <input
-            type="range" min={65} max={85} step={1} value={gpmTarget}
-            onChange={e => canWrite && setGpmTarget(Number(e.target.value))}
-            disabled={!canWrite}
-            style={{ width: '100%', cursor: canWrite ? 'pointer' : 'default', accentColor: gpmTarget >= 75 ? '#22c07a' : gpmTarget >= 65 ? '#f59e0b' : '#f25a5a' }}
-          />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--text3)', marginTop: 1 }}>
-            <span>65%</span><span>75%</span><span>85%</span>
-          </div>
+      {/* Pricing row: Sale Price + Install Pay + Design Fee */}
+      <div style={{ display: 'grid', gridTemplateColumns: !isInstallOnly ? '1fr 1fr 1fr' : '1fr 1fr', gap: 5, marginBottom: 8 }}>
+        <div>
+          <label style={calcFieldLabelCompact}>Sale Price</label>
+          <input type="number" value={salePrice || ''} onChange={e => setSalePrice(Number(e.target.value))}
+            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', borderColor: belowFloor ? 'var(--red)' : undefined }}
+            disabled={!canWrite} />
         </div>
-        {/* Manual Override inputs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
+        <div>
+          <label style={calcFieldLabelCompact}>Install Pay</label>
+          <input type="number" value={installerPay || ''} onChange={e => setInstallerPay(Number(e.target.value))}
+            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}
+            disabled={!canWrite} />
+        </div>
+        {!isInstallOnly && (
           <div>
-            <label style={calcFieldLabelCompact}>Sale Price</label>
-            <input type="number" value={salePrice || ''} onChange={e => setSalePrice(Number(e.target.value))}
-              style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', borderColor: belowFloor ? 'var(--red)' : undefined }}
-              disabled={!canWrite} />
-          </div>
-          <div>
-            <label style={calcFieldLabelCompact}>Install Pay</label>
-            <input type="number" value={installerPay || ''} onChange={e => setInstallerPay(Number(e.target.value))}
+            <label style={calcFieldLabelCompact}>Design Fee</label>
+            <input type="number" value={designFee || ''} onChange={e => setDesignFee(Number(e.target.value))}
               style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}
               disabled={!canWrite} />
           </div>
-          {!isInstallOnly && (
-            <div>
-              <label style={calcFieldLabelCompact}>Design Fee</label>
-              <input type="number" value={designFee || ''} onChange={e => setDesignFee(Number(e.target.value))}
-                style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}
-                disabled={!canWrite} />
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Below floor warning */}
@@ -542,16 +393,11 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
 
       <OutputBar
         items={isInstallOnly ? [
-          { label: 'Coverage', value: 'Install Only' },
-          { label: 'Install Pay', value: fmtC(installerPay), color: 'var(--cyan)' },
-          { label: 'Hours', value: `${installHours}h` },
+          { label: 'Install', value: `${fmtC(installerPay)} (${installHours}h)`, color: 'var(--cyan)' },
           { label: 'COGS', value: fmtC(cogs), color: 'var(--red)' },
         ] : [
-          { label: 'Sqft', value: `${sqft} sqft` },
-          { label: 'Ordered', value: `${sqftOrdered} sqft (+${waste}%)`, color: 'var(--cyan)' },
-          { label: 'Linft', value: `${linearFeetToOrder} ft` },
-          { label: 'Mat Cost', value: fmtC(materialCost) },
-          { label: 'Labor', value: `${fmtC(installerPay)} (${installHours}h)`, color: 'var(--cyan)' },
+          { label: 'Material', value: fmtC(materialCost) },
+          { label: 'Install', value: `${fmtC(installerPay)} (${installHours}h)`, color: 'var(--cyan)' },
           { label: 'COGS', value: fmtC(cogs), color: 'var(--red)' },
         ]}
         gpm={gpm}

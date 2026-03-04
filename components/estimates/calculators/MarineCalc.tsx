@@ -6,7 +6,7 @@ import type { LineItemSpecs } from '@/types'
 import { calcMarineSqft } from '@/lib/estimator/pricing'
 import {
   CalcOutput, VINYL_MATERIALS, DESIGN_FEE_DEFAULT,
-  calcGPMPct, gpmColor,
+  calcGPMPct,
   calcFieldLabelCompact, calcInputCompact, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
@@ -19,7 +19,6 @@ interface Props {
 }
 
 const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
-const priceAt = (cogs: number, gpmPct: number) => cogs > 0 ? Math.round(cogs / (1 - gpmPct / 100)) : 0
 type WrapType = 'printed' | 'color_change'
 
 export default function MarineCalc({ specs, onChange, canWrite }: Props) {
@@ -62,10 +61,6 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
   const gpm          = calcGPMPct(salePrice, cogs)
   const gp           = salePrice - cogs
   const belowFloor   = salePrice > 0 && gpm < 65
-
-  // Target prices
-  const price75 = priceAt(cogs, 75)
-  const price65 = priceAt(cogs, 65)
 
   useEffect(() => {
     onChange({
@@ -236,44 +231,6 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
         </div>
       </div>
 
-      {/* COGS Breakdown — the math */}
-      <div style={{ marginBottom: 8, padding: '6px 8px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--border)' }}>
-        <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 4 }}>COGS Breakdown</div>
-        {[
-          { label: `Boat coverage (${marine.boatSqft - marine.transomSqft} sqft × $${matRate}/sqft)`, val: fmtC(marine.materialCost) },
-          ...(marine.transomSqft > 0 ? [{ label: `Transom (${marine.transomSqft} sqft × $${matRate}/sqft)`, val: fmtC(marine.transomSqft * matRate) }] : []),
-          { label: `Waste @ 2× rate (${marine.wasteSqft} sqft × $${matRate} × 2)`, val: fmtC(marine.wasteCost), color: 'var(--amber)' },
-          { label: `Total Material`, val: fmtC(marine.totalCost), bold: true },
-          { label: `Install (${installHours}h × $${marineInstall.hourlyRate}/hr)${installOverride ? ' [override]' : ''}`, val: fmtC(effectiveInstallPay) },
-          ...(prepWork ? [{ label: `Prep (${prepHours}h × $${marineInstall.hourlyRate}/hr)`, val: fmtC(prepCost) }] : []),
-          { label: 'Design Fee', val: fmtC(designFee) },
-          { label: 'Total COGS', val: fmtC(cogs), bold: true },
-          { label: 'Target 75% GPM', val: fmtC(price75), bold: true, color: 'var(--green)' },
-          { label: 'Floor 65% GPM', val: fmtC(price65), bold: true, color: 'var(--amber)' },
-        ].map(row => (
-          <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 10, color: 'var(--text2)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-            <span>{row.label}</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: row.bold ? 700 : 400, color: row.color || (row.bold ? 'var(--text1)' : 'var(--text2)') }}>{row.val}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Material info bar */}
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: 6, padding: '5px 8px', marginBottom: 8,
-        background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.15)',
-        borderRadius: 7, fontSize: 10, color: 'var(--text3)',
-      }}>
-        <span style={{ color: 'var(--cyan)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{hullHeight}&quot; hull</span>
-        <span>·</span>
-        <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{marine.panels === 1 ? '1 panel' : '2 panels'}/side</span>
-        <span>·</span>
-        <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{marine.totalLinearFt} lft</span>
-        <span>·</span>
-        <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{marine.totalMaterialSqft} sqft ordered</span>
-        <span>·</span>
-        <span style={{ color: 'var(--amber)', fontFamily: 'JetBrains Mono, monospace' }}>{marine.wasteSqft} waste</span>
-      </div>
 
       {/* Below floor warning */}
       {belowFloor && (
@@ -284,7 +241,6 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
 
       <OutputBar
         items={[
-          { label: 'Boat Sqft', value: `${marine.boatSqft}` },
           { label: 'Material', value: fmtC(marine.totalCost) },
           { label: 'Install', value: `${fmtC(effectiveInstallPay)} (${installHours}h)`, color: 'var(--cyan)' },
           { label: 'COGS', value: fmtC(cogs), color: 'var(--red)' },
