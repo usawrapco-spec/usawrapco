@@ -22,7 +22,7 @@ const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', 
 const priceAt = (cogs: number, gpmPct: number) => cogs > 0 ? Math.round(cogs / (1 - gpmPct / 100)) : 0
 
 const TIERS = [
-  { label: 'Min',      gpm: 65, color: 'var(--red)'    },
+  { label: 'Floor',    gpm: 67, color: 'var(--red)'    },
   { label: 'Discount', gpm: 70, color: 'var(--amber)'  },
   { label: 'Target',   gpm: 75, color: 'var(--green)'  },
 ] as const
@@ -124,13 +124,13 @@ export default function OutputBar({
           </span>
         </div>
         <input
-          type="range" min={65} max={85} step={1} value={sliderGpm}
+          type="range" min={67} max={85} step={1} value={sliderGpm}
           onChange={e => handleSlider(Number(e.target.value))}
           disabled={!canWrite || cogs === 0}
           style={{ width: '100%', cursor: canWrite ? 'pointer' : 'default', accentColor: gpmColor(sliderGpm) }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--text3)', marginTop: 1 }}>
-          <span style={{ color: 'var(--red)' }}>65% min</span>
+          <span style={{ color: 'var(--red)' }}>67% floor</span>
           <span>75% target</span>
           <span>85% max</span>
         </div>

@@ -60,7 +60,7 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
   const cogs         = marine.totalCost + effectiveInstallPay + prepCost + designFee
   const gpm          = calcGPMPct(salePrice, cogs)
   const gp           = salePrice - cogs
-  const belowFloor   = salePrice > 0 && gpm < 65
+  const belowFloor   = salePrice > 0 && gpm < 67
 
   useEffect(() => {
     onChange({

@@ -257,7 +257,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const cogs             = materialCost + installerPay + effectiveDFee
   const gpm              = calcGPMPct(salePrice, cogs)
   const gp               = salePrice - cogs
-  const belowFloor       = salePrice > 0 && gpm < 65
+  const belowFloor       = salePrice > 0 && gpm < 67
 
   // DB install or formula fallback
   const wrapSqftForTier  = vehicle?.full_wrap_sqft || 0
