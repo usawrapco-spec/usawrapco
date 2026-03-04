@@ -17,7 +17,7 @@ import {
   Shield, Rocket, UserCheck,
   Globe, LayoutGrid, Compass,
   Wand2, LayoutTemplate, Car,
-  Anchor,
+  Anchor, Bot,
 } from 'lucide-react'
 
 interface NavItem {
@@ -98,6 +98,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/admin/templates',     label: 'Templates',         icon: LayoutTemplate },
       { href: '/dashboard/vehicles',   label: 'Vehicle Database',  icon: Car },
       { href: '/dashboard/ai-training', label: 'AI Training',     icon: Brain },
+      { href: '/settings/concierge',  label: 'Project Concierge', icon: Bot },
       { href: '/settings',            label: 'System Settings',   icon: Settings },
     ],
   },

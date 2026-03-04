@@ -231,6 +231,7 @@ export async function compositeText(params: {
   website?: string
   font_choice?: string
   brand_colors?: string[]
+  logo_url?: string
   org_id: string
 }): Promise<{ composited_url: string }> {
   const {

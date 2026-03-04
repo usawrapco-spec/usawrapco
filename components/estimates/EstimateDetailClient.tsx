@@ -3249,6 +3249,7 @@ function LineItemCard({
 
   const [showDescription, setShowDescription] = useState(!!item.description)
   const [isCardExpanded, setIsCardExpanded] = useState(false)
+  const [showPhotoInspection, setShowPhotoInspection] = useState(false)
 
   function updateField<K extends keyof LineItem>(key: K, value: LineItem[K]) {
     const updated = { ...latestRef.current, [key]: value }
@@ -4802,6 +4803,44 @@ function LineItemCard({
             updateSpec={updateSpec}
             vehicleInfo={vehicleDesc || item.name}
           />
+
+          {/* ── Photo Inspection ─────────────────────────────────────── */}
+          <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+            <button
+              onClick={() => setShowPhotoInspection(!showPhotoInspection)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                background: showPhotoInspection ? 'rgba(79,127,255,0.08)' : 'var(--bg)',
+                border: `1px solid ${showPhotoInspection ? 'rgba(79,127,255,0.3)' : 'var(--border)'}`,
+                color: showPhotoInspection ? 'var(--accent)' : 'var(--text2)',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              <Camera size={13} />
+              {showPhotoInspection ? 'Hide' : 'Show'} Photo Inspection
+              {(specs.inspectionPhotos as unknown[])?.length > 0 && (
+                <span style={{
+                  marginLeft: 'auto', fontSize: 10, fontWeight: 700,
+                  background: 'rgba(79,127,255,0.15)', color: 'var(--accent)',
+                  padding: '1px 6px', borderRadius: 6,
+                }}>
+                  {(specs.inspectionPhotos as unknown[]).length} photos
+                </span>
+              )}
+            </button>
+            {showPhotoInspection && (
+              <div style={{ marginTop: 10 }}>
+                <PhotoInspection
+                  lineItemId={item.id || `item-${index}`}
+                  specs={specs as unknown as Record<string, unknown>}
+                  updateSpec={updateSpec}
+                  canWrite={canWrite}
+                  orgId={orgId}
+                />
+              </div>
+            )}
+          </div>
 
           {/* ── Save This Line Item ────────────────────────────────────── */}
           {canWrite && (

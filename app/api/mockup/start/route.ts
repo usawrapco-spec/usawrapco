@@ -176,6 +176,8 @@ export async function POST(req: NextRequest) {
     industry = '',
     style_notes = '',
     font_choice = 'Impact',
+    // Re-render from selected concept: lock all 3 slots to this style variant
+    force_style,            // 'a' | 'b' | 'c' | undefined
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {

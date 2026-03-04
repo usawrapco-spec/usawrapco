@@ -25,7 +25,6 @@ import SharedVehicleSelector from '@/components/shared/VehicleSelector'
 import JobSalesTab from '@/components/projects/JobSalesTab'
 import JobDesignTab from '@/components/projects/JobDesignTab'
 import CustomerSlideOver from '@/components/shared/CustomerSlideOver'
-import FloatingCustomerChat from '@/components/chat/FloatingCustomerChat'
 
 // ─── Vehicle Database (for SurveyTab) ─────────────────────────────────────────
 interface VehicleEntry {
@@ -511,18 +510,13 @@ export default function JobDetailClient({
   const intakeCount        = [intakeVehicleDone, intakeDesignDone, intakeScopeDone, intakeSignoffDone].filter(Boolean).length
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode; badge?: string }[] = [
-    { key: 'survey',       label: 'Survey',        icon: <ClipboardCheck size={14} /> },
-    { key: 'overview',     label: 'Overview',      icon: <User size={14} /> },
-    { key: 'vehicle_info', label: 'Vehicle',        icon: <Car size={14} />,          badge: intakeVehicleDone ? 'done' : 'req' },
-    { key: 'design_brief', label: 'Design Brief',   icon: <Palette size={14} />,      badge: intakeDesignDone ? 'done' : 'req' },
-    { key: 'scope',        label: 'Scope',          icon: <List size={14} />,         badge: intakeScopeDone ? 'done' : 'req' },
-    { key: 'signoff',      label: 'Sign-off',       icon: <UserCheck size={14} />,    badge: intakeSignoffDone ? 'done' : 'req' },
-    { key: 'sales',        label: 'Sales',          icon: <DollarSign size={14} /> },
-    { key: 'design',       label: 'Design',         icon: <Palette size={14} /> },
-    { key: 'timeline',     label: 'Timeline',       icon: <History size={14} /> },
-    { key: 'comments',     label: 'Comments',       icon: <MessageSquare size={14} /> },
-    { key: 'photos',       label: 'Photos',         icon: <Camera size={14} /> },
-    { key: 'checklist',    label: 'Sign-Off',       icon: <CheckCircle2 size={14} /> },
+    { key: 'vehicle',    label: 'Vehicle',     icon: <Car size={14} />,          badge: intakeVehicleDone ? 'done' : 'req' },
+    { key: 'chat',       label: 'Chat',        icon: <MessageSquare size={14} /> },
+    { key: 'sales',      label: 'Sales',       icon: <DollarSign size={14} /> },
+    { key: 'design',     label: 'Design',      icon: <Palette size={14} /> },
+    { key: 'production', label: 'Production',  icon: <Printer size={14} /> },
+    { key: 'install',    label: 'Install',     icon: <Wrench size={14} /> },
+    { key: 'concierge',  label: 'Concierge',   icon: <Bot size={14} /> },
   ]
 
   return (
@@ -919,84 +913,104 @@ export default function JobDetailClient({
           />
         </div>
 
-        {/* Related Documents chips */}
+        {/* ── Header Dropdown Menus ────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 4 }}>Docs:</span>
-          {[
-            { label: 'Estimates', count: relatedDocs.estimates, icon: <FileText size={11} />, color: '#4f7fff' },
-            { label: 'Sales Orders', count: relatedDocs.salesOrders, icon: <ShoppingCart size={11} />, color: '#22c07a' },
-            { label: 'Invoices', count: relatedDocs.invoices, icon: <Receipt size={11} />, color: '#f59e0b' },
-            { label: 'Payments', count: relatedDocs.payments, icon: <CreditCard size={11} />, color: '#8b5cf6' },
-          ].map(d => (
-            <span key={d.label} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 20,
-              background: `${d.color}18`, border: `1px solid ${d.color}40`,
-              color: d.color, fontSize: 11, fontWeight: 700,
-            }}>
-              {d.icon} {d.count} {d.label}
-            </span>
-          ))}
-        </div>
 
-        {/* ── View Documents ───────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 4 }}>View:</span>
-          {([
-            { slug: 'estimate',    label: 'Estimate',    roles: ['owner','admin','sales_agent','manager'] },
-            { slug: 'invoice',     label: 'Invoice',     roles: ['owner','admin','sales_agent','manager'] },
-            { slug: 'work-order',  label: 'Work Order',  roles: ['owner','admin','sales_agent','manager','installer'] },
-            { slug: 'sales-order', label: 'Sales Order', roles: ['owner','admin'] },
-          ] as const).filter(d => (d.roles as readonly string[]).includes(profile.role ?? '')).map(d => (
+          {/* View — PDF links */}
+          <div ref={viewDropRef} style={{ position: 'relative' }}>
             <button
-              key={d.slug}
-              onClick={() => router.push(`/projects/${project.id}/${d.slug}`)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                color: 'var(--text2)', fontSize: 11, fontWeight: 600,
-              }}
+              onClick={() => { setViewDropOpen(o => !o); setDocsDropOpen(false); setLinksDropOpen(false) }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, cursor: 'pointer', background: viewDropOpen ? 'var(--surface2)' : 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text2)', fontSize: 11, fontWeight: 600 }}
             >
-              <FileDown size={11} />
-              {d.label}
+              <FileDown size={11} /> View <ChevronDown size={10} style={{ transform: viewDropOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
             </button>
-          ))}
-        </div>
+            {viewDropOpen && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 160, padding: '4px 0' }}>
+                {([
+                  { slug: 'estimate',    label: 'Estimate PDF',    roles: ['owner','admin','sales_agent','manager'] },
+                  { slug: 'invoice',     label: 'Invoice PDF',     roles: ['owner','admin','sales_agent','manager'] },
+                  { slug: 'work-order',  label: 'Work Order',      roles: ['owner','admin','sales_agent','manager','installer'] },
+                  { slug: 'sales-order', label: 'Sales Order PDF', roles: ['owner','admin'] },
+                ] as const).filter(d => (d.roles as readonly string[]).includes(profile.role ?? '')).map(d => (
+                  <button
+                    key={d.slug}
+                    onClick={() => { setViewDropOpen(false); router.push(`/projects/${project.id}/${d.slug}`) }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text1)', cursor: 'pointer', fontSize: 12, textAlign: 'left' }}
+                  >
+                    <FileDown size={12} style={{ color: 'var(--text3)' }} /> {d.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* ── Customer Quick Links ─────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 4 }}>Quick Links:</span>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText('https://portal.usawrapco.com')
-              setPortalCopied(true)
-              setTimeout(() => setPortalCopied(false), 2000)
-            }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
-              background: portalCopied ? 'rgba(34,192,122,0.12)' : 'var(--surface2)',
-              border: `1px solid ${portalCopied ? 'rgba(34,192,122,0.4)' : 'var(--border)'}`,
-              color: portalCopied ? 'var(--green)' : 'var(--text2)',
-              fontSize: 11, fontWeight: 600, transition: 'all 0.15s',
-            }}
-          >
-            {portalCopied ? <Check size={11} /> : <Copy size={11} />}
-            {portalCopied ? 'Copied!' : 'Customer Portal'}
-          </button>
-          <Link
-            href="/design/intakes"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 6,
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              color: 'var(--text2)', fontSize: 11, fontWeight: 600, textDecoration: 'none',
-            }}
-          >
-            <FileText size={11} />
-            Design Intake
-          </Link>
+          {/* Documents — direct nav to each doc */}
+          <div ref={docsDropRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setDocsDropOpen(o => !o); setViewDropOpen(false); setLinksDropOpen(false) }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, cursor: 'pointer', background: docsDropOpen ? 'var(--surface2)' : 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text2)', fontSize: 11, fontWeight: 600 }}
+            >
+              <FileText size={11} /> Docs ({relatedDocs.estimates + relatedDocs.salesOrders + relatedDocs.invoices + relatedDocs.payments}) <ChevronDown size={10} style={{ transform: docsDropOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {docsDropOpen && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 240, padding: '4px 0', maxHeight: 300, overflowY: 'auto' }}>
+                {relatedDocsList.estimates.length === 0 && relatedDocsList.salesOrders.length === 0 && relatedDocsList.invoices.length === 0 && relatedDocsList.payments.length === 0 && (
+                  <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No documents yet</div>
+                )}
+                {relatedDocsList.estimates.map((e: any) => (
+                  <button key={e.id} onClick={() => { setDocsDropOpen(false); router.push(`/estimates/${e.id}`) }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text1)', cursor: 'pointer', fontSize: 12, textAlign: 'left' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={11} style={{ color: '#4f7fff' }} /> Estimate {e.estimate_number ? `#${e.estimate_number}` : ''}</span>
+                    {e.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#4f7fff', textTransform: 'uppercase' }}>{e.status}</span>}
+                  </button>
+                ))}
+                {relatedDocsList.salesOrders.map((s: any) => (
+                  <button key={s.id} onClick={() => { setDocsDropOpen(false); router.push(`/sales-orders/${s.id}`) }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text1)', cursor: 'pointer', fontSize: 12, textAlign: 'left' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ShoppingCart size={11} style={{ color: '#22c07a' }} /> SO {s.order_number ? `#${s.order_number}` : ''}</span>
+                    {s.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#22c07a', textTransform: 'uppercase' }}>{s.status}</span>}
+                  </button>
+                ))}
+                {relatedDocsList.invoices.map((i: any) => (
+                  <button key={i.id} onClick={() => { setDocsDropOpen(false); router.push(`/invoices/${i.id}`) }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text1)', cursor: 'pointer', fontSize: 12, textAlign: 'left' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Receipt size={11} style={{ color: '#f59e0b' }} /> Invoice {i.invoice_number ? `#${i.invoice_number}` : ''}</span>
+                    {i.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase' }}>{i.status}</span>}
+                  </button>
+                ))}
+                {relatedDocsList.payments.map((p: any) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', fontSize: 12, color: 'var(--text2)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CreditCard size={11} style={{ color: '#8b5cf6' }} /> Payment</span>
+                    {p.amount && <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--green)', fontWeight: 700 }}>${p.amount.toLocaleString()}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Links — customer portal + design intake */}
+          <div ref={linksDropRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setLinksDropOpen(o => !o); setViewDropOpen(false); setDocsDropOpen(false) }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, cursor: 'pointer', background: linksDropOpen ? 'var(--surface2)' : 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text2)', fontSize: 11, fontWeight: 600 }}
+            >
+              <Link2 size={11} /> Links <ChevronDown size={10} style={{ transform: linksDropOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+            {linksDropOpen && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 200, padding: '4px 0' }}>
+                <button
+                  onClick={() => { navigator.clipboard.writeText('https://portal.usawrapco.com'); setPortalCopied(true); setLinksDropOpen(false); setTimeout(() => setPortalCopied(false), 2000) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text1)', cursor: 'pointer', fontSize: 12, textAlign: 'left' }}
+                >
+                  <Copy size={11} style={{ color: 'var(--text3)' }} /> {portalCopied ? 'Copied!' : 'Customer Portal (copy link)'}
+                </button>
+                <Link
+                  href="/design/intakes"
+                  onClick={() => setLinksDropOpen(false)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', color: 'var(--text1)', textDecoration: 'none', fontSize: 12 }}
+                >
+                  <FileText size={11} style={{ color: 'var(--text3)' }} /> Design Intakes
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1005,43 +1019,51 @@ export default function JobDetailClient({
 
         {/* Left: tab content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Intake Progress Bar */}
-          {project.pipe_stage === 'sales_in' && (
-            <div style={{ marginBottom: 14, padding: '10px 16px', background: intakeCount === 4 ? 'rgba(34,192,122,0.08)' : 'rgba(79,127,255,0.06)', border: `1px solid ${intakeCount === 4 ? 'rgba(34,192,122,0.3)' : 'rgba(79,127,255,0.2)'}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {intakeCount === 4
-                  ? <CheckCircle2 size={14} style={{ color: 'var(--green)' }} />
-                  : <AlertCircle size={14} style={{ color: 'var(--accent)' }} />}
-                <span style={{ fontSize: 12, fontWeight: 700, color: intakeCount === 4 ? 'var(--green)' : 'var(--accent)' }}>
-                  Intake: {intakeCount}/4 tabs complete
-                </span>
+          {/* ── Racetrack Timeline ─────────────────────────────────────────── */}
+          <JobTimeline
+            milestones={buildMilestones(fd, project.created_at)}
+          />
+
+          {/* ── Department Sign-Off Progress Bar ──────────────────────────── */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 16px', cursor: 'pointer' }}
+              onClick={() => setDeptChecklistOpen(o => !o)}
+            >
+              {[
+                { key: 'dept_sales', label: 'Sales', color: '#4f7fff' },
+                { key: 'dept_production', label: 'Production', color: '#22c07a' },
+                { key: 'dept_install', label: 'Install', color: '#22d3ee' },
+              ].map((dept, i) => {
+                const signed = deptSignOffs[dept.key]
+                return (
+                  <React.Fragment key={dept.key}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: signed ? dept.color : 'var(--surface2)', border: `2px solid ${dept.color}`, boxShadow: signed ? `0 0 8px ${dept.color}` : 'none', transition: 'all 0.3s' }} />
+                      <span style={{ fontSize: 11, fontWeight: 800, color: signed ? dept.color : 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{dept.label}</span>
+                    </div>
+                    {i < 2 && <div style={{ flex: 1, height: 2, background: signed ? dept.color : 'var(--surface2)', margin: '0 10px', maxWidth: 60, borderRadius: 1, transition: 'background 0.3s' }} />}
+                  </React.Fragment>
+                )
+              })}
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 10, color: 'var(--text3)' }}>Sign-offs</span>
+                {deptChecklistOpen ? <ChevronDown size={12} style={{ color: 'var(--text3)' }} /> : <ChevronRight size={12} style={{ color: 'var(--text3)' }} />}
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {[
-                  { label: 'Vehicle', done: intakeVehicleDone, tab: 'vehicle_info' as Tab },
-                  { label: 'Design Brief', done: intakeDesignDone, tab: 'design_brief' as Tab },
-                  { label: 'Scope', done: intakeScopeDone, tab: 'scope' as Tab },
-                  { label: 'Sign-off', done: intakeSignoffDone, tab: 'signoff' as Tab },
-                ].map(item => (
-                  <button
-                    key={item.label}
-                    onClick={() => setTab(item.tab)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                      background: item.done ? 'rgba(34,192,122,0.15)' : 'rgba(242,90,90,0.1)',
-                      color: item.done ? 'var(--green)' : 'var(--red)',
-                    }}
-                  >
-                    {item.done ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              {intakeCount < 4 && project.pipe_stage === 'sales_in' && (
-                <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>Complete all tabs before moving to Production</span>
-              )}
             </div>
-          )}
+            {deptChecklistOpen && (
+              <div style={{ marginTop: 8 }}>
+                <DeptSignOffChecklist
+                  projectId={project.id}
+                  orgId={project.org_id}
+                  profile={profile}
+                  onCloseJob={closeJob}
+                  onAllSigned={(allSigned) => {
+                    if (allSigned) setDeptSignOffs({ dept_sales: true, dept_production: true, dept_install: true })
+                  }}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Tab bar */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--surface2)', marginBottom: 20, overflowX: 'auto' }}>
@@ -1071,87 +1093,15 @@ export default function JobDetailClient({
           </div>
 
           {/* Tab panels */}
-          {tab === 'overview' && (
-            <OverviewTab
-              project={project} customer={customer} editing={editing}
-              editInstallDate={editInstallDate} editDueDate={editDueDate}
-              setEditInstallDate={setEditInstallDate} setEditDueDate={setEditDueDate}
-              fin={fin} fd={fd} fmt$={fmt$} fmtPct={fmtPct} fmtDate={fmtDate}
-            />
-          )}
-          {tab === 'timeline' && <TimelineTab approvals={approvals} fmtDate={fmtDate} />}
-          {tab === 'comments' && (
-            <JobChat
-              projectId={project.id}
-              orgId={project.org_id}
-              currentUserId={profile.id}
-              currentUserName={profile.name}
-              customerName={customer?.name}
-              installerName={teammates.find(t => t.id === project.installer_id)?.name}
-            />
-          )}
-          {tab === 'photos' && (
-            <JobPhotosTab
-              projectId={project.id}
-              orgId={project.org_id}
-              currentUserId={profile.id}
-            />
-          )}
-          {/* ── Design Tab (Mockups + Proofs + Designer Chat) ── */}
-          {tab === 'design' && (
-            <JobDesignTab
-              project={project}
-              profile={profile}
-              orgId={project.org_id}
-              currentUserId={profile.id}
-              currentUserName={profile.name || ''}
-            />
-          )}
 
-          {/* ── Sales Tab (Estimate + SO + Invoice + AI Compare) ── */}
-          {tab === 'sales' && (
-            <JobSalesTab projectId={project.id} orgId={project.org_id} />
-          )}
-
-          {tab === 'checklist' && (
-            <DeptSignOffChecklist
-              projectId={project.id}
-              orgId={project.org_id}
-              profile={profile}
-              onCloseJob={closeJob}
-            />
-          )}
-
-          {/* ── Survey Tab ── */}
-          {tab === 'survey' && (
-            <SurveyTab
-              surveyData={surveyData}
-              saveStatus={surveySaveStatus}
-              canWrite={true}
-              onFieldChange={(key, value) => {
-                const updated: Record<string, any> = { ...surveyData, [key]: value }
-                setSurveyData(updated)
-                setSurveySaveStatus('saving')
-                if (surveyDebounceRef.current) clearTimeout(surveyDebounceRef.current)
-                surveyDebounceRef.current = setTimeout(() => {
-                  saveIntakeField('survey', updated).then(() => {
-                    setSurveySaveStatus('saved')
-                    setTimeout(() => setSurveySaveStatus('idle'), 2000)
-                  })
-                }, 500)
-              }}
-              onScopeComplete={() => {}}
-            />
-          )}
-
-          {/* ── Vehicle Info Tab ── */}
-          {tab === 'vehicle_info' && (
+          {/* ── Vehicle Tab (merged: selector + sqft + fleet + photos) ── */}
+          {tab === 'vehicle' && (
             <IntakeVehicleTab
               vehicleYear={vehicleYear} vehicleMake={vehicleMake} vehicleModel={vehicleModel}
               vehicleVin={vehicleVin} vehicleColor={vehicleColor} vehicleNotes={vehicleNotes}
               photoCount={intakePhotoCount}
               onNotesBlur={v => { setVehicleNotes(v); saveIntakeField('vehicle_notes', v) }}
-              onGoToPhotos={() => setTab('photos')}
+              onGoToPhotos={() => {}}
               onVehicleSelect={result => {
                 setVehicleYear(result.year)
                 setVehicleMake(result.make)
@@ -1167,43 +1117,79 @@ export default function JobDetailClient({
               onVinChange={setVehicleVin}
               onColorChange={setVehicleColor}
               onSaveVehicle={saveVehicle}
+              showPhotos
+              projectId={project.id}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+              connectedJobs={connectedJobs}
+              onConnectJob={() => setConnectModal(true)}
+              onDisconnectJob={disconnectJob}
             />
           )}
 
-          {/* ── Design Brief Tab ── */}
-          {tab === 'design_brief' && (
-            <IntakeDesignBriefTab
-              designBrief={designBrief} designNotes={designNotes}
-              installLocation={installLocation} installType={installType}
-              surfacePrepNotes={surfacePrepNotes} wrapRestrictions={wrapRestrictions}
-              agentName={project.agent?.name || ''}
+          {/* ── Chat Tab ── */}
+          {tab === 'chat' && (
+            <JobChat
+              projectId={project.id}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+              currentUserName={profile.name}
+              customerName={customer?.name}
+              installerName={teammates.find(t => t.id === project.installer_id)?.name}
+            />
+          )}
+
+          {/* ── Sales Tab ── */}
+          {tab === 'sales' && (
+            <JobSalesTab projectId={project.id} orgId={project.org_id} />
+          )}
+
+          {/* ── Design Tab ── */}
+          {tab === 'design' && (
+            <JobDesignTab
+              project={project}
+              profile={profile}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+              currentUserName={profile.name || ''}
+              designBrief={designBrief}
               onBriefChange={v => setDesignBrief(v)}
               onBriefBlur={v => saveIntakeField('design_brief', v)}
-              onNotesBlur={v => { setDesignNotes(v); saveIntakeField('design_notes', v) }}
-              onInstallLocationBlur={v => { setInstallLocation(v); saveIntakeField('install_location', v) }}
-              onInstallTypeChange={v => { setInstallType(v); saveIntakeField('install_type', v) }}
-              onSurfacePrepBlur={v => { setSurfacePrepNotes(v); saveIntakeField('surface_prep_notes', v) }}
-              onWrapRestrictionsBlur={v => { setWrapRestrictions(v); saveIntakeField('wrap_restrictions', v) }}
             />
           )}
 
-          {/* ── Scope Tab ── */}
-          {tab === 'scope' && (
-            <IntakeScopeTab
+          {/* ── Production Tab ── */}
+          {tab === 'production' && (
+            <JobProductionTab
               projectId={project.id}
-              lineItemCount={intakeLineItemCount}
-              scopeNotes={scopeNotes}
-              onNotesBlur={v => { setScopeNotes(v); saveIntakeField('scope_notes', v) }}
-              onLineItemCountChange={n => setIntakeLineItemCount(n)}
+              orgId={project.org_id}
+              profile={profile}
+              formData={fd}
+              onFormDataChange={(key, value) => saveIntakeField(key, value)}
+              onCloseJob={closeJob}
             />
           )}
 
-          {/* ── Customer Sign-off Tab ── */}
-          {tab === 'signoff' && (
-            <IntakeSignoffTab
-              signoffConfirmed={signoffConfirmed} signoffName={signoffName}
-              onConfirmChange={v => { setSignoffConfirmed(v); saveIntakeField('signoff_confirmed', v) }}
-              onNameBlur={v => { setSignoffName(v); saveIntakeField('signoff_name', v) }}
+          {/* ── Install Tab ── */}
+          {tab === 'install' && (
+            <JobInstallTab
+              projectId={project.id}
+              orgId={project.org_id}
+              profile={profile}
+              formData={fd}
+              onFormDataChange={(key, value) => saveIntakeField(key, value)}
+              customerName={customer?.name}
+              installerName={teammates.find(t => t.id === project.installer_id)?.name}
+            />
+          )}
+
+          {/* ── Concierge Tab ── */}
+          {tab === 'concierge' && (
+            <JobConciergeTab
+              project={project}
+              profile={profile}
+              formData={fd}
+              onFormDataChange={(key, value) => saveIntakeField(key, value)}
             />
           )}
 
@@ -1212,9 +1198,27 @@ export default function JobDetailClient({
         {/* ── Right: actions sidebar ─────────────────────────────────────── */}
         <div className="hidden md:flex" style={{ flexDirection: 'column', gap: 12, width: 260, flexShrink: 0 }}>
 
-          {/* Stage */}
+          {/* Department + Stage */}
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Stage</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Department</div>
+            {(() => {
+              const DEPT_MAP: Record<string, { dept: string; sub: string }> = {
+                sales_in:    { dept: 'Sales',      sub: 'Intake' },
+                production:  { dept: 'Production', sub: 'In Production' },
+                install:     { dept: 'Install',    sub: 'Installing' },
+                prod_review: { dept: 'Install',    sub: 'QC Review' },
+                sales_close: { dept: 'Sales',      sub: 'Closing' },
+                done:        { dept: 'Complete',   sub: 'Done' },
+              }
+              const dm = DEPT_MAP[project.pipe_stage] ?? DEPT_MAP.sales_in
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: stage.color, fontFamily: 'Barlow Condensed, sans-serif' }}>{dm.dept}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>└ {dm.sub}</div>
+                </div>
+              )
+            })()}
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Change Stage</div>
             <div ref={stageDropdownRef} style={{ position: 'relative' }}>
               <button
                 onClick={() => setStageOpen(o => !o)}
@@ -1300,7 +1304,7 @@ export default function JobDetailClient({
             {vehicleVin && <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 2 }}>VIN: {vehicleVin}</div>}
             {vehicleColor && <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Color: {vehicleColor}</div>}
             <button
-              onClick={() => setTab('vehicle_info')}
+              onClick={() => setTab('vehicle')}
               style={{
                 width: '100%', padding: '6px 10px', borderRadius: 6,
                 border: '1px solid var(--surface2)', background: 'transparent',
@@ -1556,15 +1560,6 @@ export default function JobDetailClient({
         />
       )}
 
-      {/* ── Floating Customer Chat ── */}
-      <FloatingCustomerChat
-        projectId={project.id}
-        orgId={project.org_id}
-        currentUserId={profile.id}
-        currentUserName={profile.name || ''}
-        customerName={customer?.name}
-      />
-
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -1614,10 +1609,11 @@ function InternalNotesCollapse({ value, onBlur }: { value: string; onBlur: (v: s
   )
 }
 
-// ─── Intake: Vehicle Info ─────────────────────────────────────────────────────
+// ─── Vehicle Tab (merged: selector + sqft + fleet + photos) ──────────────────
 function IntakeVehicleTab({
   vehicleYear, vehicleMake, vehicleModel, vehicleVin, vehicleColor, vehicleNotes,
   photoCount, onNotesBlur, onGoToPhotos, onVehicleSelect, onVinChange, onColorChange, onSaveVehicle,
+  showPhotos, projectId, orgId, currentUserId, connectedJobs, onConnectJob, onDisconnectJob,
 }: {
   vehicleYear: string; vehicleMake: string; vehicleModel: string
   vehicleVin: string; vehicleColor: string; vehicleNotes: string
@@ -1628,6 +1624,13 @@ function IntakeVehicleTab({
   onVinChange: (v: string) => void
   onColorChange: (v: string) => void
   onSaveVehicle: () => void
+  showPhotos?: boolean
+  projectId?: string
+  orgId?: string
+  currentUserId?: string
+  connectedJobs?: ConnectedJob[]
+  onConnectJob?: () => void
+  onDisconnectJob?: (id: string) => void
 }) {
   const vehicleFilled = !!(vehicleYear && vehicleMake && vehicleModel)
   const hasPhoto = photoCount > 0
@@ -1649,6 +1652,7 @@ function IntakeVehicleTab({
         ))}
       </div>
 
+      {/* Vehicle Details */}
       <div style={intakeCard}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           <Car size={14} style={{ color: 'var(--accent)' }} /> Vehicle Details
@@ -1678,24 +1682,45 @@ function IntakeVehicleTab({
         </div>
       </div>
 
-      {/* Photos requirement */}
-      <div style={intakeCard}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Camera size={14} style={{ color: 'var(--accent)' }} /> Vehicle Photos
+      {/* Fleet Connections */}
+      {connectedJobs && connectedJobs.length > 0 && (
+        <div style={intakeCard}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <Truck size={13} style={{ color: 'var(--cyan)' }} /> Fleet Package · {connectedJobs.length + 1} Vehicles
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {connectedJobs.map(conn => {
+              if (!conn.connected) return null
+              const sc = STAGE_CONFIG[conn.connected.pipe_stage] ?? STAGE_CONFIG.sales_in
+              return (
+                <div key={conn.id} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                  <Link href={`/projects/${conn.connected.id}`} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: '6px 0 0 6px', background: `${sc.color}18`, border: `1px solid ${sc.color}40`, color: sc.color, fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.color }} />
+                    {conn.connected.title}
+                  </Link>
+                  {onDisconnectJob && (
+                    <button onClick={() => onDisconnectJob(conn.id)} style={{ padding: '4px 7px', borderRadius: '0 6px 6px 0', background: `${sc.color}10`, border: `1px solid ${sc.color}40`, borderLeft: 'none', color: `${sc.color}80`, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {onConnectJob && (
+            <button onClick={onConnectJob} style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, border: '1px dashed rgba(255,255,255,0.15)', background: 'transparent', color: 'var(--text3)', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+              + Connect Another Vehicle
+            </button>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <span style={{ fontSize: 13, color: hasPhoto ? 'var(--green)' : 'var(--text2)' }}>
-            {photoCount} photo{photoCount !== 1 ? 's' : ''} uploaded
-            {!hasPhoto && ' — minimum 1 required'}
-          </span>
-          <button
-            onClick={onGoToPhotos}
-            style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <Camera size={13} /> {hasPhoto ? 'View Photos' : 'Upload Photos'}
-          </button>
+      )}
+      {connectedJobs && connectedJobs.length === 0 && onConnectJob && (
+        <div style={{ ...intakeCard, cursor: 'pointer' }} onClick={onConnectJob}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text3)', fontSize: 12 }}>
+            <Truck size={12} /> <span>Link to fleet package (connect related vehicles)</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Condition notes */}
       <div style={intakeCard}>
@@ -1708,7 +1733,15 @@ function IntakeVehicleTab({
         />
       </div>
 
-      <InternalNotesCollapse value={vehicleNotes} onBlur={onNotesBlur} />
+      {/* Inline Photos */}
+      {showPhotos && projectId && orgId && currentUserId && (
+        <div style={intakeCard}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <Camera size={13} style={{ color: 'var(--accent)' }} /> Vehicle Photos
+          </div>
+          <JobPhotosTab projectId={projectId} orgId={orgId} currentUserId={currentUserId} />
+        </div>
+      )}
     </div>
   )
 }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Download, FileText, ShoppingCart, Receipt, Sparkles, Loader2, ChevronDown } from 'lucide-react'
+import { Download, FileText, ShoppingCart, Receipt, Sparkles, Loader2, ChevronDown, Lock, ChevronRight, ExternalLink } from 'lucide-react'
 
 interface SalesDoc {
   id: string
@@ -32,8 +33,54 @@ const STATUS_COLORS: Record<string, string> = {
 
 type SubTab = 'estimate' | 'sales_order' | 'invoice'
 
+function PrivateNotes({ docType, docId, orgId }: { docType: string; docId: string; orgId: string }) {
+  const supabase = createClient()
+  const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const [saved, setSaved] = useState(false)
+  const key = `private_note_${docType}_${docId}`
+
+  useEffect(() => {
+    supabase.from('projects').select('form_data').eq('org_id', orgId).then() // placeholder — notes stored in form_data via parent; for now use localStorage as fallback
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(key) || '' : ''
+    setNote(stored)
+  }, [key])
+
+  function save() {
+    if (typeof window !== 'undefined') localStorage.setItem(key, note)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  return (
+    <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: 0 }}
+      >
+        {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        <Lock size={10} /> Private Notes
+      </button>
+      {open && (
+        <div style={{ marginTop: 6 }}>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            onBlur={save}
+            placeholder="Internal notes — not visible to customer…"
+            rows={2}
+            style={{ width: '100%', padding: '6px 10px', background: 'var(--bg)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, resize: 'vertical', boxSizing: 'border-box' }}
+          />
+          {saved && <div style={{ fontSize: 10, color: 'var(--green)', marginTop: 2 }}>Saved</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function JobSalesTab({ projectId, orgId }: Props) {
   const supabase = createClient()
+  const router = useRouter()
   const [subTab, setSubTab] = useState<SubTab>('estimate')
   const [estimates, setEstimates] = useState<SalesDoc[]>([])
   const [salesOrders, setSalesOrders] = useState<SalesDoc[]>([])
@@ -136,34 +183,44 @@ Provide a concise summary of any changes and their business significance. Keep i
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {active.docs.map(doc => {
             const statusColor = STATUS_COLORS[doc.status || ''] || '#9299b5'
+            const navPath = subTab === 'estimate' ? `/estimates/${doc.id}` : subTab === 'sales_order' ? `/sales-orders/${doc.id}` : `/invoices/${doc.id}`
             return (
-              <div key={doc.id} style={{ background: 'var(--surface)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
-                      {doc.title || `${active.label} ${doc.number || doc.id.slice(-6)}`}
-                    </span>
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${statusColor}18`, color: statusColor, textTransform: 'uppercase' }}>
-                      {doc.status || 'draft'}
-                    </span>
+              <div key={doc.id} style={{ background: 'var(--surface)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <button
+                        onClick={() => router.push(navPath)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', textDecoration: 'underline' }}>
+                          {doc.title || `${active.label} ${doc.number || doc.id.slice(-6)}`}
+                        </span>
+                        <ExternalLink size={11} style={{ color: 'var(--accent)' }} />
+                      </button>
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: `${statusColor}18`, color: statusColor, textTransform: 'uppercase' }}>
+                        {doc.status || 'draft'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text3)' }}>
+                      {doc.number && <span>#{doc.number}</span>}
+                      <span>{fmtDate(doc.created_at)}</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)' }}>{fmtC(doc.total)}</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text3)' }}>
-                    {doc.number && <span>#{doc.number}</span>}
-                    <span>{fmtDate(doc.created_at)}</span>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: 'var(--green)' }}>{fmtC(doc.total)}</span>
-                  </div>
+                  <a
+                    href={`${active.pdfBase}/${doc.id}`}
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px',
+                      borderRadius: 7, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'var(--accent)', fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Download size={12} /> PDF
+                  </a>
                 </div>
-                <a
-                  href={`${active.pdfBase}/${doc.id}`}
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px',
-                    borderRadius: 7, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'var(--accent)', fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
-                  }}
-                >
-                  <Download size={12} /> PDF
-                </a>
+                <PrivateNotes docType={subTab} docId={doc.id} orgId={orgId} />
               </div>
             )
           })}

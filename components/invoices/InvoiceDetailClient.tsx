@@ -763,28 +763,6 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
             </div>
 
             <div style={{ padding: 16 }}>
-              {/* Survey tab */}
-              {activeTab === 'survey' && (
-                <InvSurveyTab
-                  surveyData={surveyData}
-                  saveStatus={surveySaveStatus}
-                  canWrite={canWrite && !isDemo}
-                  onFieldChange={(key, value) => {
-                    const updated: Record<string, any> = { ...surveyData, [key]: value }
-                    setSurveyData(updated)
-                    setSurveySaveStatus('saving')
-                    if (surveyDebounceRef.current) clearTimeout(surveyDebounceRef.current)
-                    surveyDebounceRef.current = setTimeout(async () => {
-                      await supabase.from('invoices').update({
-                        form_data: { ...inv.form_data, survey: updated },
-                      }).eq('id', invoiceId)
-                      setSurveySaveStatus('saved')
-                      setTimeout(() => setSurveySaveStatus('idle'), 2000)
-                    }, 500)
-                  }}
-                />
-              )}
-
               {/* Line Items tab */}
               {activeTab === 'items' && (
                 <>
@@ -1786,3 +1764,4 @@ function InvSurveyTab({
     </div>
   )
 }
+
