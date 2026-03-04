@@ -29,6 +29,10 @@ interface VehicleRecord {
   side_sqft: number | null
   linear_feet: number | null
   doors_sqft: number | null
+  install_hours: number | null         // from DB
+  install_pay: number | null           // from DB
+  category: string | null
+  suggested_price: number | null
 }
 
 interface Props {
@@ -105,6 +109,32 @@ function getCoverageSqft(v: VehicleRecord, coverage: string, customZones: Record
   return Math.round(base)
 }
 
+/** Parse a measurement response into a VehicleRecord */
+function parseVehicleRecord(mk: string, mdl: string, m: Record<string, unknown>): VehicleRecord {
+  const fullSqft = Number(m.full_wrap_sqft) || 0
+  const roofSqft = Number(m.roof_sqft) || 0
+  return {
+    make: mk, model: mdl,
+    full_wrap_sqft: fullSqft || null,
+    full_wrap_with_roof_sqft: (fullSqft + roofSqft) || null,
+    wrap_sqft: Number(m.wrap_sqft) || (fullSqft - roofSqft) || null,
+    three_quarter_wrap_sqft: Number(m.three_quarter_wrap_sqft) || null,
+    half_wrap_sqft: Number(m.half_wrap_sqft) || null,
+    hood_sqft: Number(m.hood_sqft) || null,
+    roof_sqft: roofSqft || null,
+    driver_sqft: Number(m.driver_sqft) || null,
+    passenger_sqft: Number(m.passenger_sqft) || null,
+    back_sqft: Number(m.back_sqft) || null,
+    side_sqft: Number(m.side_sqft) || null,
+    linear_feet: Number(m.linear_feet) || null,
+    doors_sqft: Number(m.doors_sqft) || null,
+    install_hours: Number(m.install_hours) || null,
+    install_pay: Number(m.install_pay) || null,
+    category: (m.category as string) || null,
+    suggested_price: Number(m.suggested_price) || null,
+  }
+}
+
 const WASTE_OPTS = [5, 10, 15, 20] as const
 const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 
@@ -141,29 +171,18 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         .then(r => r.json())
         .then(d => {
           if (d.measurement) {
-            const m = d.measurement as Record<string, unknown>
-            const fullSqft = Number(m.full_wrap_sqft) || 0
-            const wrapSqft = Number(m.wrap_sqft) || (fullSqft - (Number(m.roof_sqft) || 0)) || 0
-            setVehicle({
-              make: mk, model: mdl,
-              full_wrap_sqft: fullSqft || null,
-              full_wrap_with_roof_sqft: (fullSqft + (Number(m.roof_sqft) || 0)) || null,
-              wrap_sqft: wrapSqft || null,
-              three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
-              half_wrap_sqft: (m.half_wrap_sqft as number) || null,
-              hood_sqft: (m.hood_sqft as number) || null,
-              roof_sqft: (m.roof_sqft as number) || null,
-              driver_sqft: (m.driver_sqft as number) || null,
-              passenger_sqft: (m.passenger_sqft as number) || null,
-              back_sqft: (m.back_sqft as number) || null,
-              side_sqft: (m.side_sqft as number) || null,
-              linear_feet: (m.linear_feet as number) || null,
-              doors_sqft: (m.doors_sqft as number) || null,
-            })
-            if (wrapSqft > 0 && !installOverride) {
-              const inst = calculateInstallPay(wrapSqft)
-              setInstallerPay(inst.pay)
-              setInstallHours(inst.hours)
+            const v = parseVehicleRecord(mk, mdl, d.measurement as Record<string, unknown>)
+            setVehicle(v)
+            if (!installOverride) {
+              // Use DB install values; fall back to formula
+              if (v.install_pay) {
+                setInstallerPay(v.install_pay)
+                setInstallHours(v.install_hours || 0)
+              } else if (v.full_wrap_sqft) {
+                const inst = calculateInstallPay(v.full_wrap_sqft)
+                setInstallerPay(inst.pay)
+                setInstallHours(inst.hours)
+              }
             }
           }
         })
@@ -188,29 +207,18 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     setMake(result.make)
     setModel(result.model)
     if (result.measurement) {
-      const m = result.measurement as Record<string, unknown>
-      const fullSqft = Number(m.full_wrap_sqft) || 0
-      const wrapSqft = Number(m.wrap_sqft) || (fullSqft - (Number(m.roof_sqft) || 0)) || 0
-      setVehicle({
-        make: result.make, model: result.model,
-        full_wrap_sqft: fullSqft || null,
-        full_wrap_with_roof_sqft: (fullSqft + (Number(m.roof_sqft) || 0)) || null,
-        wrap_sqft: wrapSqft || null,
-        three_quarter_wrap_sqft: Number(m.three_quarter_wrap_sqft) || null,
-        half_wrap_sqft: Number(m.half_wrap_sqft) || null,
-        hood_sqft: Number(m.hood_sqft) || null,
-        roof_sqft: Number(m.roof_sqft) || null,
-        driver_sqft: Number(m.driver_sqft) || null,
-        passenger_sqft: Number(m.passenger_sqft) || null,
-        back_sqft: Number(m.back_sqft) || null,
-        side_sqft: Number(m.side_sqft) || null,
-        linear_feet: Number(m.linear_feet) || null,
-        doors_sqft: Number(m.doors_sqft) || null,
-      })
-      if (wrapSqft > 0 && !installOverride) {
-        const inst = calculateInstallPay(wrapSqft)
-        setInstallerPay(inst.pay)
-        setInstallHours(inst.hours)
+      const v = parseVehicleRecord(result.make, result.model, result.measurement)
+      setVehicle(v)
+      if (!installOverride) {
+        // Use DB install values; fall back to formula
+        if (v.install_pay) {
+          setInstallerPay(v.install_pay)
+          setInstallHours(v.install_hours || 0)
+        } else if (v.full_wrap_sqft) {
+          const inst = calculateInstallPay(v.full_wrap_sqft)
+          setInstallerPay(inst.pay)
+          setInstallHours(inst.hours)
+        }
       }
     } else if (!result.model) {
       setVehicle(null)
@@ -232,9 +240,11 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const gpm              = calcGPMPct(salePrice, cogs)
   const gp               = salePrice - cogs
   const belowFloor       = salePrice > 0 && gpm < 65
+  // Prefer DB install data, fall back to formula
   const wrapSqftForTier  = vehicle?.full_wrap_sqft || 0
   const formulaResult    = wrapSqftForTier > 0 ? calculateInstallPay(wrapSqftForTier) : null
-  const currentTierLabel = formulaResult?.tierLabel || '--'
+  const dbInstall        = vehicle?.install_pay ? { pay: vehicle.install_pay, hours: vehicle.install_hours || 0 } : null
+  const currentTierLabel = vehicle?.category || formulaResult?.tierLabel || '--'
 
 
   useEffect(() => {
@@ -267,9 +277,11 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     setCustomZones(prev => ({ ...prev, [zone]: !prev[zone] }))
 
   const applyFormula = () => {
-    if (!canWrite || !formulaResult) return
-    setInstallerPay(formulaResult.pay)
-    setInstallHours(formulaResult.hours)
+    if (!canWrite) return
+    const src = dbInstall || formulaResult
+    if (!src) return
+    setInstallerPay(src.pay)
+    setInstallHours(src.hours)
     setInstallOverride(false)
   }
 
@@ -369,10 +381,10 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
       {vehicle && coverage === 'install_only' && (
         <div style={{ marginBottom: 6, padding: '4px 8px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10, color: 'var(--text2)', alignItems: 'center' }}>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--cyan)', fontWeight: 700 }}>{sqft} sqft</span>
-          {formulaResult && <>
+          {(dbInstall || formulaResult) && <>
             <span>·</span>
             <span style={{ color: 'var(--green)', fontWeight: 700 }}>{currentTierLabel}</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{formulaResult.hours}h · {fmtC(formulaResult.pay)}</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{(dbInstall || formulaResult)!.hours}h · {fmtC((dbInstall || formulaResult)!.pay)}</span>
           </>}
         </div>
       )}
