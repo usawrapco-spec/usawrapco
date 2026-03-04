@@ -1,11 +1,54 @@
 #!/usr/bin/env node
 /**
  * Transform vehicle-measurements.json field names to match DB schema exactly.
- * Also adds computed fields: full_wrap_sqft, three_quarter_wrap_sqft, half_wrap_sqft, linear_feet
+ * Also adds computed fields: full_wrap_sqft, three_quarter_wrap_sqft, half_wrap_sqft,
+ * linear_feet, wrap_sqft, data_quality, install_hours, install_pay, suggested_price
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
+// ─── Install formula constants (must match lib/estimator/vehicleDb.ts) ──────
+const INSTALL_HOURLY_RATE = 35;
+const INSTALL_BASE_HOURS = 11.5;
+const INSTALL_HOURS_PER_SQFT = 0.015;
+const INSTALL_PAY_ROUND_TO = 25;
+const DESIGN_FEE = 200;
+const DEFAULT_MATERIAL_RATE = 2.10; // Avery 1105
+const DEFAULT_WASTE_PCT = 0.10;
+const GPM_TARGET = 0.75;
+
+function calculateInstallPay(wrapSqft) {
+  if (wrapSqft <= 0) return { pay: 0, hours: 0 };
+  const hours = Math.round((INSTALL_BASE_HOURS + INSTALL_HOURS_PER_SQFT * wrapSqft) * 10) / 10;
+  const rawPay = hours * INSTALL_HOURLY_RATE;
+  const pay = Math.round(rawPay / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO;
+  return { pay, hours };
+}
+
+function suggestedPrice(wrapSqft, installPay) {
+  const sqftOrdered = Math.ceil(wrapSqft * (1 + DEFAULT_WASTE_PCT));
+  const materialCost = sqftOrdered * DEFAULT_MATERIAL_RATE;
+  const cogs = materialCost + installPay + DESIGN_FEE;
+  return Math.round(cogs / (1 - GPM_TARGET));
+}
+
+// ─── Determine data quality ─────────────────────────────────────────────────
+function classifyQuality(v) {
+  // cab_only: commercial truck cabs with model numbers as years, no full data
+  const yearNum = parseInt(v.year_range);
+  const hasModel = v.model && v.model.trim().length > 0;
+  if (!hasModel && (isNaN(yearNum) || yearNum > 2040)) return 'cab_only';
+  if (v.full_wrap_sqft === null || v.full_wrap_sqft <= 0) return 'cab_only';
+
+  // good: has all key fields
+  if (v.driver_sqft !== null && v.full_wrap_sqft > 0 && v.roof_sqft !== null && v.roof_sqft > 0) {
+    return 'good';
+  }
+  // partial: has some data but not complete
+  return 'partial';
+}
+
+// ─── Main transform ─────────────────────────────────────────────────────────
 const inputPath = resolve('lib/data/vehicle-measurements.json');
 const data = JSON.parse(readFileSync(inputPath, 'utf-8'));
 
@@ -54,7 +97,31 @@ const transformed = data.map(v => {
   const half_wrap_sqft = full_wrap_sqft !== null ? Math.round(full_wrap_sqft * 0.5 * 10) / 10 : null;
   const linear_feet = full_wrap_sqft !== null ? Math.ceil(full_wrap_sqft / 4.5) : null;
 
-  return {
+  // wrap_sqft = full wrap minus roof (default pricing sqft)
+  let wrap_sqft = null;
+  if (full_wrap_sqft !== null && full_wrap_sqft > 0) {
+    if (roof_sqft !== null && roof_sqft > 0) {
+      wrap_sqft = Math.round((full_wrap_sqft - roof_sqft) * 10) / 10;
+    } else {
+      // Fallback: average roof is ~15% of full wrap
+      wrap_sqft = Math.round(full_wrap_sqft * 0.85 * 10) / 10;
+    }
+    // Guard against negative (bad data)
+    if (wrap_sqft < 0) wrap_sqft = null;
+  }
+
+  // Install cost from formula
+  let install_hours = null;
+  let install_pay = null;
+  let suggested_price_val = null;
+  if (wrap_sqft !== null && wrap_sqft > 0) {
+    const inst = calculateInstallPay(wrap_sqft);
+    install_hours = inst.hours;
+    install_pay = inst.pay;
+    suggested_price_val = suggestedPrice(wrap_sqft, inst.pay);
+  }
+
+  const result = {
     make: v.make,
     model: v.model,
     year_range: v.year_range,
@@ -76,12 +143,21 @@ const transformed = data.map(v => {
     roof_sqft,
     total_sqft,
     full_wrap_sqft,
+    wrap_sqft,
     three_quarter_wrap_sqft,
     half_wrap_sqft,
     linear_feet,
+    install_hours,
+    install_pay,
+    suggested_price: suggested_price_val,
+    data_quality: null, // set below
     source: 'vehicle-measurements-2026',
     verified: true,
   };
+
+  result.data_quality = classifyQuality(result);
+
+  return result;
 });
 
 // Sort by make, model, year_start
@@ -97,17 +173,25 @@ console.error(`Sample:`, JSON.stringify(transformed[0], null, 2));
 console.error(`Fields: ${Object.keys(transformed[0]).join(', ')}`);
 
 // Stats
-let stats = { full: 0, linear: 0, driver: 0, side: 0, back: 0, hood: 0, roof: 0 };
+let stats = { full: 0, wrap: 0, linear: 0, driver: 0, side: 0, back: 0, hood: 0, roof: 0, install_pay: 0 };
+let quality = { good: 0, partial: 0, cab_only: 0 };
 for (const v of transformed) {
   if (v.full_wrap_sqft !== null) stats.full++;
+  if (v.wrap_sqft !== null) stats.wrap++;
   if (v.linear_feet !== null) stats.linear++;
   if (v.driver_sqft !== null) stats.driver++;
   if (v.side_sqft !== null) stats.side++;
   if (v.back_sqft !== null) stats.back++;
   if (v.hood_sqft !== null) stats.hood++;
   if (v.roof_sqft !== null) stats.roof++;
+  if (v.install_pay !== null) stats.install_pay++;
+  quality[v.data_quality] = (quality[v.data_quality] || 0) + 1;
 }
-console.error(`Stats (of ${transformed.length}):`);
+console.error(`\nStats (of ${transformed.length}):`);
 for (const [k, v] of Object.entries(stats)) {
+  console.error(`  ${k}: ${v}`);
+}
+console.error(`\nData quality:`);
+for (const [k, v] of Object.entries(quality)) {
   console.error(`  ${k}: ${v}`);
 }

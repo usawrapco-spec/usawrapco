@@ -9,7 +9,54 @@ export const VAN_PRICING: Record<string, Record<Coverage, number>> = {
   xxlarge: { half: 3700, threequarter: 5120,  full: 6990  },
 }
 
-// ─── Standard Install Rates ────────────────────────────────────────────────
+// ─── Install Cost Formula ───────────────────────────────────────────────────
+// Replaces the old dual STD_INSTALL_RATES / FLAT_RATE_TIERS systems.
+// Formula: hours = BASE + (wrap_sqft * RATE), pay = round(hours * HOURLY / 25) * 25
+export const INSTALL_HOURLY_RATE = 35
+export const INSTALL_BASE_HOURS = 11.5
+export const INSTALL_HOURS_PER_SQFT = 0.015
+export const INSTALL_PAY_ROUND_TO = 25
+
+export interface InstallCalcResult {
+  pay: number
+  hours: number
+  tierLabel: string
+  hourlyRate: number
+}
+
+export function calculateInstallPay(wrapSqft: number): InstallCalcResult {
+  if (wrapSqft <= 0) return { pay: 0, hours: 0, tierLabel: '--', hourlyRate: INSTALL_HOURLY_RATE }
+  const hours = Math.round((INSTALL_BASE_HOURS + INSTALL_HOURS_PER_SQFT * wrapSqft) * 10) / 10
+  const rawPay = hours * INSTALL_HOURLY_RATE
+  const pay = Math.round(rawPay / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO
+
+  let tierLabel = 'Custom'
+  if (wrapSqft < 150) tierLabel = 'XS'
+  else if (wrapSqft < 200) tierLabel = 'S'
+  else if (wrapSqft < 250) tierLabel = 'M'
+  else if (wrapSqft < 300) tierLabel = 'L'
+  else if (wrapSqft < 400) tierLabel = 'XL'
+  else if (wrapSqft < 500) tierLabel = 'XXL'
+  else if (wrapSqft < 600) tierLabel = '3XL'
+  else tierLabel = '4XL'
+
+  return { pay, hours, tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
+}
+
+// Tier reference for display (auto-generated from formula at representative sqft midpoints)
+export const INSTALL_TIERS = [
+  { label: 'XS',  sqftRange: '< 150',   ...calculateInstallPay(125) },
+  { label: 'S',   sqftRange: '150-199',  ...calculateInstallPay(175) },
+  { label: 'M',   sqftRange: '200-249',  ...calculateInstallPay(225) },
+  { label: 'L',   sqftRange: '250-299',  ...calculateInstallPay(275) },
+  { label: 'XL',  sqftRange: '300-399',  ...calculateInstallPay(350) },
+  { label: 'XXL', sqftRange: '400-499',  ...calculateInstallPay(450) },
+  { label: '3XL', sqftRange: '500-599',  ...calculateInstallPay(550) },
+  { label: '4XL', sqftRange: '600+',     ...calculateInstallPay(650) },
+] as const
+
+// ─── Legacy: Standard Install Rates (reference only, replaced by formula) ──
+/** @deprecated Use calculateInstallPay() instead */
 export const STD_INSTALL_RATES: StdInstallRate[] = [
   { name: 'Small Car',   pay: 500,  hrs: 14, cat: 'Car' },
   { name: 'Med Car',     pay: 550,  hrs: 16, cat: 'Car' },

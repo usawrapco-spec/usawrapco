@@ -48,7 +48,7 @@ export const VINYL_MATERIALS = [
 ] as const
 
 export const LAMINATE_RATE = 0.60
-export const DESIGN_FEE_DEFAULT = 150
+export const DESIGN_FEE_DEFAULT = 200
 export const GPM_TARGET = 0.75
 export const GPM_MIN = 0.65
 

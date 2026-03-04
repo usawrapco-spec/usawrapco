@@ -20,10 +20,16 @@ export interface VehicleMeasurements {
   roof_sqft: number | null
   // Wrap totals
   full_wrap_sqft: number | null
+  wrap_sqft: number | null
   three_quarter_wrap_sqft: number | null
   half_wrap_sqft: number | null
   total_sqft: number | null
   linear_feet: number | null
+  // Install (formula-derived)
+  install_hours: number | null
+  install_pay: number | null
+  // Data quality
+  data_quality: string | null
   // Dimensions
   side_width: number | null
   side_height: number | null
@@ -107,14 +113,14 @@ export default function VehicleSelectorFull({
   const [searchResults, setSearchResults] = useState<VehicleMeasurements[]>([])
   const [showSearch, setShowSearch] = useState(false)
   const [localPanels, setLocalPanels] = useState<VehiclePanelSelection>({
-    driverSide: true, passengerSide: true, rear: true, hood: true, roof: true,
+    driverSide: true, passengerSide: true, rear: true, hood: true, roof: false,
   })
   const [loading, setLoading] = useState(false)
 
   const activePanels = selectedPanels || localPanels
 
   useEffect(() => {
-    supabase.from('vehicle_measurements').select('make').order('make')
+    supabase.from('vehicle_measurements').select('make').neq('data_quality', 'cab_only').order('make')
       .then(({ data }) => {
         if (data) setMakes([...new Set(data.map((d: { make: string }) => d.make))].sort())
       })
@@ -172,6 +178,7 @@ export default function VehicleSelectorFull({
   const handleSearch = useCallback(async (q: string) => {
     if (q.length < 2) { setSearchResults([]); return }
     const { data } = await supabase.from('vehicle_measurements').select('*')
+      .neq('data_quality', 'cab_only')
       .or(`make.ilike.%${q}%,model.ilike.%${q}%`).order('make').limit(20)
     if (data) setSearchResults(data as VehicleMeasurements[])
   }, [supabase])

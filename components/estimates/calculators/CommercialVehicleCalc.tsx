@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Zap, Car, ChevronDown, ChevronRight, Info } from 'lucide-react'
+import { Car, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import SharedVehicleSelector, { type VehicleSelectResult } from '@/components/shared/VehicleSelector'
 import type { LineItemSpecs } from '@/types'
 import {
@@ -10,38 +10,14 @@ import {
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
+import { calculateInstallPay, INSTALL_TIERS } from '@/lib/estimator/vehicleDb'
 
-// ─── Flat rate install tiers ────────────────────────────────────────────────
-const FLAT_RATE_TIERS = [
-  { key: 'small_car',  label: 'Small Car',  sqftMin: 0,   sqftMax: 179, installerPay: 400, installHours: 12 },
-  { key: 'med_car',    label: 'Med Car',    sqftMin: 180, sqftMax: 229, installerPay: 500, installHours: 14 },
-  { key: 'full_car',   label: 'Full Car',   sqftMin: 230, sqftMax: 269, installerPay: 550, installHours: 16 },
-  { key: 'sm_truck',   label: 'Sm Truck',   sqftMin: 240, sqftMax: 299, installerPay: 550, installHours: 14 },
-  { key: 'med_truck',  label: 'Med Truck',  sqftMin: 300, sqftMax: 349, installerPay: 600, installHours: 16 },
-  { key: 'full_truck', label: 'Full Truck', sqftMin: 350, sqftMax: 399, installerPay: 650, installHours: 18 },
-  { key: 'single_cab', label: 'Single Cab', sqftMin: 245, sqftMax: 295, installerPay: 500, installHours: 14 },
-  { key: 'double_cab', label: 'Double Cab', sqftMin: 295, sqftMax: 355, installerPay: 600, installHours: 16 },
-  { key: 'med_van',    label: 'Med Van',    sqftMin: 320, sqftMax: 389, installerPay: 600, installHours: 16 },
-  { key: 'large_van',  label: 'Large Van',  sqftMin: 390, sqftMax: 479, installerPay: 650, installHours: 18 },
-  { key: 'xl_van',     label: 'XL Van',     sqftMin: 480, sqftMax: 579, installerPay: 700, installHours: 20 },
-  { key: 'xxl_van',    label: 'XXL Van',    sqftMin: 580, sqftMax: 9999, installerPay: 750, installHours: 22 },
-] as const
-
-function autoDetectTierKey(sqft: number): string {
-  if (sqft < 180) return 'small_car'
-  if (sqft < 230) return 'med_car'
-  if (sqft < 300) return 'full_car'
-  if (sqft < 350) return 'med_truck'
-  if (sqft < 400) return 'full_truck'
-  if (sqft < 480) return 'large_van'
-  if (sqft < 580) return 'xl_van'
-  return 'xxl_van'
-}
-
+// ─── Vehicle measurement record from DB ─────────────────────────────────────
 interface VehicleRecord {
   make: string
   model: string
   full_wrap_sqft: number | null
+  wrap_sqft: number | null
   three_quarter_wrap_sqft: number | null
   half_wrap_sqft: number | null
   hood_sqft: number | null
@@ -62,13 +38,14 @@ interface Props {
 }
 
 const COVERAGE = [
-  { key: 'full',          label: 'Full Wrap',    sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
-  { key: 'three_quarter', label: '3/4 Wrap',     sqftFn: (v: VehicleRecord) => v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75) },
-  { key: 'half',          label: 'Half Wrap',    sqftFn: (v: VehicleRecord) => v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50) },
-  { key: 'hood',          label: 'Hood Only',    sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
-  { key: 'roof',          label: 'Roof Only',    sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
-  { key: 'custom',        label: 'Custom Zones', sqftFn: () => 0 },
-  { key: 'install_only',  label: 'Install Only', sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
+  { key: 'full',          label: 'Full Wrap',      sqftFn: (v: VehicleRecord) => v.wrap_sqft || ((v.full_wrap_sqft || 0) - (v.roof_sqft || 0)) || 0 },
+  { key: 'full_roof',     label: 'Full + Roof',    sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
+  { key: 'three_quarter', label: '3/4 Wrap',       sqftFn: (v: VehicleRecord) => v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75) },
+  { key: 'half',          label: 'Half Wrap',      sqftFn: (v: VehicleRecord) => v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50) },
+  { key: 'hood',          label: 'Hood Only',      sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
+  { key: 'roof',          label: 'Roof Only',      sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
+  { key: 'custom',        label: 'Custom Zones',   sqftFn: () => 0 },
+  { key: 'install_only',  label: 'Install Only',   sqftFn: (v: VehicleRecord) => v.wrap_sqft || v.full_wrap_sqft || 0 },
 ]
 
 const WASTE_OPTS = [5, 10, 15, 20] as const
@@ -87,7 +64,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const [installerPay, setInstallerPay]       = useState((specs.installerPay as number) || 0)
   const [installHours, setInstallHours]       = useState((specs.estimatedHours as number) || 0)
   const [salePrice, setSalePrice]             = useState((specs.unitPriceSaved as number) || 0)
-  const [selectedTierKey, setSelectedTierKey] = useState((specs.installTierKey as string) || '')
+  const [installOverride, setInstallOverride] = useState(!!(specs.installOverride as boolean))
   const [gpmTarget, setGpmTarget]             = useState((specs.gpmTarget as number) || 75)
   const [advancedOpen, setAdvancedOpen]       = useState(false)
   const [matTooltipOpen, setMatTooltipOpen]   = useState(false)
@@ -110,9 +87,11 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
           if (d.measurement) {
             const m = d.measurement as Record<string, unknown>
             const fullSqft = Number(m.full_wrap_sqft) || 0
+            const wrapSqft = Number(m.wrap_sqft) || (fullSqft - (Number(m.roof_sqft) || 0)) || 0
             setVehicle({
               make: mk, model: mdl,
               full_wrap_sqft: fullSqft || null,
+              wrap_sqft: wrapSqft || null,
               three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
               half_wrap_sqft: (m.half_wrap_sqft as number) || null,
               hood_sqft: (m.hood_sqft as number) || null,
@@ -124,10 +103,10 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
               linear_feet: (m.linear_feet as number) || null,
               doors_sqft: (m.doors_sqft as number) || null,
             })
-            if (fullSqft > 0) {
-              const tierKey = autoDetectTierKey(fullSqft)
-              const tier = FLAT_RATE_TIERS.find(t => t.key === tierKey)
-              if (tier) { setSelectedTierKey(tier.key); setInstallerPay(tier.installerPay); setInstallHours(tier.installHours) }
+            if (wrapSqft > 0 && !installOverride) {
+              const inst = calculateInstallPay(wrapSqft)
+              setInstallerPay(inst.pay)
+              setInstallHours(inst.hours)
             }
           }
         })
@@ -154,9 +133,11 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     if (result.measurement) {
       const m = result.measurement as Record<string, unknown>
       const fullSqft = Number(m.full_wrap_sqft) || 0
+      const wrapSqft = Number(m.wrap_sqft) || (fullSqft - (Number(m.roof_sqft) || 0)) || 0
       setVehicle({
         make: result.make, model: result.model,
         full_wrap_sqft: fullSqft || null,
+        wrap_sqft: wrapSqft || null,
         three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
         half_wrap_sqft: (m.half_wrap_sqft as number) || null,
         hood_sqft: (m.hood_sqft as number) || null,
@@ -168,16 +149,12 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         linear_feet: (m.linear_feet as number) || null,
         doors_sqft: (m.doors_sqft as number) || null,
       })
-      if (fullSqft > 0) {
-        const tierKey = autoDetectTierKey(fullSqft)
-        const tier = FLAT_RATE_TIERS.find(t => t.key === tierKey)
-        if (tier) {
-          setSelectedTierKey(tier.key)
-          setInstallerPay(tier.installerPay)
-          setInstallHours(tier.installHours)
-        }
-        setAdvancedOpen(false)
+      if (wrapSqft > 0 && !installOverride) {
+        const inst = calculateInstallPay(wrapSqft)
+        setInstallerPay(inst.pay)
+        setInstallHours(inst.hours)
       }
+      setAdvancedOpen(false)
     } else if (!result.model) {
       setVehicle(null)
     }
@@ -215,11 +192,10 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const gp               = salePrice - cogs
   const autoTargetPrice  = cogs > 0 ? Math.round(cogs / (1 - gpmTarget / 100)) : 0
   const belowFloor       = salePrice > 0 && gpm < 65
-  const autoTierKey      = vehicle?.full_wrap_sqft ? autoDetectTierKey(vehicle.full_wrap_sqft) : ''
-  const autoSelectedTierLabel = FLAT_RATE_TIERS.find(t => t.key === selectedTierKey)?.label ?? ''
-  const collapsedLabel = selectedTierKey
-    ? `${isInstallOnly ? '' : `Waste: ${waste}% · `}${autoSelectedTierLabel} install`
-    : `${isInstallOnly ? '' : `Waste: ${waste}% · `}No tier selected`
+  const wrapSqftForTier  = vehicle?.wrap_sqft || ((vehicle?.full_wrap_sqft || 0) - (vehicle?.roof_sqft || 0)) || 0
+  const formulaResult    = wrapSqftForTier > 0 ? calculateInstallPay(wrapSqftForTier) : null
+  const currentTierLabel = formulaResult?.tierLabel || '--'
+  const collapsedLabel   = `${isInstallOnly ? '' : `Waste: ${waste}% · `}${currentTierLabel} install`
 
   useEffect(() => {
     const covLabel = COVERAGE.find(c => c.key === coverage)?.label || coverage
@@ -236,26 +212,24 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         vinylMaterial: material,
         customZones: coverage === 'custom' ? customZones : undefined,
         productLineType: isInstallOnly ? 'install_only' : 'commercial_vehicle',
-        installTierKey: selectedTierKey,
+        installTierLabel: currentTierLabel,
+        installOverride,
         gpmTarget, isInstallOnly,
         unitPriceSaved: salePrice,
       },
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sqft, materialCost, salePrice, installerPay, installHours, effectiveDFee,
-      year, make, model, coverage, material, laminate, waste, customZones, selectedTierKey, gpmTarget])
+      year, make, model, coverage, material, laminate, waste, customZones, currentTierLabel, gpmTarget, installOverride])
 
   const toggleZone = (zone: string) =>
     setCustomZones(prev => ({ ...prev, [zone]: !prev[zone] }))
 
-  const applyTier = (tierKey: string) => {
-    if (!canWrite) return
-    const tier = FLAT_RATE_TIERS.find(t => t.key === tierKey)
-    if (tier) {
-      setSelectedTierKey(tier.key)
-      setInstallerPay(tier.installerPay)
-      setInstallHours(tier.installHours)
-    }
+  const applyFormula = () => {
+    if (!canWrite || !formulaResult) return
+    setInstallerPay(formulaResult.pay)
+    setInstallHours(formulaResult.hours)
+    setInstallOverride(false)
   }
 
   const gadget: React.CSSProperties = {
@@ -290,27 +264,32 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         />
       </div>
 
-      {/* Panel grid: 6-col single row (compact micro-badges) */}
+      {/* Panel grid: 7-col single row (compact micro-badges) */}
       {vehicle && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 3, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 8 }}>
           {[
             { label: 'Driver', val: vehicle.driver_sqft,   color: '#4f7fff' },
             { label: 'Pass',   val: vehicle.passenger_sqft, color: '#8b5cf6' },
             { label: 'Rear',   val: vehicle.back_sqft,      color: '#f59e0b' },
             { label: 'Hood',   val: vehicle.hood_sqft,      color: '#22c07a' },
             { label: 'Roof',   val: vehicle.roof_sqft,      color: '#ec4899' },
-            { label: 'Full',   val: vehicle.full_wrap_sqft, color: 'var(--cyan)' },
+            { label: 'Wrap',   val: vehicle.wrap_sqft,      color: 'var(--cyan)' },
+            { label: 'Full',   val: vehicle.full_wrap_sqft, color: 'var(--text3)' },
           ].map(p => (
             <div key={p.label} style={{ padding: '3px 4px', borderRadius: 5, background: 'var(--surface)', textAlign: 'center', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 8, color: p.color, fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{p.label}</div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--text1)' }}>{p.val ?? '—'}</div>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--text1)' }}>{p.val ?? '--'}</div>
             </div>
           ))}
         </div>
       )}
-      {vehicle && selectedTierKey && (
+      {vehicle && formulaResult && (
         <div style={{ marginBottom: 6, fontSize: 10, color: 'var(--green)' }}>
-          Auto-tier: <b style={{ fontFamily: 'JetBrains Mono, monospace' }}>{autoSelectedTierLabel}</b>
+          Tier: <b style={{ fontFamily: 'JetBrains Mono, monospace' }}>{currentTierLabel}</b>
+          <span style={{ color: 'var(--text3)', marginLeft: 6 }}>
+            ({formulaResult.hours}h x ${formulaResult.hourlyRate}/hr = {fmtC(formulaResult.pay)})
+          </span>
+          {installOverride && <span style={{ color: 'var(--amber)', marginLeft: 6 }}>(overridden)</span>}
         </div>
       )}
 
@@ -411,22 +390,22 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         <div style={{ marginBottom: 8, padding: '5px 10px', background: 'rgba(34,192,122,0.06)', border: '1px solid rgba(34,192,122,0.2)', borderRadius: 7, fontSize: 10, color: 'var(--text2)', display: 'flex', gap: 8 }}>
           <span style={{ color: 'var(--green)', fontWeight: 700 }}>Install Only</span>
           <span>·</span>
-          <span>{selectedTierKey ? autoSelectedTierLabel : 'No tier selected'}</span>
+          <span>{currentTierLabel}</span>
           <span>·</span>
           <span style={{ color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-            Est. {autoTargetPrice > 0 ? fmtC(autoTargetPrice) : '—'}
+            Est. {autoTargetPrice > 0 ? fmtC(autoTargetPrice) : '--'}
           </span>
         </div>
       )}
 
-      {/* Collapsible: Waste + Install Tier */}
+      {/* Collapsible: Waste + Installer Pay */}
       <div style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <button
           onClick={() => setAdvancedOpen(v => !v)}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--surface)', border: 'none', cursor: 'pointer', color: 'var(--text2)' }}
         >
           <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
-            {advancedOpen ? 'Waste & Install Tier' : collapsedLabel}
+            {advancedOpen ? 'Waste & Installer Pay' : collapsedLabel}
           </span>
           {advancedOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
@@ -446,33 +425,71 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
                 </div>
               </div>
             )}
-            {/* Install Tier Grid */}
+            {/* Installer Pay Card */}
             <div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>
-                Install Flat Rate
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+                  Installer Pay
+                </span>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  <button onClick={() => { if (canWrite) { setInstallOverride(false); if (formulaResult) { setInstallerPay(formulaResult.pay); setInstallHours(formulaResult.hours) } } }}
+                    style={pillBtnCompact(!installOverride, 'var(--cyan)')}>Formula</button>
+                  <button onClick={() => canWrite && setInstallOverride(true)}
+                    style={pillBtnCompact(installOverride, 'var(--amber)')}>Override</button>
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))', gap: 4 }}>
-                {FLAT_RATE_TIERS.map(tier => {
-                  const selected = selectedTierKey === tier.key
-                  const isAutoMatch = autoTierKey === tier.key && !selected
+              {/* Formula summary */}
+              {formulaResult && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 8 }}>
+                  {[
+                    { label: 'Hours', val: `${formulaResult.hours}h`, color: 'var(--text1)' },
+                    { label: 'Rate', val: `$${formulaResult.hourlyRate}/hr`, color: 'var(--text2)' },
+                    { label: 'Pay', val: fmtC(installOverride ? installerPay : formulaResult.pay), color: installOverride ? 'var(--amber)' : 'var(--cyan)' },
+                    { label: 'Tier', val: formulaResult.tierLabel, color: 'var(--green)' },
+                  ].map(c => (
+                    <div key={c.label} style={{ padding: '4px 6px', borderRadius: 6, background: 'var(--surface)', textAlign: 'center', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 8, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{c.label}</div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: c.color }}>{c.val}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Tier reference grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: 3 }}>
+                {INSTALL_TIERS.map(tier => {
+                  const isActive = tier.label === currentTierLabel
                   return (
-                    <button key={tier.key} onClick={() => applyTier(tier.key)}
+                    <div key={tier.label}
                       style={{
-                        padding: '5px 4px', borderRadius: 7, cursor: canWrite ? 'pointer' : 'default',
-                        border: selected ? '1.5px solid var(--accent)' : isAutoMatch ? '1px dashed var(--green)' : '1px solid var(--border)',
-                        background: selected ? 'rgba(79,127,255,0.1)' : isAutoMatch ? 'rgba(34,192,122,0.06)' : 'var(--surface)',
-                        textAlign: 'center', position: 'relative',
+                        padding: '3px 4px', borderRadius: 6, textAlign: 'center',
+                        border: isActive ? '1.5px solid var(--cyan)' : '1px solid var(--border)',
+                        background: isActive ? 'rgba(34,211,238,0.08)' : 'var(--surface)',
                       }}>
-                      {isAutoMatch && (
-                        <div style={{ position: 'absolute', top: 2, right: 2, width: 5, height: 5, borderRadius: '50%', background: 'var(--green)' }} />
-                      )}
-                      <div style={{ fontSize: 8, fontWeight: 700, color: selected ? 'var(--accent)' : 'var(--text2)', textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{tier.label}</div>
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 800, color: selected ? 'var(--accent)' : 'var(--text1)', marginTop: 1 }}>{fmtC(tier.installerPay)}</div>
-                      <div style={{ fontSize: 8, color: 'var(--text3)' }}>{tier.installHours}h</div>
-                    </button>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: isActive ? 'var(--cyan)' : 'var(--text3)', textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{tier.label}</div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 700, color: isActive ? 'var(--cyan)' : 'var(--text2)' }}>{fmtC(tier.pay)}</div>
+                      <div style={{ fontSize: 7, color: 'var(--text3)' }}>{tier.hours}h</div>
+                    </div>
                   )
                 })}
               </div>
+              {/* COGS breakdown */}
+              {vehicle && sqft > 0 && (
+                <div style={{ marginTop: 8, padding: '6px 8px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 4 }}>COGS Breakdown</div>
+                  {[
+                    ...(!isInstallOnly ? [{ label: `Materials (${sqftOrdered} sqft x $${matRate})`, val: fmtC(materialCost) }] : []),
+                    { label: `Install (${installHours}h x $${formulaResult?.hourlyRate || 35}/hr)`, val: fmtC(installerPay) },
+                    ...(!isInstallOnly ? [{ label: 'Design', val: fmtC(effectiveDFee) }] : []),
+                    { label: 'Total COGS', val: fmtC(cogs), bold: true },
+                    { label: `${gpmTarget}% GPM`, val: fmtC(autoTargetPrice), bold: true, color: 'var(--green)' },
+                  ].map(row => (
+                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 10, color: 'var(--text2)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      <span>{row.label}</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: row.bold ? 700 : 400, color: row.color || (row.bold ? 'var(--text1)' : 'var(--text2)') }}>{row.val}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
