@@ -10,10 +10,10 @@ const inputPath = resolve('lib/data/vehicle-measurements.json');
 const data = JSON.parse(readFileSync(inputPath, 'utf-8'));
 
 const transformed = data.map(v => {
-  // Map old field names to correct DB column names
+  // Map old field names to correct DB column names (handles both old and new formats)
   const side_width = v.side_width_in ?? v.side_width ?? null;
   const side_height = v.side_height_in ?? v.side_height ?? null;
-  const side_sqft = v.both_sides_sqft ?? v.side_sqft ?? null;
+  let side_sqft = v.both_sides_sqft ?? v.side_sqft ?? null;
   const back_width = v.rear_width_in ?? v.back_width ?? null;
   const back_height = v.rear_height_in ?? v.back_height ?? null;
   const back_sqft = v.rear_sqft ?? v.back_sqft ?? null;
@@ -25,9 +25,23 @@ const transformed = data.map(v => {
   const roof_sqft = v.roof_sqft ?? null;
   const total_sqft = v.total_sqft ?? null;
 
+  // Derive side_sqft from total if missing: side = total - hood - roof - back
+  if (side_sqft === null && total_sqft !== null) {
+    const derived = total_sqft - (hood_sqft || 0) - (roof_sqft || 0) - (back_sqft || 0);
+    if (derived > 0) {
+      side_sqft = Math.round(derived * 10) / 10;
+    }
+  }
+
   // Compute driver/passenger (side_sqft = both sides combined)
-  const driver_sqft = v.driver_side_sqft ?? v.driver_sqft ?? (side_sqft !== null ? Math.round((side_sqft / 2) * 10) / 10 : null);
-  const passenger_sqft = v.passenger_side_sqft ?? v.passenger_sqft ?? (side_sqft !== null ? Math.round((side_sqft / 2) * 10) / 10 : null);
+  let driver_sqft = v.driver_side_sqft ?? v.driver_sqft ?? null;
+  let passenger_sqft = v.passenger_side_sqft ?? v.passenger_sqft ?? null;
+  if (driver_sqft === null && side_sqft !== null) {
+    driver_sqft = Math.round((side_sqft / 2) * 10) / 10;
+  }
+  if (passenger_sqft === null && side_sqft !== null) {
+    passenger_sqft = Math.round((side_sqft / 2) * 10) / 10;
+  }
 
   // Compute full_wrap_sqft
   let full_wrap_sqft = total_sqft;
