@@ -22,8 +22,7 @@ const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', 
 const priceAt = (cogs: number, gpmPct: number) => cogs > 0 ? Math.round(cogs / (1 - gpmPct / 100)) : 0
 
 const TIERS = [
-  { label: 'Min',      gpm: 65, color: 'var(--red)'   },
-  { label: 'Discount', gpm: 70, color: 'var(--amber)'  },
+  { label: 'Floor',    gpm: 65, color: 'var(--red)'   },
   { label: 'Normal',   gpm: 75, color: 'var(--green)'  },
 ] as const
 
@@ -82,8 +81,8 @@ export default function OutputBar({
         </div>
       </div>
 
-      {/* 3 Tier buttons */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
+      {/* GPM tier buttons */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderBottom: '1px solid var(--border)' }}>
         {TIERS.map((tier, i) => {
           const tierPrice = priceAt(cogs, tier.gpm)
           const isActive = currentPrice !== undefined && Math.abs(currentPrice - tierPrice) < 2
@@ -95,7 +94,7 @@ export default function OutputBar({
               style={{
                 padding: '7px 6px',
                 border: 'none',
-                borderRight: i < 2 ? '1px solid var(--border)' : 'none',
+                borderRight: i < TIERS.length - 1 ? '1px solid var(--border)' : 'none',
                 background: isActive ? tier.color + '18' : 'transparent',
                 cursor: canWrite && cogs > 0 ? 'pointer' : 'not-allowed',
                 textAlign: 'center',
