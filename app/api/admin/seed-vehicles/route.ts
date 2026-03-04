@@ -20,6 +20,19 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Test insert first batch before deleting to avoid data loss
+    const batchSize = 100
+    const firstBatch = (vehicleData as Record<string, unknown>[]).slice(0, batchSize)
+    const testResult = await admin.from('vehicle_measurements').upsert(firstBatch, { onConflict: 'id', ignoreDuplicates: true })
+
+    if (testResult.error) {
+      return NextResponse.json({
+        success: false,
+        error: `Test batch failed — did NOT delete existing data: ${testResult.error.message}`,
+        hint: 'Check that all JSON fields match DB columns',
+      }, { status: 400 })
+    }
+
     if (force) {
       await admin
         .from('vehicle_measurements')
@@ -27,12 +40,11 @@ export async function POST(req: NextRequest) {
         .neq('id', '00000000-0000-0000-0000-000000000000')
     }
 
-    const batchSize = 100
     let inserted = 0
     const errors: string[] = []
 
     for (let i = 0; i < vehicleData.length; i += batchSize) {
-      const batch = vehicleData.slice(i, i + batchSize)
+      const batch = (vehicleData as Record<string, unknown>[]).slice(i, i + batchSize)
       const { error } = await admin.from('vehicle_measurements').insert(batch)
       if (error) {
         errors.push(`Batch ${i}: ${error.message}`)
