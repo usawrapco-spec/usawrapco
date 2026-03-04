@@ -260,6 +260,11 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
 
+  // Survey tab state
+  const [surveyData, setSurveyData] = useState<Record<string, any>>((inv.form_data?.survey as Record<string, any>) || {})
+  const [surveySaveStatus, setSurveySaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const surveyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Calculated totals — use stored total from DB when available to avoid NaN from missing columns
   const subtotal = useMemo(() => items.reduce((s, li) => s + li.total_price, 0), [items])
   const discount = inv.discount ?? 0
