@@ -221,17 +221,24 @@ export default function AIChat({ weatherContext, tideContext, compact = false }:
         }),
       })
 
-      if (!res.ok) throw new Error('API error')
-      const data = await res.json()
+      let data: Record<string, unknown> = {}
+      try { data = await res.json() } catch { /* non-JSON response */ }
+
+      if (!res.ok) {
+        const errMsg = (data.error as string) || (data.detail as string) || `HTTP ${res.status}`
+        throw new Error(errMsg)
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.answer || 'Sorry, I could not generate a response.',
-        tripPlan: data.tripPlan || null,
+        content: (data.answer as string) || 'No response received.',
+        tripPlan: (data.tripPlan as TripPlan | null) || null,
       }])
-    } catch {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, the AI is temporarily unavailable. Please try again shortly.',
+        content: `AI error: ${errMsg}. Check that ANTHROPIC_API_KEY is set in Vercel environment variables.`,
       }])
     } finally {
       setLoading(false)

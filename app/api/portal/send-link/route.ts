@@ -9,8 +9,9 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { project_id } = await req.json()
+    const { project_id, method = 'email' } = await req.json()
     if (!project_id) return NextResponse.json({ error: 'project_id required' }, { status: 400 })
+    if (method !== 'email' && method !== 'sms') return NextResponse.json({ error: 'method must be email or sms' }, { status: 400 })
 
     const admin = getSupabaseAdmin()
 
@@ -35,7 +36,13 @@ export async function POST(req: NextRequest) {
       .eq('id', project.customer_id)
       .single()
 
-    if (!customer?.email) {
+    if (!customer) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    }
+    if (method === 'sms' && !customer.phone) {
+      return NextResponse.json({ error: 'Customer has no phone number' }, { status: 400 })
+    }
+    if (method === 'email' && !customer.email) {
       return NextResponse.json({ error: 'Customer has no email address' }, { status: 400 })
     }
 
@@ -44,7 +51,51 @@ export async function POST(req: NextRequest) {
       ? new Date(project.install_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
       : null
 
-    // Send via Resend
+    // ── SMS via Twilio ─────────────────────────────────────────────────────────
+    if (method === 'sms') {
+      const twilioSid = process.env.TWILIO_ACCOUNT_SID
+      const twilioAuth = process.env.TWILIO_AUTH_TOKEN
+      const twilioFrom = process.env.TWILIO_PHONE_NUMBER
+
+      if (!twilioSid || !twilioAuth || !twilioFrom) {
+        return NextResponse.json({ error: 'SMS not configured' }, { status: 503 })
+      }
+
+      const firstName = customer?.name?.split(' ')[0] || 'there'
+      const smsBody = `Hi ${firstName}! Your USA Wrap Co project portal is ready. Track your ${project.vehicle_desc || 'vehicle wrap'} project, review designs, and message the team here: ${portalUrl}`
+
+      const params = new URLSearchParams({ To: customer?.phone ?? '', From: twilioFrom, Body: smsBody })
+      const twilioRes = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString('base64')}`,
+          },
+          body: params.toString(),
+        }
+      )
+
+      if (!twilioRes.ok) {
+        const err = await twilioRes.text()
+        console.error('[portal/send-link] Twilio error:', err)
+        return NextResponse.json({ error: 'Failed to send SMS' }, { status: 502 })
+      }
+
+      await admin.from('activity_log').insert({
+        org_id: project.org_id,
+        actor_id: user.id,
+        entity_type: 'project',
+        entity_id: project_id,
+        action: 'portal_link_texted',
+        details: { customer_phone: customer?.phone },
+      }).then(() => {})
+
+      return NextResponse.json({ ok: true, phone: customer?.phone })
+    }
+
+    // ── Email via Resend ───────────────────────────────────────────────────────
     const RESEND_KEY = process.env.RESEND_API_KEY
     if (!RESEND_KEY) {
       return NextResponse.json({ error: 'Email not configured (no RESEND_API_KEY)' }, { status: 503 })
@@ -75,7 +126,7 @@ export async function POST(req: NextRequest) {
     <div style="color:#9299b5; font-size:13px; margin-top:6px;">Customer Portal</div>
   </div>
   <div class="body">
-    <h2>Your job portal is ready, ${customer.name?.split(' ')[0] || 'there'}!</h2>
+    <h2>Your job portal is ready, ${customer?.name?.split(' ')[0] || 'there'}!</h2>
     <p>We've set up your personal portal where you can track your project, review and approve the design, view photos, and send messages to the team — all in one place.</p>
 
     <div class="meta">
@@ -107,7 +158,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         from: 'USA Wrap Co <noreply@usawrapco.com>',
-        to: customer.email,
+        to: customer?.email ?? '',
         subject: `Your project portal — ${project.title}`,
         html,
       }),
@@ -126,10 +177,10 @@ export async function POST(req: NextRequest) {
       entity_type: 'project',
       entity_id: project_id,
       action: 'portal_link_sent',
-      details: { customer_email: customer.email },
+      details: { customer_email: customer?.email },
     }).then(() => {}) // fire-and-forget
 
-    return NextResponse.json({ ok: true, email: customer.email })
+    return NextResponse.json({ ok: true, email: customer?.email })
   } catch (err) {
     console.error('[portal/send-link]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

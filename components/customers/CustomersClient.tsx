@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink, Upload, Link2 } from 'lucide-react'
+import { Search, Plus, Users, Mail, Phone, MapPin, Building2, X, ExternalLink, Upload, Link2, AlertCircle } from 'lucide-react'
 import CustomerImportModal from '@/components/customers/CustomerImportModal'
 import CustomerSearchModal from '@/components/shared/CustomerSearchModal'
 import type { Profile } from '@/types'
+import { ORG_ID } from '@/lib/org'
 
 interface Customer {
   id: string
@@ -34,6 +35,7 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
   const [showImport, setShowImport] = useState(false)
   const [showFindExisting, setShowFindExisting] = useState(false)
   const [saving, setSaving]       = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [form, setForm]           = useState({
     name: '', company_name: '', email: '', phone: '',
     city: '', state: '', lead_source: 'inbound', notes: '',
@@ -53,10 +55,15 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
   async function save() {
     if (!form.name.trim()) return
     setSaving(true)
-    const { data, error } = await supabase.from('customers').insert({ ...form, org_id: profile.org_id }).select().single()
-    if (!error && data) {
+    setSaveError(null)
+    const orgId = profile.org_id || ORG_ID
+    const { data, error } = await supabase.from('customers').insert({ ...form, org_id: orgId }).select().single()
+    if (error) {
+      setSaveError(error.message || 'Database error — could not save customer')
+    } else if (data) {
       setCustomers(prev => [data as Customer, ...prev])
       setShowAdd(false)
+      setSaveError(null)
       setForm({ name: '', company_name: '', email: '', phone: '', city: '', state: '', lead_source: 'inbound', notes: '' })
       // Award XP for creating a customer (fire-and-forget)
       fetch('/api/xp/award', {
@@ -279,9 +286,15 @@ export default function CustomersClient({ profile, initialCustomers, vehicleMap 
                   ))}
                 </select>
               </div>
+              {saveError && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 8, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', color: 'var(--red)', fontSize: 12 }}>
+                  <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                  {saveError}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button
-                  onClick={() => setShowAdd(false)}
+                  onClick={() => { setShowAdd(false); setSaveError(null) }}
                   style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                 >
                   Cancel

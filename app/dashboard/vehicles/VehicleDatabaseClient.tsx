@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Database, AlertCircle } from 'lucide-react'
+import { Search, Database } from 'lucide-react'
 import { INSTALL_TIERS, MATERIAL_OPTIONS, calculateInstallPay } from '@/lib/estimator/vehicleDb'
 import { DESIGN_FEE_DEFAULT, GPM_TARGET, autoPrice } from '@/components/estimates/calculators/types'
 
@@ -48,9 +48,7 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
   const [selectedMake, setSelectedMake] = useState('')
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [seeding, setSeeding] = useState(false)
-  const [seedResult, setSeedResult] = useState('')
-  const [liveCount, setLiveCount] = useState(totalCount)
+  const [liveCount] = useState(totalCount)
 
   useEffect(() => {
     setLoading(true)
@@ -70,20 +68,6 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
       if (data) setVehicles(data)
     })
   }, [search, selectedMake, page])
-
-  const handleSeed = async (force = false) => {
-    setSeeding(true)
-    setSeedResult('')
-    try {
-      const res = await fetch(`/api/admin/seed-vehicles${force ? '?force=true' : ''}`, { method: 'POST' })
-      const json = await res.json()
-      setSeedResult(JSON.stringify(json, null, 2))
-      if (json.inserted) setLiveCount(json.inserted)
-    } catch (e) {
-      setSeedResult(String(e))
-    }
-    setSeeding(false)
-  }
 
   const fmtYears = (v: VehicleRow) => {
     if (!v.year_start) return '--'
@@ -110,39 +94,7 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
             {liveCount.toLocaleString()} vehicles · {makes.length} makes · single source of truth for all sq ft calculations
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => handleSeed(false)}
-            disabled={seeding}
-            style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--green)', color: 'white', border: 'none', cursor: seeding ? 'not-allowed' : 'pointer', fontSize: 13, opacity: seeding ? 0.6 : 1 }}
-          >
-            {seeding ? 'Working...' : 'Seed DB'}
-          </button>
-          <button
-            onClick={() => handleSeed(true)}
-            disabled={seeding}
-            style={{ padding: '8px 16px', borderRadius: 6, background: 'var(--amber)', color: 'white', border: 'none', cursor: seeding ? 'not-allowed' : 'pointer', fontSize: 13, opacity: seeding ? 0.6 : 1 }}
-          >
-            Force Re-seed
-          </button>
-        </div>
       </div>
-
-      {liveCount === 0 && (
-        <div style={{ background: '#1a0f0f', border: '1px solid var(--red)', borderRadius: 8, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <AlertCircle size={20} color="var(--red)" />
-          <div>
-            <div style={{ color: 'var(--red)', fontWeight: 600 }}>Database is empty!</div>
-            <div style={{ color: 'var(--text2)', fontSize: 13 }}>Click "Seed DB" to load 2,045 vehicles.</div>
-          </div>
-        </div>
-      )}
-
-      {seedResult && (
-        <pre style={{ background: 'var(--bg)', border: '1px solid var(--surface2)', borderRadius: 6, padding: 12, color: 'var(--green)', fontSize: 12, marginBottom: 16, overflowX: 'auto' }}>
-          {seedResult}
-        </pre>
-      )}
 
       {/* Install Tier Reference Grid */}
       <div style={{ marginBottom: 20, padding: 16, background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--surface2)' }}>
@@ -215,20 +167,21 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
               <th style={{ ...col, textAlign: 'center', color: '#22c07a' }}>Hood</th>
               <th style={{ ...col, textAlign: 'center', color: '#ec4899' }}>Roof</th>
               <th style={{ ...col, textAlign: 'center', color: 'var(--cyan)' }}>Lin Ft</th>
-              <th style={{ ...col, textAlign: 'center', color: 'var(--amber)' }}>Wrap Sqft</th>
-              <th style={{ ...col, textAlign: 'center', color: 'var(--text2)' }}>+Roof</th>
-              <th style={{ ...col, textAlign: 'center', color: 'var(--green)' }}>Install</th>
+              <th style={{ ...col, textAlign: 'center', color: 'var(--amber)' }}>Total (No Roof)</th>
+              <th style={{ ...col, textAlign: 'center', color: 'var(--text2)' }}>Total (W/ Roof)</th>
+              <th style={{ ...col, textAlign: 'center', color: 'var(--purple)' }}>Hours</th>
+              <th style={{ ...col, textAlign: 'center', color: 'var(--green)' }}>Install $</th>
               <th style={{ ...col, textAlign: 'center' }}>Quality</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={13} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>Loading...</td>
+                <td colSpan={14} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>Loading...</td>
               </tr>
             ) : vehicles.length === 0 ? (
               <tr>
-                <td colSpan={13} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>No vehicles found</td>
+                <td colSpan={14} style={{ ...cell, textAlign: 'center', color: 'var(--text3)', padding: 32 }}>No vehicles found</td>
               </tr>
             ) : vehicles.map((v, i) => {
               const dq = v.data_quality || 'good'
@@ -246,6 +199,7 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
                   <td style={{ ...cell, ...mono, color: 'var(--cyan)', textAlign: 'center', fontWeight: 600 }}>{v.linear_feet ?? '--'}</td>
                   <td style={{ ...cell, ...mono, color: 'var(--amber)', textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{v.full_wrap_sqft ?? '--'}</td>
                   <td style={{ ...cell, ...mono, color: 'var(--text2)', textAlign: 'center', fontSize: 11 }}>{v.full_wrap_with_roof_sqft ?? v.total_sqft ?? '--'}</td>
+                  <td style={{ ...cell, ...mono, color: 'var(--purple)', textAlign: 'center', fontWeight: 600 }}>{v.install_hours ? `${v.install_hours}h` : '--'}</td>
                   <td style={{ ...cell, ...mono, color: 'var(--green)', textAlign: 'center', fontWeight: 600 }}>{v.install_pay ? fmtC(v.install_pay) : '--'}</td>
                   <td style={{ ...cell, textAlign: 'center' }}>
                     <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', background: badge.bg, color: badge.color }}>

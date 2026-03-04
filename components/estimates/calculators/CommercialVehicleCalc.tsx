@@ -5,7 +5,7 @@ import { Car, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import SharedVehicleSelector, { type VehicleSelectResult } from '@/components/shared/VehicleSelector'
 import type { LineItemSpecs } from '@/types'
 import {
-  CalcOutput, VINYL_MATERIALS, LAMINATE_RATE, DESIGN_FEE_DEFAULT,
+  CalcOutput, VINYL_MATERIALS, DESIGN_FEE_DEFAULT,
   calcGPMPct, gpmColor,
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
@@ -59,7 +59,6 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const [model, setModel]             = useState((specs.vehicleModel as string) || '')
   const [coverage, setCoverage]       = useState((specs.wrapType as string) || 'full')
   const [material, setMaterial]       = useState((specs.vinylMaterial as string) || 'avery_1105')
-  const [laminate, setLaminate]       = useState(!!(specs.hasLaminate as boolean))
   const [waste, setWaste]             = useState((specs.wasteBuffer as number) || 10)
   const [designFee, setDesignFee]     = useState((specs.designFee as number) ?? DESIGN_FEE_DEFAULT)
   const [installerPay, setInstallerPay]       = useState((specs.installerPay as number) || 0)
@@ -185,10 +184,9 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
 
   const matRate          = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
   const matLabel         = VINYL_MATERIALS.find(m => m.key === material)?.label ?? material
-  const laminateAdd      = laminate ? LAMINATE_RATE : 0
   const sqftOrdered      = isInstallOnly ? 0 : Math.ceil(sqft * (1 + waste / 100))
   const linearFeetToOrder = sqftOrdered > 0 ? Math.ceil(sqftOrdered / 4.5) : 0
-  const materialCost     = isInstallOnly ? 0 : sqftOrdered * (matRate + laminateAdd)
+  const materialCost     = isInstallOnly ? 0 : sqftOrdered * matRate
   const effectiveDFee    = isInstallOnly ? 0 : designFee
   const cogs             = materialCost + installerPay + effectiveDFee
   const gpm              = calcGPMPct(salePrice, cogs)
@@ -209,7 +207,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
       specs: {
         vehicleYear: year, vehicleMake: make, vehicleModel: model,
         wrapType: covLabel, vinylType: matLabel,
-        vinylArea: sqft, hasLaminate: laminate,
+        vinylArea: sqft,
         wasteBuffer: waste, materialCost,
         installerPay, estimatedHours: installHours, designFee: effectiveDFee,
         vinylMaterial: material,
@@ -223,7 +221,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sqft, materialCost, salePrice, installerPay, installHours, effectiveDFee,
-      year, make, model, coverage, material, laminate, waste, customZones, currentTierLabel, gpmTarget, installOverride])
+      year, make, model, coverage, material, waste, customZones, currentTierLabel, gpmTarget, installOverride])
 
   const toggleZone = (zone: string) =>
     setCustomZones(prev => ({ ...prev, [zone]: !prev[zone] }))
@@ -296,7 +294,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         </div>
       )}
 
-      {/* Coverage + Laminate on same row */}
+      {/* Coverage */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start', marginBottom: 8 }}>
         <div>
           <label style={calcFieldLabelCompact}>Coverage</label>
@@ -313,15 +311,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
             })}
           </div>
         </div>
-        {!isInstallOnly && (
-          <div>
-            <label style={calcFieldLabelCompact}>Laminate</label>
-            <button onClick={() => canWrite && setLaminate(!laminate)}
-              style={pillBtnCompact(laminate, 'var(--green)')}>
-              {laminate ? '+$0.60' : 'No Lam'}
-            </button>
-          </div>
-        )}
+
       </div>
 
       {/* Custom zones (when custom coverage selected) */}
@@ -566,9 +556,9 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         ]}
         gpm={gpm}
         gp={gp}
-        autoPrice={autoTargetPrice}
-        gpmTarget={gpmTarget}
-        onApplyAutoPrice={() => canWrite && setSalePrice(autoTargetPrice)}
+        cogs={cogs}
+        currentPrice={salePrice}
+        onSetPrice={(p) => canWrite && setSalePrice(p)}
         canWrite={canWrite}
       />
     </div>

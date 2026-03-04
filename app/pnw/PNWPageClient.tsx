@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Layers, ChevronLeft, ChevronRight, Anchor, Sparkles,
-  X, Map, Cloud, Waves, Radio,
+  X, Map, Cloud, Radio,
 } from 'lucide-react'
 
 const PNWSidebar = dynamic(() => import('@/components/pnw/PNWSidebar'), { ssr: false })
@@ -11,12 +11,12 @@ const PNWMapEngine = dynamic(() => import('@/components/pnw/PNWMapEngine'), { ss
 const EmergencyAlertBanner = dynamic(() => import('@/components/pnw/EmergencyAlertBanner'), { ssr: false })
 const AIChat = dynamic(() => import('@/components/pnw/AIChat'), { ssr: false })
 
-type MobilePanel = 'map' | 'weather' | 'tides' | 'vhf' | 'ai' | null
+type MobilePanel = 'map' | 'weather' | 'tides' | 'vhf' | 'ai' | 'harbor' | null
 
 const MOBILE_TABS = [
   { id: 'map' as const, label: 'MAP', icon: Map },
+  { id: 'harbor' as const, label: 'GIG HBR', icon: Anchor },
   { id: 'weather' as const, label: 'WEATHER', icon: Cloud },
-  { id: 'tides' as const, label: 'TIDES', icon: Waves },
   { id: 'vhf' as const, label: 'VHF', icon: Radio },
   { id: 'ai' as const, label: 'AI', icon: Sparkles },
 ]
@@ -226,7 +226,11 @@ export default function PNWPageClient() {
             {/* Panel header */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '4px 16px 10px', flexShrink: 0 }}>
               <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 14, fontWeight: 700, letterSpacing: 1, color: '#e8eaed', flex: 1 }}>
-                {mobileTab === 'weather' ? 'MARINE WEATHER' : mobileTab === 'tides' ? 'TIDE CHART' : mobileTab === 'vhf' ? 'VHF CHANNELS' : ''}
+                {mobileTab === 'weather' ? 'MARINE WEATHER'
+                  : mobileTab === 'tides' ? 'TIDE CHART'
+                  : mobileTab === 'vhf' ? 'VHF CHANNELS'
+                  : mobileTab === 'harbor' ? 'GIG HARBOR MARINA'
+                  : 'MAP LAYERS'}
               </span>
               <button
                 onClick={() => setMobilePanelOpen(false)}
@@ -235,12 +239,13 @@ export default function PNWPageClient() {
                 <X size={18} />
               </button>
             </div>
-            {/* Panel content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px', scrollbarWidth: 'none' }}>
+            {/* Panel content — open sidebar directly on the right tab */}
+            <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' }}>
               <PNWSidebar
                 activeLayers={activeLayers}
                 onLayerToggle={handleLayerToggle}
                 isMobile={true}
+                defaultTab={mobileTab as 'layers' | 'weather' | 'tides' | 'vhf' | 'ai' | 'harbor'}
                 onClose={() => setMobilePanelOpen(false)}
               />
             </div>

@@ -155,7 +155,9 @@ export default function PPFCalc({ specs, onChange, canWrite }: Props) {
         gpm={gpm}
         gp={gp}
         autoPrice={Math.round(auto73)}
-        onApplyAutoPrice={() => setSalePrice(Math.round(auto73))}
+        onSetPrice={(p) => setSalePrice(p)}
+        cogs={cogs}
+        currentPrice={salePrice}
         canWrite={canWrite}
       />
     </div>

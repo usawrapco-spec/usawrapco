@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { Profile, Project, ProjectStatus, UserRole } from '@/types'
 import { canAccess } from '@/types'
-import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, ImagePlay, Lightbulb, Calculator, type LucideIcon } from 'lucide-react'
+import { MessageSquare, ClipboardList, Palette, Printer, Wrench, Search, DollarSign, CheckCircle, Circle, Save, Receipt, Camera, AlertTriangle, X, User, Cog, Link2, Pencil, Timer, ClipboardCheck, Package, ScanSearch, Sparkles, RefreshCw, ShoppingCart, Activity, ArrowLeft, MapPin, CloudRain, ThumbsUp, ImagePlay, Lightbulb, Calculator, Copy, Smartphone, ChevronDown, type LucideIcon } from 'lucide-react'
 import { useToast } from '@/components/shared/Toast'
 import JobExpenses from '@/components/projects/JobExpenses'
 import FloatingFinancialBar from '@/components/financial/FloatingFinancialBar'
@@ -101,6 +101,8 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
   const [sendBackNotes, setSendBackNotes] = useState('')
   const [sendBacks, setSendBacks] = useState<any[]>([])
   const [portalToken, setPortalToken] = useState<string|null>(null)
+  const [portalMenuOpen, setPortalMenuOpen] = useState(false)
+  const [portalTexting, setPortalTexting] = useState(false)
 
   // Job type state
   const [jobType, setJobTypeState] = useState<'Commercial'|'Marine'|'PPF'>(
@@ -664,18 +666,58 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
           <button onClick={fetchAiRecap} disabled={aiRecapLoading} title="AI Job Recap" style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(79,127,255,.15)', color:'var(--accent)', border:'1px solid rgba(79,127,255,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer' }}>
             <Sparkles size={14} />{aiRecapLoading ? 'Analyzing…' : 'AI Recap'}
           </button>
-          <button
-            onClick={async () => {
-              const token = portalToken || project.id
-              const link = `${window.location.origin}/portal/quote/${token}`
-              try { await navigator.clipboard.writeText(link); setToast('Customer portal link copied!') } catch { setToast(link) }
-              setTimeout(() => setToast(''), 3000)
-            }}
-            title="Copy customer portal link"
-            style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(34,211,238,.12)', border:'1px solid rgba(34,211,238,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer', color:'#22d3ee' }}
-          >
-            <Link2 size={14} /> Customer Portal
-          </button>
+          {/* Portal link dropdown */}
+          {portalMenuOpen && (
+            <div style={{ position:'fixed', inset:0, zIndex:99 }} onClick={() => setPortalMenuOpen(false)} />
+          )}
+          <div style={{ position:'relative' }}>
+            <button
+              onClick={() => setPortalMenuOpen(m => !m)}
+              title="Customer portal options"
+              style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(34,211,238,.12)', border:'1px solid rgba(34,211,238,.3)', borderRadius:9, padding:'8px 14px', fontWeight:700, fontSize:12, cursor:'pointer', color:'#22d3ee' }}
+            >
+              <Link2 size={14} /> Customer Portal <ChevronDown size={11} />
+            </button>
+            {portalMenuOpen && (
+              <div style={{ position:'absolute', right:0, top:'calc(100% + 4px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:6, minWidth:190, zIndex:100, boxShadow:'0 8px 32px rgba(0,0,0,.4)' }}>
+                <button
+                  onClick={async () => {
+                    const token = portalToken || project.id
+                    const link = `${window.location.origin}/portal/quote/${token}`
+                    try { await navigator.clipboard.writeText(link); setToast('Customer portal link copied!') } catch { setToast(link) }
+                    setTimeout(() => setToast(''), 3000)
+                    setPortalMenuOpen(false)
+                  }}
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:7, fontSize:12, fontWeight:600, background:'none', border:'none', color:'var(--text1)', cursor:'pointer', textAlign:'left' }}
+                >
+                  <Copy size={13} style={{ color:'var(--text2)' }} /> Copy Link
+                </button>
+                <button
+                  onClick={async () => {
+                    setPortalMenuOpen(false)
+                    setPortalTexting(true)
+                    const res = await fetch('/api/portal/send-link', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ project_id: project.id, method: 'sms' }),
+                    })
+                    const data = await res.json()
+                    setPortalTexting(false)
+                    if (res.ok) {
+                      setToast('Portal link texted to customer!')
+                    } else {
+                      setToast(data.error || 'Failed to send text')
+                    }
+                    setTimeout(() => setToast(''), 4000)
+                  }}
+                  disabled={portalTexting}
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'8px 10px', borderRadius:7, fontSize:12, fontWeight:600, background:'none', border:'none', color:'var(--text1)', cursor: portalTexting ? 'not-allowed' : 'pointer', textAlign:'left', opacity: portalTexting ? 0.6 : 1 }}
+                >
+                  <Smartphone size={13} style={{ color:'var(--cyan)' }} /> {portalTexting ? 'Sending...' : 'Text to Customer'}
+                </button>
+              </div>
+            )}
+          </div>
           <div style={{ position:'relative' }} className="pdf-menu-container">
             <button
               onClick={() => setShowPdfMenu(m => !m)}

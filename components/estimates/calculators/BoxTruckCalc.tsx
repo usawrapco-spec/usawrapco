@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { Truck } from 'lucide-react'
 import type { LineItemSpecs } from '@/types'
 import {
-  CalcOutput, VINYL_MATERIALS, LAMINATE_RATE, DESIGN_FEE_DEFAULT,
-  autoPrice, calcGPMPct,
+  CalcOutput, VINYL_MATERIALS, DESIGN_FEE_DEFAULT,
+  calcGPMPct,
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
@@ -29,7 +29,6 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
   )
   const [cabAddOn, setCabAddOn]     = useState(!!(specs.cabAddOn as boolean))
   const [material, setMaterial]     = useState((specs.vinylMaterial as string) || 'avery_1105')
-  const [laminate, setLaminate]     = useState(!!(specs.hasLaminate as boolean))
   const [designFee, setDesignFee]   = useState((specs.designFee as number) ?? DESIGN_FEE_DEFAULT)
   const [salePrice, setSalePrice]   = useState((specs.unitPriceSaved as number) || 0)
 
@@ -42,7 +41,6 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
 
   const matRate  = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
   const matLabel = VINYL_MATERIALS.find(m => m.key === material)?.label ?? material
-  const laminateAdd = laminate ? LAMINATE_RATE : 0
 
   const sqft = useMemo(() => {
     let t = 0
@@ -54,7 +52,7 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
 
   const waste = 10
   const sqftOrdered  = Math.ceil(sqft * 1.10)
-  const materialCost = sqftOrdered * (matRate + laminateAdd)
+  const materialCost = sqftOrdered * matRate
   const installHours = Math.round((sqft / 15) * 10) / 10
   const installerPay = Math.round(installHours * 35)
   const cabRevenue   = cabAddOn ? 1950 : 0
@@ -62,7 +60,6 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
   const totalRevenue = salePrice + cabRevenue
   const gpm          = calcGPMPct(totalRevenue, cogs)
   const gp           = totalRevenue - cogs
-  const auto73       = autoPrice(cogs) - cabRevenue
 
   useEffect(() => {
     onChange({
@@ -71,7 +68,7 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
       specs: {
         boxLength, boxHeight, selectedSides: [...selectedSides],
         cabAddOn, vinylType: matLabel, vinylMaterial: material,
-        hasLaminate: laminate, vinylArea: sqft, materialCost,
+        vinylArea: sqft, materialCost,
         installerPay, estimatedHours: installHours, designFee,
         wasteBuffer: waste, productLineType: 'box_truck', vehicleType: 'box_truck',
         unitPriceSaved: salePrice,
@@ -79,7 +76,7 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sqft, materialCost, salePrice, installerPay, installHours, designFee,
-      boxLength, boxHeight, cabAddOn, material, laminate, selectedSides])
+      boxLength, boxHeight, cabAddOn, material, selectedSides])
 
   const gadget: React.CSSProperties = {
     marginTop: 10, padding: 10,
@@ -123,8 +120,8 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
         </div>
       </div>
 
-      {/* Material dropdown + Cab Add-On + Laminate on same row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 6, alignItems: 'end', marginBottom: 8 }}>
+      {/* Material dropdown + Cab Add-On on same row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, alignItems: 'end', marginBottom: 8 }}>
         <div>
           <label style={calcFieldLabelCompact}>Material</label>
           <select value={material} onChange={e => canWrite && setMaterial(e.target.value)} disabled={!canWrite}
@@ -139,13 +136,6 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
           <button onClick={() => canWrite && setCabAddOn(!cabAddOn)}
             style={pillBtnCompact(cabAddOn, 'var(--amber)')}>
             {cabAddOn ? '+$1,950' : 'No Cab'}
-          </button>
-        </div>
-        <div>
-          <label style={calcFieldLabelCompact}>Laminate</label>
-          <button onClick={() => canWrite && setLaminate(!laminate)}
-            style={pillBtnCompact(laminate, 'var(--green)')}>
-            {laminate ? '+$0.60' : 'No Lam'}
           </button>
         </div>
       </div>
@@ -175,8 +165,9 @@ export default function BoxTruckCalc({ specs, onChange, canWrite }: Props) {
         ]}
         gpm={gpm}
         gp={gp}
-        autoPrice={Math.round(auto73)}
-        onApplyAutoPrice={() => setSalePrice(Math.round(auto73))}
+        cogs={cogs}
+        currentPrice={salePrice}
+        onSetPrice={(p) => setSalePrice(p)}
         canWrite={canWrite}
       />
     </div>

@@ -59,6 +59,7 @@ interface PNWSidebarProps {
   onLayerToggle: (key: string) => void
   onClose?: () => void
   isMobile?: boolean
+  defaultTab?: SidebarTab
 }
 
 type SidebarTab = 'layers' | 'weather' | 'tides' | 'vhf' | 'ai' | 'harbor'
@@ -491,67 +492,63 @@ function LayersContent({ activeLayers, onLayerToggle }: { activeLayers: Set<stri
 
 // ── Main Sidebar ───────────────────────────────────────────────────────────────
 
-export default function PNWSidebar({ activeLayers, onLayerToggle, onClose, isMobile }: PNWSidebarProps) {
-  const [activeTab, setActiveTab] = useState<SidebarTab>('layers')
+export default function PNWSidebar({ activeLayers, onLayerToggle, onClose, isMobile, defaultTab }: PNWSidebarProps) {
+  const [activeTab, setActiveTab] = useState<SidebarTab>(defaultTab || 'layers')
 
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
       background: '#0e1117', borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.07)',
     }}>
-      {/* Sidebar header */}
-      <div style={{
-        padding: '12px 14px 10px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        background: 'rgba(13,15,20,0.8)',
-        flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Anchor size={16} color="#22d3ee" />
-          <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 16, fontWeight: 800, letterSpacing: 2, color: '#e8eaed' }}>
-            PNW NAVIGATOR
-          </span>
-          {isMobile && onClose && (
-            <button
-              onClick={onClose}
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#5a6080', padding: 4 }}
-            >
-              <X size={18} />
-            </button>
-          )}
+      {/* Sidebar header — desktop only */}
+      {!isMobile && (
+        <div style={{
+          padding: '12px 14px 10px',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          background: 'rgba(13,15,20,0.8)',
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Anchor size={16} color="#22d3ee" />
+            <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 16, fontWeight: 800, letterSpacing: 2, color: '#e8eaed' }}>
+              PNW NAVIGATOR
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Tab strip */}
-      <div style={{
-        display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)',
-        flexShrink: 0, background: 'rgba(13,15,20,0.6)',
-      }}>
-        {TABS.map(tab => {
-          const Icon = tab.icon
-          const active = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                padding: '9px 4px', border: 'none', cursor: 'pointer', background: 'none',
-                borderBottom: active ? '2px solid #22d3ee' : '2px solid transparent',
-                transition: 'all 0.15s',
-              }}
-            >
-              <Icon size={14} color={active ? '#22d3ee' : '#5a6080'} />
-              <span style={{
-                fontSize: 8, fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700,
-                letterSpacing: 0.5, color: active ? '#22d3ee' : '#5a6080',
-              }}>
-                {tab.label}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      {/* Tab strip — desktop only */}
+      {!isMobile && (
+        <div style={{
+          display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)',
+          flexShrink: 0, background: 'rgba(13,15,20,0.6)',
+        }}>
+          {TABS.map(tab => {
+            const Icon = tab.icon
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  padding: '9px 4px', border: 'none', cursor: 'pointer', background: 'none',
+                  borderBottom: active ? '2px solid #22d3ee' : '2px solid transparent',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <Icon size={14} color={active ? '#22d3ee' : '#5a6080'} />
+                <span style={{
+                  fontSize: 8, fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700,
+                  letterSpacing: 0.5, color: active ? '#22d3ee' : '#5a6080',
+                }}>
+                  {tab.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Content area */}
       <div style={{

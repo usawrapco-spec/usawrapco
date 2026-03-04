@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { LineItemSpecs } from '@/types'
 import {
-  CalcOutput, VINYL_MATERIALS, LAMINATE_RATE, DESIGN_FEE_DEFAULT,
+  CalcOutput, VINYL_MATERIALS, DESIGN_FEE_DEFAULT,
   autoPrice, calcGPMPct,
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
@@ -38,7 +38,7 @@ export default function TrailerCalc({ specs, onChange, canWrite }: Props) {
   const [vNoseH, setVNoseH]         = useState((specs.vNoseH as number) || 8)
   const [vNoseL, setVNoseL]         = useState((specs.vNoseL as number) || 4)
   const [material, setMaterial]     = useState((specs.vinylMaterial as string) || 'avery_1105')
-  const [laminate, setLaminate]     = useState(!!(specs.hasLaminate as boolean))
+  const [laminate, setLaminate]     = useState(specs.laminate === 'true' || (specs.laminate as unknown) === true)
   const [designFee, setDesignFee]   = useState((specs.designFee as number) ?? DESIGN_FEE_DEFAULT)
   const [salePrice, setSalePrice]   = useState((specs.unitPriceSaved as number) || 0)
 
@@ -51,7 +51,6 @@ export default function TrailerCalc({ specs, onChange, canWrite }: Props) {
 
   const matRate  = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
   const matLabel = VINYL_MATERIALS.find(m => m.key === material)?.label ?? material
-  const laminateAdd = laminate ? LAMINATE_RATE : 0
 
   const sqft = useMemo(() => {
     let t = 0
@@ -68,7 +67,8 @@ export default function TrailerCalc({ specs, onChange, canWrite }: Props) {
   }, [trailerLength, trailerHeight, selectedSides, frontCoverage, vNose, vNoseH, vNoseL])
 
   const sqftOrdered  = Math.ceil(sqft * 1.10)
-  const materialCost = sqftOrdered * (matRate + laminateAdd)
+  const laminateRate = laminate ? 0.60 : 0
+  const materialCost = sqftOrdered * (matRate + laminateRate)
   const installHours = Math.round((sqft / 12) * 10) / 10
   const installerPay = Math.round(installHours * 35)
   const cogs         = materialCost + installerPay + designFee
@@ -83,14 +83,14 @@ export default function TrailerCalc({ specs, onChange, canWrite }: Props) {
       specs: {
         trailerLength, trailerHeight, selectedSides: [...selectedSides],
         frontCoverage, vNose, vNoseH, vNoseL, vinylType: matLabel,
-        vinylMaterial: material, hasLaminate: laminate, vinylArea: sqft,
+        vinylMaterial: material, vinylArea: sqft, laminate,
         materialCost, installerPay, estimatedHours: installHours, designFee,
         productLineType: 'trailer', vehicleType: 'trailer', unitPriceSaved: salePrice,
       },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sqft, materialCost, salePrice, installerPay, designFee,
-      trailerLength, trailerHeight, frontCoverage, vNose, vNoseH, vNoseL, material, laminate, selectedSides])
+  }, [sqft, materialCost, salePrice, installerPay, designFee, laminate,
+      trailerLength, trailerHeight, frontCoverage, vNose, vNoseH, vNoseL, material, selectedSides])
 
   const gadget: React.CSSProperties = {
     marginTop: 10, padding: 10,
@@ -235,7 +235,9 @@ export default function TrailerCalc({ specs, onChange, canWrite }: Props) {
         gpm={gpm}
         gp={gp}
         autoPrice={Math.round(auto73)}
-        onApplyAutoPrice={() => setSalePrice(Math.round(auto73))}
+        onSetPrice={(p) => setSalePrice(p)}
+        cogs={cogs}
+        currentPrice={salePrice}
         canWrite={canWrite}
       />
     </div>
