@@ -240,11 +240,12 @@ export async function POST(req: NextRequest) {
     const recraftStyle = output_type === 'signage' ? 'digital_illustration' : 'digital_illustration'
     const recraftSize = output_type === 'signage' ? (size_key as string) : 'landscape_16_9'
 
-    const [resultA, resultB, resultC] = await Promise.all([
-      generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.a, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'a' }),
-      generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.b, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'b' }),
-      generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.c, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'c' }),
-    ])
+    // Run sequentially to avoid Replicate rate limits (burst limit on low-credit accounts)
+    const resultA = await generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.a, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'a' })
+    await new Promise(r => setTimeout(r, 1500))
+    const resultB = await generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.b, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'b' })
+    await new Promise(r => setTimeout(r, 1500))
+    const resultC = await generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.c, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'c' })
 
     await admin.from('mockup_results').update({
       concept_a_url: resultA.artwork_url,
