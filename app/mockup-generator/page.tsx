@@ -6,8 +6,9 @@ import {
   Car, Truck, Bus, Package, Anchor, Wand2,
   ChevronRight, ChevronLeft, Check, Loader2, Upload, X,
   Sparkles, ImageIcon, Download, RefreshCw, ZoomIn, ZoomOut,
-  Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe,
+  Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe, Pencil,
 } from 'lucide-react'
+import MockupEditor from '@/components/mockup/MockupEditor'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,7 @@ export default function MockupGeneratorPage() {
   const [mockupStatus, setMockupStatus] = useState<MockupStatus | null>(null)
   const [renderUrl, setRenderUrl] = useState<string | null>(null)
   const [showFlat, setShowFlat] = useState(false)
+  const [showEditor, setShowEditor] = useState(false)
   const [approving, setApproving] = useState(false)
   const [approveStep, setApproveStep] = useState(0)
   const [approveError, setApproveError] = useState<string | null>(null)
@@ -1197,10 +1199,16 @@ export default function MockupGeneratorPage() {
                 Adjust Brand
               </button>
               {primaryDisplay && (
-                <button onClick={() => handleDownload(primaryDisplay, `wrap-concept-${selectedMake}-${Date.now()}.jpg`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.3)', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  <Download size={11} /> Download
-                </button>
+                <>
+                  <button onClick={() => setShowEditor(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--purple)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                    <Pencil size={11} /> Edit / Add Text
+                  </button>
+                  <button onClick={() => handleDownload(primaryDisplay, `wrap-concept-${selectedMake}-${Date.now()}.jpg`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.3)', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                    <Download size={11} /> Download
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1318,6 +1326,14 @@ export default function MockupGeneratorPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Mockup Editor overlay ─────────────────────────────────────────────── */}
+      {showEditor && primaryDisplay && (
+        <MockupEditor
+          imageUrl={primaryDisplay}
+          onClose={() => setShowEditor(false)}
+        />
       )}
     </div>
   )

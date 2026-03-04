@@ -18,8 +18,9 @@ export interface VehicleMeasurements {
   back_sqft: number | null
   hood_sqft: number | null
   roof_sqft: number | null
-  // Wrap totals
+  // Wrap totals (full_wrap_sqft = NO roof, full_wrap_with_roof_sqft = WITH roof)
   full_wrap_sqft: number | null
+  full_wrap_with_roof_sqft: number | null
   wrap_sqft: number | null
   three_quarter_wrap_sqft: number | null
   half_wrap_sqft: number | null

@@ -86,29 +86,27 @@ const transformed = data.map(v => {
     passenger_sqft = Math.round((side_sqft / 2) * 10) / 10;
   }
 
-  // Compute full_wrap_sqft
-  let full_wrap_sqft = total_sqft;
-  if (full_wrap_sqft === null && side_sqft !== null) {
-    full_wrap_sqft = (side_sqft || 0) + (back_sqft || 0) + (hood_sqft || 0) + (roof_sqft || 0);
-    full_wrap_sqft = Math.round(full_wrap_sqft * 10) / 10;
+  // full_wrap_sqft = sides + back + hood (NO roof — industry standard "full wrap")
+  // full_wrap_with_roof_sqft = sides + back + hood + roof
+  let full_wrap_with_roof_sqft = total_sqft;
+  if (full_wrap_with_roof_sqft === null && side_sqft !== null) {
+    full_wrap_with_roof_sqft = (side_sqft || 0) + (back_sqft || 0) + (hood_sqft || 0) + (roof_sqft || 0);
+    full_wrap_with_roof_sqft = Math.round(full_wrap_with_roof_sqft * 10) / 10;
   }
+
+  // full_wrap_sqft = WITHOUT roof
+  let full_wrap_sqft = null;
+  if (full_wrap_with_roof_sqft !== null && full_wrap_with_roof_sqft > 0) {
+    full_wrap_sqft = Math.round((full_wrap_with_roof_sqft - (roof_sqft || 0)) * 10) / 10;
+    if (full_wrap_sqft <= 0) full_wrap_sqft = full_wrap_with_roof_sqft; // fallback if no roof data
+  }
+
+  // wrap_sqft kept as alias for full_wrap_sqft (no roof) for backward compat
+  const wrap_sqft = full_wrap_sqft;
 
   const three_quarter_wrap_sqft = full_wrap_sqft !== null ? Math.round(full_wrap_sqft * 0.75 * 10) / 10 : null;
   const half_wrap_sqft = full_wrap_sqft !== null ? Math.round(full_wrap_sqft * 0.5 * 10) / 10 : null;
   const linear_feet = full_wrap_sqft !== null ? Math.ceil(full_wrap_sqft / 4.5) : null;
-
-  // wrap_sqft = full wrap minus roof (default pricing sqft)
-  let wrap_sqft = null;
-  if (full_wrap_sqft !== null && full_wrap_sqft > 0) {
-    if (roof_sqft !== null && roof_sqft > 0) {
-      wrap_sqft = Math.round((full_wrap_sqft - roof_sqft) * 10) / 10;
-    } else {
-      // Fallback: average roof is ~15% of full wrap
-      wrap_sqft = Math.round(full_wrap_sqft * 0.85 * 10) / 10;
-    }
-    // Guard against negative (bad data)
-    if (wrap_sqft < 0) wrap_sqft = null;
-  }
 
   // Install cost from formula
   let install_hours = null;
@@ -143,6 +141,7 @@ const transformed = data.map(v => {
     roof_sqft,
     total_sqft,
     full_wrap_sqft,
+    full_wrap_with_roof_sqft,
     wrap_sqft,
     three_quarter_wrap_sqft,
     half_wrap_sqft,
@@ -173,10 +172,11 @@ console.error(`Sample:`, JSON.stringify(transformed[0], null, 2));
 console.error(`Fields: ${Object.keys(transformed[0]).join(', ')}`);
 
 // Stats
-let stats = { full: 0, wrap: 0, linear: 0, driver: 0, side: 0, back: 0, hood: 0, roof: 0, install_pay: 0 };
+let stats = { full_no_roof: 0, full_with_roof: 0, wrap: 0, linear: 0, driver: 0, side: 0, back: 0, hood: 0, roof: 0, install_pay: 0 };
 let quality = { good: 0, partial: 0, cab_only: 0 };
 for (const v of transformed) {
-  if (v.full_wrap_sqft !== null) stats.full++;
+  if (v.full_wrap_sqft !== null) stats.full_no_roof++;
+  if (v.full_wrap_with_roof_sqft !== null) stats.full_with_roof++;
   if (v.wrap_sqft !== null) stats.wrap++;
   if (v.linear_feet !== null) stats.linear++;
   if (v.driver_sqft !== null) stats.driver++;
