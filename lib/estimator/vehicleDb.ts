@@ -43,6 +43,14 @@ export function calculateInstallPay(wrapSqft: number): InstallCalcResult {
   return { pay, hours, tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
 }
 
+// ─── Marine Install Cost (half of commercial) ────────────────────────────
+export function calculateMarineInstallPay(boatSqft: number): InstallCalcResult {
+  const full = calculateInstallPay(boatSqft)
+  const pay = Math.round((full.pay / 2) / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO
+  const hours = full.hours
+  return { pay, hours, tierLabel: full.tierLabel, hourlyRate: Math.round(pay / (hours || 1)) }
+}
+
 // Tier reference for display (auto-generated from formula at representative sqft midpoints)
 export const INSTALL_TIERS = [
   { label: 'XS',  sqftRange: '< 150',   ...calculateInstallPay(125) },

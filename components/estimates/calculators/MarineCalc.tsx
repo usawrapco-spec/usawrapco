@@ -10,6 +10,7 @@ import {
   calcFieldLabelCompact, calcInputCompact, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
+import { calculateMarineInstallPay } from '@/lib/estimator/vehicleDb'
 
 interface Props {
   specs: LineItemSpecs
@@ -20,8 +21,6 @@ interface Props {
 const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 const priceAt = (cogs: number, gpmPct: number) => cogs > 0 ? Math.round(cogs / (1 - gpmPct / 100)) : 0
 type WrapType = 'printed' | 'color_change'
-
-const MARINE_INSTALL_RATE = 22.50 // half of commercial $45/hr
 
 export default function MarineCalc({ specs, onChange, canWrite }: Props) {
   const [wrapType, setWrapType]           = useState<WrapType>((specs.wrapType as WrapType) || 'printed')
@@ -34,7 +33,8 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
   const [prepHours, setPrepHours]         = useState((specs.prepHours as number) || 0)
   const [material, setMaterial]           = useState((specs.vinylMaterial as string) || 'avery_1105')
   const [customRate, setCustomRate]       = useState((specs.customMatRate as number) || 0)
-  const [installRate, setInstallRate]     = useState((specs.installRate as number) || MARINE_INSTALL_RATE)
+  const [installerPay, setInstallerPay]   = useState((specs.installerPay as number) || 0)
+  const [installOverride, setInstallOverride] = useState(!!(specs.installOverride as boolean))
   const [designFee, setDesignFee]         = useState((specs.designFee as number) ?? DESIGN_FEE_DEFAULT)
   const [salePrice, setSalePrice]         = useState((specs.unitPriceSaved as number) || 0)
 
@@ -46,13 +46,19 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
     hullLength, hullHeight, wrapType, transom, transomWidth, transomHeight, matRate
   ), [hullLength, hullHeight, wrapType, transom, transomWidth, transomHeight, matRate])
 
-  // Install: marine rate is about half commercial
-  const installHours = Math.round((marine.boatSqft / 10) * 10) / 10
-  const installerPay = Math.round(installHours * installRate)
-  const prepCost     = prepWork ? prepHours * installRate : 0
+  // Install: marine = half of commercial formula
+  const marineInstall = useMemo(() => calculateMarineInstallPay(marine.boatSqft), [marine.boatSqft])
+  const effectiveInstallPay = installOverride ? installerPay : marineInstall.pay
+  const installHours = marineInstall.hours
+  const prepCost     = prepWork ? Math.round(prepHours * (marineInstall.hourlyRate || 17)) : 0
+
+  // Auto-set install pay when formula changes (and not overridden)
+  useEffect(() => {
+    if (!installOverride && marineInstall.pay > 0) setInstallerPay(marineInstall.pay)
+  }, [installOverride, marineInstall.pay])
 
   // COGS = materials (coverage + waste) + install + design
-  const cogs         = marine.totalCost + installerPay + prepCost + designFee
+  const cogs         = marine.totalCost + effectiveInstallPay + prepCost + designFee
   const gpm          = calcGPMPct(salePrice, cogs)
   const gp           = salePrice - cogs
   const belowFloor   = salePrice > 0 && gpm < 65
@@ -68,9 +74,9 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
       specs: {
         hullLength, hullHeight, wrapType, includeTransom: transom,
         transomWidth, transomHeight,
-        prepWork, prepHours, installRate,
+        prepWork, prepHours, installOverride,
         vinylType: matLabel, vinylMaterial: material, vinylArea: marine.boatSqft,
-        materialCost: marine.totalCost, installerPay,
+        materialCost: marine.totalCost, installerPay: effectiveInstallPay,
         estimatedHours: installHours + (prepWork ? prepHours : 0),
         designFee, productLineType: 'marine', vehicleType: 'marine', unitPriceSaved: salePrice,
         panels: marine.panels, totalLinearFt: marine.totalLinearFt,
@@ -78,9 +84,9 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
       },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marine.boatSqft, marine.totalCost, salePrice, installerPay, designFee,
+  }, [marine.boatSqft, marine.totalCost, salePrice, effectiveInstallPay, designFee,
       hullLength, hullHeight, wrapType, transom, transomWidth, transomHeight,
-      prepWork, prepHours, material, customRate, installRate])
+      prepWork, prepHours, material, customRate, installOverride])
 
   const gadget: React.CSSProperties = {
     marginTop: 10, padding: 10,
@@ -188,13 +194,36 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
         )}
       </div>
 
-      {/* Install Rate + Sale Price + Design Fee */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 5, marginBottom: 8 }}>
-        <div>
-          <label style={calcFieldLabelCompact}>Install $/hr</label>
-          <input type="number" value={installRate} onChange={e => setInstallRate(Number(e.target.value))}
-            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }} disabled={!canWrite} step="0.50" />
+      {/* Install Pay — formula (half commercial) or override */}
+      <div style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: 'var(--surface)' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+            Install Pay (½ commercial)
+          </span>
+          <div style={{ display: 'flex', gap: 3 }}>
+            <button onClick={() => { if (canWrite) { setInstallOverride(false); setInstallerPay(marineInstall.pay) } }}
+              style={pillBtnCompact(!installOverride, 'var(--cyan)')}>Formula</button>
+            <button onClick={() => canWrite && setInstallOverride(true)}
+              style={pillBtnCompact(installOverride, 'var(--amber)')}>Override</button>
+          </div>
         </div>
+        <div style={{ padding: '6px 10px', background: 'var(--bg)', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 10, color: 'var(--text2)' }}>
+            {installHours}h × ${marineInstall.hourlyRate}/hr
+          </span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: installOverride ? 'var(--amber)' : 'var(--cyan)' }}>
+            = {fmtC(effectiveInstallPay)}
+          </span>
+          {installOverride && (
+            <input type="number" value={installerPay || ''} onChange={e => setInstallerPay(Number(e.target.value))}
+              style={{ ...calcInputCompact, width: 90, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', borderColor: 'var(--amber)' }}
+              disabled={!canWrite} />
+          )}
+        </div>
+      </div>
+
+      {/* Sale Price + Design Fee */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 8 }}>
         <div>
           <label style={calcFieldLabelCompact}>Sale Price</label>
           <input type="number" value={salePrice || ''} onChange={e => setSalePrice(Number(e.target.value))}
@@ -215,8 +244,8 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
           ...(marine.transomSqft > 0 ? [{ label: `Transom (${marine.transomSqft} sqft × $${matRate}/sqft)`, val: fmtC(marine.transomSqft * matRate) }] : []),
           { label: `Waste @ 2× rate (${marine.wasteSqft} sqft × $${matRate} × 2)`, val: fmtC(marine.wasteCost), color: 'var(--amber)' },
           { label: `Total Material`, val: fmtC(marine.totalCost), bold: true },
-          { label: `Install (${installHours}h × $${installRate}/hr)`, val: fmtC(installerPay) },
-          ...(prepWork ? [{ label: `Prep (${prepHours}h × $${installRate}/hr)`, val: fmtC(prepCost) }] : []),
+          { label: `Install (${installHours}h × $${marineInstall.hourlyRate}/hr)${installOverride ? ' [override]' : ''}`, val: fmtC(effectiveInstallPay) },
+          ...(prepWork ? [{ label: `Prep (${prepHours}h × $${marineInstall.hourlyRate}/hr)`, val: fmtC(prepCost) }] : []),
           { label: 'Design Fee', val: fmtC(designFee) },
           { label: 'Total COGS', val: fmtC(cogs), bold: true },
           { label: 'Target 75% GPM', val: fmtC(price75), bold: true, color: 'var(--green)' },
@@ -257,7 +286,7 @@ export default function MarineCalc({ specs, onChange, canWrite }: Props) {
         items={[
           { label: 'Boat Sqft', value: `${marine.boatSqft}` },
           { label: 'Material', value: fmtC(marine.totalCost) },
-          { label: 'Install', value: `${fmtC(installerPay)} (${installHours}h)`, color: 'var(--cyan)' },
+          { label: 'Install', value: `${fmtC(effectiveInstallPay)} (${installHours}h)`, color: 'var(--cyan)' },
           { label: 'COGS', value: fmtC(cogs), color: 'var(--red)' },
         ]}
         gpm={gpm}
