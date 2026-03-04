@@ -57,11 +57,6 @@ import {
   FileInput,
   Layers,
   CreditCard,
-  Anchor,
-  Fish,
-  MapPin,
-  Navigation,
-  Radio,
   Compass,
 } from 'lucide-react'
 
@@ -182,18 +177,9 @@ const MORE_SECTIONS: MoreSection[] = [
     ],
   },
   {
-    label: 'PNW / Marine',
+    label: 'PNW Navigator',
     items: [
-      { href: '/pnw',                 label: 'PNW Nav',    icon: Compass },
-      { href: '/pnw/fishing',         label: 'Fish Guide', icon: Fish },
-      { href: '/fishing',             label: 'Marine Hub', icon: Anchor },
-      { href: '/fishing/catch-log',   label: 'Catch Log',  icon: Fish },
-      { href: '/fishing/spots',       label: 'Spots',      icon: MapPin },
-      { href: '/fishing/tides',       label: 'Tides',      icon: Waves },
-      { href: '/fishing/marinas',     label: 'Marinas',    icon: Navigation },
-      { href: '/fishing/vhf',         label: 'VHF',        icon: Radio },
-      { href: '/fishing/regulations', label: 'Regs',       icon: BookOpen },
-      { href: '/fishing/boating',     label: 'Boating',    icon: Compass },
+      { href: '/pnw', label: 'PNW Navigator', icon: Compass },
     ],
   },
   {

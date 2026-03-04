@@ -15,9 +15,9 @@ import {
   Trophy, UserPlus,
   Printer, Truck,
   Shield, Rocket, UserCheck,
-  Globe, LayoutGrid, Navigation, Compass,
+  Globe, LayoutGrid, Compass,
   Wand2, LayoutTemplate, Car,
-  Anchor, Fish, MapPin, Waves,
+  Anchor,
 } from 'lucide-react'
 
 interface NavItem {
@@ -106,11 +106,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Anchor,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/pnw',                 label: 'PNW Navigator', icon: Compass },
-      { href: '/fishing',             label: 'Marine Hub',    icon: Anchor },
-      { href: '/fishing/catch-log',   label: 'Catch Log',     icon: Fish },
-      { href: '/fishing/spots',       label: 'Spots',         icon: MapPin },
-      { href: '/fishing/tides',       label: 'Tides',         icon: Waves },
+      { href: '/pnw', label: 'PNW Navigator', icon: Compass },
     ],
   },
   {
