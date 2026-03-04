@@ -121,15 +121,17 @@ function buildTextSvg(
 // ── Pipeline steps ────────────────────────────────────────────────────────────
 
 // ── Recraft V3 size mapping ────────────────────────────────────────────────
-// Recraft V3 valid sizes: 1024x1024 square_hd, 1820x1024 landscape_16_9, etc.
-// We use the REST API directly with explicit width/height for best control.
-const RECRAFT_SIZE_MAP: Record<string, { width: number; height: number }> = {
-  landscape_16_9: { width: 1820, height: 1024 },  // vehicle wraps
-  square_hd:      { width: 1024, height: 1024 },  // square signs
-  portrait_4_3:   { width: 768,  height: 1024 },  // tall signs
-  landscape_4_3:  { width: 1024, height: 768 },   // landscape signs
-  banner_3_1:     { width: 1536, height: 512 },   // wide banners
-  door_hanger:    { width: 512,  height: 1408 },  // 4x11 door hangers
+// Recraft V3 on Replicate accepts size as a string like "1820x1024".
+// Valid sizes: 1024x1024, 1365x1024, 1024x1365, 1536x1024, 1024x1536,
+//   1820x1024, 1024x1820, 1024x2048, 2048x1024, 1434x1024, 1024x1434,
+//   1024x1280, 1280x1024, 1024x1707, 1707x1024
+const RECRAFT_SIZE_MAP: Record<string, string> = {
+  landscape_16_9: '1820x1024',  // vehicle wraps (closest to 16:9)
+  square_hd:      '1024x1024',  // square signs
+  portrait_4_3:   '1024x1365',  // tall signs (closest to 3:4)
+  landscape_4_3:  '1365x1024',  // landscape signs (closest to 4:3)
+  banner_3_1:     '2048x1024',  // wide banners (closest to 2:1)
+  door_hanger:    '1024x1707',  // 4x11 door hangers (closest tall ratio)
 }
 
 export async function generateArtwork(params: {
@@ -156,11 +158,8 @@ export async function generateArtwork(params: {
     throw new Error('Replicate not configured')
   }
 
-  // Recraft V3 on Replicate uses size as a string enum, not width/height
-  // Valid sizes: square_hd, landscape_16_9, portrait_4_3, landscape_4_3, portrait_16_9, square
-  const recraftSize = size_key === 'banner_3_1' ? 'landscape_16_9' :
-    size_key === 'door_hanger' ? 'portrait_4_3' :
-    (size_key as string) || 'landscape_16_9'
+  // Map our logical size key to a valid Recraft pixel-dimension string
+  const recraftSize = RECRAFT_SIZE_MAP[size_key] || RECRAFT_SIZE_MAP.landscape_16_9
 
   const fullPrompt = `${designPrompt}, NO TEXT NO WORDS NO LETTERS NO NUMBERS`
 
