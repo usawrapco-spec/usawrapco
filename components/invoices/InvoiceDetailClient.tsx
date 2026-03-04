@@ -6,7 +6,7 @@ import {
   ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
   ExternalLink, Ban, Link2, Copy, Check, Plus, Users,
-  Package, StickyNote, Save, ClipboardCheck, Car, Camera, Layers,
+  Package, StickyNote, Save, ClipboardCheck, Car, Camera, Layers, PenLine,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
@@ -1293,7 +1293,7 @@ const INV_WRAP_SCOPES = [
 ]
 const INV_VEHICLE_CONDITIONS = ['Excellent', 'Good', 'Fair', 'Poor']
 // --- Survey vehicle lookup helpers ---
-type InvVehicleEntry = { make: string; model: string; year?: string; sqft: number | null }
+type InvVehicleEntry = { make: string; model: string; year?: string; sqft: number | null; basePrice: number | null; installHours: number | null }
 
 async function invFetchAllMakes(): Promise<string[]> {
   try {
@@ -1316,11 +1316,11 @@ async function invFetchModelsForMake(make: string, year?: string): Promise<{ mod
 async function invLookupVehicle(make: string, model: string, year?: string): Promise<InvVehicleEntry | null> {
   try {
     const sb = createClient()
-    let q = sb.from('vehicle_measurements').select('make, model, year_range, total_sqft').eq('make', make).eq('model', model).limit(1)
+    let q = sb.from('vehicle_measurements').select('make, model, year_range, total_sqft, suggested_price, install_hours').eq('make', make).eq('model', model).limit(1)
     if (year) q = q.eq('year_range', year)
     const { data } = await q
     if (!data?.length) return null
-    return { make: data[0].make, model: data[0].model, year: data[0].year_range, sqft: data[0].total_sqft }
+    return { make: data[0].make, model: data[0].model, year: data[0].year_range, sqft: data[0].total_sqft, basePrice: data[0].suggested_price, installHours: data[0].install_hours }
   } catch { return null }
 }
 
