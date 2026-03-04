@@ -120,12 +120,34 @@ function buildTextSvg(
 
 // ── Pipeline steps ────────────────────────────────────────────────────────────
 
+// ── Recraft V3 size mapping ────────────────────────────────────────────────
+// Recraft V3 valid sizes: 1024x1024 square_hd, 1820x1024 landscape_16_9, etc.
+// We use the REST API directly with explicit width/height for best control.
+const RECRAFT_SIZE_MAP: Record<string, { width: number; height: number }> = {
+  landscape_16_9: { width: 1820, height: 1024 },  // vehicle wraps
+  square_hd:      { width: 1024, height: 1024 },  // square signs
+  portrait_4_3:   { width: 768,  height: 1024 },  // tall signs
+  landscape_4_3:  { width: 1024, height: 768 },   // landscape signs
+  banner_3_1:     { width: 1536, height: 512 },   // wide banners
+  door_hanger:    { width: 512,  height: 1408 },  // 4x11 door hangers
+}
+
 export async function generateArtwork(params: {
   mockup_id: string
-  ideogram_prompt: string
+  ideogram_prompt: string   // field name kept for backwards compat
   org_id: string
+  style?: 'digital_illustration' | 'vector_illustration' | 'realistic_image'
+  size_key?: keyof typeof RECRAFT_SIZE_MAP
+  slot?: 'a' | 'b' | 'c'  // which concept slot (a/b/c), defaults to single
 }): Promise<{ artwork_url: string }> {
-  const { mockup_id, ideogram_prompt, org_id: orgId } = params
+  const {
+    mockup_id,
+    ideogram_prompt: designPrompt,
+    org_id: orgId,
+    style = 'digital_illustration',
+    size_key = 'landscape_16_9',
+    slot,
+  } = params
   const admin = getSupabaseAdmin()
   const token = process.env.REPLICATE_API_TOKEN
 
@@ -134,15 +156,10 @@ export async function generateArtwork(params: {
     throw new Error('Replicate not configured')
   }
 
-  await admin.from('mockup_results').update({
-    current_step: 2,
-    step_name: 'Generating artwork…',
-  }).eq('id', mockup_id)
+  const dims = RECRAFT_SIZE_MAP[size_key] || RECRAFT_SIZE_MAP.landscape_16_9
+  const fullPrompt = `${designPrompt}, NO TEXT NO WORDS NO LETTERS NO NUMBERS, no typography`
 
-  const fullPrompt = `${ideogram_prompt} NO TEXT NO WORDS NO LETTERS NO NUMBERS`
-  const negativePrompt = 'text, words, letters, numbers, typography, fonts, labels, signs, watermarks, logos'
-
-  const createRes = await fetch(`${REPLICATE_API}/models/ideogram-ai/ideogram-v2/predictions`, {
+  const createRes = await fetch(`${REPLICATE_API}/models/recraft-ai/recraft-v3/predictions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -152,18 +169,17 @@ export async function generateArtwork(params: {
     body: JSON.stringify({
       input: {
         prompt: fullPrompt,
-        negative_prompt: negativePrompt,
-        width: 2160,
-        height: 1080,
-        style_type: 'Design',
-        magic_prompt_option: 'Off',
+        style,
+        width: dims.width,
+        height: dims.height,
+        negative_prompt: 'text, words, letters, numbers, typography, fonts, labels, signs, watermarks, logos, words',
       },
     }),
   })
 
   if (!createRes.ok) {
     const err = await createRes.text()
-    throw new Error(`Replicate create failed: ${err}`)
+    throw new Error(`Recraft API failed: ${err}`)
   }
 
   let prediction = await createRes.json()
@@ -172,15 +188,16 @@ export async function generateArtwork(params: {
     prediction = { ...prediction, output }
   }
 
-  const artworkUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
-  if (!artworkUrl) throw new Error('No artwork URL returned from Replicate')
+  const rawUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+  if (!rawUrl) throw new Error('No artwork URL returned from Recraft')
 
   // Download and upload to Supabase Storage
-  const imgRes = await fetch(artworkUrl)
-  if (!imgRes.ok) throw new Error('Failed to download artwork from Replicate')
+  const imgRes = await fetch(rawUrl)
+  if (!imgRes.ok) throw new Error('Failed to download artwork from Recraft')
   const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
 
-  const storagePath = `${mockup_id}/artwork.png`
+  const slotSuffix = slot ? `-${slot}` : ''
+  const storagePath = `${mockup_id}/artwork${slotSuffix}.png`
   const { error: upErr } = await admin.storage
     .from('mockup-results')
     .upload(storagePath, imgBuffer, { contentType: 'image/png', upsert: true })
@@ -190,11 +207,14 @@ export async function generateArtwork(params: {
   const { data: urlData } = admin.storage.from('mockup-results').getPublicUrl(storagePath)
   const storedUrl = urlData.publicUrl
 
-  await admin.from('mockup_results').update({
-    flat_design_url: storedUrl,
-    current_step: 2,
-    step_name: 'Artwork generated',
-  }).eq('id', mockup_id)
+  // Update DB — store in flat_design_url or concept_X_url depending on slot
+  const dbPatch: Record<string, unknown> = { current_step: 2, step_name: 'Artwork generated' }
+  if (!slot || slot === 'a') dbPatch.flat_design_url = storedUrl
+  if (slot === 'a') dbPatch.concept_a_url = storedUrl
+  if (slot === 'b') dbPatch.concept_b_url = storedUrl
+  if (slot === 'c') dbPatch.concept_c_url = storedUrl
+
+  await admin.from('mockup_results').update(dbPatch).eq('id', mockup_id)
 
   return { artwork_url: storedUrl }
 }

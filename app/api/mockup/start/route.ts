@@ -12,6 +12,8 @@ import {
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// ── Vehicle render (Flux img2img) ─────────────────────────────────────────────
+
 const VEHICLE_RENDER_PROMPTS: Record<string, string> = {
   car: 'sedan, 3/4 front angle, studio white background, professional automotive photography',
   suv: 'SUV crossover, 3/4 front angle, studio white background, professional automotive photography',
@@ -84,6 +86,56 @@ async function renderOnVehicle(
   }
 }
 
+// ── Prompt builders ────────────────────────────────────────────────────────────
+
+function buildWrapPrompts(params: {
+  company_name: string
+  industry: string
+  brand_colors: string[]
+  style_notes: string
+  vehicle_body_type: string
+  wrap_coverage: string
+  base_analysis?: string
+}): { a: string; b: string; c: string } {
+  const { company_name, industry, brand_colors, style_notes, vehicle_body_type, wrap_coverage, base_analysis } = params
+  const colorStr = brand_colors.length ? brand_colors.join(', ') : '#1a56f0, #ffffff'
+  const bizContext = `${company_name || 'commercial business'} ${industry ? `(${industry})` : ''}`
+  const coverDesc = wrap_coverage === 'full' ? 'full vehicle coverage' : `${wrap_coverage} wrap coverage`
+  const vehicleType = vehicle_body_type || 'van'
+  const extraNotes = style_notes ? ` ${style_notes}.` : ''
+
+  const base = `commercial vehicle wrap graphic design for ${bizContext}, ${vehicleType} ${coverDesc}, brand colors: ${colorStr},${extraNotes} ${base_analysis || ''}`
+
+  return {
+    a: `${base} BOLD AGGRESSIVE style, large dramatic angular shapes, high contrast dark background, powerful geometric elements, dynamic composition, bold impact typography areas, professional vinyl wrap artwork, flat lay design`,
+    b: `${base} CLEAN PROFESSIONAL style, minimal geometric shapes, solid color blocking, ample white space, corporate identity, straight lines, modern flat design, understated elegance, flat lay design`,
+    c: `${base} DYNAMIC GRADIENT style, flowing diagonal elements, sweeping motion lines, bold color gradient transition from ${brand_colors[0] || '#1a56f0'} to ${brand_colors[1] || '#ffffff'}, energetic movement, eye-catching composition, flat lay design`,
+  }
+}
+
+function buildSignagePrompts(params: {
+  company_name: string
+  industry: string
+  brand_colors: string[]
+  style_notes: string
+  sign_type: string
+}): { a: string; b: string; c: string } {
+  const { company_name, industry, brand_colors, style_notes, sign_type } = params
+  const colorStr = brand_colors.length ? brand_colors.join(', ') : '#1a56f0, #ffffff'
+  const bizContext = `${company_name || 'business'} ${industry ? `(${industry})` : ''}`
+  const extraNotes = style_notes ? ` ${style_notes}.` : ''
+
+  const base = `professional commercial signage background design for ${bizContext}, ${sign_type}, brand colors: ${colorStr},${extraNotes}`
+
+  return {
+    a: `${base} BOLD style, large color blocks, high contrast, bold graphic shapes, business signage layout`,
+    b: `${base} CLEAN MINIMAL style, geometric shapes, white space, professional corporate look, flat color areas`,
+    c: `${base} MODERN GRADIENT style, smooth color transitions, diagonal elements, contemporary design, vibrant`,
+  }
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -96,9 +148,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const {
+    // Output type
+    output_type = 'wrap',      // 'wrap' | 'signage'
+    sign_type = '',            // e.g. 'vinyl_banner', 'coroplast_sign', etc.
+    sign_width_in,
+    sign_height_in,
+    size_key = 'landscape_16_9', // Recraft size key
+    // Vehicle info (wraps only)
     template_id,
     project_id,
-    // Vehicle info (new — replaces template requirement)
     vehicle_make = '',
     vehicle_model = '',
     vehicle_year = '',
@@ -117,17 +175,13 @@ export async function POST(req: NextRequest) {
     font_choice = 'Impact',
   } = body
 
-  // template_id is now optional — either template_id OR vehicle info is required
-  if (!template_id && !vehicle_make) {
-    return NextResponse.json({ error: 'template_id or vehicle_make required' }, { status: 400 })
+  if (output_type === 'wrap' && !template_id && !vehicle_make) {
+    return NextResponse.json({ error: 'template_id or vehicle_make required for wraps' }, { status: 400 })
   }
 
   const mockupId = randomUUID()
-
-  // Derive render category from body type
   const renderCategory = vehicle_body_type || 'van'
 
-  // Create initial record
   await admin.from('mockup_results').insert({
     id: mockupId,
     org_id: orgId,
@@ -136,6 +190,10 @@ export async function POST(req: NextRequest) {
     status: 'processing',
     current_step: 1,
     step_name: 'Starting…',
+    output_type,
+    sign_type: sign_type || null,
+    sign_width_in: sign_width_in || null,
+    sign_height_in: sign_height_in || null,
     company_name,
     tagline,
     phone,
@@ -146,138 +204,66 @@ export async function POST(req: NextRequest) {
     style_notes,
     font_choice,
     input_prompt: JSON.stringify({
-      brand_colors,
-      company_name,
-      industry,
-      style_notes,
-      vehicle_make,
-      vehicle_model,
-      vehicle_year,
-      vehicle_body_type,
-      wrap_coverage,
-      vehicle_sqft,
+      brand_colors, company_name, industry, style_notes,
+      vehicle_make, vehicle_model, vehicle_year, vehicle_body_type,
+      wrap_coverage, vehicle_sqft, output_type, sign_type,
     }),
   })
 
   try {
-    // ── Step 1: Claude brand analysis → ideogram_prompt ──────────────────────
+    // ── Step 1: Claude brand analysis ─────────────────────────────────────────
     await admin.from('mockup_results').update({ current_step: 1, step_name: 'Analyzing brand…' }).eq('id', mockupId)
 
-    const vehicleDesc = [vehicle_year, vehicle_make, vehicle_model].filter(Boolean).join(' ')
-    const coverageDesc = wrap_coverage === 'full' ? 'full vehicle wrap' :
-      wrap_coverage === 'three_quarter' ? '3/4 vehicle wrap' :
-      wrap_coverage === 'half' ? 'half wrap (sides only)' : 'partial wrap'
-
-    let ideogramPrompt = `Professional commercial vehicle wrap graphic design for ${company_name || 'a business'} in ${industry || 'general'} industry. ${vehicleDesc ? `Vehicle: ${vehicleDesc}.` : ''} Coverage: ${coverageDesc}. ${brand_colors.length ? `Color palette: ${brand_colors.join(', ')}.` : ''} ${style_notes || ''}. Dynamic geometric shapes, color blocking, bold graphic elements. flat lay vehicle wrap graphic design, no text no letters no words, pure graphic artwork only, commercial wrap design, high contrast`
-    let brandAnalysis: Record<string, unknown> | null = null
-
+    let baseAnalysis = ''
     try {
       const content: Anthropic.MessageParam['content'] = []
-
-      if (logo_url) {
-        content.push({ type: 'image', source: { type: 'url', url: logo_url } })
-      }
-
+      if (logo_url) content.push({ type: 'image', source: { type: 'url', url: logo_url } })
       content.push({
         type: 'text',
-        text: `Analyze this brand for a commercial vehicle wrap design. Return JSON only:
-{
-  "primary_color": "hex",
-  "secondary_color": "hex",
-  "accent_color": "hex",
-  "style": "bold_aggressive|clean_professional|luxury_premium|fun_playful|industrial_tough",
-  "industry_keywords": ["string"],
-  "design_complexity": 1,
-  "ideogram_prompt": "string under 250 words — describes flat wrap artwork with NO TEXT, focus on color blocking, graphic shapes, background patterns, visual flow. End with: flat lay vehicle wrap graphic design, no text no letters no words, pure graphic artwork only, commercial wrap design, high contrast"
-}
-
-COMPANY: ${company_name || 'Business'}
-INDUSTRY: ${industry || 'General'}
-VEHICLE: ${vehicleDesc || 'Commercial vehicle'}
-VEHICLE TYPE: ${vehicle_body_type || 'van'}
-WRAP COVERAGE: ${coverageDesc}
-BRAND COLORS: ${brand_colors.join(', ')}
-STYLE NOTES: ${style_notes || 'Professional'}
-${logo_url ? 'LOGO: See image above' : 'NO LOGO PROVIDED'}`,
+        text: `Analyze this brand for a commercial ${output_type === 'signage' ? 'sign' : 'vehicle wrap'} design. Return 1-2 sentences describing the design direction, color mood, and visual style that fits this brand. Company: ${company_name || 'Business'}. Industry: ${industry || 'General'}. Colors: ${brand_colors.join(', ')}. Style notes: ${style_notes || 'Professional'}. ${logo_url ? 'Logo: see image.' : ''}`,
       })
-
       const msg = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 800,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
         messages: [{ role: 'user', content }],
       })
+      baseAnalysis = msg.content[0].type === 'text' ? msg.content[0].text : ''
+    } catch { /* non-fatal */ }
 
-      const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        brandAnalysis = JSON.parse(jsonMatch[0])
-        if (brandAnalysis && typeof brandAnalysis.ideogram_prompt === 'string') {
-          ideogramPrompt = brandAnalysis.ideogram_prompt
-        }
-      }
-    } catch (claudeErr: unknown) {
-      const msg = claudeErr instanceof Error ? claudeErr.message : String(claudeErr)
-      await logHealth(orgId, 'mockup-start-claude', `Brand analysis error: ${msg}`)
-    }
+    // ── Step 2: Generate 3 concepts in parallel (Recraft V3) ──────────────────
+    await admin.from('mockup_results').update({ current_step: 2, step_name: 'Generating 3 design concepts…' }).eq('id', mockupId)
+
+    const prompts = output_type === 'signage'
+      ? buildSignagePrompts({ company_name, industry, brand_colors, style_notes, sign_type })
+      : buildWrapPrompts({ company_name, industry, brand_colors, style_notes, vehicle_body_type, wrap_coverage, base_analysis: baseAnalysis })
+
+    const recraftStyle = output_type === 'signage' ? 'digital_illustration' : 'digital_illustration'
+    const recraftSize = output_type === 'signage' ? (size_key as string) : 'landscape_16_9'
+
+    const [resultA, resultB, resultC] = await Promise.all([
+      generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.a, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'a' }),
+      generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.b, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'b' }),
+      generateArtwork({ mockup_id: mockupId, ideogram_prompt: prompts.c, org_id: orgId, style: recraftStyle, size_key: recraftSize as 'landscape_16_9', slot: 'c' }),
+    ])
 
     await admin.from('mockup_results').update({
-      brand_analysis: brandAnalysis,
-    }).eq('id', mockupId)
-
-    // ── Step 2: Generate artwork (Ideogram — no text) ──────────────────────────
-    await admin.from('mockup_results').update({ current_step: 2, step_name: 'Creating custom artwork…' }).eq('id', mockupId)
-    const { artwork_url: artworkUrl } = await generateArtwork({
-      mockup_id: mockupId,
-      ideogram_prompt: ideogramPrompt,
-      org_id: orgId,
-    })
-
-    // ── Step 3: Polish flat design (Flux img2img at low strength) ──────────────
-    // Note: text is NOT composited yet — we want a clean design for vehicle render
-    await admin.from('mockup_results').update({ current_step: 3, step_name: 'Refining design…' }).eq('id', mockupId)
-    const { concept_url: polishedUrl } = await polishMockup({
-      mockup_id: mockupId,
-      composited_url: artworkUrl,
-      org_id: orgId,
-    })
-
-    // ── Step 4: Render on vehicle (Flux img2img) ───────────────────────────────
-    // Do this BEFORE text composite so the vehicle render doesn't wipe out text
-    await admin.from('mockup_results').update({ current_step: 4, step_name: 'Rendering on vehicle…' }).eq('id', mockupId)
-    const renderUrl = await renderOnVehicle(polishedUrl, renderCategory, vehicle_year, vehicle_make, vehicle_model)
-
-    // ── Step 5: Composite text on top of vehicle render ────────────────────────
-    // Text goes on LAST so it's always crisp and readable
-    await admin.from('mockup_results').update({ current_step: 5, step_name: 'Adding your information…' }).eq('id', mockupId)
-    const textBase = renderUrl || polishedUrl
-    const { composited_url: conceptUrl } = await compositeText({
-      mockup_id: mockupId,
-      template_id: template_id || null,
-      artwork_url: textBase,
-      company_name,
-      tagline,
-      phone,
-      website,
-      font_choice,
-      brand_colors,
-      org_id: orgId,
-    })
-
-    // ── Done ───────────────────────────────────────────────────────────────────
-    await admin.from('mockup_results').update({
-      status: 'concept_ready',
-      current_step: 6,
-      step_name: 'Concept ready for approval',
-      final_mockup_url: conceptUrl,
-      concept_url: polishedUrl, // keep the flat design available
+      concept_a_url: resultA.artwork_url,
+      concept_b_url: resultB.artwork_url,
+      concept_c_url: resultC.artwork_url,
+      flat_design_url: resultA.artwork_url,
+      status: 'concepts_ready',
+      current_step: 3,
+      step_name: 'Choose your concept',
     }).eq('id', mockupId)
 
     return NextResponse.json({
       mockup_id: mockupId,
-      concept_url: conceptUrl,       // vehicle render + text (the main result)
-      render_url: renderUrl,         // vehicle render without text
-      flat_design_url: artworkUrl,   // original flat design
-      status: 'concept_ready',
+      status: 'concepts_ready',
+      concept_a_url: resultA.artwork_url,
+      concept_b_url: resultB.artwork_url,
+      concept_c_url: resultC.artwork_url,
+      // Legacy field — return concept A as default
+      flat_design_url: resultA.artwork_url,
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)

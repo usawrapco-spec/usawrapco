@@ -7,6 +7,7 @@ import {
   ChevronRight, ChevronLeft, Check, Loader2, Upload, X,
   Sparkles, ImageIcon, Download, RefreshCw, ZoomIn, ZoomOut,
   Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe, Pencil,
+  LayoutGrid, RectangleHorizontal, Square, Wind,
 } from 'lucide-react'
 import MockupEditor from '@/components/mockup/MockupEditor'
 
@@ -104,13 +105,28 @@ const COVERAGE_OPTIONS = [
   { id: 'partial',       label: 'Partial',      desc: 'Custom sections' },
 ]
 
-const PIPELINE_STEPS = [
-  { key: 'brand',   label: 'Analyzing brand…' },
-  { key: 'artwork', label: 'Creating custom artwork…' },
+const SIGN_TYPES = [
+  { id: 'coroplast_18x24',   label: 'Yard Sign',         sub: '18" × 24"',    w: 18,  h: 24,  Icon: Square,              size_key: 'portrait_4_3' },
+  { id: 'coroplast_24x36',   label: 'Coroplast Sign',    sub: '24" × 36"',    w: 24,  h: 36,  Icon: Square,              size_key: 'portrait_4_3' },
+  { id: 'banner_2x4',        label: 'Banner 2×4',        sub: '2 ft × 4 ft',  w: 24,  h: 48,  Icon: RectangleHorizontal, size_key: 'portrait_4_3' },
+  { id: 'banner_3x8',        label: 'Banner 3×8',        sub: '3 ft × 8 ft',  w: 36,  h: 96,  Icon: RectangleHorizontal, size_key: 'banner_3_1'  },
+  { id: 'banner_4x8',        label: 'Banner 4×8',        sub: '4 ft × 8 ft',  w: 48,  h: 96,  Icon: RectangleHorizontal, size_key: 'banner_3_1'  },
+  { id: 'a_frame_24x36',     label: 'A-Frame Sign',      sub: '24" × 36"',    w: 24,  h: 36,  Icon: LayoutGrid,          size_key: 'portrait_4_3' },
+  { id: 'door_magnet_12x18', label: 'Car Door Magnet',   sub: '12" × 18"',    w: 12,  h: 18,  Icon: Car,                 size_key: 'portrait_4_3' },
+  { id: 'window_cling_sq',   label: 'Window Graphic',    sub: '12" × 12"',    w: 12,  h: 12,  Icon: Wind,                size_key: 'square_hd'   },
+]
+
+const PIPELINE_STEPS_GENERATE = [
+  { key: 'brand',    label: 'Analyzing brand…' },
+  { key: 'concepts', label: 'Generating 3 concepts (Recraft V3)…' },
+  { key: 'done',     label: 'Pick your favorite concept!' },
+]
+
+const PIPELINE_STEPS_FINALIZE = [
+  { key: 'polish',  label: 'Refining selected concept…' },
+  { key: 'render',  label: 'Rendering on vehicle (AI preview)…' },
   { key: 'text',    label: 'Adding your information…' },
-  { key: 'polish',  label: 'Applying photorealism…' },
-  { key: 'render',  label: 'Rendering on vehicle…' },
-  { key: 'done',    label: 'Concept ready!' },
+  { key: 'done',    label: 'Ready!' },
 ]
 
 const APPROVE_STEPS = [
@@ -119,6 +135,24 @@ const APPROVE_STEPS = [
   { key: 'done',    label: 'Print files ready!' },
 ]
 
+const WRAP_STEPS = [
+  { id: 1, label: 'Vehicle Type' },
+  { id: 2, label: 'Your Vehicle' },
+  { id: 3, label: 'Brand' },
+  { id: 4, label: 'Generate' },
+  { id: 5, label: 'Pick Concept' },
+  { id: 6, label: 'Result' },
+]
+
+const SIGN_STEPS = [
+  { id: 1, label: 'Sign Type' },
+  { id: 2, label: 'Brand' },
+  { id: 3, label: 'Generate' },
+  { id: 4, label: 'Pick Concept' },
+  { id: 5, label: 'Result' },
+]
+
+// Legacy alias — kept for code that references STEPS
 const STEPS = [
   { id: 1, label: 'Vehicle Type' },
   { id: 2, label: 'Your Vehicle' },
@@ -166,6 +200,16 @@ function estimatePrice(sqft: number, bodyType: string): number {
 export default function MockupGeneratorPage() {
   const supabase = createClient()
   const [step, setStep] = useState(1)
+  const [outputType, setOutputType] = useState<'wrap' | 'signage'>('wrap')
+  const [signType, setSignType] = useState('')
+
+  // Concept picker
+  const [conceptA, setConceptA] = useState<string | null>(null)
+  const [conceptB, setConceptB] = useState<string | null>(null)
+  const [conceptC, setConceptC] = useState<string | null>(null)
+  const [selectedConcept, setSelectedConcept] = useState<'a' | 'b' | 'c'>('a')
+  const [finalizing, setFinalizing] = useState(false)
+  const [finalizeStep, setFinalizeStep] = useState(0)
 
   // Step 1 — Body Type
   const [bodyType, setBodyType] = useState('')
@@ -411,15 +455,13 @@ export default function MockupGeneratorPage() {
         const data: MockupStatus = await res.json()
         setMockupStatus(data)
         const dbStep = data.current_step || 0
-        setPipelineStep(Math.max(0, Math.min(dbStep - 1, PIPELINE_STEPS.length - 1)))
-        if (data.status === 'concept_ready' || data.status === 'complete' || data.status === 'failed') {
+        setPipelineStep(Math.max(0, Math.min(dbStep - 1, PIPELINE_STEPS_GENERATE.length - 1)))
+        if (data.status === 'concepts_ready' || data.status === 'concept_ready' || data.status === 'complete' || data.status === 'failed') {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-          setPipelineStep(PIPELINE_STEPS.length - 1)
+          setPipelineStep(PIPELINE_STEPS_GENERATE.length - 1)
           setGenerating(false)
           if (data.status === 'failed') {
             setGenError(data.error_message || 'Generation failed')
-          } else {
-            setStep(5)
           }
         }
       } catch { /* silent */ }
@@ -432,6 +474,9 @@ export default function MockupGeneratorPage() {
     setPipelineStep(0)
     setMockupStatus(null)
     setRenderUrl(null)
+    setConceptA(null); setConceptB(null); setConceptC(null)
+
+    const signInfo = SIGN_TYPES.find(s => s.id === signType)
 
     try {
       const logoUrl = await getLogoUrl()
@@ -439,6 +484,11 @@ export default function MockupGeneratorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          output_type: outputType,
+          sign_type: signType || undefined,
+          sign_width_in: signInfo?.w,
+          sign_height_in: signInfo?.h,
+          size_key: signInfo?.size_key || 'landscape_16_9',
           vehicle_make: selectedMake,
           vehicle_model: selectedModel,
           vehicle_year: selectedYear,
@@ -461,14 +511,48 @@ export default function MockupGeneratorPage() {
         return
       }
       setMockupId(data.mockup_id)
+      setConceptA(data.concept_a_url || null)
+      setConceptB(data.concept_b_url || null)
+      setConceptC(data.concept_c_url || null)
+      setPipelineStep(PIPELINE_STEPS_GENERATE.length - 1)
+      setGenerating(false)
+      // Go to concept picker step
+      setStep(outputType === 'signage' ? 4 : 5)
+    } catch (err: unknown) {
+      setGenError(err instanceof Error ? err.message : 'Generation failed')
+      setGenerating(false)
+    }
+  }
+
+  async function handleFinalize(concept: 'a' | 'b' | 'c') {
+    if (!mockupId) return
+    setSelectedConcept(concept)
+    setFinalizing(true)
+    setFinalizeStep(0)
+    setGenError(null)
+
+    try {
+      const timer = setInterval(() => setFinalizeStep(s => Math.min(s + 1, PIPELINE_STEPS_FINALIZE.length - 2)), 10000)
+      const res = await fetch('/api/mockup/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mockup_id: mockupId, selected_concept: concept }),
+      })
+      clearInterval(timer)
+      const data = await res.json()
+      if (!res.ok) {
+        setGenError(data.error || 'Finalization failed')
+        setFinalizing(false)
+        return
+      }
       setRenderUrl(data.render_url || null)
       setMockupStatus({
-        id: data.mockup_id,
-        status: data.status,
+        id: mockupId,
+        status: 'concept_ready',
         current_step: 6,
         step_name: 'Concept ready',
         flat_design_url: data.flat_design_url,
-        final_mockup_url: data.render_url || data.concept_url,
+        final_mockup_url: data.concept_url,
         concept_url: data.concept_url,
         render_url: data.render_url,
         upscaled_url: null,
@@ -476,12 +560,12 @@ export default function MockupGeneratorPage() {
         error_step: null,
         error_message: null,
       })
-      setPipelineStep(PIPELINE_STEPS.length - 1)
-      setGenerating(false)
-      setStep(5)
+      setFinalizeStep(PIPELINE_STEPS_FINALIZE.length - 1)
+      setFinalizing(false)
+      setStep(outputType === 'signage' ? 5 : 6)
     } catch (err: unknown) {
-      setGenError(err instanceof Error ? err.message : 'Generation failed')
-      setGenerating(false)
+      setGenError(err instanceof Error ? err.message : 'Finalization failed')
+      setFinalizing(false)
     }
   }
 
@@ -529,6 +613,7 @@ export default function MockupGeneratorPage() {
   function reset() {
     setStep(1)
     setBodyType('')
+    setSignType('')
     setSelectedYear('')
     setSelectedMake('')
     setSelectedModel('')
@@ -545,6 +630,8 @@ export default function MockupGeneratorPage() {
     setApproveError(null)
     setPipelineStep(0)
     setApproveStep(0)
+    setConceptA(null); setConceptB(null); setConceptC(null)
+    setFinalizing(false); setFinalizeStep(0)
   }
 
   // ── Shared styles ──────────────────────────────────────────────────────────
@@ -564,21 +651,41 @@ export default function MockupGeneratorPage() {
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 0' }}>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <Wand2 size={22} style={{ color: 'var(--accent)' }} />
-          <h1 style={{
-            fontSize: 22, fontWeight: 800, color: 'var(--text1)',
-            fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase',
-          }}>AI Mockup Generator</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Wand2 size={22} style={{ color: 'var(--accent)' }} />
+            <h1 style={{
+              fontSize: 22, fontWeight: 800, color: 'var(--text1)',
+              fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase',
+            }}>AI Mockup Generator</h1>
+          </div>
+          {/* Output type toggle */}
+          <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)', gap: 2 }}>
+            {(['wrap', 'signage'] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => { setOutputType(type); setStep(1); setSignType(''); setBodyType('') }}
+                style={{
+                  padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  background: outputType === type ? 'var(--accent)' : 'transparent',
+                  color: outputType === type ? '#fff' : 'var(--text2)',
+                }}
+              >
+                {type === 'wrap' ? 'Vehicle Wrap' : 'Signage'}
+              </button>
+            ))}
+          </div>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text3)' }}>
-          Select your vehicle, enter your brand info, and see your wrap design in minutes.
+        <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>
+          {outputType === 'wrap'
+            ? 'Select your vehicle, enter your brand info, and get 3 design concepts in minutes.'
+            : 'Generate professional print-ready signs, banners, and door magnets.'}
         </p>
       </div>
 
       {/* Step indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28, overflowX: 'auto' }}>
-        {STEPS.map((s, i) => {
+        {(outputType === 'signage' ? SIGN_STEPS : WRAP_STEPS).map((s, i) => {
           const done = step > s.id
           const active = step === s.id
           return (
@@ -616,8 +723,40 @@ export default function MockupGeneratorPage() {
         })}
       </div>
 
-      {/* ── STEP 1: Body Type ─────────────────────────────────────────────────── */}
-      {step === 1 && (
+      {/* ── STEP 1: Sign Type (signage mode) ──────────────────────────────────── */}
+      {step === 1 && outputType === 'signage' && (
+        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>What type of sign?</h2>
+          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 24 }}>Choose the format and size.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12, marginBottom: 24 }}>
+            {SIGN_TYPES.map(st => {
+              const Icon = st.Icon
+              const sel2 = signType === st.id
+              return (
+                <div key={st.id} onClick={() => { setSignType(st.id); setTimeout(() => setStep(2), 100) }}
+                  style={{ padding: '16px 14px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
+                    border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: sel2 ? 'rgba(79,127,255,0.08)' : 'var(--surface2)', transition: 'all 0.15s' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: sel2 ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
+                    <Icon size={22} style={{ color: sel2 ? 'var(--accent)' : 'var(--text2)' }} />
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>{st.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)' }}>{st.sub}</div>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setStep(2)} disabled={!signType}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 22px', borderRadius: 8, background: signType ? 'var(--accent)' : 'var(--surface2)', color: signType ? '#fff' : 'var(--text3)', fontSize: 13, fontWeight: 700, border: 'none', cursor: signType ? 'pointer' : 'not-allowed' }}>
+              Next: Brand Info <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 1: Body Type (wrap mode) ─────────────────────────────────────── */}
+      {step === 1 && outputType === 'wrap' && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
             What type of vehicle are we wrapping?
@@ -904,8 +1043,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 3: Brand ─────────────────────────────────────────────────────── */}
-      {step === 3 && (
+      {/* ── STEP 3 (wrap) / STEP 2 (signage): Brand ──────────────────────────── */}
+      {((outputType === 'wrap' && step === 3) || (outputType === 'signage' && step === 2)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Tell us about your brand</h2>
           <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 18 }}>
@@ -1073,11 +1212,11 @@ export default function MockupGeneratorPage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
-            <button onClick={() => setStep(2)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={() => setStep(outputType === 'signage' ? 1 : 2)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               <ChevronLeft size={14} /> Back
             </button>
             <button
-              onClick={() => setStep(4)}
+              onClick={() => setStep(outputType === 'signage' ? 3 : 4)}
               disabled={!companyName.trim()}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 22px', borderRadius: 8, background: companyName.trim() ? 'var(--accent)' : 'var(--surface2)', color: companyName.trim() ? '#fff' : 'var(--text3)', fontSize: 13, fontWeight: 700, border: 'none', cursor: companyName.trim() ? 'pointer' : 'not-allowed' }}
             >
@@ -1087,8 +1226,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 4: Generate ──────────────────────────────────────────────────── */}
-      {step === 4 && (
+      {/* ── STEP 4 (wrap) / STEP 3 (signage): Generate ────────────────────────── */}
+      {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Ready to generate your wrap concept</h2>
           <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22 }}>
@@ -1123,11 +1262,11 @@ export default function MockupGeneratorPage() {
           {/* Pipeline progress */}
           {generating && (
             <div style={{ marginBottom: 24 }}>
-              {PIPELINE_STEPS.map((ps, i) => {
+              {PIPELINE_STEPS_GENERATE.map((ps, i) => {
                 const done = pipelineStep > i
                 const active = pipelineStep === i
                 return (
-                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < PIPELINE_STEPS.length - 1 ? '1px solid var(--border)' : 'none', opacity: pipelineStep < i ? 0.3 : 1, transition: 'opacity 0.3s' }}>
+                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < PIPELINE_STEPS_GENERATE.length - 1 ? '1px solid var(--border)' : 'none', opacity: pipelineStep < i ? 0.3 : 1, transition: 'opacity 0.3s' }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {done
                         ? <Check size={13} style={{ color: 'var(--green)' }} />
@@ -1152,7 +1291,7 @@ export default function MockupGeneratorPage() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button onClick={() => setStep(3)} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.4 : 1 }}>
+            <button onClick={() => setStep(outputType === 'signage' ? 2 : 3)} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.4 : 1 }}>
               <ChevronLeft size={14} /> Back
             </button>
             <button
@@ -1168,16 +1307,110 @@ export default function MockupGeneratorPage() {
               }}
             >
               {generating
-                ? <><Loader2 size={16} className="animate-spin" /> Generating…</>
-                : <><Sparkles size={16} /> Generate My Wrap Concept</>
+                ? <><Loader2 size={16} className="animate-spin" /> Generating 3 Concepts…</>
+                : <><Sparkles size={16} /> {outputType === 'signage' ? 'Generate Sign Concepts' : 'Generate My Wrap Concepts'}</>
               }
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 5: Result ────────────────────────────────────────────────────── */}
-      {step === 5 && (
+      {/* ── STEP 5 (wrap) / STEP 4 (signage): Concept Picker ─────────────────── */}
+      {((outputType === 'wrap' && step === 5) || (outputType === 'signage' && step === 4)) && (
+        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Choose Your Design Direction</h2>
+          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22 }}>
+            3 concepts generated with Recraft V3. Pick the direction you like — we'll refine it and add your info.
+          </p>
+
+          {(conceptA || conceptB || conceptC) ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 24 }}>
+              {([
+                { id: 'a' as const, url: conceptA, label: 'Bold & Aggressive' },
+                { id: 'b' as const, url: conceptB, label: 'Clean & Professional' },
+                { id: 'c' as const, url: conceptC, label: 'Dynamic & Gradient' },
+              ]).map(concept => concept.url ? (
+                <div
+                  key={concept.id}
+                  onClick={() => setSelectedConcept(concept.id)}
+                  style={{
+                    borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                    border: selectedConcept === concept.id ? '3px solid var(--accent)' : '1px solid var(--border)',
+                    background: 'var(--surface2)', transition: 'border-color 0.15s',
+                    position: 'relative',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={concept.url} alt={concept.label} style={{ width: '100%', display: 'block', height: 160, objectFit: 'cover' }} />
+                  <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Option {concept.id.toUpperCase()}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{concept.label}</div>
+                    </div>
+                    {selectedConcept === concept.id && <Check size={16} style={{ color: 'var(--accent)' }} />}
+                  </div>
+                  {selectedConcept === concept.id && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Check size={12} style={{ color: '#fff' }} />
+                    </div>
+                  )}
+                </div>
+              ) : null)}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)', display: 'block', margin: '0 auto 10px' }} />
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Loading concepts…</div>
+            </div>
+          )}
+
+          {genError && (
+            <div style={{ padding: '12px 16px', borderRadius: 8, marginBottom: 16, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 13, color: 'var(--red)' }}>
+              {genError}
+            </div>
+          )}
+
+          {/* Finalize progress */}
+          {finalizing && (
+            <div style={{ marginBottom: 20 }}>
+              {PIPELINE_STEPS_FINALIZE.map((ps, i) => {
+                const done = finalizeStep > i; const active = finalizeStep === i
+                return (
+                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < PIPELINE_STEPS_FINALIZE.length - 1 ? '1px solid var(--border)' : 'none', opacity: finalizeStep < i ? 0.3 : 1 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {done ? <Check size={11} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={11} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 9, color: 'var(--text3)' }}>{i + 1}</span>}
+                    </div>
+                    <span style={{ fontSize: 12, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{ps.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setStep(outputType === 'signage' ? 3 : 4)} disabled={finalizing}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
+                <ChevronLeft size={14} /> Back
+              </button>
+              <button onClick={() => { setStep(outputType === 'signage' ? 3 : 4); setTimeout(() => handleGenerate(), 50) }} disabled={finalizing}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
+                <RefreshCw size={11} /> Regenerate All
+              </button>
+            </div>
+            <button
+              onClick={() => handleFinalize(selectedConcept)}
+              disabled={finalizing || !conceptA}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 9, background: finalizing || !conceptA ? 'var(--surface2)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)', color: finalizing || !conceptA ? 'var(--text3)' : '#fff', fontSize: 14, fontWeight: 800, border: 'none', cursor: finalizing || !conceptA ? 'not-allowed' : 'pointer', boxShadow: !finalizing && conceptA ? '0 4px 20px rgba(79,127,255,0.4)' : 'none' }}
+            >
+              {finalizing ? <><Loader2 size={15} className="animate-spin" /> Finalizing…</> : <><Sparkles size={15} /> Use This Concept</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 6 (wrap) / STEP 5 (signage): Result ────────────────────────── */}
+      {((outputType === 'wrap' && step === 6) || (outputType === 'signage' && step === 5)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
           {/* Header */}
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
