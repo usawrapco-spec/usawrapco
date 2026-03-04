@@ -80,7 +80,7 @@ function calcInvItemCOGS(item: LineItem): { material: number; labor: number; des
   return { material, labor, design, misc }
 }
 
-type InvTab = 'items' | 'notes'
+type InvTab = 'items' | 'notes' | 'survey'
 
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
 
@@ -738,6 +738,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               {([
                 { key: 'items'  as InvTab, label: `Items (${items.length})`, icon: <Package size={13} /> },
                 { key: 'notes'  as InvTab, label: 'Notes',      icon: <StickyNote size={13} /> },
+                { key: 'survey' as InvTab, label: 'Survey',     icon: <ClipboardCheck size={13} /> },
               ]).map(t => (
                 <button
                   key={t.key}
