@@ -10,6 +10,9 @@ import {
   polishMockup,
 } from '@/lib/mockup/pipeline'
 
+export const runtime = 'nodejs'
+export const maxDuration = 300
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // ── Vehicle render (Flux img2img) ─────────────────────────────────────────────
