@@ -156,8 +156,13 @@ export async function generateArtwork(params: {
     throw new Error('Replicate not configured')
   }
 
-  const dims = RECRAFT_SIZE_MAP[size_key] || RECRAFT_SIZE_MAP.landscape_16_9
-  const fullPrompt = `${designPrompt}, NO TEXT NO WORDS NO LETTERS NO NUMBERS, no typography`
+  // Recraft V3 on Replicate uses size as a string enum, not width/height
+  // Valid sizes: square_hd, landscape_16_9, portrait_4_3, landscape_4_3, portrait_16_9, square
+  const recraftSize = size_key === 'banner_3_1' ? 'landscape_16_9' :
+    size_key === 'door_hanger' ? 'portrait_4_3' :
+    (size_key as string) || 'landscape_16_9'
+
+  const fullPrompt = `${designPrompt}, NO TEXT NO WORDS NO LETTERS NO NUMBERS`
 
   const createRes = await fetch(`${REPLICATE_API}/models/recraft-ai/recraft-v3/predictions`, {
     method: 'POST',
@@ -170,9 +175,7 @@ export async function generateArtwork(params: {
       input: {
         prompt: fullPrompt,
         style,
-        width: dims.width,
-        height: dims.height,
-        negative_prompt: 'text, words, letters, numbers, typography, fonts, labels, signs, watermarks, logos, words',
+        size: recraftSize,
       },
     }),
   })
