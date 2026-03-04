@@ -6,7 +6,7 @@ import SharedVehicleSelector, { type VehicleSelectResult } from '@/components/sh
 import type { LineItemSpecs } from '@/types'
 import {
   CalcOutput, VINYL_MATERIALS, DESIGN_FEE_DEFAULT,
-  calcGPMPct, gpmColor,
+  calcGPMPct,
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
@@ -39,15 +39,71 @@ interface Props {
 }
 
 const COVERAGE = [
-  { key: 'full',          label: 'Full Wrap',             sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
-  { key: 'full_roof',     label: 'Full Wrap + Roof',      sqftFn: (v: VehicleRecord) => v.full_wrap_with_roof_sqft || ((v.full_wrap_sqft || 0) + (v.roof_sqft || 0)) || 0 },
-  { key: 'three_quarter', label: '3/4 Wrap',              sqftFn: (v: VehicleRecord) => v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75) },
-  { key: 'half',          label: 'Half Wrap',             sqftFn: (v: VehicleRecord) => v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50) },
-  { key: 'hood',          label: 'Hood Only',             sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
-  { key: 'roof',          label: 'Roof Only',             sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
-  { key: 'custom',        label: 'Custom Zones',          sqftFn: () => 0 },
-  { key: 'install_only',  label: 'Install Only',          sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
+  { key: 'full',          label: 'Full Wrap' },
+  { key: 'three_quarter', label: '3/4 Wrap' },
+  { key: 'half',          label: 'Half Wrap' },
+  { key: 'hood',          label: 'Hood Only' },
+  { key: 'roof',          label: 'Roof Only' },
+  { key: 'custom',        label: 'Custom Zones' },
+  { key: 'install_only',  label: 'Install Only' },
 ]
+
+/** Build the list of body panels for a vehicle (excludes roof) */
+function getBodyPanels(v: VehicleRecord) {
+  const driverSqft = v.driver_sqft || Math.round((v.side_sqft || 0) / 2)
+  const passSqft   = v.passenger_sqft || Math.round((v.side_sqft || 0) / 2)
+  return [
+    { key: 'hood',        label: 'Hood',           sqft: v.hood_sqft || 0 },
+    { key: 'driver_side', label: 'Driver Side',    sqft: driverSqft },
+    { key: 'pass_side',   label: 'Passenger Side', sqft: passSqft },
+    { key: 'back',        label: 'Back / Rear',    sqft: v.back_sqft || 0 },
+    { key: 'doors',       label: 'Doors',          sqft: v.doors_sqft || 0 },
+  ].filter(p => p.sqft > 0)
+}
+
+function getCoverageSqft(v: VehicleRecord, coverage: string, customZones: Record<string, boolean>, includeRoof: boolean) {
+  let base = 0
+  switch (coverage) {
+    case 'full':
+      base = v.full_wrap_sqft || 0
+      break
+    case 'three_quarter':
+      base = v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75)
+      break
+    case 'half':
+      base = v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50)
+      break
+    case 'hood':
+      base = v.hood_sqft || 0
+      break
+    case 'roof':
+      return v.roof_sqft || 0 // roof-only, no add-on logic
+    case 'install_only':
+      base = v.full_wrap_sqft || 0
+      break
+    case 'custom': {
+      const driverSqft = v.driver_sqft || (v.side_sqft || 0) / 2
+      const passSqft   = v.passenger_sqft || (v.side_sqft || 0) / 2
+      if (customZones.hood)         base += v.hood_sqft || 0
+      if (customZones.driver_side)  base += driverSqft
+      if (customZones.pass_side)    base += passSqft
+      if (customZones.back)         base += v.back_sqft || 0
+      if (customZones.front_bumper) base += Math.round((v.full_wrap_sqft || 0) * 0.05)
+      if (customZones.rear_bumper)  base += Math.round((v.full_wrap_sqft || 0) * 0.05)
+      if (customZones.mirrors)      base += 6
+      if (customZones.doors)        base += v.doors_sqft || 0
+      if (customZones.roof)         base += v.roof_sqft || 0
+      return Math.round(base) // custom handles roof in its own toggles
+    }
+    default:
+      base = v.full_wrap_sqft || 0
+  }
+  // Add roof if toggled on (and not roof-only or custom)
+  if (includeRoof && coverage !== 'roof' && coverage !== 'custom') {
+    base += v.roof_sqft || 0
+  }
+  return Math.round(base)
+}
 
 const WASTE_OPTS = [5, 10, 15, 20] as const
 const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
@@ -69,6 +125,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const [matTooltipOpen, setMatTooltipOpen]   = useState(false)
   const matTooltipRef = useRef<HTMLDivElement>(null)
 
+  const [includeRoof, setIncludeRoof] = useState(!!(specs.includeRoof as boolean))
   const [customZones, setCustomZones] = useState<Record<string, boolean>>(
     (specs.customZones as Record<string, boolean>) || {}
   )
@@ -162,23 +219,8 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
 
   const sqft = useMemo(() => {
     if (!vehicle) return 0
-    if (coverage === 'custom') {
-      let t = 0
-      const driverSqft = vehicle.driver_sqft || (vehicle.side_sqft || 0) / 2
-      const passSqft   = vehicle.passenger_sqft || (vehicle.side_sqft || 0) / 2
-      if (customZones.hood)         t += vehicle.hood_sqft || 0
-      if (customZones.roof)         t += vehicle.roof_sqft || 0
-      if (customZones.driver_side)  t += driverSqft
-      if (customZones.pass_side)    t += passSqft
-      if (customZones.front_bumper) t += Math.round((vehicle.full_wrap_sqft || 0) * 0.05)
-      if (customZones.rear_bumper)  t += Math.round((vehicle.full_wrap_sqft || 0) * 0.05)
-      if (customZones.mirrors)      t += 6
-      if (customZones.doors)        t += vehicle.doors_sqft || 0
-      return Math.round(t)
-    }
-    const cov = COVERAGE.find(c => c.key === coverage)
-    return cov ? cov.sqftFn(vehicle) : (vehicle.full_wrap_sqft || 0)
-  }, [vehicle, coverage, customZones])
+    return getCoverageSqft(vehicle, coverage, customZones, includeRoof)
+  }, [vehicle, coverage, customZones, includeRoof])
 
   const matRate          = VINYL_MATERIALS.find(m => m.key === material)?.rate ?? 2.10
   const matLabel         = VINYL_MATERIALS.find(m => m.key === material)?.label ?? material
@@ -189,7 +231,6 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const cogs             = materialCost + installerPay + effectiveDFee
   const gpm              = calcGPMPct(salePrice, cogs)
   const gp               = salePrice - cogs
-  const autoTargetPrice  = cogs > 0 ? Math.round(cogs / (1 - gpmTarget / 100)) : 0
   const belowFloor       = salePrice > 0 && gpm < 65
   const wrapSqftForTier  = vehicle?.full_wrap_sqft || 0
   const formulaResult    = wrapSqftForTier > 0 ? calculateInstallPay(wrapSqftForTier) : null
@@ -198,14 +239,15 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
 
   useEffect(() => {
     const covLabel = COVERAGE.find(c => c.key === coverage)?.label || coverage
+    const roofLabel = includeRoof && coverage !== 'roof' && coverage !== 'custom' ? ' + Roof' : ''
     const nameParts = [year, make, model].filter(Boolean)
     onChange({
-      name: nameParts.length ? `${nameParts.join(' ')} — ${covLabel}` : undefined,
+      name: nameParts.length ? `${nameParts.join(' ')} — ${covLabel}${roofLabel}` : undefined,
       unit_price: salePrice,
       specs: {
         vehicleYear: year, vehicleMake: make, vehicleModel: model,
-        wrapType: covLabel, vinylType: matLabel,
-        vinylArea: sqft,
+        wrapType: covLabel + roofLabel, vinylType: matLabel,
+        vinylArea: sqft, includeRoof,
         wasteBuffer: waste, materialCost,
         installerPay, estimatedHours: installHours, designFee: effectiveDFee,
         vinylMaterial: material,
@@ -219,7 +261,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sqft, materialCost, salePrice, installerPay, installHours, effectiveDFee,
-      year, make, model, coverage, material, waste, customZones, currentTierLabel, gpmTarget, installOverride])
+      year, make, model, coverage, material, waste, customZones, currentTierLabel, gpmTarget, installOverride, includeRoof])
 
   const toggleZone = (zone: string) =>
     setCustomZones(prev => ({ ...prev, [zone]: !prev[zone] }))
@@ -263,51 +305,91 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         />
       </div>
 
-      {/* Compact vehicle info line */}
-      {vehicle && (
+      {/* Coverage */}
+      <div style={{ marginBottom: 8 }}>
+        <label style={calcFieldLabelCompact}>Coverage</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {COVERAGE.map(c => {
+            const isInstOnly = c.key === 'install_only'
+            const active = coverage === c.key
+            return (
+              <button key={c.key} onClick={() => canWrite && setCoverage(c.key)}
+                style={pillBtnCompact(active, isInstOnly ? 'var(--green)' : 'var(--accent)')}>
+                {c.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Body panel breakdown + Roof add-on */}
+      {vehicle && coverage !== 'custom' && coverage !== 'install_only' && (
+        <div style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {/* Panel grid */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, borderBottom: '1px solid var(--border)' }}>
+            {getBodyPanels(vehicle).map((p, i) => (
+              <div key={p.key} style={{
+                padding: '4px 10px',
+                borderRight: i < getBodyPanels(vehicle).length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+                  {p.label}
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--text1)' }}>
+                  {p.sqft} <span style={{ fontSize: 8, color: 'var(--text3)' }}>sqft</span>
+                </div>
+              </div>
+            ))}
+            {/* Total body */}
+            <div style={{ padding: '4px 10px', marginLeft: 'auto' }}>
+              <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+                Total
+              </div>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 800, color: 'var(--cyan)' }}>
+                {sqft} <span style={{ fontSize: 8, color: 'var(--text3)' }}>sqft</span>
+              </div>
+            </div>
+          </div>
+          {/* Roof add-on row */}
+          {coverage !== 'roof' && (vehicle.roof_sqft || 0) > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', background: includeRoof ? 'rgba(34,192,122,0.06)' : 'transparent' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canWrite ? 'pointer' : 'default', fontSize: 11, color: includeRoof ? 'var(--green)' : 'var(--text2)', fontWeight: 700 }}>
+                <input type="checkbox" checked={includeRoof} onChange={() => canWrite && setIncludeRoof(!includeRoof)} />
+                + Roof
+              </label>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: includeRoof ? 'var(--green)' : 'var(--text3)' }}>
+                {vehicle.roof_sqft} sqft
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Compact info for install-only */}
+      {vehicle && coverage === 'install_only' && (
         <div style={{ marginBottom: 6, padding: '4px 8px', background: 'var(--surface)', borderRadius: 6, border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10, color: 'var(--text2)', alignItems: 'center' }}>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--cyan)', fontWeight: 700 }}>{sqft} sqft</span>
           {formulaResult && <>
             <span>·</span>
             <span style={{ color: 'var(--green)', fontWeight: 700 }}>{currentTierLabel}</span>
             <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{formulaResult.hours}h · {fmtC(formulaResult.pay)}</span>
-            {installOverride && <span style={{ color: 'var(--amber)', fontWeight: 700 }}>(override)</span>}
           </>}
         </div>
       )}
-
-      {/* Coverage */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start', marginBottom: 8 }}>
-        <div>
-          <label style={calcFieldLabelCompact}>Coverage</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-            {COVERAGE.map(c => {
-              const isInstOnly = c.key === 'install_only'
-              const active = coverage === c.key
-              return (
-                <button key={c.key} onClick={() => canWrite && setCoverage(c.key)}
-                  style={pillBtnCompact(active, isInstOnly ? 'var(--green)' : 'var(--accent)')}>
-                  {c.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-      </div>
 
       {/* Custom zones (when custom coverage selected) */}
       {coverage === 'custom' && vehicle && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 8 }}>
           {[
-            { key: 'hood',         label: `Hood (${vehicle.hood_sqft} sqft)` },
-            { key: 'roof',         label: `Roof (${vehicle.roof_sqft} sqft)` },
+            { key: 'hood',         label: `Hood (${vehicle.hood_sqft || 0} sqft)` },
             { key: 'driver_side',  label: `Driver (${vehicle.driver_sqft ?? Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
             { key: 'pass_side',    label: `Pass (${vehicle.passenger_sqft ?? Math.round((vehicle.side_sqft || 0) / 2)} sqft)` },
+            { key: 'back',         label: `Back (${vehicle.back_sqft || 0} sqft)` },
+            { key: 'doors',        label: `Doors (${vehicle.doors_sqft || 0} sqft)` },
+            { key: 'roof',         label: `Roof (${vehicle.roof_sqft || 0} sqft)` },
             { key: 'front_bumper', label: 'Front Bumper (~est)' },
             { key: 'rear_bumper',  label: 'Rear Bumper (~est)' },
             { key: 'mirrors',      label: 'Mirrors (6 sqft)' },
-            { key: 'doors',        label: `Doors (${vehicle.doors_sqft} sqft)` },
           ].map(z => (
             <label key={z.key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canWrite ? 'pointer' : 'default', fontSize: 11, color: customZones[z.key] ? 'var(--text1)' : 'var(--text2)' }}>
               <input type="checkbox" checked={!!customZones[z.key]} onChange={() => canWrite && toggleZone(z.key)} />
@@ -347,18 +429,6 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         </div>
       )}
 
-      {/* Install-only summary */}
-      {isInstallOnly && vehicle && (
-        <div style={{ marginBottom: 8, padding: '5px 10px', background: 'rgba(34,192,122,0.06)', border: '1px solid rgba(34,192,122,0.2)', borderRadius: 7, fontSize: 10, color: 'var(--text2)', display: 'flex', gap: 8 }}>
-          <span style={{ color: 'var(--green)', fontWeight: 700 }}>Install Only</span>
-          <span>·</span>
-          <span>{currentTierLabel}</span>
-          <span>·</span>
-          <span style={{ color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>
-            Est. {autoTargetPrice > 0 ? fmtC(autoTargetPrice) : '--'}
-          </span>
-        </div>
-      )}
 
       {/* Pricing row: Sale Price + Install Pay + Design Fee */}
       <div style={{ display: 'grid', gridTemplateColumns: !isInstallOnly ? '1fr 1fr 1fr' : '1fr 1fr', gap: 5, marginBottom: 8 }}>
