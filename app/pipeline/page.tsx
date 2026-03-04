@@ -45,9 +45,23 @@ export default async function PipelinePage() {
     countByJob[r.project_id] = (countByJob[r.project_id] || 0) + 1
   }
 
+  // Attach connection counts
+  const { data: connections } = await admin
+    .from('job_connections')
+    .select('job_a, job_b')
+
+  const connByJob: Record<string, string[]> = {}
+  for (const c of connections || []) {
+    if (!connByJob[c.job_a]) connByJob[c.job_a] = []
+    if (!connByJob[c.job_b]) connByJob[c.job_b] = []
+    connByJob[c.job_a].push(c.job_b)
+    connByJob[c.job_b].push(c.job_a)
+  }
+
   const projectsWithRenderCount = (projects || []).map((p: any) => ({
     ...p,
     render_count: countByJob[p.id] || 0,
+    connected_job_ids: connByJob[p.id] || [],
   }))
 
   return (

@@ -262,7 +262,7 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
   }
 
   return (
-    <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div style={{ position: 'relative', height: 'calc(100dvh - 64px)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       {/* ── PIPELINE SWITCHER ─────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexShrink: 0, alignItems: 'center' }}>
         {PIPELINES.map(pl => {

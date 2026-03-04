@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Eye, Pencil, Copy, Zap, User, Phone, MessageSquare,
   MoreVertical, Wrench, X, Calendar, Clock,
-  CheckCircle, ExternalLink, ImagePlay,
+  CheckCircle, ExternalLink, ImagePlay, Link2,
 } from 'lucide-react'
 import { RaceTrackTimeline } from './RaceTrackTimeline'
 import JobContextMenu from '@/components/shared/JobContextMenu'
@@ -48,11 +48,13 @@ export const DEPT_DEFAULT_FIELDS: Record<string, CardField[]> = {
   sales:      ['customer_name', 'vehicle', 'revenue', 'agent', 'stage', 'contract_status'],
   production: ['customer_name', 'vehicle', 'stage', 'due_date'],
   install:    ['customer_name', 'vehicle', 'installer', 'install_date', 'contract_status'],
-  all:        ['customer_name', 'vehicle', 'revenue', 'agent', 'stage'],
+  all:        ['customer_name', 'vehicle', 'revenue', 'agent', 'stage', 'contract_status', 'install_date', 'deposit_status'],
 }
 
 // Context for card field visibility — provided by KanbanBoard
 export const CardFieldsContext = createContext<CardField[]>([])
+// Context for compact mode — provided by KanbanBoard
+export const CompactModeContext = createContext<boolean>(false)
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -144,6 +146,7 @@ export default function PipelineJobCard({
 
   const cardRef = useRef<HTMLDivElement>(null)
   const visibleFields = useContext(CardFieldsContext)
+  const compact = useContext(CompactModeContext)
 
   // ── Data extraction ──────────────────────────────────────────────────────
   const fd = (project.form_data as any) || {}
@@ -165,6 +168,7 @@ export default function PipelineJobCard({
   const depositPaid = !!(fd.depositPaid || fd.deposit_paid || project.deposit_status === 'paid')
   const mockupUrl = fd.mockup_url || fd.mockupUrl || null
   const hasSendBack = (project.send_backs as any[])?.some?.((sb: any) => !sb.resolved)
+  const connectedJobIds: string[] = (project as any).connected_job_ids || []
 
   // ── Urgency ──────────────────────────────────────────────────────────────
   let urgency = ''; let urgencyColor = 'var(--text3)'
@@ -326,7 +330,7 @@ export default function PipelineJobCard({
               ? `3px dashed ${stageColor}30`
               : `3px solid ${stageColor}`,
             borderRadius: 10,
-            padding: '10px 12px',
+            padding: compact ? '6px 8px' : '10px 12px',
             cursor: 'pointer',
             opacity: isGhost ? 0.45 : 1,
             transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
@@ -407,7 +411,7 @@ export default function PipelineJobCard({
           )}
 
           {/* Revenue strip */}
-          {fields.includes('revenue') && !isGhost && revenue > 0 && (
+          {fields.includes('revenue') && !isGhost && revenue > 0 && !compact && (
             <div style={{
               display: 'flex', gap: 10, marginBottom: 6,
               padding: '4px 0',
@@ -508,6 +512,20 @@ export default function PipelineJobCard({
               {project.status?.replace(/_/g, ' ')}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {!isGhost && connectedJobIds.length > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); router.push(`/projects/${connectedJobIds[0]}`) }}
+                  title={`Connected to ${connectedJobIds.length} job${connectedJobIds.length > 1 ? 's' : ''}`}
+                  style={{
+                    fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 4,
+                    background: 'rgba(34,211,238,0.1)', color: 'var(--cyan)',
+                    border: '1px solid rgba(34,211,238,0.25)',
+                    display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
+                  }}
+                >
+                  <Link2 size={9} /> {connectedJobIds.length}
+                </button>
+              )}
               {!isGhost && (project.render_count as number) > 0 && (
                 <span style={{
                   fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 4,

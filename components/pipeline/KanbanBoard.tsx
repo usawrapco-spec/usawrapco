@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Settings, CheckCircle, X } from 'lucide-react'
+import { Settings, CheckCircle, X, LayoutList } from 'lucide-react'
 import PipelineJobCard, {
   CardFieldsContext,
   CardField,
   ALL_FIELDS,
   FIELD_LABELS,
   DEPT_DEFAULT_FIELDS,
+  CompactModeContext,
 } from '@/components/pipeline/PipelineJobCard'
 import StageGateModal from '@/components/pipeline/StageGateModal'
 import type { Profile } from '@/types'
@@ -49,6 +50,15 @@ function saveFields(dept: string, fields: CardField[]) {
   try { localStorage.setItem(`pipeline_card_${dept}`, JSON.stringify(fields)) } catch {}
 }
 
+function getCompactMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try { return localStorage.getItem('pipeline_compact') === '1' } catch { return false }
+}
+
+function saveCompactMode(v: boolean) {
+  try { localStorage.setItem('pipeline_compact', v ? '1' : '0') } catch {}
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function KanbanBoard({
@@ -70,6 +80,7 @@ export default function KanbanBoard({
   } | null>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [visibleFields, setVisibleFields] = useState<CardField[]>(() => getStoredFields(department))
+  const [compactMode, setCompactMode] = useState<boolean>(() => getCompactMode())
 
   // Drag tracking ref — prevents click-after-drag from navigating
   const draggingId = useRef<string | null>(null)
@@ -141,6 +152,7 @@ export default function KanbanBoard({
   }))
 
   return (
+    <CompactModeContext.Provider value={compactMode}>
     <CardFieldsContext.Provider value={visibleFields}>
       {/* Root layout wrapper — fills parent height via flex */}
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -225,8 +237,23 @@ export default function KanbanBoard({
         </>
       )}
 
-      {/* Board toolbar (customize button) */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, flexShrink: 0 }}>
+      {/* Board toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 8, flexShrink: 0 }}>
+        <button
+          onClick={() => { const v = !compactMode; setCompactMode(v); saveCompactMode(v) }}
+          title="Toggle compact mode"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '5px 12px', borderRadius: 7, cursor: 'pointer',
+            background: compactMode ? 'rgba(79,127,255,0.1)' : 'var(--surface)',
+            border: `1px solid ${compactMode ? 'var(--accent)' : 'var(--border)'}`,
+            color: compactMode ? 'var(--accent)' : 'var(--text3)',
+            fontSize: 11, fontWeight: 600, transition: 'all 0.15s',
+          }}
+        >
+          <LayoutList size={12} />
+          Compact
+        </button>
         <button
           onClick={() => setShowCustomize(v => !v)}
           style={{
@@ -361,6 +388,7 @@ export default function KanbanBoard({
         }
       `}</style>
     </CardFieldsContext.Provider>
+    </CompactModeContext.Provider>
   )
 }
 

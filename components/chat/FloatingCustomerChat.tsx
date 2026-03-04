@@ -62,6 +62,7 @@ export default function FloatingCustomerChat({ projectId, orgId, currentUserId, 
               currentUserName={currentUserName}
               customerName={customerName}
               installerName=""
+              defaultChannel="customer"
             />
           </div>
         </div>

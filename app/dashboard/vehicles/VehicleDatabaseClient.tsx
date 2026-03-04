@@ -18,6 +18,7 @@ interface VehicleRow {
   hood_sqft: number | null
   roof_sqft: number | null
   full_wrap_sqft: number | null
+  full_wrap_with_roof_sqft: number | null
   total_sqft: number | null
   wrap_sqft: number | null
   linear_feet: number | null
@@ -244,7 +245,7 @@ export default function VehicleDatabaseClient({ totalCount, makes }: Props) {
                   <td style={{ ...cell, ...mono, color: '#ec4899', textAlign: 'center', fontWeight: 600 }}>{v.roof_sqft ?? '--'}</td>
                   <td style={{ ...cell, ...mono, color: 'var(--cyan)', textAlign: 'center', fontWeight: 600 }}>{v.linear_feet ?? '--'}</td>
                   <td style={{ ...cell, ...mono, color: 'var(--amber)', textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{v.full_wrap_sqft ?? '--'}</td>
-                  <td style={{ ...cell, ...mono, color: 'var(--text2)', textAlign: 'center', fontSize: 11 }}>{v.total_sqft ?? '--'}</td>
+                  <td style={{ ...cell, ...mono, color: 'var(--text2)', textAlign: 'center', fontSize: 11 }}>{v.full_wrap_with_roof_sqft ?? v.total_sqft ?? '--'}</td>
                   <td style={{ ...cell, ...mono, color: 'var(--green)', textAlign: 'center', fontWeight: 600 }}>{v.install_pay ? fmtC(v.install_pay) : '--'}</td>
                   <td style={{ ...cell, textAlign: 'center' }}>
                     <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', background: badge.bg, color: badge.color }}>

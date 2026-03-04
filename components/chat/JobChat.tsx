@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { X, Camera, Send, Loader2, Lock, User, Users, Eye, AlertTriangle } from 'lucide-react';
+import { X, Camera, Send, Loader2, Lock, User, Users, Eye, AlertTriangle, Palette, Sparkles } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -25,14 +25,16 @@ interface JobChatProps {
   currentUserName?: string;
   customerName?: string;
   installerName?: string;
+  defaultChannel?: Channel;
 }
 
-type Channel = 'internal' | 'customer' | 'threeway';
+type Channel = 'internal' | 'customer' | 'threeway' | 'designer';
 
 const CHANNELS: { key: Channel; label: string; shortLabel: string; color: string; Icon: React.ElementType }[] = [
   { key: 'internal', label: 'Internal · Team Only', shortLabel: 'Internal', color: '#4f7fff', Icon: Lock },
   { key: 'customer', label: 'Customer',              shortLabel: 'Customer', color: '#22c07a', Icon: User },
   { key: 'threeway', label: '3-Way · Install Coord', shortLabel: '3-Way',    color: '#f59e0b', Icon: Users },
+  { key: 'designer', label: 'Designer',              shortLabel: 'Designer', color: '#8b5cf6', Icon: Palette },
 ];
 
 export default function JobChat({
@@ -42,14 +44,17 @@ export default function JobChat({
   currentUserName = 'You',
   customerName,
   installerName,
+  defaultChannel = 'internal',
 }: JobChatProps) {
   const [messages, setMessages]       = useState<ChatMessage[]>([]);
-  const [activeChannel, setActiveChannel] = useState<Channel>('internal');
+  const [activeChannel, setActiveChannel] = useState<Channel>(defaultChannel);
   const [newMessage, setNewMessage]   = useState('');
   const [sending, setSending]         = useState(false);
   const [uploading, setUploading]     = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [confirmToast, setConfirmToast] = useState('');
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const supabase = createClient();
@@ -125,6 +130,30 @@ export default function JobChat({
     await new Promise(r => setTimeout(r, 1000));
     setConfirmToast('');
     await fn();
+  };
+
+  // ── AI suggest reply ──────────────────────────────────────────
+  const suggestReply = async () => {
+    if (aiSuggesting) return;
+    setAiSuggesting(true);
+    setAiSuggestion(null);
+    const last10 = messages.slice(-10).map(m => ({
+      role: (m.user_id === 'customer' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: m.message,
+    }));
+    try {
+      const res = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: last10, channel: activeChannel, customerName }),
+      });
+      const data = await res.json();
+      setAiSuggestion(data.suggestion || null);
+    } catch {
+      setAiSuggestion('Unable to generate suggestion.');
+    } finally {
+      setAiSuggesting(false);
+    }
   };
 
   // ── Send message ──────────────────────────────────────────────
@@ -349,6 +378,36 @@ export default function JobChat({
 
       {/* ── Input Bar ── */}
       {!threeWayLocked && (
+        <>
+        {/* AI suggestion */}
+        {(aiSuggestion || aiSuggesting) && (
+          <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 8 }}>
+            {aiSuggesting ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--text3)' }}>
+                <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Drafting reply…
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8, lineHeight: 1.5 }}>{aiSuggestion}</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => { setNewMessage(aiSuggestion || ''); setAiSuggestion(null); }}
+                    style={{ padding: '4px 10px', borderRadius: 5, border: 'none', background: '#8b5cf6', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Use This
+                  </button>
+                  <button
+                    onClick={() => setAiSuggestion(null)}
+                    style={{ padding: '4px 10px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text3)', fontSize: 11, cursor: 'pointer' }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
 
@@ -379,6 +438,20 @@ export default function JobChat({
           />
 
           <button
+            onClick={suggestReply}
+            disabled={aiSuggesting}
+            title="AI suggest reply"
+            style={{
+              padding: '8px 10px', background: 'var(--surface)',
+              border: '1px solid rgba(139,92,246,0.3)', borderRadius: 8,
+              color: aiSuggesting ? 'var(--text3)' : '#8b5cf6', cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+            }}
+          >
+            {aiSuggesting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={14} />}
+          </button>
+
+          <button
             onClick={sendMessage}
             disabled={sending || (!newMessage.trim() && !uploading)}
             style={{
@@ -395,6 +468,7 @@ export default function JobChat({
             {sendLabel}
           </button>
         </div>
+        </>
       )}
 
       {/* ── Confirmation Toast ── */}

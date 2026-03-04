@@ -91,11 +91,7 @@ const FALLBACK_MARINAS: MarineFeature[] = [
   { id: 'tides-tavern', name: 'Tides Tavern Dock', lat: 47.3307, lng: -122.5737, type: 'marina', city: 'Gig Harbor' },
 ]
 
-const FUEL_DOCKS: MarineFeature[] = [
-  { id: 'fuel-gig', name: 'Gig Harbor Marina Fuel', lat: 47.3355, lng: -122.5698, type: 'fuel' },
-  { id: 'fuel-tacoma', name: 'Port of Tacoma Fuel Dock', lat: 47.2728, lng: -122.4225, type: 'fuel' },
-  { id: 'fuel-percival', name: 'Percival Landing Fuel', lat: 47.0426, lng: -122.9051, type: 'fuel' },
-]
+// Old FUEL_DOCKS replaced by FUEL_DOCK_DATA (defined after FISH_ZONES)
 
 // ── Fish Zones ────────────────────────────────────────────────────────────────
 
@@ -219,6 +215,57 @@ const FISH_ZONES: FishZone[] = [
     season: 'October – February (peaks Nov–Jan)', seasonMonths: [9,10,11,0,1],
     notes: 'Squid aggregate under dock lights on dark nights. Use a dock light or fish near bright marina lights. Great family activity. Limit is 10 lbs per day.',
     regulations: 'No license required for squid; limit applies' },
+
+  // ── Freshwater zones ──────────────────────────────────────────────────────
+  { id: 'lake-washington-salmon', name: 'Lake Washington — Sockeye & Kokanee', lat: 47.594, lng: -122.258, radiusM: 2000,
+    species: ['Sockeye Salmon', 'Kokanee', 'Cutthroat Trout', 'Largemouth Bass'], color: '#06b6d4', depth: '20–80 ft',
+    techniques: ['Trolling small spoons at 30–50 ft (kokanee)', 'Sockeye: small jigs and hooks in schools', 'Bass: soft plastics near shoreline structure'],
+    season: 'Sockeye: June–Aug; Kokanee: June–Oct; Bass: year-round', seasonMonths: [5,6,7,8,9],
+    notes: 'Kokanee run in summer — use small wedding rings or Needlefish tipped with white corn near Mercer Island. Sockeye season varies widely — check WDFW. Large/smallmouth bass in coves year-round.',
+    regulations: 'Sockeye season opens by emergency regulation — verify wdfw.wa.gov before going' },
+
+  { id: 'green-river-steelhead', name: 'Green River — Winter Steelhead', lat: 47.31, lng: -122.03, radiusM: 800,
+    species: ['Winter Steelhead', 'Chinook Salmon', 'Coho Salmon'], color: '#06b6d4', depth: '2–12 ft',
+    techniques: ['Drift fishing with cured eggs or sand shrimp', 'Float fishing with jigs (pink/white)', 'Fly fishing in runs and pools'],
+    season: 'Steelhead: Dec–March; Chinook: Aug–Oct', seasonMonths: [11,0,1,2],
+    notes: 'The Green River from Auburn through Kent offers quality winter steelhead. Hatchery fish can be retained, wild fish must be released. Fish deeper pools and tail-outs on cold days.',
+    regulations: 'Wild steelhead release only. Chinook — check emergency regulations.' },
+
+  { id: 'skykomish-steelhead', name: 'Skykomish River — Steelhead', lat: 47.859, lng: -121.927, radiusM: 1000,
+    species: ['Winter Steelhead', 'Summer Steelhead', 'Pink Salmon', 'Chinook'], color: '#06b6d4', depth: '2–15 ft',
+    techniques: ['Float fishing with jigs', 'Drift fishing cured eggs', 'Fly fishing (summer run)', 'Pink salmon: small pink jigs or spoons'],
+    season: 'Winter steelhead: Dec–March; Summer: June–Sept; Pink salmon: odd years Aug', seasonMonths: [0,1,2,5,6,7,8],
+    notes: 'The "Sky" is one of the best steelhead rivers near Seattle. Gold Bar and Index areas very productive. Pink salmon run in odd years — absolutely wild fishing with huge numbers.',
+    regulations: 'Wild steelhead release only on many sections. Check pink salmon limits — they can be generous.' },
+]
+
+// ── Fuel Docks (comprehensive) ─────────────────────────────────────────────
+
+interface FuelDock {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  fuel: string
+  phone?: string
+  hours?: string
+  vhf?: string
+  services?: string
+}
+
+const FUEL_DOCK_DATA: FuelDock[] = [
+  { id: 'fuel-gig-marina', name: 'Gig Harbor Marina & Boatyard', lat: 47.3355, lng: -122.5698, fuel: 'Gas & Diesel', phone: '(253) 858-4439', hours: 'Daily 8am–5pm', vhf: '68', services: 'Full service, haul-out, pump-out' },
+  { id: 'fuel-arabellas', name: "Arabella's Landing Fuel", lat: 47.3317, lng: -122.5745, fuel: 'Gas', phone: '(253) 851-1793', hours: 'Daily', vhf: '66A', services: 'Moorage, pump-out' },
+  { id: 'fuel-tacoma', name: 'Dock Street Marina, Tacoma', lat: 47.2545, lng: -122.4323, fuel: 'Gas & Diesel', phone: '(253) 383-5841', hours: 'Daily', vhf: '16→68' },
+  { id: 'fuel-percival', name: 'Percival Landing, Olympia', lat: 47.0426, lng: -122.9051, fuel: 'Gas & Diesel', phone: '(360) 753-8380', hours: 'Daily', vhf: '16' },
+  { id: 'fuel-port-orchard', name: 'Port Orchard Marina', lat: 47.5365, lng: -122.6384, fuel: 'Gas & Diesel', phone: '(360) 876-5535', hours: 'Daily', vhf: '16→68' },
+  { id: 'fuel-bremerton', name: 'Port of Bremerton Marina', lat: 47.5618, lng: -122.6277, fuel: 'Diesel', phone: '(360) 373-1035', hours: 'Daily', vhf: '16' },
+  { id: 'fuel-poulsbo', name: 'Port of Poulsbo Marina', lat: 47.7353, lng: -122.6456, fuel: 'Gas & Diesel', phone: '(360) 779-3505', hours: 'Daily', vhf: '16→68' },
+  { id: 'fuel-kingston', name: 'Port of Kingston Marina', lat: 47.7950, lng: -122.5038, fuel: 'Gas & Diesel', phone: '(360) 297-3545', hours: 'Daily', vhf: '16' },
+  { id: 'fuel-pt-townsend', name: 'Port Townsend Boat Haven', lat: 48.1167, lng: -122.7589, fuel: 'Gas & Diesel', phone: '(360) 385-2355', hours: 'Daily', vhf: '16→66A' },
+  { id: 'fuel-anacortes', name: 'Cap Sante Marine, Anacortes', lat: 48.5095, lng: -122.6126, fuel: 'Gas & Diesel', phone: '(360) 293-0694', hours: 'Daily', vhf: '16→68' },
+  { id: 'fuel-friday-harbor', name: 'Port of Friday Harbor', lat: 48.5344, lng: -123.0135, fuel: 'Gas & Diesel', phone: '(360) 378-2688', hours: 'Daily', vhf: '16→66A' },
+  { id: 'fuel-roche-harbor', name: 'Roche Harbor Marina', lat: 48.6117, lng: -123.1551, fuel: 'Gas & Diesel', phone: '(360) 378-2155', hours: 'Memorial Day–Labor Day', vhf: '78A' },
 ]
 
 // Traffic routes
@@ -713,11 +760,23 @@ export default function PNWMapEngine({ activeLayers, onLayerToggle, height = '10
       if (activeLayers.has('fuel')) {
         if (!layerRefsRef.current['fuel']?.length) {
           if (!mapRef.current) return
-          FUEL_DOCKS.forEach(f => {
+          FUEL_DOCK_DATA.forEach(f => {
             const icon = makeFuelIcon(L)
             const m = L.marker([f.lat, f.lng], { icon })
-            m.bindTooltip(f.name, { direction: 'top', offset: [0, -16] })
-            m.on('click', () => setSelectedFeature({ ...f, type: 'fuel' }))
+            m.bindTooltip(`${f.name} — ${f.fuel}`, { direction: 'top', offset: [0, -16] })
+            const popupHtml = `
+              <div style="min-width:200px;background:#0d0f14;color:#e8eaed;font-family:system-ui,sans-serif;padding:4px;">
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#f59e0b;margin-bottom:6px;">${f.name}</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <span style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:2px 8px;font-size:11px;color:#f59e0b;font-weight:700;">${f.fuel}</span>
+                </div>
+                ${f.phone ? `<div style="font-size:11px;color:#9299b5;margin-bottom:3px;font-family:'JetBrains Mono',monospace;">${f.phone}</div>` : ''}
+                ${f.hours ? `<div style="font-size:10px;color:#5a6080;margin-bottom:3px;">Hours: ${f.hours}</div>` : ''}
+                ${f.vhf ? `<div style="font-size:10px;color:#4f7fff;">VHF ${f.vhf}</div>` : ''}
+                ${f.services ? `<div style="font-size:10px;color:#9299b5;margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);padding-top:4px;">${f.services}</div>` : ''}
+                <div style="font-size:9px;color:#5a6080;margin-top:6px;font-family:'JetBrains Mono',monospace;">${f.lat.toFixed(4)}°N ${Math.abs(f.lng).toFixed(4)}°W</div>
+              </div>`
+            m.bindPopup(popupHtml, { maxWidth: 260, className: 'pnw-popup' })
             m.addTo(map)
             addToLayer('fuel', m)
           })

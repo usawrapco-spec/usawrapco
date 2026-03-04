@@ -22,6 +22,10 @@ import ProofingPanel from '@/components/projects/ProofingPanel'
 import DeptSignOffChecklist from '@/components/projects/DeptSignOffChecklist'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import SharedVehicleSelector from '@/components/shared/VehicleSelector'
+import JobSalesTab from '@/components/projects/JobSalesTab'
+import JobDesignTab from '@/components/projects/JobDesignTab'
+import CustomerSlideOver from '@/components/shared/CustomerSlideOver'
+import FloatingCustomerChat from '@/components/chat/FloatingCustomerChat'
 
 // ─── Vehicle Database (for SurveyTab) ─────────────────────────────────────────
 interface VehicleEntry {
@@ -106,7 +110,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
 
 const PIPE_STAGES: PipeStage[] = ['sales_in', 'production', 'install', 'prod_review', 'sales_close', 'done']
 
-type Tab = 'survey' | 'overview' | 'timeline' | 'comments' | 'photos' | 'proofs' | 'vehicle_info' | 'design_brief' | 'scope' | 'signoff' | 'mockup' | 'checklist'
+type Tab = 'survey' | 'overview' | 'timeline' | 'comments' | 'photos' | 'vehicle_info' | 'design_brief' | 'scope' | 'signoff' | 'design' | 'sales' | 'checklist'
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JobDetailClient({
@@ -136,6 +140,10 @@ export default function JobDetailClient({
   const [designBrief, setDesignBrief] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).design_brief as string) || '')
   const [designNotes, setDesignNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).design_notes as string) || '')
   const [vehicleNotes, setVehicleNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).vehicle_notes as string) || '')
+  const [installLocation, setInstallLocation] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).install_location as string) || '')
+  const [installType, setInstallType] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).install_type as string) || '')
+  const [surfacePrepNotes, setSurfacePrepNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).surface_prep_notes as string) || '')
+  const [wrapRestrictions, setWrapRestrictions] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).wrap_restrictions as string) || '')
   const [scopeNotes, setScopeNotes] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).scope_notes as string) || '')
   const [signoffConfirmed, setSignoffConfirmed] = useState<boolean>(!!(((project.form_data ?? {}) as Record<string, unknown>).signoff_confirmed))
   const [signoffName, setSignoffName] = useState<string>((((project.form_data ?? {}) as Record<string, unknown>).signoff_name as string) || '')
@@ -215,6 +223,7 @@ export default function JobDetailClient({
   const initialCustomer = (project.customer as unknown) as CustomerRow | null | undefined
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(initialCustomer ?? null)
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
+  const [customerSlideOpen, setCustomerSlideOpen] = useState(false)
   const customer = linkedCustomer
   const stage = STAGE_CONFIG[project.pipe_stage] ?? STAGE_CONFIG.sales_in
   const priority = PRIORITY_CONFIG[project.priority] ?? PRIORITY_CONFIG.normal
@@ -508,11 +517,11 @@ export default function JobDetailClient({
     { key: 'design_brief', label: 'Design Brief',   icon: <Palette size={14} />,      badge: intakeDesignDone ? 'done' : 'req' },
     { key: 'scope',        label: 'Scope',          icon: <List size={14} />,         badge: intakeScopeDone ? 'done' : 'req' },
     { key: 'signoff',      label: 'Sign-off',       icon: <UserCheck size={14} />,    badge: intakeSignoffDone ? 'done' : 'req' },
-    { key: 'mockup',       label: 'Mockups',        icon: <ImageIcon size={14} /> },
+    { key: 'sales',        label: 'Sales',          icon: <DollarSign size={14} /> },
+    { key: 'design',       label: 'Design',         icon: <Palette size={14} /> },
     { key: 'timeline',     label: 'Timeline',       icon: <History size={14} /> },
     { key: 'comments',     label: 'Comments',       icon: <MessageSquare size={14} /> },
     { key: 'photos',       label: 'Photos',         icon: <Camera size={14} /> },
-    { key: 'proofs',       label: 'Proofs',         icon: <FileImage size={14} /> },
     { key: 'checklist',    label: 'Sign-Off',       icon: <CheckCircle2 size={14} /> },
   ]
 
@@ -560,13 +569,19 @@ export default function JobDetailClient({
 
         {/* Badges */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{
-            padding: '4px 10px', borderRadius: 20, background: stage.bg,
-            color: stage.color, fontSize: 11, fontWeight: 800,
-            letterSpacing: '0.06em', textTransform: 'uppercase',
-          }}>
+          <button
+            onClick={() => setStageOpen(o => !o)}
+            title="Change pipeline stage"
+            style={{
+              padding: '4px 10px', borderRadius: 20, background: stage.bg,
+              color: stage.color, fontSize: 11, fontWeight: 800,
+              letterSpacing: '0.06em', textTransform: 'uppercase',
+              border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
             {stage.label}
-          </span>
+            <ChevronDown size={10} style={{ transform: stageOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
           <span style={{
             padding: '4px 10px', borderRadius: 20,
             background: `${priority.color}18`, color: priority.color,
@@ -826,7 +841,10 @@ export default function JobDetailClient({
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Customer</div>
           {customer ? (
             <div>
-              <Link href={`/customers/${customer.id}`} style={{ textDecoration: 'none' }}>
+              <button
+                onClick={() => setCustomerSlideOpen(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%', textAlign: 'left' }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4f7fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
                     {(customer.name || '?')[0].toUpperCase()}
@@ -841,7 +859,7 @@ export default function JobDetailClient({
                     )}
                   </div>
                 </div>
-              </Link>
+              </button>
               <button
                 onClick={() => setCustomerModalOpen(true)}
                 style={{ marginTop: 6, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600 }}
@@ -1079,8 +1097,20 @@ export default function JobDetailClient({
               currentUserId={profile.id}
             />
           )}
-          {tab === 'proofs' && (
-            <ProofingPanel project={project} profile={profile} />
+          {/* ── Design Tab (Mockups + Proofs + Designer Chat) ── */}
+          {tab === 'design' && (
+            <JobDesignTab
+              project={project}
+              profile={profile}
+              orgId={project.org_id}
+              currentUserId={profile.id}
+              currentUserName={profile.name || ''}
+            />
+          )}
+
+          {/* ── Sales Tab (Estimate + SO + Invoice + AI Compare) ── */}
+          {tab === 'sales' && (
+            <JobSalesTab projectId={project.id} orgId={project.org_id} />
           )}
 
           {tab === 'checklist' && (
@@ -1122,6 +1152,21 @@ export default function JobDetailClient({
               photoCount={intakePhotoCount}
               onNotesBlur={v => { setVehicleNotes(v); saveIntakeField('vehicle_notes', v) }}
               onGoToPhotos={() => setTab('photos')}
+              onVehicleSelect={result => {
+                setVehicleYear(result.year)
+                setVehicleMake(result.make)
+                setVehicleModel(result.model)
+                if (result.year && result.make && result.model) {
+                  supabase.from('projects').update({
+                    vehicle_year: result.year || null,
+                    vehicle_make: result.make || null,
+                    vehicle_model: result.model || null,
+                  }).eq('id', project.id).then(() => {})
+                }
+              }}
+              onVinChange={setVehicleVin}
+              onColorChange={setVehicleColor}
+              onSaveVehicle={saveVehicle}
             />
           )}
 
@@ -1129,9 +1174,16 @@ export default function JobDetailClient({
           {tab === 'design_brief' && (
             <IntakeDesignBriefTab
               designBrief={designBrief} designNotes={designNotes}
+              installLocation={installLocation} installType={installType}
+              surfacePrepNotes={surfacePrepNotes} wrapRestrictions={wrapRestrictions}
+              agentName={project.agent?.name || ''}
               onBriefChange={v => setDesignBrief(v)}
               onBriefBlur={v => saveIntakeField('design_brief', v)}
               onNotesBlur={v => { setDesignNotes(v); saveIntakeField('design_notes', v) }}
+              onInstallLocationBlur={v => { setInstallLocation(v); saveIntakeField('install_location', v) }}
+              onInstallTypeChange={v => { setInstallType(v); saveIntakeField('install_type', v) }}
+              onSurfacePrepBlur={v => { setSurfacePrepNotes(v); saveIntakeField('surface_prep_notes', v) }}
+              onWrapRestrictionsBlur={v => { setWrapRestrictions(v); saveIntakeField('wrap_restrictions', v) }}
             />
           )}
 
@@ -1155,10 +1207,6 @@ export default function JobDetailClient({
             />
           )}
 
-          {/* ── Mockup Tab ── */}
-          {tab === 'mockup' && (
-            <MockupTab projectId={project.id} />
-          )}
         </div>
 
         {/* ── Right: actions sidebar ─────────────────────────────────────── */}
@@ -1241,46 +1289,26 @@ export default function JobDetailClient({
             </div>
           </div>
 
-          {/* Vehicle */}
+          {/* Vehicle — display only; edit in Vehicle tab */}
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
               <Car size={11} /> Vehicle
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <SharedVehicleSelector
-                defaultYear={vehicleYear}
-                defaultMake={vehicleMake}
-                defaultModel={vehicleModel}
-                onVehicleSelect={result => {
-                  setVehicleYear(result.year)
-                  setVehicleMake(result.make)
-                  setVehicleModel(result.model)
-                  // Auto-save when a full vehicle is selected
-                  if (result.year && result.make && result.model) {
-                    supabase.from('projects').update({
-                      vehicle_year: result.year || null,
-                      vehicle_make: result.make || null,
-                      vehicle_model: result.model || null,
-                    }).eq('id', project.id).then(() => {})
-                  }
-                }}
-              />
-              {[
-                { label: 'VIN',   value: vehicleVin,   set: setVehicleVin },
-                { label: 'Color', value: vehicleColor, set: setVehicleColor },
-              ].map(({ label, value, set }) => (
-                <div key={label}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{label}</div>
-                  <input
-                    value={value}
-                    onChange={e => set(e.target.value)}
-                    onBlur={saveVehicle}
-                    placeholder={label}
-                    style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--surface2)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 12, boxSizing: 'border-box' }}
-                  />
-                </div>
-              ))}
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>
+              {[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(' ') || 'Not set'}
             </div>
+            {vehicleVin && <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 2 }}>VIN: {vehicleVin}</div>}
+            {vehicleColor && <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Color: {vehicleColor}</div>}
+            <button
+              onClick={() => setTab('vehicle_info')}
+              style={{
+                width: '100%', padding: '6px 10px', borderRadius: 6,
+                border: '1px solid var(--surface2)', background: 'transparent',
+                color: 'var(--accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Edit in Vehicle Tab
+            </button>
           </div>
 
           {fieldError && (
@@ -1517,6 +1545,26 @@ export default function JobDetailClient({
         </Modal>
       )}
 
+      {/* ── Customer Slide-Over ── */}
+      {customerSlideOpen && customer && (
+        <CustomerSlideOver
+          customerId={customer.id}
+          orgId={project.org_id}
+          projectId={project.id}
+          onClose={() => setCustomerSlideOpen(false)}
+          onCustomerChange={c => { setLinkedCustomer(c); setCustomerSlideOpen(false) }}
+        />
+      )}
+
+      {/* ── Floating Customer Chat ── */}
+      <FloatingCustomerChat
+        projectId={project.id}
+        orgId={project.org_id}
+        currentUserId={profile.id}
+        currentUserName={profile.name || ''}
+        customerName={customer?.name}
+      />
+
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -1569,13 +1617,17 @@ function InternalNotesCollapse({ value, onBlur }: { value: string; onBlur: (v: s
 // ─── Intake: Vehicle Info ─────────────────────────────────────────────────────
 function IntakeVehicleTab({
   vehicleYear, vehicleMake, vehicleModel, vehicleVin, vehicleColor, vehicleNotes,
-  photoCount, onNotesBlur, onGoToPhotos,
+  photoCount, onNotesBlur, onGoToPhotos, onVehicleSelect, onVinChange, onColorChange, onSaveVehicle,
 }: {
   vehicleYear: string; vehicleMake: string; vehicleModel: string
   vehicleVin: string; vehicleColor: string; vehicleNotes: string
   photoCount: number
   onNotesBlur: (v: string) => void
   onGoToPhotos: () => void
+  onVehicleSelect: (r: { year: string; make: string; model: string }) => void
+  onVinChange: (v: string) => void
+  onColorChange: (v: string) => void
+  onSaveVehicle: () => void
 }) {
   const vehicleFilled = !!(vehicleYear && vehicleMake && vehicleModel)
   const hasPhoto = photoCount > 0
@@ -1601,24 +1653,28 @@ function IntakeVehicleTab({
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           <Car size={14} style={{ color: 'var(--accent)' }} /> Vehicle Details
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <SharedVehicleSelector
+          defaultYear={vehicleYear}
+          defaultMake={vehicleMake}
+          defaultModel={vehicleModel}
+          onVehicleSelect={onVehicleSelect}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
           {[
-            { label: 'Year', value: vehicleYear },
-            { label: 'Make', value: vehicleMake },
-            { label: 'Model', value: vehicleModel },
-            { label: 'Color', value: vehicleColor },
-            { label: 'VIN', value: vehicleVin },
-          ].map(({ label, value }) => (
+            { label: 'Color', value: vehicleColor, onChange: onColorChange },
+            { label: 'VIN', value: vehicleVin, onChange: onVinChange },
+          ].map(({ label, value, onChange }) => (
             <div key={label}>
               <label style={intakeLabel}>{label}</label>
-              <div style={{ padding: '7px 10px', background: 'var(--bg)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: value ? 'var(--text1)' : 'var(--text3)' }}>
-                {value || `No ${label.toLowerCase()} set`}
-              </div>
+              <input
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                onBlur={onSaveVehicle}
+                placeholder={label}
+                style={{ width: '100%', padding: '7px 10px', background: 'var(--bg)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: 'var(--text1)', boxSizing: 'border-box' }}
+              />
             </div>
           ))}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-          Vehicle year/make/model is managed in the Vehicle panel on the right sidebar.
         </div>
       </div>
 
@@ -1659,13 +1715,20 @@ function IntakeVehicleTab({
 
 // ─── Intake: Design Brief ─────────────────────────────────────────────────────
 function IntakeDesignBriefTab({
-  designBrief, designNotes,
-  onBriefChange, onBriefBlur, onNotesBlur,
+  designBrief, designNotes, installLocation, installType, surfacePrepNotes, wrapRestrictions, agentName,
+  onBriefChange, onBriefBlur, onNotesBlur, onInstallLocationBlur, onInstallTypeChange, onSurfacePrepBlur, onWrapRestrictionsBlur,
 }: {
   designBrief: string; designNotes: string
+  installLocation: string; installType: string
+  surfacePrepNotes: string; wrapRestrictions: string
+  agentName: string
   onBriefChange: (v: string) => void
   onBriefBlur: (v: string) => void
   onNotesBlur: (v: string) => void
+  onInstallLocationBlur: (v: string) => void
+  onInstallTypeChange: (v: string) => void
+  onSurfacePrepBlur: (v: string) => void
+  onWrapRestrictionsBlur: (v: string) => void
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1679,6 +1742,12 @@ function IntakeDesignBriefTab({
         </span>
       </div>
 
+      {agentName && (
+        <div style={{ fontSize: 12, color: 'var(--text3)', padding: '6px 12px', background: 'var(--surface)', borderRadius: 8 }}>
+          Assigned to: <span style={{ color: 'var(--text2)', fontWeight: 700 }}>{agentName}</span>
+        </div>
+      )}
+
       <div style={intakeCard}>
         <label style={intakeLabel}>Design Direction *</label>
         <textarea
@@ -1691,20 +1760,51 @@ function IntakeDesignBriefTab({
       </div>
 
       <div style={intakeCard}>
-        <label style={intakeLabel}>Color Preferences</label>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 14, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Install Logistics
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={intakeLabel}>Install Location</label>
+            <input
+              defaultValue={installLocation}
+              onBlur={e => onInstallLocationBlur(e.target.value)}
+              placeholder="Address or 'shop'"
+              style={{ width: '100%', padding: '7px 10px', background: 'var(--bg)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: 'var(--text1)', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={intakeLabel}>Install Type</label>
+            <select
+              value={installType}
+              onChange={e => onInstallTypeChange(e.target.value)}
+              style={{ width: '100%', padding: '7px 10px', background: 'var(--bg)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: installType ? 'var(--text1)' : 'var(--text3)' }}
+            >
+              <option value="">Select type…</option>
+              <option value="shop">Shop</option>
+              <option value="mobile">Mobile</option>
+              <option value="offsite">Offsite</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style={intakeCard}>
+        <label style={intakeLabel}>Surface Prep Notes</label>
         <textarea
-          defaultValue=""
-          onBlur={e => onNotesBlur(e.target.value)}
-          placeholder="Primary colors, accent colors, color restrictions…"
+          defaultValue={surfacePrepNotes}
+          onBlur={e => onSurfacePrepBlur(e.target.value)}
+          placeholder="Rust spots, clear coat issues, existing vinyl, paint defects…"
           style={intakeTextarea}
         />
       </div>
 
       <div style={intakeCard}>
-        <label style={intakeLabel}>Brand / Logo Notes</label>
+        <label style={intakeLabel}>Wrap Restrictions / Exclusions</label>
         <textarea
-          defaultValue=""
-          placeholder="Brand guidelines, logo provided (yes/no), file format…"
+          defaultValue={wrapRestrictions}
+          onBlur={e => onWrapRestrictionsBlur(e.target.value)}
+          placeholder="Areas that cannot be wrapped (mirrors, trim, door handles, etc.)…"
           style={intakeTextarea}
         />
       </div>

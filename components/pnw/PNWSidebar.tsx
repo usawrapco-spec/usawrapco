@@ -10,6 +10,7 @@ import {
 
 const AIChat = dynamic(() => import('./AIChat'), { ssr: false })
 const VHFBroadcastPanel = dynamic(() => import('./VHFBroadcastPanel'), { ssr: false })
+const GigHarborMarina = dynamic(() => import('./GigHarborMarina'), { ssr: false })
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ interface PNWSidebarProps {
   isMobile?: boolean
 }
 
-type SidebarTab = 'layers' | 'weather' | 'tides' | 'vhf' | 'ai'
+type SidebarTab = 'layers' | 'weather' | 'tides' | 'vhf' | 'ai' | 'harbor'
 
 // ── Layer Definitions ─────────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ const LAYER_GROUPS: { label: string; category: LayerDef['category']; layers: Lay
 
 const TABS: { id: SidebarTab; label: string; icon: React.ElementType }[] = [
   { id: 'layers', label: 'LAYERS', icon: Layers },
+  { id: 'harbor', label: 'GIG HBR', icon: Anchor },
   { id: 'weather', label: 'WEATHER', icon: Cloud },
   { id: 'tides', label: 'TIDES', icon: Waves },
   { id: 'vhf', label: 'VHF', icon: Radio },
@@ -558,6 +560,7 @@ export default function PNWSidebar({ activeLayers, onLayerToggle, onClose, isMob
         ...(activeTab === 'ai' ? {} : { padding: '14px 14px' }),
       }}>
         {activeTab === 'layers' && <LayersContent activeLayers={activeLayers} onLayerToggle={onLayerToggle} />}
+        {activeTab === 'harbor' && <GigHarborMarina />}
         {activeTab === 'weather' && <WeatherContent />}
         {activeTab === 'tides' && <TidesContent />}
         {activeTab === 'vhf' && <VHFBroadcastPanel />}

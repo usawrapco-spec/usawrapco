@@ -603,11 +603,9 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
               <Send size={13} /> Send Invoice
             </button>
           )}
-          {canWrite && status !== 'paid' && status !== 'void' && (
-            <button onClick={handleExportPdf} className="btn-ghost btn-sm">
-              <Download size={13} /> Export PDF
-            </button>
-          )}
+          <button onClick={handleExportPdf} className="btn-ghost btn-sm">
+            <Download size={13} /> Download PDF
+          </button>
           {canWrite && (
             <button onClick={handleSave} disabled={saving} className="btn-primary btn-sm">
               <Save size={13} /> {saving ? 'Saving...' : 'Save'}
