@@ -6,7 +6,7 @@ import {
   ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
   ExternalLink, Ban, Link2, Copy, Check, Plus, Users,
-  Layers, ClipboardCheck, PenLine, Camera, Package, StickyNote, Car, Save,
+  Package, StickyNote, Save, ClipboardCheck, Car, Camera, Layers,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
@@ -80,39 +80,7 @@ function calcInvItemCOGS(item: LineItem): { material: number; labor: number; des
   return { material, labor, design, misc }
 }
 
-// ─── Vehicle Database (for InvSurveyTab) ──────────────────────────────────────
-interface InvVehicleEntry {
-  year: number; make: string; model: string; sqft: number
-  basePrice: number; installHours: number; tier: string
-}
-type InvModelInfo = { model: string; sqft: number | null }
-
-async function invFetchAllMakes(): Promise<string[]> {
-  try { const r = await fetch('/api/vehicles/makes'); const d = await r.json(); return d.makes || [] } catch { return [] }
-}
-async function invFetchModelsForMake(make: string, year?: string): Promise<InvModelInfo[]> {
-  try {
-    const y = year ? `&year=${year}` : ''
-    const r = await fetch(`/api/vehicles/models?make=${encodeURIComponent(make)}${y}`)
-    const d = await r.json()
-    return (d.models || []).map((m: { model: string; sqft: number | null }) => ({ model: m.model, sqft: m.sqft }))
-  } catch { return [] }
-}
-async function invLookupVehicle(make: string, model: string, year?: string): Promise<InvVehicleEntry | null> {
-  try {
-    const y = year ? `&year=${year}` : ''
-    const r = await fetch(`/api/vehicles/lookup?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}${y}`)
-    const d = await r.json()
-    if (d.measurement) {
-      const m = d.measurement as Record<string, unknown>
-      const sqft = Number(m.full_wrap_sqft) || 0
-      return { year: year ? parseInt(year) : 0, make, model, sqft, basePrice: sqft ? Math.round(sqft * 20) : 0, installHours: sqft ? Math.round((sqft / 30) * 10) / 10 : 8, tier: (m.body_style as string) || 'standard' }
-    }
-  } catch {/* ignore */}
-  return null
-}
-
-type InvTab = 'survey' | 'items' | 'notes'
+type InvTab = 'items' | 'notes'
 
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
 
@@ -288,12 +256,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
-  const [activeTab, setActiveTab] = useState<InvTab>('survey')
-  const [surveyData, setSurveyData] = useState<Record<string, any>>(
-    ((inv.form_data?.survey ?? {}) as Record<string, any>)
-  )
-  const [surveySaveStatus, setSurveySaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const surveyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [activeTab, setActiveTab] = useState<InvTab>('items')
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
 
@@ -773,7 +736,6 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
             {/* Tab bar */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--surface2)', overflowX: 'auto' }}>
               {([
-                { key: 'survey' as InvTab, label: 'Survey',     icon: <ClipboardCheck size={13} /> },
                 { key: 'items'  as InvTab, label: `Items (${items.length})`, icon: <Package size={13} /> },
                 { key: 'notes'  as InvTab, label: 'Notes',      icon: <StickyNote size={13} /> },
               ]).map(t => (
