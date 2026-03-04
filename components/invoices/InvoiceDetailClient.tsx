@@ -257,6 +257,9 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const [toast, setToast] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [activeTab, setActiveTab] = useState<InvTab>('items')
+  const [surveyData, setSurveyData] = useState<Record<string, any>>((inv.form_data?.survey as Record<string, any>) || {})
+  const [surveySaveStatus, setSurveySaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const surveyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
 
@@ -1282,6 +1285,46 @@ function PricingRow({
 // ═══════════════════════════════════════════════════════════════════════════════
 // INV SURVEY TAB COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
+
+type InvVehicleEntry = {
+  make: string; model: string; year_range?: string
+  full_wrap_sqft?: number | null; sqft?: number | null
+  driver_sqft?: number | null; passenger_sqft?: number | null
+  hood_sqft?: number | null; roof_sqft?: number | null; back_sqft?: number | null
+  basePrice?: number | null; installHours?: number | null
+}
+
+const invSupabase = createClient()
+
+async function invFetchAllMakes(): Promise<string[]> {
+  const { data } = await invSupabase.from('vehicle_measurements').select('make').order('make')
+  if (!data) return []
+  return [...new Set(data.map((d: { make: string }) => d.make))].sort()
+}
+
+async function invFetchModelsForMake(make: string, _year?: string): Promise<{ model: string; sqft: number | null }[]> {
+  const { data } = await invSupabase.from('vehicle_measurements').select('model, full_wrap_sqft')
+    .eq('make', make).order('model')
+  if (!data) return []
+  const seen = new Set<string>()
+  return data.filter((d: any) => {
+    if (seen.has(d.model)) return false
+    seen.add(d.model); return true
+  }).map((d: any) => ({ model: d.model, sqft: d.full_wrap_sqft ?? null }))
+}
+
+async function invLookupVehicle(make: string, model: string, _year?: string): Promise<InvVehicleEntry | null> {
+  const { data } = await invSupabase.from('vehicle_measurements').select('*')
+    .eq('make', make).eq('model', model).limit(1).single()
+  if (!data) return null
+  return {
+    make: data.make, model: data.model, year_range: data.year_range,
+    full_wrap_sqft: data.full_wrap_sqft, sqft: data.full_wrap_sqft,
+    driver_sqft: data.driver_sqft, passenger_sqft: data.passenger_sqft,
+    hood_sqft: data.hood_sqft, roof_sqft: data.roof_sqft, back_sqft: data.back_sqft,
+    basePrice: data.base_price ?? null, installHours: data.install_hours ?? null,
+  }
+}
 
 const INV_WRAP_SCOPES = [
   { key: 'full_wrap', label: 'Full Wrap' },
