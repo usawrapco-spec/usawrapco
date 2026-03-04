@@ -137,17 +137,18 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
       setVehicle({
         make: result.make, model: result.model,
         full_wrap_sqft: fullSqft || null,
+        full_wrap_with_roof_sqft: (fullSqft + (Number(m.roof_sqft) || 0)) || null,
         wrap_sqft: wrapSqft || null,
-        three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
-        half_wrap_sqft: (m.half_wrap_sqft as number) || null,
-        hood_sqft: (m.hood_sqft as number) || null,
-        roof_sqft: (m.roof_sqft as number) || null,
-        driver_sqft: (m.driver_sqft as number) || null,
-        passenger_sqft: (m.passenger_sqft as number) || null,
-        back_sqft: (m.back_sqft as number) || null,
-        side_sqft: (m.side_sqft as number) || null,
-        linear_feet: (m.linear_feet as number) || null,
-        doors_sqft: (m.doors_sqft as number) || null,
+        three_quarter_wrap_sqft: Number(m.three_quarter_wrap_sqft) || null,
+        half_wrap_sqft: Number(m.half_wrap_sqft) || null,
+        hood_sqft: Number(m.hood_sqft) || null,
+        roof_sqft: Number(m.roof_sqft) || null,
+        driver_sqft: Number(m.driver_sqft) || null,
+        passenger_sqft: Number(m.passenger_sqft) || null,
+        back_sqft: Number(m.back_sqft) || null,
+        side_sqft: Number(m.side_sqft) || null,
+        linear_feet: Number(m.linear_feet) || null,
+        doors_sqft: Number(m.doors_sqft) || null,
       })
       if (wrapSqft > 0 && !installOverride) {
         const inst = calculateInstallPay(wrapSqft)
