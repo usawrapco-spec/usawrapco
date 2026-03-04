@@ -66,7 +66,8 @@ export default function LineItemCard({ item, index, onChange, onRemove, onDuplic
       btLength: undefined, btHeight: undefined, btSides: undefined, btCab: false,
       trLength: undefined, trHeight: undefined, trSides: undefined,
       trFrontCoverage: undefined, trVnose: undefined,
-      marHullLength: undefined, marHullHeight: undefined, marPasses: 2, marTransom: false,
+      marHullLength: undefined, marHullHeight: undefined, marWrapType: 'printed', marTransom: false,
+      marTransomWidth: undefined, marTransomHeight: undefined,
       ppfSelected: [],
     })
   }

@@ -66,9 +66,11 @@ export interface LineItemState {
 
   // Marine
   marHullLength?: number
-  marHullHeight?: number
-  marPasses?: number
+  marHullHeight?: number   // inches
+  marWrapType?: 'printed' | 'color_change'
   marTransom?: boolean
+  marTransomWidth?: number  // inches
+  marTransomHeight?: number // inches
 
   // PPF
   ppfSelected?: string[]

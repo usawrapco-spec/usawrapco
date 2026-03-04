@@ -56,25 +56,76 @@ export function calcTrailerSqft(
 
 // ─── Marine Sqft Calculator ────────────────────────────────────────────────
 export function calcMarineSqft(
-  hullLength: number,
-  hullHeight: number,
-  passes: number,
-  transom: boolean
+  hullLengthFt: number,
+  hullHeightIn: number,
+  wrapType: 'printed' | 'color_change',
+  transom: boolean,
+  transomWidthIn: number,
+  transomHeightIn: number,
+  matRate: number
 ): {
-  netSqft: number
-  withWaste: number
+  boatSqft: number
+  totalMaterialSqft: number
+  wasteSqft: number
   linearFtPerSide: number
-  totalToOrder: number
+  totalLinearFt: number
+  panels: 1 | 2
   transomSqft: number
+  materialCost: number
+  wasteCost: number
+  totalCost: number
+  rollWidthIn: number
+  maxHeightIn: number
 } {
-  const materialWidthFt = 4.5 // 54" wide = 4.5ft
-  const netSqft = hullLength * hullHeight * 2 // both sides
-  const withWaste = Math.round(netSqft * 1.2) // 20% waste buffer
-  const linearFtPerSide = Math.ceil(hullLength * passes)
-  const totalToOrder = linearFtPerSide * 2 // both sides
-  const transomSqft = transom ? Math.round(hullHeight * materialWidthFt) : 0
+  // Roll width & max hull height per panel
+  const rollWidthIn = wrapType === 'printed' ? 54 : 60
+  const usableIn = rollWidthIn - 2 // 2" bleed
+  const maxHeightIn = usableIn / 2  // 26" printed, 29" color change
 
-  return { netSqft: Math.round(netSqft), withWaste, linearFtPerSide, totalToOrder, transomSqft }
+  // Panel count: 1 if hull fits, 2 if it doesn't
+  const panels: 1 | 2 = hullHeightIn <= maxHeightIn ? 1 : 2
+
+  // 1 foot bleed per side
+  const materialLengthPerSide = hullLengthFt + 2
+
+  // Linear feet of material to order
+  const linearFtPerSide = materialLengthPerSide
+  const totalLinearFt = materialLengthPerSide * panels * 2 // panels × 2 sides
+
+  // Actual boat square footage (what we charge the wrap rate on)
+  const boatSqft = Math.round((hullLengthFt * (hullHeightIn / 12)) * 2)
+
+  // Total material square footage (full roll width × linear feet)
+  const totalMaterialSqft = Math.round(totalLinearFt * (rollWidthIn / 12))
+
+  // Transom
+  const transomSqft = transom
+    ? Math.round((transomWidthIn / 12) * (transomHeightIn / 12))
+    : 0
+
+  // Waste = material ordered minus actual coverage (hull + transom)
+  const wasteSqft = Math.max(0, totalMaterialSqft - boatSqft - transomSqft)
+
+  // Cost: boat + transom at normal rate, waste at 2× rate
+  const coverageCost = (boatSqft + transomSqft) * matRate
+  const wasteCost = wasteSqft * matRate * 2
+  const materialCost = Math.round(coverageCost)
+  const totalCost = Math.round(coverageCost + wasteCost)
+
+  return {
+    boatSqft: boatSqft + transomSqft,
+    totalMaterialSqft,
+    wasteSqft,
+    linearFtPerSide,
+    totalLinearFt,
+    panels,
+    transomSqft,
+    materialCost,
+    wasteCost: Math.round(wasteCost),
+    totalCost,
+    rollWidthIn,
+    maxHeightIn,
+  }
 }
 
 // ─── PPF Total Calculator ──────────────────────────────────────────────────
@@ -206,13 +257,16 @@ export function calcLineItem(item: LineItemState): LineItemCalc {
     case 'marine': {
       const marine = calcMarineSqft(
         item.marHullLength || 0,
-        item.marHullHeight || 0,
-        item.marPasses || 2,
-        item.marTransom || false
+        item.marHullHeight || 24,
+        item.marWrapType || 'printed',
+        item.marTransom || false,
+        item.marTransomWidth || 0,
+        item.marTransomHeight || 0,
+        item.matRate || 2.10
       )
-      // Use netSqft so MATERIAL_BUFFER (12%) applies as the only waste factor.
-      // withWaste already has 20% baked in — using it here would double-count waste.
-      sqft = marine.netSqft + marine.transomSqft
+      // Marine calc handles its own waste pricing — use boatSqft for base sqft
+      // and override material cost downstream via totalCost
+      sqft = marine.boatSqft
       break
     }
 

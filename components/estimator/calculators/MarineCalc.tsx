@@ -9,27 +9,61 @@ interface MarineCalcProps {
   onChange: (updates: Partial<LineItemState>) => void
 }
 
-const PASS_OPTIONS = [1, 2, 3]
+type WrapType = 'printed' | 'color_change'
 
 export default function MarineCalc({ item, onChange }: MarineCalcProps) {
   const hullLength = item.marHullLength || 0
-  const hullHeight = item.marHullHeight || 0
-  const passes = item.marPasses || 2
+  const hullHeight = item.marHullHeight || 24  // inches, default 24"
+  const wrapType: WrapType = item.marWrapType || 'printed'
   const transom = item.marTransom || false
+  const transomWidth = item.marTransomWidth || 72
+  const transomHeight = item.marTransomHeight || 24
 
-  const marine = calcMarineSqft(hullLength, hullHeight, passes, transom)
+  const marine = calcMarineSqft(
+    hullLength, hullHeight, wrapType, transom,
+    transomWidth, transomHeight, item.matRate || 2.10
+  )
 
   function update(overrides: Partial<LineItemState>) {
     const l = overrides.marHullLength ?? hullLength
     const h = overrides.marHullHeight ?? hullHeight
-    const p = overrides.marPasses ?? passes
+    const wt: WrapType = (overrides.marWrapType as WrapType) ?? wrapType
     const t = overrides.marTransom ?? transom
-    const calc = calcMarineSqft(l, h, p, t)
-    onChange({ ...overrides, sqft: calc.withWaste + calc.transomSqft })
+    const tw = overrides.marTransomWidth ?? transomWidth
+    const th = overrides.marTransomHeight ?? transomHeight
+    const calc = calcMarineSqft(l, h, wt, t, tw, th, item.matRate || 2.10)
+    onChange({ ...overrides, sqft: calc.boatSqft })
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Wrap Type */}
+      <div>
+        <label style={lbl}>Wrap Type</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {([['printed', 'Printed (54")'], ['color_change', 'Color Change (60")']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => update({ marWrapType: k })}
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: 8, minHeight: 44,
+                border: wrapType === k ? '2px solid var(--cyan)' : '1px solid var(--border)',
+                background: wrapType === k ? 'rgba(34,211,238,0.12)' : 'var(--surface2)',
+                color: wrapType === k ? 'var(--cyan)' : 'var(--text2)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: "'Barlow Condensed', sans-serif",
+                textTransform: 'uppercase',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+          Max height/panel: {marine.maxHeightIn}&quot; ({marine.rollWidthIn}&quot; roll)
+        </div>
+      </div>
+
       {/* Hull Length + Height */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div>
@@ -43,37 +77,19 @@ export default function MarineCalc({ item, onChange }: MarineCalcProps) {
           />
         </div>
         <div>
-          <label style={lbl}>Hull Height (ft)</label>
+          <label style={lbl}>Hull Height (inches)</label>
           <input
             type="number"
             value={hullHeight || ''}
             onChange={e => update({ marHullHeight: parseFloat(e.target.value) || 0 })}
-            placeholder="e.g. 4"
+            placeholder="e.g. 24"
             style={inp}
           />
-        </div>
-      </div>
-
-      {/* Passes */}
-      <div>
-        <label style={lbl}>Passes</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {PASS_OPTIONS.map(p => (
-            <button
-              key={p}
-              onClick={() => update({ marPasses: p })}
-              style={{
-                flex: 1, padding: '10px 12px', borderRadius: 8, minHeight: 44,
-                border: passes === p ? '2px solid var(--cyan)' : '1px solid var(--border)',
-                background: passes === p ? 'rgba(34,211,238,0.12)' : 'var(--surface2)',
-                color: passes === p ? 'var(--cyan)' : 'var(--text2)',
-                fontSize: 15, fontWeight: 700, cursor: 'pointer',
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              {p}
-            </button>
-          ))}
+          {hullHeight > marine.maxHeightIn && (
+            <div style={{ fontSize: 10, color: 'var(--amber)', marginTop: 3 }}>
+              Over {marine.maxHeightIn}&quot; — 2 panels per side
+            </div>
+          )}
         </div>
       </div>
 
@@ -95,6 +111,30 @@ export default function MarineCalc({ item, onChange }: MarineCalcProps) {
         Include Transom
       </button>
 
+      {/* Transom Dimensions */}
+      {transom && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <label style={lbl}>Transom Width (in)</label>
+            <input
+              type="number"
+              value={transomWidth || ''}
+              onChange={e => update({ marTransomWidth: parseFloat(e.target.value) || 0 })}
+              style={inp}
+            />
+          </div>
+          <div>
+            <label style={lbl}>Transom Height (in)</label>
+            <input
+              type="number"
+              value={transomHeight || ''}
+              onChange={e => update({ marTransomHeight: parseFloat(e.target.value) || 0 })}
+              style={inp}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Marine calculation breakdown */}
       <div style={{
         display: 'flex', flexDirection: 'column', gap: 6,
@@ -102,20 +142,24 @@ export default function MarineCalc({ item, onChange }: MarineCalcProps) {
         background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.15)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Net Sqft (both sides)</span>
-          <span style={{ color: 'var(--text1)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.netSqft}</span>
+          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Boat Sqft</span>
+          <span style={{ color: 'var(--text1)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.boatSqft}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>+20% waste buffer</span>
-          <span style={{ color: 'var(--text1)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.withWaste}</span>
+          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Panels per Side</span>
+          <span style={{ color: 'var(--text1)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.panels}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Linear ft/side ({passes} pass)</span>
-          <span style={{ color: 'var(--text1)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.linearFtPerSide}</span>
+          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Linear ft to order</span>
+          <span style={{ color: 'var(--cyan)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{marine.totalLinearFt}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Total to order (ft)</span>
-          <span style={{ color: 'var(--cyan)', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>{marine.totalToOrder}</span>
+          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Total material sqft</span>
+          <span style={{ color: 'var(--text1)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.totalMaterialSqft}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+          <span style={{ color: 'var(--text3)', fontWeight: 600 }}>Waste sqft</span>
+          <span style={{ color: 'var(--amber)', fontFamily: "'JetBrains Mono', monospace" }}>{marine.wasteSqft}</span>
         </div>
         {transom && (
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
@@ -125,7 +169,7 @@ export default function MarineCalc({ item, onChange }: MarineCalcProps) {
         )}
         <div style={{ borderTop: '1px solid rgba(34,211,238,0.15)', paddingTop: 6, marginTop: 2 }}>
           <span style={{ fontSize: 10, color: 'var(--text3)', fontStyle: 'italic' }}>
-            54" wide (4.5ft) material. No rivets/screws.
+            {marine.rollWidthIn}&quot; roll — {marine.maxHeightIn}&quot; max height/panel — waste charged at 2× rate
           </span>
         </div>
       </div>
