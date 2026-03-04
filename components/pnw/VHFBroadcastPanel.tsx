@@ -1,6 +1,196 @@
 'use client'
-import { useState } from 'react'
-import { Radio, Signal, AlertTriangle, Clock, Volume2, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Radio, Signal, AlertTriangle, Volume2, ChevronDown, ChevronRight, Play, Square, Loader2, ExternalLink } from 'lucide-react'
+
+// ── NOAA Weather Radio Player ─────────────────────────────────────────────────
+
+function NOAARadioPlayer() {
+  const [playing, setPlaying] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [forecast, setForecast] = useState<string | null>(null)
+  const [station, setStation] = useState<'KEC53' | 'KZZ33' | 'KHB35'>('KEC53')
+  const synthRef = useRef<SpeechSynthesis | null>(null)
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+
+  const STATIONS = [
+    { id: 'KEC53' as const, label: 'KEC-53 Seattle', freq: '162.550', coverage: 'Greater Seattle & Puget Sound' },
+    { id: 'KZZ33' as const, label: 'KZZ-33 Olympia', freq: '162.400', coverage: 'South Puget Sound & Hood Canal' },
+    { id: 'KHB35' as const, label: 'KHB-35 Bellingham', freq: '162.475', coverage: 'North Sound & San Juan Islands' },
+  ]
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
+  async function startBroadcast() {
+    if (playing) {
+      window.speechSynthesis?.cancel()
+      setPlaying(false)
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Fetch current marine weather forecast
+      const res = await fetch('/api/pnw/weather')
+      let text = ''
+      if (res.ok) {
+        const data = await res.json()
+        const current = data.current || (data.periods && data.periods[0])
+        const marine = data.marineForecast?.[0]
+        const forecast2 = data.marineForecast?.[1]
+
+        text = [
+          `This is NOAA Weather Radio. Station ${station}. Puget Sound marine forecast.`,
+          current ? `Current conditions: ${current.shortForecast}. Temperature ${current.temperature} degrees. Winds ${current.windSpeed} from the ${current.windDirection}.` : '',
+          marine ? `Marine forecast: ${marine.name}. ${marine.detailedForecast}` : '',
+          forecast2 ? `${forecast2.name}: ${forecast2.detailedForecast}` : '',
+          'End of marine weather broadcast. Stay safe on the water.',
+        ].filter(Boolean).join(' ')
+
+        setForecast(marine?.detailedForecast || current?.shortForecast || null)
+      } else {
+        text = `This is NOAA Weather Radio station ${station}, serving Puget Sound and the Pacific Northwest. The current marine forecast is temporarily unavailable. Check weather dot gov for the latest conditions before departing. Stay safe on the water.`
+      }
+
+      const synth = window.speechSynthesis
+      if (!synth) {
+        alert('Text-to-speech not supported in this browser. Visit weather.gov/sew for the latest forecast.')
+        setLoading(false)
+        return
+      }
+
+      synth.cancel()
+      const utt = new SpeechSynthesisUtterance(text)
+      utt.rate = 0.85
+      utt.pitch = 0.9
+      utt.volume = 1
+
+      // Prefer a neutral/robotic voice if available
+      const voices = synth.getVoices()
+      const preferred = voices.find(v => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Alex')))
+      if (preferred) utt.voice = preferred
+
+      utt.onend = () => setPlaying(false)
+      utt.onerror = () => setPlaying(false)
+
+      synthRef.current = synth
+      utteranceRef.current = utt
+      synth.speak(utt)
+      setPlaying(true)
+    } catch { /* ignore */ }
+    finally {
+      setLoading(false)
+    }
+  }
+
+  const activeStation = STATIONS.find(s => s.id === station)!
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{
+        background: playing ? 'rgba(34,211,238,0.1)' : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${playing ? 'rgba(34,211,238,0.4)' : 'rgba(255,255,255,0.1)'}`,
+        borderRadius: 12, padding: '14px 14px', transition: 'all 0.3s',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+            background: playing ? 'rgba(34,211,238,0.2)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${playing ? 'rgba(34,211,238,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Radio size={15} color={playing ? '#22d3ee' : '#9299b5'} style={playing ? { animation: 'pulse 1s ease-in-out infinite' } : {}} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 12, fontWeight: 800, letterSpacing: 0.8, color: '#e8eaed' }}>
+              NOAA WEATHER RADIO
+            </div>
+            <div style={{ fontSize: 9, color: playing ? '#22d3ee' : '#5a6080', fontFamily: 'JetBrains Mono, monospace' }}>
+              {playing ? '● LIVE BROADCAST' : activeStation.freq + ' MHz — ' + activeStation.label}
+            </div>
+          </div>
+          <button
+            onClick={startBroadcast}
+            style={{
+              width: 38, height: 38, borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: playing ? '#f25a5a' : '#22d3ee',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: playing ? '0 4px 12px rgba(242,90,90,0.4)' : '0 4px 12px rgba(34,211,238,0.3)',
+              flexShrink: 0,
+            }}
+          >
+            {loading
+              ? <Loader2 size={16} color="#0d0f14" style={{ animation: 'spin 1s linear infinite' }} />
+              : playing ? <Square size={14} color="white" fill="white" />
+              : <Play size={14} color="#0d0f14" fill="#0d0f14" />
+            }
+          </button>
+        </div>
+
+        {/* Waveform when playing */}
+        {playing && (
+          <div style={{ display: 'flex', gap: 3, alignItems: 'center', height: 24, marginBottom: 10 }}>
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div key={i} style={{
+                flex: 1, background: '#22d3ee', borderRadius: 2,
+                animation: `waveBar 0.8s ease-in-out ${(i * 0.04).toFixed(2)}s infinite`,
+                opacity: 0.7,
+              }} />
+            ))}
+          </div>
+        )}
+
+        {/* Forecast text */}
+        {forecast && (
+          <div style={{ fontSize: 10, color: '#9299b5', lineHeight: 1.5, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 7, marginBottom: 10 }}>
+            <div style={{ fontSize: 9, color: '#22d3ee', fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>CURRENT MARINE FORECAST</div>
+            {forecast.slice(0, 200)}{forecast.length > 200 ? '...' : ''}
+          </div>
+        )}
+
+        {/* Station picker */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {STATIONS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => { setStation(s.id); if (playing) { window.speechSynthesis?.cancel(); setPlaying(false) } }}
+              style={{
+                flex: 1, padding: '4px 4px', borderRadius: 6, border: `1px solid ${station === s.id ? 'rgba(34,211,238,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                background: station === s.id ? 'rgba(34,211,238,0.12)' : 'transparent',
+                color: station === s.id ? '#22d3ee' : '#5a6080', fontSize: 8,
+                fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700, cursor: 'pointer', letterSpacing: 0.3, textAlign: 'center' as const,
+              }}
+            >
+              <div>{s.label.split(' ')[0]}</div>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 8 }}>{s.freq}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop: 6, display: 'flex', gap: 6, alignItems: 'center' }}>
+        <a href="https://www.weather.gov/sew/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#5a6080' }}>
+          <ExternalLink size={10} />
+          weather.gov/sew — Full Forecast
+        </a>
+        <span style={{ color: '#5a6080', fontSize: 10 }}>·</span>
+        <span style={{ fontSize: 10, color: '#5a6080' }}>NWS Seattle Marine Division</span>
+      </div>
+
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes waveBar {
+          0%,100%{height:4px;opacity:0.4}
+          50%{height:18px;opacity:0.9}
+        }
+      `}</style>
+    </div>
+  )
+}
 
 interface VHFChannel {
   ch: string
@@ -65,6 +255,9 @@ export default function VHFBroadcastPanel() {
 
   return (
     <div style={{ padding: '0 0 16px' }}>
+      {/* NOAA Weather Radio Player */}
+      <NOAARadioPlayer />
+
       {/* USCG Broadcast Status */}
       <div style={{
         margin: '0 0 16px',

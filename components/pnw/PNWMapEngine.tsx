@@ -59,11 +59,16 @@ interface WeatherData {
   updated_at: string
 }
 
-type BaseMapType = 'street' | 'satellite' | 'terrain'
+type BaseMapType = 'dark' | 'street' | 'satellite' | 'terrain' | 'topo'
 
 // ── Tile Providers ─────────────────────────────────────────────────────────────
 
 const TILE_PROVIDERS: Record<BaseMapType, { url: string; attribution: string; maxZoom: number }> = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    maxZoom: 19,
+  },
   street: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> contributors',
@@ -78,6 +83,11 @@ const TILE_PROVIDERS: Record<BaseMapType, { url: string; attribution: string; ma
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
     maxZoom: 17,
+  },
+  topo: {
+    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'USGS National Map',
+    maxZoom: 16,
   },
 }
 
@@ -312,7 +322,7 @@ export default function PNWMapEngine({ activeLayers, onLayerToggle, height = '10
   const baseTileRef = useRef<any>(null)
   const layerRefsRef = useRef<Record<string, any[]>>({})
   const [mapReady, setMapReady] = useState(false)
-  const [baseMap, setBaseMap] = useState<BaseMapType>('street')
+  const [baseMap, setBaseMap] = useState<BaseMapType>('dark')
   const [selectedFeature, setSelectedFeature] = useState<MarineFeature | null>(null)
   const [tideData, setTideData] = useState<TideData | null>(null)
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
@@ -347,10 +357,10 @@ export default function PNWMapEngine({ activeLayers, onLayerToggle, height = '10
       // Custom zoom control position
       L.control.zoom({ position: 'bottomright' }).addTo(map)
 
-      // Base tile
-      const tile = L.tileLayer(TILE_PROVIDERS.street.url, {
-        attribution: TILE_PROVIDERS.street.attribution,
-        maxZoom: TILE_PROVIDERS.street.maxZoom,
+      // Base tile — default dark
+      const tile = L.tileLayer(TILE_PROVIDERS.dark.url, {
+        attribution: TILE_PROVIDERS.dark.attribution,
+        maxZoom: TILE_PROVIDERS.dark.maxZoom,
       })
       tile.addTo(map)
       baseTileRef.current = tile
@@ -869,24 +879,31 @@ export default function PNWMapEngine({ activeLayers, onLayerToggle, height = '10
       {/* Base Map Switcher — top right */}
       <div style={{
         position: 'absolute', top: 12, right: 12, zIndex: 1000,
-        display: 'flex', gap: 2, background: 'rgba(13,15,20,0.92)',
-        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
-        padding: 3, backdropFilter: 'blur(8px)',
+        display: 'flex', gap: 2, background: 'rgba(5,8,16,0.94)',
+        border: '1px solid rgba(34,211,238,0.18)', borderRadius: 8,
+        padding: 3, backdropFilter: 'blur(12px)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
       }}>
-        {(['street', 'satellite', 'terrain'] as BaseMapType[]).map(type => (
+        {([
+          ['dark', 'DARK'],
+          ['street', 'STREET'],
+          ['satellite', 'SAT'],
+          ['terrain', 'TOPO'],
+          ['topo', 'USGS'],
+        ] as [BaseMapType, string][]).map(([type, label]) => (
           <button
             key={type}
             onClick={() => setBaseMap(type)}
             style={{
-              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 11, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600,
-              letterSpacing: '0.5px', textTransform: 'uppercase',
-              background: baseMap === type ? 'var(--accent)' : 'transparent',
-              color: baseMap === type ? '#fff' : 'var(--text2)',
+              padding: '4px 9px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 10, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+              letterSpacing: '0.5px',
+              background: baseMap === type ? '#22d3ee' : 'transparent',
+              color: baseMap === type ? '#0d0f14' : '#9299b5',
               transition: 'all 0.15s',
             }}
           >
-            {type === 'street' ? 'Street' : type === 'satellite' ? 'Satellite' : 'Terrain'}
+            {label}
           </button>
         ))}
       </div>

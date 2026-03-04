@@ -10,6 +10,38 @@ const PNWSidebar = dynamic(() => import('@/components/pnw/PNWSidebar'), { ssr: f
 const PNWMapEngine = dynamic(() => import('@/components/pnw/PNWMapEngine'), { ssr: false })
 const EmergencyAlertBanner = dynamic(() => import('@/components/pnw/EmergencyAlertBanner'), { ssr: false })
 const AIChat = dynamic(() => import('@/components/pnw/AIChat'), { ssr: false })
+const PNWTutorial = dynamic(() => import('@/components/pnw/PNWTutorial'), { ssr: false })
+
+// Rain particles — PNW ambience
+function RainLayer() {
+  const drops = Array.from({ length: 28 }, (_, i) => ({
+    left: `${(i * 3.7 + Math.sin(i * 1.3) * 8) % 100}%`,
+    delay: `${(i * 0.13) % 2.5}s`,
+    duration: `${1.2 + (i * 0.09) % 0.8}s`,
+    opacity: 0.08 + (i % 5) * 0.018,
+  }))
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {drops.map((d, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: d.left, top: '-4px',
+          width: 1, height: 12,
+          background: 'linear-gradient(to bottom, transparent, rgba(34,211,238,0.6))',
+          opacity: d.opacity,
+          animation: `rainFall ${d.duration} linear ${d.delay} infinite`,
+        }} />
+      ))}
+      <style>{`
+        @keyframes rainFall {
+          0% { transform: translateY(-10px) translateX(0); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 0.8; }
+          100% { transform: translateY(52px) translateX(4px); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 type MobilePanel = 'map' | 'weather' | 'tides' | 'vhf' | 'ai' | 'harbor' | null
 
@@ -28,6 +60,16 @@ export default function PNWPageClient() {
   const [mobileTab, setMobileTab] = useState<MobilePanel>('map')
   const [isDesktop, setIsDesktop] = useState(false)
   const [aiFloating, setAiFloating] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(false)
+  const [aiPulsing, setAiPulsing] = useState(false)
+
+  // Tutorial & AI intro checks
+  useEffect(() => {
+    const toured = localStorage.getItem('pnw-navigator-tutorial-v1')
+    if (!toured) setShowTutorial(true)
+    const aiIntro = localStorage.getItem('pnw-ai-introduced')
+    if (!aiIntro) setAiPulsing(true)
+  }, [])
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024)
@@ -76,7 +118,10 @@ export default function PNWPageClient() {
   // Desktop layout
   if (isDesktop) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0d0f14', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#050810', overflow: 'hidden' }}>
+        {showTutorial && (
+          <PNWTutorial onDone={() => setShowTutorial(false)} />
+        )}
         <EmergencyAlertBanner />
 
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
@@ -131,25 +176,39 @@ export default function PNWPageClient() {
               height="100%"
             />
 
+            {/* Rain effect layer */}
+            <RainLayer />
+
             {/* Floating AI button on map */}
             <button
               onClick={() => {
                 setSidebarCollapsed(false)
+                setAiPulsing(false)
+                localStorage.setItem('pnw-ai-introduced', 'yes')
               }}
               style={{
                 position: 'absolute', bottom: 80, right: 60, zIndex: 1000,
-                background: 'linear-gradient(135deg, rgba(34,211,238,0.9), rgba(79,127,255,0.9))',
-                border: 'none', borderRadius: 12, padding: '10px 16px', cursor: 'pointer',
+                background: 'linear-gradient(135deg, #22d3ee, #4f7fff)',
+                border: 'none', borderRadius: 14, padding: '11px 18px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8,
                 backdropFilter: 'blur(10px)',
-                boxShadow: '0 4px 20px rgba(34,211,238,0.3)',
+                boxShadow: aiPulsing
+                  ? '0 4px 24px rgba(34,211,238,0.6), 0 0 0 0 rgba(34,211,238,0.4)'
+                  : '0 4px 20px rgba(34,211,238,0.3)',
+                animation: aiPulsing ? 'aiBtnPulse 2s ease-in-out infinite' : 'none',
               }}
             >
-              <Sparkles size={15} color="#0d0f14" />
-              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 13, fontWeight: 800, letterSpacing: 1, color: '#0d0f14' }}>
+              <Sparkles size={16} color="#0d0f14" />
+              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: 14, fontWeight: 800, letterSpacing: 1, color: '#0d0f14' }}>
                 ASK PNW AI
               </span>
             </button>
+            <style>{`
+              @keyframes aiBtnPulse {
+                0%,100% { box-shadow: 0 4px 24px rgba(34,211,238,0.6), 0 0 0 0 rgba(34,211,238,0.4); }
+                50% { box-shadow: 0 4px 40px rgba(34,211,238,0.8), 0 0 0 12px rgba(34,211,238,0); }
+              }
+            `}</style>
           </div>
         </div>
       </div>
@@ -158,7 +217,10 @@ export default function PNWPageClient() {
 
   // Mobile layout
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0d0f14', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#050810', overflow: 'hidden' }}>
+      {showTutorial && (
+        <PNWTutorial onDone={() => setShowTutorial(false)} />
+      )}
       <EmergencyAlertBanner />
 
       {/* Map (always underneath) */}
