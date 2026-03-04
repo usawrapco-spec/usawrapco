@@ -97,6 +97,130 @@ const FUEL_DOCKS: MarineFeature[] = [
   { id: 'fuel-percival', name: 'Percival Landing Fuel', lat: 47.0426, lng: -122.9051, type: 'fuel' },
 ]
 
+// ── Fish Zones ────────────────────────────────────────────────────────────────
+
+interface FishZone {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  radiusM: number
+  species: string[]
+  color: string
+  techniques: string[]
+  depth: string
+  season: string
+  seasonMonths: number[] // 0=Jan, 11=Dec
+  notes: string
+  regulations?: string
+}
+
+const FISH_ZONES: FishZone[] = [
+  // Salmon zones
+  { id: 'tacoma-narrows-salmon', name: 'Tacoma Narrows — Salmon', lat: 47.272, lng: -122.549, radiusM: 900,
+    species: ['Chinook Salmon', 'Coho Salmon'], color: '#22d3ee', depth: '30–80 ft',
+    techniques: ['Trolling flashers w/ herring', 'Hoochies at 40–60 ft', 'Jigging near current rips'],
+    season: 'May – October (Chinook); Aug – Oct (Coho)', seasonMonths: [4,5,6,7,8,9],
+    notes: 'Strong tidal rips at ebb tide concentrate bait. Fish the slack water on both sides of the bridge. Depth finder key — look for balls of herring 10 ft above the bottom.',
+    regulations: 'Marine Area 11 — check WDFW for current seasons and limits' },
+
+  { id: 'point-defiance-salmon', name: 'Point Defiance — King Salmon', lat: 47.314, lng: -122.532, radiusM: 700,
+    species: ['Chinook Salmon', 'Coho Salmon', 'Lingcod'], color: '#22d3ee', depth: '40–90 ft',
+    techniques: ['Downrigger trolling', 'Plug-cut herring behind flasher', 'Bottom jigging for lingcod'],
+    season: 'June – September', seasonMonths: [5,6,7,8],
+    notes: 'One of South Sound\'s most productive salmon zones. Rocky bottom structure near the point holds lingcod year-round. Current rips on ebb tide are prime salmon time.',
+    regulations: 'Marine Area 11' },
+
+  { id: 'commencement-bay-salmon', name: 'Commencement Bay', lat: 47.285, lng: -122.427, radiusM: 1200,
+    species: ['Chinook Salmon', 'Coho Salmon', 'Chum Salmon'], color: '#4f7fff', depth: '20–60 ft',
+    techniques: ['Trolling nearshore', 'Casting spoons in fall', 'Drift fishing'],
+    season: 'June – November (Coho/Chum in fall)', seasonMonths: [5,6,7,8,9,10],
+    notes: 'Coho stage here in late summer. Chum salmon arrive in October–November near creek mouths. Watch for ferry traffic.',
+    regulations: 'Marine Area 11' },
+
+  { id: 'admiralty-inlet-kings', name: 'Admiralty Inlet — Chinook Corridor', lat: 48.017, lng: -122.698, radiusM: 2000,
+    species: ['Chinook Salmon', 'Coho Salmon'], color: '#22d3ee', depth: '60–200 ft',
+    techniques: ['Deep trolling 80–120 ft', 'Large herring plugs', 'Anchovies on flasher'],
+    season: 'June – September', seasonMonths: [5,6,7,8],
+    notes: 'Migrating Chinook funnel through here en route to rivers. Strong currents — fish the tide changes. Water is deep; heavy gear required.',
+    regulations: 'Marine Area 9 / 10' },
+
+  { id: 'gig-harbor-mouth', name: 'Gig Harbor Entrance — Coho', lat: 47.362, lng: -122.556, radiusM: 500,
+    species: ['Coho Salmon', 'Chinook Salmon'], color: '#4f7fff', depth: '20–50 ft',
+    techniques: ['Trolling small spoons', 'Spinners near surface', 'Casting off the point'],
+    season: 'August – October', seasonMonths: [7,8,9],
+    notes: 'Coho stage near the entrance in late summer. Fish the edges in morning and evening. Small boats have an advantage here.',
+    regulations: 'Marine Area 11' },
+
+  // Halibut zones
+  { id: 'strait-halibut', name: 'Strait of Juan de Fuca — Halibut', lat: 48.15, lng: -123.2, radiusM: 3000,
+    species: ['Pacific Halibut', 'Lingcod', 'Rockfish'], color: '#f59e0b', depth: '120–250 ft',
+    techniques: ['Bottom fishing with whole herring/squid', 'Large jigs 6–12 oz', 'Dropper rigs on flat sandy bottom'],
+    season: 'April – June (Halibut season)', seasonMonths: [3,4,5],
+    notes: 'Sandy/muddy bottom holds halibut. Drift fishing over 150–200 ft near the border of rocky and flat bottom. Check annual halibut season opening — typically 2–4 day openers.',
+    regulations: 'WDFW/IPHC season — check dates annually. Tag required.' },
+
+  { id: 'port-angeles-halibut', name: 'Ediz Hook / Port Angeles — Halibut', lat: 48.127, lng: -123.433, radiusM: 1500,
+    species: ['Pacific Halibut', 'Coho Salmon', 'Rockfish'], color: '#f59e0b', depth: '100–200 ft',
+    techniques: ['Anchor and bait, whole herring/squid', 'Power jigging over structure'],
+    season: 'April – June', seasonMonths: [3,4,5],
+    notes: 'Protected inside waters of port. Charter boats launch from Port Angeles for halibut. Protected harbor makes early morning starts easier.',
+    regulations: 'Check WDFW halibut season dates' },
+
+  // Lingcod & Rockfish
+  { id: 'deception-pass-lingcod', name: 'Deception Pass — Lingcod', lat: 48.405, lng: -122.643, radiusM: 600,
+    species: ['Lingcod', 'Rockfish', 'Coho Salmon'], color: '#8b5cf6', depth: '30–80 ft',
+    techniques: ['Jigging large plastic swimbaits', 'Live herring near bottom structure', 'Trolling through the pass on slack'],
+    season: 'Year-round (Lingcod); Jan–Feb best', seasonMonths: [0,1,2,3,4,10,11],
+    notes: 'Extremely fast currents — only fish the slack water (1 hr before/after). Rocky reefs loaded with lingcod and rockfish. One of the best lingcod spots in the PNW.',
+    regulations: 'Check size limits: Lingcod 22" min size' },
+
+  { id: 'narrows-lingcod', name: 'Tacoma Narrows — Lingcod', lat: 47.265, lng: -122.551, radiusM: 600,
+    species: ['Lingcod', 'Copper Rockfish', 'Cabezon'], color: '#8b5cf6', depth: '40–80 ft',
+    techniques: ['Heavy jigs (4–8 oz) near structure', 'Plastic swimbaits on lead head', 'Fish the rocky points'],
+    season: 'Year-round; Dec–Mar spawn', seasonMonths: [0,1,2,3,10,11],
+    notes: 'Rocky points flanking the bridge hold large lingcod year-round. Fish close to structure in 40–80 ft. Cabezon common in shallower rocky areas.',
+    regulations: 'Check current rockfish conservation areas (RCA)' },
+
+  // Crab zones
+  { id: 'henderson-bay-crab', name: 'Henderson Bay — Dungeness Crab', lat: 47.364, lng: -122.647, radiusM: 1200,
+    species: ['Dungeness Crab', 'Red Rock Crab'], color: '#22c07a', depth: '20–60 ft',
+    techniques: ['Crab pots on sandy/muddy bottom', 'Ring nets from dock or boat', 'Bait: chicken necks, fish carcass'],
+    season: 'July – Sept (check WDFW)', seasonMonths: [6,7,8],
+    notes: 'Good crab bay with sandy bottom. Set pots in 30–50 ft over muddy bottom near eelgrass edges. Check limit: 6 Dungeness per day in most areas.',
+    regulations: 'Minimum 6.25" across shell; check Marine Area 11 opener dates' },
+
+  { id: 'carr-inlet-crab', name: 'Carr Inlet — Crab & Shrimp', lat: 47.27, lng: -122.7, radiusM: 1500,
+    species: ['Dungeness Crab', 'Spot Shrimp'], color: '#22c07a', depth: '40–200 ft',
+    techniques: ['Crab pots 40–80 ft', 'Shrimp pots 200–400 ft on steep drop-offs', 'Mark productive pots on GPS'],
+    season: 'Crab: summer; Shrimp: May–July typically', seasonMonths: [4,5,6,7,8],
+    notes: 'Deep inlet with excellent shrimp fishing in the troughs. Spot shrimp season is short (typically 2–4 weeks in May) — check WDFW opener.',
+    regulations: 'Spot shrimp season very limited — verify dates at wdfw.wa.gov' },
+
+  { id: 'hood-canal-shrimp', name: 'Hood Canal — Spot Shrimp', lat: 47.6, lng: -122.9, radiusM: 2500,
+    species: ['Spot Shrimp', 'Dungeness Crab', 'Salmon'], color: '#ec4899', depth: '200–400 ft',
+    techniques: ['Shrimp pots in deep troughs', 'Small mesh pots baited with fish oil', 'Lower at slack tide'],
+    season: 'Shrimp: May opener (typically 1–3 weeks)', seasonMonths: [4],
+    notes: 'Premier spot shrimp destination in Washington. The fjord-like depths hold large spot shrimp. Hood Canal also has coho salmon in fall and oyster farms.',
+    regulations: 'Hood Canal has separate shrimp management — check WDFW. Coho season also separate.' },
+
+  // Trout / Steelhead
+  { id: 'nisqually-steelhead', name: 'Nisqually River Mouth — Steelhead', lat: 47.098, lng: -122.717, radiusM: 800,
+    species: ['Winter Steelhead', 'Cutthroat Trout', 'Chum Salmon'], color: '#22c07a', depth: '5–20 ft',
+    techniques: ['Drift fishing with cured eggs', 'Float fishing with jigs', 'Fly fishing in lower river'],
+    season: 'Steelhead: Dec–March; Cutthroat year-round', seasonMonths: [11,0,1,2],
+    notes: 'Nisqually is a wild steelhead river. Check for hatchery vs wild retention rules. Mouth area good for chum salmon in November.',
+    regulations: 'Wild steelhead release only on some rivers — verify WDFW rules' },
+
+  // squid / winter jigging
+  { id: 'gig-harbor-squid', name: 'Gig Harbor — Night Squid Jigging', lat: 47.334, lng: -122.575, radiusM: 400,
+    species: ['Market Squid', 'Opalescent Squid'], color: '#9299b5', depth: '20–60 ft',
+    techniques: ['Light stick jigs near dock lights at night', 'Small jigs (1–2 oz) in slow retrieve', 'Under marina lights'],
+    season: 'October – February (peaks Nov–Jan)', seasonMonths: [9,10,11,0,1],
+    notes: 'Squid aggregate under dock lights on dark nights. Use a dock light or fish near bright marina lights. Great family activity. Limit is 10 lbs per day.',
+    regulations: 'No license required for squid; limit applies' },
+]
+
 // Traffic routes
 const SR16: [number, number][] = [
   [47.377, -122.596], [47.360, -122.580], [47.335, -122.567], [47.272, -122.549],
@@ -375,6 +499,130 @@ export default function PNWMapEngine({ activeLayers, onLayerToggle, height = '10
         }
       } else {
         clearLayer('traffic')
+      }
+
+      // FISH ZONES LAYER
+      if (activeLayers.has('fish-zones')) {
+        if (!layerRefsRef.current['fish-zones']?.length) {
+          const currentMonth = new Date().getMonth()
+          FISH_ZONES.forEach(zone => {
+            const inSeason = zone.seasonMonths.includes(currentMonth)
+            const circle = L.circle([zone.lat, zone.lng], {
+              radius: zone.radiusM,
+              color: zone.color,
+              fillColor: zone.color,
+              fillOpacity: inSeason ? 0.15 : 0.05,
+              weight: inSeason ? 2 : 1,
+              opacity: inSeason ? 0.7 : 0.3,
+              dashArray: inSeason ? undefined : '5, 8',
+            })
+
+            // Label marker in center
+            const labelIcon = L.divIcon({
+              html: `<div style="
+                background:rgba(13,15,20,0.88);
+                border:1px solid ${zone.color}60;
+                border-radius:6px;
+                padding:3px 7px;
+                font-size:10px;
+                color:${zone.color};
+                white-space:nowrap;
+                font-family:'Barlow Condensed',sans-serif;
+                font-weight:700;
+                letter-spacing:0.5px;
+                pointer-events:none;
+                display:flex;
+                align-items:center;
+                gap:4px;
+              ">${inSeason ? '<span style="width:6px;height:6px;border-radius:50%;background:' + zone.color + ';display:inline-block;"></span>' : ''} ${zone.species[0]}</div>`,
+              className: '',
+              iconSize: [1, 1],
+              iconAnchor: [0, 0],
+            })
+            const labelMarker = L.marker([zone.lat, zone.lng], { icon: labelIcon, interactive: false })
+
+            const popupHtml = `
+              <div style="min-width:240px;max-width:300px;background:#0d0f14;color:#e8eaed;font-family:system-ui,sans-serif;padding:4px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                  <div style="width:10px;height:10px;border-radius:50%;background:${zone.color};flex-shrink:0;${inSeason ? 'box-shadow:0 0 6px ' + zone.color : ''}"></div>
+                  <strong style="font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:0.5px;color:#e8eaed;">${zone.name}</strong>
+                </div>
+                ${inSeason ? '<div style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.2);border-radius:5px;padding:4px 8px;font-size:10px;color:#22d3ee;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;font-family:\'Barlow Condensed\',sans-serif;">IN SEASON NOW</div>' : ''}
+                <div style="margin-bottom:6px;"><span style="font-size:10px;color:#5a6080;">SPECIES</span><br/><span style="font-size:12px;color:#e8eaed;">${zone.species.join(', ')}</span></div>
+                <div style="margin-bottom:6px;"><span style="font-size:10px;color:#5a6080;">SEASON</span><br/><span style="font-size:12px;color:#e8eaed;">${zone.season}</span></div>
+                <div style="margin-bottom:6px;"><span style="font-size:10px;color:#5a6080;">DEPTH</span><br/><span style="font-size:12px;color:#e8eaed;font-family:'JetBrains Mono',monospace;">${zone.depth}</span></div>
+                <div style="margin-bottom:8px;"><span style="font-size:10px;color:#5a6080;">TECHNIQUES</span><br/>${zone.techniques.map(t => `<div style="font-size:11px;color:#9299b5;margin-top:2px;">• ${t}</div>`).join('')}</div>
+                <div style="font-size:11px;color:#9299b5;line-height:1.4;margin-bottom:6px;">${zone.notes}</div>
+                ${zone.regulations ? `<div style="font-size:10px;color:#f59e0b;padding:4px 8px;background:rgba(245,158,11,0.1);border-radius:4px;">⚠ ${zone.regulations}</div>` : ''}
+              </div>
+            `
+
+            circle.bindPopup(popupHtml, {
+              maxWidth: 320,
+              className: 'pnw-popup',
+            })
+            circle.addTo(map)
+            labelMarker.addTo(map)
+            addToLayer('fish-zones', circle)
+            addToLayer('fish-zones', labelMarker)
+          })
+
+          // Add popup style
+          const style = document.createElement('style')
+          style.textContent = '.leaflet-popup-content-wrapper { background: #0d0f14 !important; border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 12px !important; box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important; } .leaflet-popup-tip { background: #0d0f14 !important; } .leaflet-popup-content { margin: 14px 16px !important; }'
+          document.head.appendChild(style)
+        }
+      } else {
+        clearLayer('fish-zones')
+      }
+
+      // FISHING SPOTS LAYER
+      if (activeLayers.has('fishing')) {
+        if (!layerRefsRef.current['fishing']?.length) {
+          const load = async () => {
+            try {
+              const res = await fetch('/api/pnw-navigator/spots')
+              if (res.ok) {
+                const data = await res.json()
+                const spots = (data.spots || data || []) as Array<{
+                  id: string; name: string; lat: number; lng: number;
+                  primary_species?: string; water_type?: string; region?: string; description?: string
+                }>
+                if (!mapRef.current) return
+                spots.forEach(spot => {
+                  if (!spot.lat || !spot.lng) return
+                  const icon = L.divIcon({
+                    html: `<div style="width:26px;height:26px;border-radius:6px;background:rgba(79,127,255,0.9);border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 16.016c2 0 3.5-1.5 3.5-3.5S20 9 18 9c-.5 0-1 .1-1.4.3L12 5.5H9V8L6 9v4l3 1v2.5h3l4.6-3.8c.4.2.9.3 1.4.3z"/>
+                      </svg>
+                    </div>`,
+                    className: '',
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 13],
+                  })
+                  const m = L.marker([spot.lat, spot.lng], { icon })
+                  m.bindTooltip(spot.name, { direction: 'top', offset: [0, -15] })
+                  const popupHtml = `
+                    <div style="min-width:180px;background:#0d0f14;color:#e8eaed;font-family:system-ui,sans-serif;padding:4px;">
+                      <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#4f7fff;margin-bottom:6px;">${spot.name}</div>
+                      ${spot.region ? `<div style="font-size:10px;color:#5a6080;margin-bottom:4px;">${spot.region}</div>` : ''}
+                      ${spot.primary_species ? `<div style="font-size:11px;color:#9299b5;margin-bottom:4px;">Target: <span style="color:#e8eaed;">${spot.primary_species}</span></div>` : ''}
+                      ${spot.water_type ? `<div style="font-size:11px;color:#9299b5;">Water: <span style="color:#e8eaed;">${spot.water_type}</span></div>` : ''}
+                      ${spot.description ? `<div style="font-size:11px;color:#9299b5;margin-top:6px;line-height:1.4;">${spot.description?.slice(0, 120)}${spot.description?.length > 120 ? '...' : ''}</div>` : ''}
+                    </div>
+                  `
+                  m.bindPopup(popupHtml, { maxWidth: 250, className: 'pnw-popup' })
+                  m.addTo(map)
+                  addToLayer('fishing', m)
+                })
+              }
+            } catch { /* no spots */ }
+          }
+          load()
+        }
+      } else {
+        clearLayer('fishing')
       }
 
       // MARINAS LAYER

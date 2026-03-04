@@ -1,0 +1,26 @@
+{
+  "name": "PNW Navigator — Marine & Fishing App",
+  "short_name": "PNW Navigator",
+  "description": "Pacific Northwest boating, fishing, weather, AI concierge, and tourism guide for Puget Sound, San Juans, and beyond.",
+  "start_url": "/pnw",
+  "scope": "/pnw",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0d0f14",
+  "theme_color": "#22d3ee",
+  "orientation": "any",
+  "categories": ["navigation", "weather", "travel", "sports", "lifestyle"],
+  "lang": "en-US",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Live Map", "short_name": "Map", "url": "/pnw", "description": "Live marine navigation map", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "AI Concierge", "short_name": "AI", "url": "/pnw?panel=ai", "description": "Ask PNW AI anything", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Weather", "short_name": "Weather", "url": "/pnw?panel=weather", "description": "Marine weather forecast", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "VHF Channels", "short_name": "VHF", "url": "/pnw?panel=vhf", "description": "VHF radio guide and broadcasts", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

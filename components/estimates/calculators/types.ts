@@ -66,6 +66,53 @@ export function gpmColor(gpm: number): string {
   return 'var(--red)'
 }
 
+
+// --- Compact style variants ---------------------------------------------------
+
+export const calcFieldLabelCompact: React.CSSProperties = {
+  display: 'block',
+  fontSize: 9,
+  fontWeight: 700,
+  color: 'var(--text3)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  marginBottom: 2,
+  fontFamily: 'Barlow Condensed, sans-serif',
+}
+
+export const calcInputCompact: React.CSSProperties = {
+  width: '100%',
+  padding: '5px 8px',
+  background: 'var(--bg)',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+  color: 'var(--text1)',
+  fontSize: 12,
+  outline: 'none',
+}
+
+export const pillBtnCompact = (active: boolean, color = 'var(--accent)'): React.CSSProperties => ({
+  padding: '3px 8px',
+  borderRadius: 14,
+  cursor: 'pointer',
+  fontSize: 10,
+  fontWeight: 700,
+  fontFamily: 'Barlow Condensed, sans-serif',
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+  border: active ? `1.5px solid ${color}` : '1px solid var(--border)',
+  background: active ? color + '22' : 'var(--surface)',
+  color: active ? color : 'var(--text2)',
+  transition: 'all 0.15s',
+  whiteSpace: 'nowrap' as const,
+})
+
+export interface OutputBarItem {
+  label: string
+  value: string
+  color?: string
+}
+
 // Shared style constants
 export const calcFieldLabel: React.CSSProperties = {
   display: 'block',
