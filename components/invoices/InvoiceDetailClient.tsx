@@ -1292,6 +1292,38 @@ const INV_WRAP_SCOPES = [
   { key: 'custom',    label: 'Custom Zones' },
 ]
 const INV_VEHICLE_CONDITIONS = ['Excellent', 'Good', 'Fair', 'Poor']
+// --- Survey vehicle lookup helpers ---
+type InvVehicleEntry = { make: string; model: string; year?: string; sqft: number | null }
+
+async function invFetchAllMakes(): Promise<string[]> {
+  try {
+    const sb = createClient()
+    const { data } = await sb.from('vehicle_measurements').select('make').order('make')
+    return [...new Set((data || []).map((r: any) => r.make))].filter(Boolean) as string[]
+  } catch { return [] }
+}
+
+async function invFetchModelsForMake(make: string, year?: string): Promise<{ model: string; sqft: number | null }[]> {
+  try {
+    const sb = createClient()
+    let q = sb.from('vehicle_measurements').select('model, total_sqft').eq('make', make).order('model')
+    if (year) q = q.eq('year_range', year)
+    const { data } = await q
+    return (data || []).map((r: any) => ({ model: r.model, sqft: r.total_sqft }))
+  } catch { return [] }
+}
+
+async function invLookupVehicle(make: string, model: string, year?: string): Promise<InvVehicleEntry | null> {
+  try {
+    const sb = createClient()
+    let q = sb.from('vehicle_measurements').select('make, model, year_range, total_sqft').eq('make', make).eq('model', model).limit(1)
+    if (year) q = q.eq('year_range', year)
+    const { data } = await q
+    if (!data?.length) return null
+    return { make: data[0].make, model: data[0].model, year: data[0].year_range, sqft: data[0].total_sqft }
+  } catch { return null }
+}
+
 const INV_PAINT_CONDITIONS   = ['Good', 'Needs Prep', 'Poor']
 const INV_DESIGN_DIRECTIONS  = [
   { key: 'custom_design',  label: 'Custom Design' },
