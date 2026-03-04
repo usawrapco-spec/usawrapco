@@ -78,7 +78,6 @@ export default function JobDesignTab({ project, profile, orgId, currentUserId, c
             currentUserName={currentUserName}
             customerName={customerName}
             installerName=""
-            defaultChannel="designer"
           />
         </div>
       )}

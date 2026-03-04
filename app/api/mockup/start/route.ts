@@ -224,7 +224,7 @@ ${logo_url ? 'LOGO: See image above' : 'NO LOGO PROVIDED'}`,
       brand_analysis: brandAnalysis,
     }).eq('id', mockupId)
 
-    // ── Step 2: Generate artwork (Ideogram) ────────────────────────────────────
+    // ── Step 2: Generate artwork (Ideogram — no text) ──────────────────────────
     await admin.from('mockup_results').update({ current_step: 2, step_name: 'Creating custom artwork…' }).eq('id', mockupId)
     const { artwork_url: artworkUrl } = await generateArtwork({
       mockup_id: mockupId,
@@ -232,12 +232,28 @@ ${logo_url ? 'LOGO: See image above' : 'NO LOGO PROVIDED'}`,
       org_id: orgId,
     })
 
-    // ── Step 3: Composite text ─────────────────────────────────────────────────
-    await admin.from('mockup_results').update({ current_step: 3, step_name: 'Adding your information…' }).eq('id', mockupId)
-    const { composited_url: compositedUrl } = await compositeText({
+    // ── Step 3: Polish flat design (Flux img2img at low strength) ──────────────
+    // Note: text is NOT composited yet — we want a clean design for vehicle render
+    await admin.from('mockup_results').update({ current_step: 3, step_name: 'Refining design…' }).eq('id', mockupId)
+    const { concept_url: polishedUrl } = await polishMockup({
+      mockup_id: mockupId,
+      composited_url: artworkUrl,
+      org_id: orgId,
+    })
+
+    // ── Step 4: Render on vehicle (Flux img2img) ───────────────────────────────
+    // Do this BEFORE text composite so the vehicle render doesn't wipe out text
+    await admin.from('mockup_results').update({ current_step: 4, step_name: 'Rendering on vehicle…' }).eq('id', mockupId)
+    const renderUrl = await renderOnVehicle(polishedUrl, renderCategory, vehicle_year, vehicle_make, vehicle_model)
+
+    // ── Step 5: Composite text on top of vehicle render ────────────────────────
+    // Text goes on LAST so it's always crisp and readable
+    await admin.from('mockup_results').update({ current_step: 5, step_name: 'Adding your information…' }).eq('id', mockupId)
+    const textBase = renderUrl || polishedUrl
+    const { composited_url: conceptUrl } = await compositeText({
       mockup_id: mockupId,
       template_id: template_id || null,
-      artwork_url: artworkUrl,
+      artwork_url: textBase,
       company_name,
       tagline,
       phone,
@@ -247,32 +263,20 @@ ${logo_url ? 'LOGO: See image above' : 'NO LOGO PROVIDED'}`,
       org_id: orgId,
     })
 
-    // ── Step 4: Polish (Flux img2img) ──────────────────────────────────────────
-    await admin.from('mockup_results').update({ current_step: 4, step_name: 'Applying photorealism…' }).eq('id', mockupId)
-    const { concept_url: conceptUrl } = await polishMockup({
-      mockup_id: mockupId,
-      composited_url: compositedUrl,
-      org_id: orgId,
-    })
-
-    // ── Step 5: Render on vehicle (Flux img2img) ───────────────────────────────
-    await admin.from('mockup_results').update({ current_step: 5, step_name: 'Rendering on vehicle…' }).eq('id', mockupId)
-    const renderUrl = await renderOnVehicle(conceptUrl, renderCategory, vehicle_year, vehicle_make, vehicle_model)
-
     // ── Done ───────────────────────────────────────────────────────────────────
     await admin.from('mockup_results').update({
       status: 'concept_ready',
       current_step: 6,
       step_name: 'Concept ready for approval',
-      final_mockup_url: renderUrl || conceptUrl,
-      concept_url: conceptUrl,
+      final_mockup_url: conceptUrl,
+      concept_url: polishedUrl, // keep the flat design available
     }).eq('id', mockupId)
 
     return NextResponse.json({
       mockup_id: mockupId,
-      concept_url: conceptUrl,
-      render_url: renderUrl,
-      flat_design_url: artworkUrl,
+      concept_url: conceptUrl,       // vehicle render + text (the main result)
+      render_url: renderUrl,         // vehicle render without text
+      flat_design_url: artworkUrl,   // original flat design
       status: 'concept_ready',
     })
   } catch (err: unknown) {

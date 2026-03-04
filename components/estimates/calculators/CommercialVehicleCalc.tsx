@@ -16,8 +16,9 @@ import { calculateInstallPay, INSTALL_TIERS } from '@/lib/estimator/vehicleDb'
 interface VehicleRecord {
   make: string
   model: string
-  full_wrap_sqft: number | null
-  wrap_sqft: number | null
+  full_wrap_sqft: number | null        // NO roof (sides + back + hood)
+  full_wrap_with_roof_sqft: number | null // WITH roof
+  wrap_sqft: number | null             // alias for full_wrap_sqft (no roof)
   three_quarter_wrap_sqft: number | null
   half_wrap_sqft: number | null
   hood_sqft: number | null
@@ -38,14 +39,14 @@ interface Props {
 }
 
 const COVERAGE = [
-  { key: 'full',          label: 'Full Wrap',      sqftFn: (v: VehicleRecord) => v.wrap_sqft || ((v.full_wrap_sqft || 0) - (v.roof_sqft || 0)) || 0 },
-  { key: 'full_roof',     label: 'Full + Roof',    sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
-  { key: 'three_quarter', label: '3/4 Wrap',       sqftFn: (v: VehicleRecord) => v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75) },
-  { key: 'half',          label: 'Half Wrap',      sqftFn: (v: VehicleRecord) => v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50) },
-  { key: 'hood',          label: 'Hood Only',      sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
-  { key: 'roof',          label: 'Roof Only',      sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
-  { key: 'custom',        label: 'Custom Zones',   sqftFn: () => 0 },
-  { key: 'install_only',  label: 'Install Only',   sqftFn: (v: VehicleRecord) => v.wrap_sqft || v.full_wrap_sqft || 0 },
+  { key: 'full',          label: 'Full Wrap',             sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
+  { key: 'full_roof',     label: 'Full Wrap + Roof',      sqftFn: (v: VehicleRecord) => v.full_wrap_with_roof_sqft || ((v.full_wrap_sqft || 0) + (v.roof_sqft || 0)) || 0 },
+  { key: 'three_quarter', label: '3/4 Wrap',              sqftFn: (v: VehicleRecord) => v.three_quarter_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.75) },
+  { key: 'half',          label: 'Half Wrap',             sqftFn: (v: VehicleRecord) => v.half_wrap_sqft || Math.round((v.full_wrap_sqft || 0) * 0.50) },
+  { key: 'hood',          label: 'Hood Only',             sqftFn: (v: VehicleRecord) => v.hood_sqft || 0 },
+  { key: 'roof',          label: 'Roof Only',             sqftFn: (v: VehicleRecord) => v.roof_sqft || 0 },
+  { key: 'custom',        label: 'Custom Zones',          sqftFn: () => 0 },
+  { key: 'install_only',  label: 'Install Only',          sqftFn: (v: VehicleRecord) => v.full_wrap_sqft || 0 },
 ]
 
 const WASTE_OPTS = [5, 10, 15, 20] as const
@@ -91,6 +92,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
             setVehicle({
               make: mk, model: mdl,
               full_wrap_sqft: fullSqft || null,
+              full_wrap_with_roof_sqft: (fullSqft + (Number(m.roof_sqft) || 0)) || null,
               wrap_sqft: wrapSqft || null,
               three_quarter_wrap_sqft: (m.three_quarter_wrap_sqft as number) || null,
               half_wrap_sqft: (m.half_wrap_sqft as number) || null,
@@ -193,7 +195,7 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const gp               = salePrice - cogs
   const autoTargetPrice  = cogs > 0 ? Math.round(cogs / (1 - gpmTarget / 100)) : 0
   const belowFloor       = salePrice > 0 && gpm < 65
-  const wrapSqftForTier  = vehicle?.wrap_sqft || ((vehicle?.full_wrap_sqft || 0) - (vehicle?.roof_sqft || 0)) || 0
+  const wrapSqftForTier  = vehicle?.full_wrap_sqft || 0
   const formulaResult    = wrapSqftForTier > 0 ? calculateInstallPay(wrapSqftForTier) : null
   const currentTierLabel = formulaResult?.tierLabel || '--'
   const collapsedLabel   = `${isInstallOnly ? '' : `Waste: ${waste}% · `}${currentTierLabel} install`
@@ -274,8 +276,8 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
             { label: 'Rear',   val: vehicle.back_sqft,      color: '#f59e0b' },
             { label: 'Hood',   val: vehicle.hood_sqft,      color: '#22c07a' },
             { label: 'Roof',   val: vehicle.roof_sqft,      color: '#ec4899' },
-            { label: 'Wrap',   val: vehicle.wrap_sqft,      color: 'var(--cyan)' },
-            { label: 'Full',   val: vehicle.full_wrap_sqft, color: 'var(--text3)' },
+            { label: 'Full',   val: vehicle.full_wrap_sqft, color: 'var(--cyan)' },
+            { label: 'W/ Roof', val: vehicle.full_wrap_with_roof_sqft, color: 'var(--text3)' },
           ].map(p => (
             <div key={p.label} style={{ padding: '3px 4px', borderRadius: 5, background: 'var(--surface)', textAlign: 'center', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 8, color: p.color, fontWeight: 700, textTransform: 'uppercase', fontFamily: 'Barlow Condensed, sans-serif' }}>{p.label}</div>

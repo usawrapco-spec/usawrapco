@@ -6,7 +6,7 @@ import {
   Car, Truck, Bus, Package, Anchor, Wand2,
   ChevronRight, ChevronLeft, Check, Loader2, Upload, X,
   Sparkles, ImageIcon, Download, RefreshCw, ZoomIn, ZoomOut,
-  Search, ChevronDown, AlertTriangle, Zap, Bot, Layers,
+  Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe,
 } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -188,6 +188,9 @@ export default function MockupGeneratorPage() {
   const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null)
 
   // Step 3 — Brand
+  const [websiteScrapeUrl, setWebsiteScrapeUrl] = useState('')
+  const [scraping, setScraping] = useState(false)
+  const [scrapeError, setScrapeError] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState('')
   const [tagline, setTagline] = useState('')
   const [phone, setPhone] = useState('')
@@ -199,6 +202,7 @@ export default function MockupGeneratorPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoNoBg, setLogoNoBg] = useState<string | null>(null)
+  const [scrapedLogoUrl, setScrapedLogoUrl] = useState<string | null>(null)
   const [styleNotes, setStyleNotes] = useState('')
   const [fontChoice, setFontChoice] = useState('Impact')
   const logoRef = useRef<HTMLInputElement>(null)
@@ -348,7 +352,7 @@ export default function MockupGeneratorPage() {
   }, [])
 
   async function getLogoUrl(): Promise<string | null> {
-    if (!logoFile) return logoNoBg || null
+    if (!logoFile) return logoNoBg || scrapedLogoUrl || null
     try {
       const ab = await logoFile.arrayBuffer()
       const buf = new Uint8Array(ab)
@@ -363,6 +367,36 @@ export default function MockupGeneratorPage() {
       const { data } = supabase.storage.from('project-files').getPublicUrl(path)
       return data.publicUrl
     } catch { return null }
+  }
+
+  // ── Website scrape ─────────────────────────────────────────────────────────
+  async function handleScrape() {
+    if (!websiteScrapeUrl.trim()) return
+    setScraping(true)
+    setScrapeError(null)
+    try {
+      const res = await fetch('/api/mockup/scrape-brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteScrapeUrl.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setScrapeError(data.error || 'Scrape failed'); return }
+      if (data.company_name) setCompanyName(data.company_name)
+      if (data.tagline) setTagline(data.tagline)
+      if (data.phone) setPhone(data.phone)
+      if (data.website) setWebsite(data.website)
+      if (data.brand_colors?.length) setBrandColors(data.brand_colors)
+      if (data.logo_url) {
+        setScrapedLogoUrl(data.logo_url)
+        setLogoPreview(data.logo_url)
+        setLogoNoBg(data.logo_url)
+      }
+    } catch (err: unknown) {
+      setScrapeError(err instanceof Error ? err.message : 'Scrape failed')
+    } finally {
+      setScraping(false)
+    }
   }
 
   // ── Generation ─────────────────────────────────────────────────────────────
@@ -872,9 +906,46 @@ export default function MockupGeneratorPage() {
       {step === 3 && (
         <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Tell us about your brand</h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22 }}>
-            AI uses this to create a design custom-built for your business.
+          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 18 }}>
+            Paste your website and we'll pull your brand info automatically, or fill it in below.
           </p>
+
+          {/* ── Website auto-fill ── */}
+          <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 12, padding: '14px 16px', marginBottom: 22 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Globe size={12} /> Auto-Fill From Website
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...inp, flex: 1 }}
+                placeholder="yourcompany.com"
+                value={websiteScrapeUrl}
+                onChange={e => setWebsiteScrapeUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleScrape() }}
+              />
+              <button
+                onClick={handleScrape}
+                disabled={scraping || !websiteScrapeUrl.trim()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '10px 16px', borderRadius: 8,
+                  background: scraping || !websiteScrapeUrl.trim() ? 'var(--surface2)' : 'var(--accent)',
+                  color: scraping || !websiteScrapeUrl.trim() ? 'var(--text3)' : '#fff',
+                  fontSize: 12, fontWeight: 700, border: 'none',
+                  cursor: scraping || !websiteScrapeUrl.trim() ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {scraping ? <><Loader2 size={13} className="animate-spin" /> Scanning…</> : <><Sparkles size={13} /> Auto-Fill</>}
+              </button>
+            </div>
+            {scrapeError && (
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--red)' }}>{scrapeError}</div>
+            )}
+            <div style={{ marginTop: 7, fontSize: 11, color: 'var(--text3)' }}>
+              Pulls company name, tagline, phone, and brand colors from your logo — not random site colors.
+            </div>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ gridColumn: 'span 2' }}>
