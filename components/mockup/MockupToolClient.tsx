@@ -238,6 +238,9 @@ export default function MockupToolClient({
   const [colorScheme, setColorScheme] = useState('')
   const [specificElements, setSpecificElements] = useState('')
 
+  // Provider
+  const [provider, setProvider] = useState<'openai' | 'ideogram'>('openai')
+
   // Generation
   const [genStep, setGenStep] = useState<GenerationStep>('idle')
   const [predictionId, setPredictionId] = useState('')
@@ -408,6 +411,7 @@ export default function MockupToolClient({
           colorScheme,
           specificElements,
           projectId: defaultProjectId || null,
+          provider,
         }),
       })
 
@@ -753,6 +757,25 @@ export default function MockupToolClient({
                 <span style={{ fontSize: 13, color: 'var(--red)' }}>{error}</span>
               </div>
             )}
+
+            {/* AI ENGINE */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                AI Engine
+              </div>
+              <select
+                value={provider}
+                onChange={e => setProvider(e.target.value as 'openai' | 'ideogram')}
+                style={{
+                  width: '100%', padding: '8px 10px', borderRadius: 8,
+                  border: '1px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text)', fontSize: 13,
+                }}
+              >
+                <option value="openai">OpenAI gpt-image-1 (Recommended)</option>
+                <option value="ideogram">Ideogram V2 (Legacy)</option>
+              </select>
+            </div>
 
             {/* GENERATE BUTTON */}
             <button

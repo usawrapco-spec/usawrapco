@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import Anthropic from '@anthropic-ai/sdk'
 import { randomUUID } from 'crypto'
-import { logHealth, generateWrapConcept } from '@/lib/mockup/pipeline'
+import { logHealth, generateWrapConcept, type ImageProvider } from '@/lib/mockup/pipeline'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
     font_choice = 'Impact',
     // Re-render from selected concept: lock all 3 slots to this style variant
     force_style,            // 'a' | 'b' | 'c' | undefined
+    provider = 'openai' as ImageProvider,
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {
@@ -224,7 +225,7 @@ export async function POST(req: NextRequest) {
     const results: Record<string, string> = {}
     for (const slot of slots) {
       if (prompts[slot]) {
-        const result = await generateWrapConcept({ mockup_id: mockupId, prompt: prompts[slot], org_id: orgId, size_key: sizeKey, slot })
+        const result = await generateWrapConcept({ mockup_id: mockupId, prompt: prompts[slot], org_id: orgId, size_key: sizeKey, slot, provider })
         results[slot] = result.artwork_url
         if (slot !== 'f') await new Promise(r => setTimeout(r, 800))
       }

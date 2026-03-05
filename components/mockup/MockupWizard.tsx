@@ -77,6 +77,7 @@ export default function MockupWizard() {
   const [logoPreview, setLogoPreview] = useState<string>('')
   const [customColor, setCustomColor] = useState('#000000')
   const [videoPolling, setVideoPolling] = useState(false)
+  const [provider, setProvider] = useState<'openai' | 'ideogram'>('openai')
 
   const update = useCallback((patch: Partial<MockupState>) =>
     setState(prev => ({ ...prev, ...patch })), [])
@@ -286,7 +287,7 @@ export default function MockupWizard() {
       const conceptRes = await fetch('/api/mockup/generate-concepts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ concepts: analysis.concepts }),
+        body: JSON.stringify({ concepts: analysis.concepts, provider }),
       })
       const { imageUrls } = await conceptRes.json()
       const validUrls: string[] = (imageUrls || []).filter(Boolean)
@@ -741,6 +742,18 @@ export default function MockupWizard() {
       <div>
         <label style={s.label}>Your Email (to receive your mockups)</label>
         <input style={s.input} type="email" placeholder="you@smithplumbing.com" value={state.email || ''} onChange={e => update({ email: e.target.value })} />
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <label style={s.label}>AI Engine</label>
+        <select
+          value={provider}
+          onChange={e => setProvider(e.target.value as 'openai' | 'ideogram')}
+          style={{ ...s.input, cursor: 'pointer' }}
+        >
+          <option value="openai">OpenAI gpt-image-1 (Recommended)</option>
+          <option value="ideogram">Ideogram V2 (Legacy)</option>
+        </select>
       </div>
     </div>
   )

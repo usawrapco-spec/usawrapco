@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { ORG_ID } from '@/lib/org'
 import Anthropic from '@anthropic-ai/sdk'
+import { generateWithOpenAI, type ImageProvider } from '@/lib/mockup/pipeline'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -264,15 +265,11 @@ export async function POST(req: NextRequest) {
       specificElements = '',
       projectId = null,
       customerId = null,
+      provider = 'openai' as ImageProvider,
     } = body
 
     if (!year && !make) {
       return NextResponse.json({ error: 'Vehicle year and make are required' }, { status: 400 })
-    }
-
-    const replicateToken = await getReplicateToken()
-    if (!replicateToken) {
-      return NextResponse.json({ error: 'Replicate API not configured — add REPLICATE_API_TOKEN to environment' }, { status: 503 })
     }
 
     const orgId = await getOrgId()
@@ -295,6 +292,53 @@ export async function POST(req: NextRequest) {
     })
 
     // ── LAYER 4: Generate ──
+    if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+      const imgBuffer = await generateWithOpenAI(prompt, 'landscape_16_9')
+
+      // Store in Supabase
+      const admin = getSupabaseAdmin()
+      const fileName = `mockup-${Date.now()}-${Math.random().toString(36).slice(2)}.png`
+      const path = `${orgId}/mockups/${fileName}`
+      const { error: upErr } = await admin.storage.from('project-files')
+        .upload(path, imgBuffer, { contentType: 'image/png', upsert: false })
+      const storedUrl = upErr
+        ? `data:image/png;base64,${imgBuffer.toString('base64')}`
+        : admin.storage.from('project-files').getPublicUrl(path).data.publicUrl
+
+      const { data: record } = await admin.from('mockup_history').insert({
+        org_id: orgId,
+        project_id: projectId || null,
+        customer_id: customerId || null,
+        vehicle_year: year,
+        vehicle_make: make,
+        vehicle_model: model,
+        vehicle_color: vehicleColor,
+        view_angle: viewAngle,
+        wrap_style: wrapStyle,
+        brand_data: { companyName, industry, websiteUrl, colors: brandAnalysis.colors, keywords: brandAnalysis.keywords, styleNotes: brandAnalysis.styleNotes, wrapStyle, viewAngle },
+        prompt_used: prompt,
+        result_url: storedUrl,
+        design_score: 8,
+        brand_analysis: brandAnalysis,
+        generated_by: userId,
+      }).select('id').single()
+
+      return NextResponse.json({
+        status: 'succeeded',
+        imageUrl: storedUrl,
+        prompt,
+        brandAnalysis,
+        designScore: 8,
+        historyId: record?.id || null,
+      })
+    }
+
+    // Legacy Flux Pro via Replicate
+    const replicateToken = await getReplicateToken()
+    if (!replicateToken) {
+      return NextResponse.json({ error: 'Replicate API not configured — add REPLICATE_API_TOKEN to environment' }, { status: 503 })
+    }
+
     const result = await generateWithFluxPro(replicateToken, prompt)
 
     // Store brand data for history record (created when done)

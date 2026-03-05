@@ -1,10 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generateWithOpenAI, type ImageProvider } from '@/lib/mockup/pipeline'
 
 const IDEOGRAM_BASE = 'https://api.ideogram.ai'
 
+// Map Ideogram aspect ratio strings to OpenAI size keys
+const ASPECT_TO_SIZE_KEY: Record<string, string> = {
+  ASPECT_16_9: 'landscape_16_9',
+  ASPECT_1_1:  'square_hd',
+  ASPECT_4_3:  'landscape_4_3',
+  ASPECT_3_4:  'portrait_4_3',
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { concepts, aspectRatio = 'ASPECT_16_9' } = await request.json()
+    const { concepts, aspectRatio = 'ASPECT_16_9', provider = 'openai' as ImageProvider } = await request.json()
+
+    if (provider === 'openai') {
+      const sizeKey = ASPECT_TO_SIZE_KEY[aspectRatio] || 'landscape_16_9'
+
+      const results = await Promise.allSettled(
+        concepts.map(async (concept: { ideogram_prompt: string }) => {
+          const imgBuffer = await generateWithOpenAI(concept.ideogram_prompt, sizeKey)
+          // Convert buffer to data URL so it can be used directly in <img> tags
+          const b64 = imgBuffer.toString('base64')
+          return `data:image/png;base64,${b64}`
+        })
+      )
+
+      const imageUrls = results.map((r, i) => {
+        if (r.status === 'fulfilled') return r.value
+        console.error(`Concept ${i} failed:`, (r as PromiseRejectedResult).reason)
+        return null
+      })
+
+      if (imageUrls.every(u => u === null)) {
+        throw new Error('All concept generations failed')
+      }
+
+      return NextResponse.json({ success: true, imageUrls })
+    }
+
+    // Legacy Ideogram path
     const apiKey = process.env.IDEOGRAM_API_KEY
     if (!apiKey) throw new Error('IDEOGRAM_API_KEY not configured')
 

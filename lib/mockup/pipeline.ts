@@ -48,6 +48,42 @@ async function pollReplicate(predictionId: string, timeoutMs = 120000): Promise<
   throw new Error(`Replicate timeout after ${timeoutMs / 1000}s`)
 }
 
+// ── Image provider type ─────────────────────────────────────────────────────
+export type ImageProvider = 'openai' | 'ideogram'
+
+// ── OpenAI gpt-image-1 ─────────────────────────────────────────────────────
+const OPENAI_SIZE_MAP: Record<string, string> = {
+  landscape_16_9: '1536x1024',
+  square_hd:      '1024x1024',
+  portrait_4_3:   '1024x1536',
+  landscape_4_3:  '1536x1024',
+  banner_3_1:     '1536x1024',
+  door_hanger:    '1024x1536',
+}
+
+export async function generateWithOpenAI(prompt: string, sizeKey: string): Promise<Buffer> {
+  const token = process.env.OPENAI_API_KEY
+  if (!token) throw new Error('OPENAI_API_KEY not set')
+  const size = OPENAI_SIZE_MAP[sizeKey] || '1536x1024'
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      prompt,
+      n: 1,
+      size,
+      quality: 'high',
+      output_format: 'png',
+    }),
+  })
+  if (!res.ok) throw new Error(`OpenAI image gen failed: ${await res.text()}`)
+  const data = await res.json()
+  const b64 = data.data?.[0]?.b64_json
+  if (!b64) throw new Error('No image data from OpenAI')
+  return Buffer.from(b64, 'base64')
+}
+
 function escapeXml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -232,8 +268,8 @@ const IDEOGRAM_ASPECT_MAP: Record<string, string> = {
 }
 
 /**
- * Generate a vehicle wrap concept using Ideogram V2 (text-aware).
- * Unlike generateArtwork (Recraft), this renders the vehicle + text in one shot.
+ * Generate a vehicle wrap concept using the selected image provider.
+ * Supports OpenAI gpt-image-1, xAI Aurora, and Ideogram V2 (legacy).
  */
 export async function generateWrapConcept(params: {
   mockup_id: string
@@ -241,54 +277,68 @@ export async function generateWrapConcept(params: {
   org_id: string
   size_key?: string
   slot?: 'a' | 'b' | 'c' | 'd' | 'e' | 'f'
+  provider?: ImageProvider
 }): Promise<{ artwork_url: string }> {
-  const { mockup_id, prompt, org_id: orgId, size_key = 'landscape_16_9', slot } = params
+  const {
+    mockup_id,
+    prompt,
+    org_id: orgId,
+    size_key = 'landscape_16_9',
+    slot,
+    provider = (process.env.IMAGE_PROVIDER as ImageProvider) || 'openai',
+  } = params
   const admin = getSupabaseAdmin()
-  const token = process.env.REPLICATE_API_TOKEN
 
-  if (!token) {
-    await logHealth(orgId, 'generate-concept', 'REPLICATE_API_TOKEN not set')
-    throw new Error('Replicate not configured')
-  }
+  let imgBuffer: Buffer
 
-  const aspectRatio = IDEOGRAM_ASPECT_MAP[size_key] || '16:9'
+  if (provider === 'openai') {
+    imgBuffer = await generateWithOpenAI(prompt, size_key)
+  } else {
+    // Legacy Ideogram V2 via Replicate
+    const token = process.env.REPLICATE_API_TOKEN
+    if (!token) {
+      await logHealth(orgId, 'generate-concept', 'REPLICATE_API_TOKEN not set')
+      throw new Error('Replicate not configured')
+    }
 
-  const createRes = await fetch(`${REPLICATE_API}/models/ideogram-ai/ideogram-v2/predictions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      Prefer: 'wait',
-    },
-    body: JSON.stringify({
-      input: {
-        prompt,
-        aspect_ratio: aspectRatio,
-        style_type: 'DESIGN',
-        magic_prompt_option: 'ON',
-        negative_prompt: 'blurry, distorted text, misspelled words, low quality, watermark, signature, cropped vehicle, interior view, cartoon',
+    const aspectRatio = IDEOGRAM_ASPECT_MAP[size_key] || '16:9'
+
+    const createRes = await fetch(`${REPLICATE_API}/models/ideogram-ai/ideogram-v2/predictions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'wait',
       },
-    }),
-  })
+      body: JSON.stringify({
+        input: {
+          prompt,
+          aspect_ratio: aspectRatio,
+          style_type: 'DESIGN',
+          magic_prompt_option: 'ON',
+          negative_prompt: 'blurry, distorted text, misspelled words, low quality, watermark, signature, cropped vehicle, interior view, cartoon',
+        },
+      }),
+    })
 
-  if (!createRes.ok) {
-    const err = await createRes.text()
-    throw new Error(`Ideogram V2 API failed: ${err}`)
+    if (!createRes.ok) {
+      const err = await createRes.text()
+      throw new Error(`Ideogram V2 API failed: ${err}`)
+    }
+
+    let prediction = await createRes.json()
+    if (prediction.status !== 'succeeded') {
+      const output = await pollReplicate(prediction.id, 120000)
+      prediction = { ...prediction, output }
+    }
+
+    const rawUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+    if (!rawUrl) throw new Error('No image URL returned from Ideogram V2')
+
+    const imgRes = await fetch(rawUrl)
+    if (!imgRes.ok) throw new Error('Failed to download image from Ideogram')
+    imgBuffer = Buffer.from(await imgRes.arrayBuffer())
   }
-
-  let prediction = await createRes.json()
-  if (prediction.status !== 'succeeded') {
-    const output = await pollReplicate(prediction.id, 120000)
-    prediction = { ...prediction, output }
-  }
-
-  const rawUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
-  if (!rawUrl) throw new Error('No image URL returned from Ideogram V2')
-
-  // Download and upload to Supabase Storage
-  const imgRes = await fetch(rawUrl)
-  if (!imgRes.ok) throw new Error('Failed to download image from Ideogram')
-  const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
 
   const slotSuffix = slot ? `-${slot}` : ''
   const storagePath = `${mockup_id}/concept${slotSuffix}.png`
