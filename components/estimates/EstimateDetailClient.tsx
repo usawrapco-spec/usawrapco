@@ -3420,6 +3420,49 @@ function VehicleInfoBlock({
 // LINE ITEM CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** Build a rich auto-description from line item specs for customer-facing display */
+function buildAutoDescription(item: LineItem): string {
+  const s = item.specs as LineItemSpecs
+  const parts: string[] = []
+
+  // Vehicle info
+  const vehicle = [s.vehicleYear, s.vehicleMake, s.vehicleModel].filter(Boolean).join(' ')
+  if (vehicle) parts.push(vehicle)
+
+  // Vehicle color
+  if (s.vehicleColor) parts.push(s.vehicleColor)
+
+  // Wrap / coverage type
+  const wt = (s.wrapType as string) || ''
+  if (wt) parts.push(wt)
+
+  // Material / vinyl
+  const vinyl = (s.vinylType as string) || ''
+  if (vinyl) parts.push(vinyl)
+
+  // Laminate
+  if (s.laminate) parts.push(`Lam: ${s.laminate}`)
+
+  // Window perf
+  if (s.windowPerf) parts.push('+ Window Perf')
+
+  // Square footage
+  if (s.vinylArea && (s.vinylArea as number) > 0) parts.push(`${s.vinylArea} sqft`)
+
+  // Product-specific extras
+  const plt = (s.productLineType as string) || ''
+  if (plt === 'box_truck' || plt === 'trailer') {
+    const sides = (s.selectedSides as string[]) || []
+    if (sides.length > 0) parts.push(`Sides: ${sides.join(', ')}`)
+    if ((s as Record<string, unknown>).cabAddOn) parts.push('+ Cab Wrap')
+  }
+  if (plt === 'marine') {
+    if ((s as Record<string, unknown>).includeTransom) parts.push('+ Transom')
+  }
+
+  return parts.join(' — ')
+}
+
 function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
   expandedSections, onToggleSection, leadType, team,
@@ -3443,7 +3486,7 @@ function LineItemCard({
   const latestRef = useRef(item)
   latestRef.current = item
 
-  const [showDescription, setShowDescription] = useState(!!item.description)
+  const [showDescription, setShowDescription] = useState(true)
   const [isCardExpanded, setIsCardExpanded] = useState(false)
   const [showPhotoInspection, setShowPhotoInspection] = useState(false)
 
@@ -3457,6 +3500,11 @@ function LineItemCard({
 
   function updateSpec(key: string, value: unknown) {
     const updated = { ...latestRef.current, specs: { ...latestRef.current.specs, [key]: value } }
+    // Re-generate description when description-relevant specs change
+    const descKeys = ['vehicleYear', 'vehicleMake', 'vehicleModel', 'vehicleColor', 'wrapType', 'vinylType', 'laminate', 'windowPerf', 'vinylArea', 'selectedSides', 'cabAddOn', 'includeTransom']
+    if (descKeys.includes(key)) {
+      updated.description = buildAutoDescription(updated)
+    }
     onChange(updated)
   }
 
@@ -3481,13 +3529,16 @@ function LineItemCard({
 
   function handleCalcChange(out: CalcOutput) {
     const current = latestRef.current
+    const mergedSpecs = { ...current.specs, ...out.specs } as LineItemSpecs
     const updated: LineItem = {
       ...current,
       name: out.name || current.name,
       unit_price: out.unit_price,
       total_price: (current.quantity * out.unit_price) - current.unit_discount,
-      specs: { ...current.specs, ...out.specs } as LineItemSpecs,
+      specs: mergedSpecs,
     }
+    // Auto-generate description from specs (user can still override manually)
+    updated.description = buildAutoDescription(updated)
     onChange(updated)
     onBlurSave(updated)
   }
@@ -3589,32 +3640,28 @@ function LineItemCard({
         }}>
           {ptc.label}
         </span>
-        {/* Product name */}
-        <span style={{
-          fontSize: isRolledUp ? 12 : 13, fontWeight: 700, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
-          minWidth: 0, flexShrink: 1,
-        }}>
-          {item.name || 'Untitled Item'}
-        </span>
+        {/* Product name + description */}
+        <div style={{ minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
+          <span style={{
+            fontSize: isRolledUp ? 12 : 13, fontWeight: 700, color: isRolledUp ? 'var(--text3)' : 'var(--text1)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+            display: 'block',
+          }}>
+            {item.name || 'Untitled Item'}
+          </span>
+          {!isCardExpanded && item.description && (
+            <span style={{
+              fontSize: 10, color: 'var(--text3)', lineHeight: 1.3,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+              display: 'block', maxWidth: '100%',
+            }}>
+              {item.description}
+            </span>
+          )}
+        </div>
         {/* Collapsed summary chips */}
         {!isCardExpanded && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
-            {vehicleDesc && (
-              <span style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap' as const }}>
-                {vehicleDesc}
-              </span>
-            )}
-            {Boolean(specs.wrapType || specs.trailerCoverage) && (
-              <span style={{ fontSize: 10, color: 'var(--text2)', background: 'rgba(90,96,128,0.1)', padding: '1px 6px', borderRadius: 3, whiteSpace: 'nowrap' as const }}>
-                {(specs.wrapType as string) || ((specs.trailerCoverage as string) || '').replace('_', ' ')}
-              </span>
-            )}
-            {(specs.vinylArea as number) > 0 && (
-              <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: monoFont, whiteSpace: 'nowrap' as const }}>
-                {specs.vinylArea}sqft
-              </span>
-            )}
             {(specs.estimatedHours as number) > 0 && (
               <span style={{ fontSize: 10, color: 'var(--text2)', fontFamily: monoFont, whiteSpace: 'nowrap' as const }}>
                 {specs.estimatedHours}h
@@ -3754,6 +3801,7 @@ function LineItemCard({
                     newSpecs.estimatedHours = v.installHours
                   }
                   updated.specs = newSpecs
+                  updated.description = buildAutoDescription(updated)
                   onChange(updated)
                 }}
               />
