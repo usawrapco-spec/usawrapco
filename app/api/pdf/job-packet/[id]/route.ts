@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
-
-export const maxDuration = 60
-export const runtime = 'nodejs'
 import {
   Document, Page, Text, View, StyleSheet, Font, Image, renderToBuffer,
 } from '@react-pdf/renderer'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { BRAND, PDF_COLORS, formatCurrency, formatDate } from '@/lib/pdf/brand'
 import { getPdfLogoSrc } from '@/lib/pdf/logo'
+
+export const maxDuration = 60
+export const runtime = 'nodejs'
+
 
 Font.register({
   family: 'Inter',
