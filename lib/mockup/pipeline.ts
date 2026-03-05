@@ -140,7 +140,7 @@ export async function generateArtwork(params: {
   org_id: string
   style?: 'digital_illustration' | 'vector_illustration' | 'realistic_image'
   size_key?: keyof typeof RECRAFT_SIZE_MAP
-  slot?: 'a' | 'b' | 'c'  // which concept slot (a/b/c), defaults to single
+  slot?: 'a' | 'b' | 'c' | 'd' | 'e' | 'f'  // which concept slot, defaults to single
 }): Promise<{ artwork_url: string }> {
   const {
     mockup_id,
@@ -211,6 +211,98 @@ export async function generateArtwork(params: {
 
   // Update DB — store in flat_design_url or concept_X_url depending on slot
   const dbPatch: Record<string, unknown> = { current_step: 2, step_name: 'Artwork generated' }
+  if (!slot || slot === 'a') dbPatch.flat_design_url = storedUrl
+  if (slot === 'a') dbPatch.concept_a_url = storedUrl
+  if (slot === 'b') dbPatch.concept_b_url = storedUrl
+  if (slot === 'c') dbPatch.concept_c_url = storedUrl
+
+  await admin.from('mockup_results').update(dbPatch).eq('id', mockup_id)
+
+  return { artwork_url: storedUrl }
+}
+
+// ── Ideogram V2 size mapping (aspect ratios) ────────────────────────────────
+const IDEOGRAM_ASPECT_MAP: Record<string, string> = {
+  landscape_16_9: '16:9',
+  square_hd:      '1:1',
+  portrait_4_3:   '3:4',
+  landscape_4_3:  '4:3',
+  banner_3_1:     '3:1',
+  door_hanger:    '9:16',
+}
+
+/**
+ * Generate a vehicle wrap concept using Ideogram V2 (text-aware).
+ * Unlike generateArtwork (Recraft), this renders the vehicle + text in one shot.
+ */
+export async function generateWrapConcept(params: {
+  mockup_id: string
+  prompt: string
+  org_id: string
+  size_key?: string
+  slot?: 'a' | 'b' | 'c' | 'd' | 'e' | 'f'
+}): Promise<{ artwork_url: string }> {
+  const { mockup_id, prompt, org_id: orgId, size_key = 'landscape_16_9', slot } = params
+  const admin = getSupabaseAdmin()
+  const token = process.env.REPLICATE_API_TOKEN
+
+  if (!token) {
+    await logHealth(orgId, 'generate-concept', 'REPLICATE_API_TOKEN not set')
+    throw new Error('Replicate not configured')
+  }
+
+  const aspectRatio = IDEOGRAM_ASPECT_MAP[size_key] || '16:9'
+
+  const createRes = await fetch(`${REPLICATE_API}/models/ideogram-ai/ideogram-v2/predictions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'wait',
+    },
+    body: JSON.stringify({
+      input: {
+        prompt,
+        aspect_ratio: aspectRatio,
+        style_type: 'DESIGN',
+        magic_prompt_option: 'ON',
+        negative_prompt: 'blurry, distorted text, misspelled words, low quality, watermark, signature, cropped vehicle, interior view, cartoon',
+      },
+    }),
+  })
+
+  if (!createRes.ok) {
+    const err = await createRes.text()
+    throw new Error(`Ideogram V2 API failed: ${err}`)
+  }
+
+  let prediction = await createRes.json()
+  if (prediction.status !== 'succeeded') {
+    const output = await pollReplicate(prediction.id, 120000)
+    prediction = { ...prediction, output }
+  }
+
+  const rawUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+  if (!rawUrl) throw new Error('No image URL returned from Ideogram V2')
+
+  // Download and upload to Supabase Storage
+  const imgRes = await fetch(rawUrl)
+  if (!imgRes.ok) throw new Error('Failed to download image from Ideogram')
+  const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
+
+  const slotSuffix = slot ? `-${slot}` : ''
+  const storagePath = `${mockup_id}/concept${slotSuffix}.png`
+  const { error: upErr } = await admin.storage
+    .from('mockup-results')
+    .upload(storagePath, imgBuffer, { contentType: 'image/png', upsert: true })
+
+  if (upErr) throw new Error(`Storage upload failed: ${upErr.message}`)
+
+  const { data: urlData } = admin.storage.from('mockup-results').getPublicUrl(storagePath)
+  const storedUrl = urlData.publicUrl
+
+  // Update DB
+  const dbPatch: Record<string, unknown> = { current_step: 2, step_name: 'Concept generated' }
   if (!slot || slot === 'a') dbPatch.flat_design_url = storedUrl
   if (slot === 'a') dbPatch.concept_a_url = storedUrl
   if (slot === 'b') dbPatch.concept_b_url = storedUrl
@@ -376,8 +468,8 @@ export async function polishMockup(params: {
       body: JSON.stringify({
         input: {
           image: composited_url,
-          prompt: 'photorealistic commercial vehicle wrap, professional vehicle graphics, studio photography lighting, sharp details, premium vinyl finish, high quality photograph',
-          prompt_strength: 0.12,
+          prompt: 'enhance image quality, sharper details, better lighting, professional photography, keep all text exactly as shown, preserve all words and numbers',
+          prompt_strength: 0.08,
           aspect_ratio: '16:9',
           output_format: 'png',
           output_quality: 95,

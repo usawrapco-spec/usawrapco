@@ -985,7 +985,18 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
 
           {/* ═══ QUOTING TAB ═══ */}
           {tab === 'quoting' && (
-            <LineItemsEngine projectId={project.id} orgId={project.org_id} />
+            <LineItemsEngine
+              projectId={project.id}
+              orgId={project.org_id}
+              synopsis={{
+                client: f.client,
+                vehicle: [f.vehicleYear, f.vehicleMake, f.vehicleModel].filter(Boolean).join(' ') || f.vehicle,
+                vehicleColor: f.vehicleColor,
+                wrapDetail,
+                jobType,
+                notes: f.salesNotes,
+              }}
+            />
           )}
 
           {/* ═══ DESIGN TAB ═══ */}

@@ -12,10 +12,13 @@ import { calcLineItem, calcTotals } from '@/lib/estimator/pricing'
 import LineItemCard from './LineItemCard'
 import TotalsSidebar from './TotalsSidebar'
 import ProposalBuilder from './ProposalBuilder'
+import JobSynopsis from './JobSynopsis'
+import type { SynopsisData } from './JobSynopsis'
 
 interface LineItemsEngineProps {
   projectId: string
   orgId: string
+  synopsis?: SynopsisData
 }
 
 const fM = (n: number) =>
@@ -53,7 +56,7 @@ function createDefaultItem(): LineItemState {
   }
 }
 
-export default function LineItemsEngine({ projectId, orgId }: LineItemsEngineProps) {
+export default function LineItemsEngine({ projectId, orgId, synopsis }: LineItemsEngineProps) {
   const supabase = createClient()
   const router = useRouter()
   const [items, setItems] = useState<LineItemState[]>([createDefaultItem()])
@@ -387,6 +390,9 @@ export default function LineItemsEngine({ projectId, orgId }: LineItemsEnginePro
                 <Plus size={18} />
                 Add Line Item
               </button>
+
+              {/* Job Synopsis */}
+              <JobSynopsis items={itemsWithCalc} synopsis={synopsis} />
             </>
           ) : (
             <ProposalBuilder

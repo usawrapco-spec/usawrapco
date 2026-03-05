@@ -63,10 +63,23 @@ export default async function EditProjectPage({ params }: { params: { id: string
             />
           }
           lineItemsEngine={
-            <LineItemsEngine
-              projectId={params.id}
-              orgId={profile.org_id}
-            />
+            (() => {
+              const fd = ((project as any).form_data || {}) as Record<string, any>
+              return (
+                <LineItemsEngine
+                  projectId={params.id}
+                  orgId={profile.org_id}
+                  synopsis={{
+                    client: fd.client || (project as any).title,
+                    vehicle: [fd.vehicleYear, fd.vehicleMake, fd.vehicleModel].filter(Boolean).join(' ') || fd.vehicle || (project as any).vehicle_desc,
+                    vehicleColor: fd.vehicleColor,
+                    wrapDetail: fd.wrapDetail,
+                    jobType: fd.jobType,
+                    notes: fd.salesNotes,
+                  }}
+                />
+              )
+            })()
           }
         />
       </main>

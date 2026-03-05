@@ -8,6 +8,7 @@ import {
   Sparkles, ImageIcon, Download, RefreshCw, ZoomIn, ZoomOut,
   Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe, Pencil,
   LayoutGrid, RectangleHorizontal, Square, Wind,
+  ThumbsUp, ThumbsDown, Calendar, Video, MapPin,
 } from 'lucide-react'
 import MockupEditor from '@/components/mockup/MockupEditor'
 
@@ -51,7 +52,7 @@ const BODY_TYPES = [
   { id: 'pickup',    label: 'Pickup Truck',      sub: 'Full-size, Mid-size',        Icon: Truck },
   { id: 'van',       label: 'Cargo Van',         sub: 'Transit, ProMaster, NV',     Icon: Bus   },
   { id: 'sprinter',  label: 'Sprinter / Hi-Roof',sub: 'High-roof, Extended',        Icon: Bus   },
-  { id: 'box_truck', label: 'Box Truck',         sub: '14–26 ft box body',          Icon: Package },
+  { id: 'box_truck', label: 'Box Truck',         sub: '14-26 ft box body',          Icon: Package },
   { id: 'trailer',   label: 'Trailer',           sub: 'Semi, flatbed, enclosed',    Icon: Truck },
   { id: 'boat',      label: 'Boat / Marine',     sub: 'Hull, deck, console',        Icon: Anchor },
 ]
@@ -80,7 +81,6 @@ const STYLE_OPTIONS = [
   { value: 'clean_professional',label: 'Clean & Professional',   desc: 'Minimal, polished, corporate feel' },
   { value: 'luxury_premium',    label: 'Luxury Premium',         desc: 'Elegant, refined, premium materials' },
   { value: 'fun_playful',       label: 'Fun & Playful',          desc: 'Bright colors, friendly, approachable' },
-  { value: 'industrial_tough',  label: 'Industrial Tough',       desc: 'Rugged, heavy-duty, no-nonsense' },
 ]
 
 const BRAND_COLORS_PRESET = [
@@ -91,13 +91,6 @@ const BRAND_COLORS_PRESET = [
   '#e5e5e5', '#888888', '#333333', '#111111',
 ]
 
-const FONTS = [
-  { value: 'Impact',            label: 'Impact',          preview: 'IMPACT' },
-  { value: 'Bebas Neue',        label: 'Bebas Neue',      preview: 'BEBAS NEUE' },
-  { value: 'Oswald',            label: 'Oswald',          preview: 'OSWALD' },
-  { value: 'Montserrat',        label: 'Montserrat',      preview: 'MONTSERRAT' },
-]
-
 const COVERAGE_OPTIONS = [
   { id: 'full',          label: 'Full Wrap',    desc: '100% coverage' },
   { id: 'three_quarter', label: '3/4 Wrap',     desc: 'Sides + roof + hood' },
@@ -106,60 +99,49 @@ const COVERAGE_OPTIONS = [
 ]
 
 const SIGN_TYPES = [
-  { id: 'coroplast_18x24',   label: 'Yard Sign',         sub: '18" × 24"',    w: 18,  h: 24,  Icon: Square,              size_key: 'portrait_4_3' },
-  { id: 'coroplast_24x36',   label: 'Coroplast Sign',    sub: '24" × 36"',    w: 24,  h: 36,  Icon: Square,              size_key: 'portrait_4_3' },
-  { id: 'banner_2x4',        label: 'Banner 2×4',        sub: '2 ft × 4 ft',  w: 24,  h: 48,  Icon: RectangleHorizontal, size_key: 'portrait_4_3' },
-  { id: 'banner_3x8',        label: 'Banner 3×8',        sub: '3 ft × 8 ft',  w: 36,  h: 96,  Icon: RectangleHorizontal, size_key: 'banner_3_1'  },
-  { id: 'banner_4x8',        label: 'Banner 4×8',        sub: '4 ft × 8 ft',  w: 48,  h: 96,  Icon: RectangleHorizontal, size_key: 'banner_3_1'  },
-  { id: 'a_frame_24x36',     label: 'A-Frame Sign',      sub: '24" × 36"',    w: 24,  h: 36,  Icon: LayoutGrid,          size_key: 'portrait_4_3' },
-  { id: 'door_magnet_12x18', label: 'Car Door Magnet',   sub: '12" × 18"',    w: 12,  h: 18,  Icon: Car,                 size_key: 'portrait_4_3' },
-  { id: 'window_cling_sq',   label: 'Window Graphic',    sub: '12" × 12"',    w: 12,  h: 12,  Icon: Wind,                size_key: 'square_hd'   },
+  { id: 'coroplast_18x24',   label: 'Yard Sign',         sub: '18" x 24"',    w: 18,  h: 24,  Icon: Square,              size_key: 'portrait_4_3' },
+  { id: 'coroplast_24x36',   label: 'Coroplast Sign',    sub: '24" x 36"',    w: 24,  h: 36,  Icon: Square,              size_key: 'portrait_4_3' },
+  { id: 'banner_2x4',        label: 'Banner 2x4',        sub: '2 ft x 4 ft',  w: 24,  h: 48,  Icon: RectangleHorizontal, size_key: 'portrait_4_3' },
+  { id: 'banner_3x8',        label: 'Banner 3x8',        sub: '3 ft x 8 ft',  w: 36,  h: 96,  Icon: RectangleHorizontal, size_key: 'banner_3_1'  },
+  { id: 'banner_4x8',        label: 'Banner 4x8',        sub: '4 ft x 8 ft',  w: 48,  h: 96,  Icon: RectangleHorizontal, size_key: 'banner_3_1'  },
+  { id: 'a_frame_24x36',     label: 'A-Frame Sign',      sub: '24" x 36"',    w: 24,  h: 36,  Icon: LayoutGrid,          size_key: 'portrait_4_3' },
+  { id: 'door_magnet_12x18', label: 'Car Door Magnet',   sub: '12" x 18"',    w: 12,  h: 18,  Icon: Car,                 size_key: 'portrait_4_3' },
+  { id: 'window_cling_sq',   label: 'Window Graphic',    sub: '12" x 12"',    w: 12,  h: 12,  Icon: Wind,                size_key: 'square_hd'   },
 ]
 
 const PIPELINE_STEPS_GENERATE = [
-  { key: 'brand',    label: 'Analyzing brand…' },
-  { key: 'concepts', label: 'Generating 3 concepts (Recraft V3)…' },
-  { key: 'done',     label: 'Pick your favorite concept!' },
+  { key: 'brand',    label: 'Analyzing brand...' },
+  { key: 'concepts', label: 'Creating design concepts...' },
+  { key: 'done',     label: 'Almost ready...' },
 ]
 
 const PIPELINE_STEPS_FINALIZE = [
-  { key: 'polish',  label: 'Refining selected concept…' },
-  { key: 'render',  label: 'Rendering on vehicle (AI preview)…' },
-  { key: 'text',    label: 'Adding your information…' },
-  { key: 'done',    label: 'Ready!' },
+  { key: 'polish',  label: 'Processing...' },
+  { key: 'done',    label: 'Almost ready...' },
 ]
 
 const APPROVE_STEPS = [
-  { key: 'upscale', label: 'Upscaling to print resolution…' },
-  { key: 'pdf',     label: 'Creating print-ready PDF…' },
-  { key: 'done',    label: 'Print files ready!' },
+  { key: 'process', label: 'Processing...' },
+  { key: 'done',    label: 'Almost ready...' },
 ]
 
 const WRAP_STEPS = [
   { id: 1, label: 'Vehicle Type' },
   { id: 2, label: 'Your Vehicle' },
-  { id: 3, label: 'Brand' },
-  { id: 4, label: 'Generate' },
-  { id: 5, label: 'Pick Concept' },
-  { id: 6, label: 'Result' },
-]
-
-const SIGN_STEPS = [
-  { id: 1, label: 'Sign Type' },
-  { id: 2, label: 'Brand' },
-  { id: 3, label: 'Generate' },
+  { id: 3, label: 'Brand & Generate' },
   { id: 4, label: 'Pick Concept' },
   { id: 5, label: 'Result' },
 ]
 
-// Legacy alias — kept for code that references STEPS
-const STEPS = [
-  { id: 1, label: 'Vehicle Type' },
-  { id: 2, label: 'Your Vehicle' },
-  { id: 3, label: 'Brand' },
-  { id: 4, label: 'Generate' },
-  { id: 5, label: 'Result' },
+const SIGN_STEPS = [
+  { id: 1, label: 'Sign Type' },
+  { id: 2, label: 'Brand & Generate' },
+  { id: 3, label: 'Pick Concept' },
+  { id: 4, label: 'Result' },
 ]
+
+// Legacy alias
+const STEPS = WRAP_STEPS
 
 function bodyTypeToRenderCategory(bodyType: string): string {
   if (bodyType === 'box_truck') return 'box_truck'
@@ -204,17 +186,19 @@ export default function MockupGeneratorPage() {
   const [signType, setSignType] = useState('')
 
   // Concept picker
-  const [conceptA, setConceptA] = useState<string | null>(null)
-  const [conceptB, setConceptB] = useState<string | null>(null)
-  const [conceptC, setConceptC] = useState<string | null>(null)
-  const [selectedConcept, setSelectedConcept] = useState<'a' | 'b' | 'c'>('a')
+  const [concepts, setConcepts] = useState<Record<string, string | null>>({ a: null, b: null, c: null, d: null, e: null, f: null })
+  const [selectedConcept, setSelectedConcept] = useState<string>('a')
   const [finalizing, setFinalizing] = useState(false)
   const [finalizeStep, setFinalizeStep] = useState(0)
+  const [conceptFeedback, setConceptFeedback] = useState('')
+  const [showFeedbackFor, setShowFeedbackFor] = useState<string | null>(null)
+  const [conceptVotes, setConceptVotes] = useState<Record<string, 'up' | 'down' | null>>({ a: null, b: null, c: null, d: null, e: null, f: null })
+  const [expandedImage, setExpandedImage] = useState<string | null>(null)
 
-  // Step 1 — Body Type
+  // Step 1 - Body Type
   const [bodyType, setBodyType] = useState('')
 
-  // Step 2 — Vehicle
+  // Step 2 - Vehicle
   const [selectedYear, setSelectedYear] = useState('')
   const [selectedMake, setSelectedMake] = useState('')
   const [selectedModel, setSelectedModel] = useState('')
@@ -232,7 +216,7 @@ export default function MockupGeneratorPage() {
   const [estimatedSqft, setEstimatedSqft] = useState<number | null>(null)
   const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null)
 
-  // Step 3 — Brand
+  // Step 3 - Brand
   const [websiteScrapeUrl, setWebsiteScrapeUrl] = useState('')
   const [scraping, setScraping] = useState(false)
   const [scrapeError, setScrapeError] = useState<string | null>(null)
@@ -248,17 +232,15 @@ export default function MockupGeneratorPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoNoBg, setLogoNoBg] = useState<string | null>(null)
   const [scrapedLogoUrl, setScrapedLogoUrl] = useState<string | null>(null)
-  const [styleNotes, setStyleNotes] = useState('')
-  const [fontChoice, setFontChoice] = useState('Impact')
   const logoRef = useRef<HTMLInputElement>(null)
 
-  // Step 4 — Generating
+  // Step 4 - Generating
   const [mockupId, setMockupId] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [pipelineStep, setPipelineStep] = useState(0)
   const [genError, setGenError] = useState<string | null>(null)
 
-  // Step 5 — Result
+  // Step 5 - Result
   const [mockupStatus, setMockupStatus] = useState<MockupStatus | null>(null)
   const [renderUrl, setRenderUrl] = useState<string | null>(null)
   const [showFlat, setShowFlat] = useState(false)
@@ -268,6 +250,9 @@ export default function MockupGeneratorPage() {
   const [approveError, setApproveError] = useState<string | null>(null)
   const [printUrl, setPrintUrl] = useState<string | null>(null)
   const [zoomed, setZoomed] = useState(false)
+
+  // Booking step
+  const [bookingType, setBookingType] = useState<'zoom' | 'inshop' | null>(null)
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -279,7 +264,7 @@ export default function MockupGeneratorPage() {
     }
   }, [])
 
-  // ── YMM cascade: Year → Makes ──────────────────────────────────────────────
+  // ── YMM cascade: Year -> Makes ──────────────────────────────────────────────
   useEffect(() => {
     if (!selectedYear) { setMakes([]); setSelectedMake(''); setSelectedModel(''); return }
     setLoadingMakes(true)
@@ -293,7 +278,7 @@ export default function MockupGeneratorPage() {
       .finally(() => setLoadingMakes(false))
   }, [selectedYear])
 
-  // ── YMM cascade: Make → Models ─────────────────────────────────────────────
+  // ── YMM cascade: Make -> Models ─────────────────────────────────────────────
   useEffect(() => {
     if (!selectedYear || !selectedMake) { setModelOptions([]); setSelectedModel(''); return }
     setLoadingModels(true)
@@ -307,7 +292,7 @@ export default function MockupGeneratorPage() {
       .finally(() => setLoadingModels(false))
   }, [selectedYear, selectedMake])
 
-  // ── YMM cascade: Model → Full Measurement ──────────────────────────────────
+  // ── YMM cascade: Model -> Full Measurement ──────────────────────────────────
   useEffect(() => {
     if (!selectedYear || !selectedMake || !selectedModel) return
     fetch(`/api/vehicles/lookup?year=${selectedYear}&make=${encodeURIComponent(selectedMake)}&model=${encodeURIComponent(selectedModel)}`)
@@ -490,7 +475,10 @@ export default function MockupGeneratorPage() {
     setPipelineStep(0)
     setMockupStatus(null)
     setRenderUrl(null)
-    setConceptA(null); setConceptB(null); setConceptC(null)
+    setConcepts({ a: null, b: null, c: null, d: null, e: null, f: null })
+    setConceptFeedback('')
+    setShowFeedbackFor(null)
+    setConceptVotes({ a: null, b: null, c: null })
 
     const signInfo = SIGN_TYPES.find(s => s.id === signType)
 
@@ -516,8 +504,7 @@ export default function MockupGeneratorPage() {
           logo_url: logoUrl,
           brand_colors: brandColors,
           industry,
-          style_notes: styleNotes || styleChoice,
-          font_choice: fontChoice,
+          style_notes: styleChoice,
         }),
       })
       const data = await res.json()
@@ -527,20 +514,25 @@ export default function MockupGeneratorPage() {
         return
       }
       setMockupId(data.mockup_id)
-      setConceptA(data.concept_a_url || null)
-      setConceptB(data.concept_b_url || null)
-      setConceptC(data.concept_c_url || null)
+      setConcepts({
+        a: data.concept_a_url || null,
+        b: data.concept_b_url || null,
+        c: data.concept_c_url || null,
+        d: data.concept_d_url || null,
+        e: data.concept_e_url || null,
+        f: data.concept_f_url || null,
+      })
       setPipelineStep(PIPELINE_STEPS_GENERATE.length - 1)
       setGenerating(false)
-      // Go to concept picker step
-      setStep(outputType === 'signage' ? 4 : 5)
+      // Go to concept picker step (wrap: 4, signage: 3)
+      setStep(outputType === 'signage' ? 3 : 4)
     } catch (err: unknown) {
       setGenError(err instanceof Error ? err.message : 'Generation failed')
       setGenerating(false)
     }
   }
 
-  async function handleFinalize(concept: 'a' | 'b' | 'c') {
+  async function handleFinalize(concept: string) {
     if (!mockupId) return
     setSelectedConcept(concept)
     setFinalizing(true)
@@ -552,7 +544,7 @@ export default function MockupGeneratorPage() {
       const res = await fetch('/api/mockup/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mockup_id: mockupId, selected_concept: concept }),
+        body: JSON.stringify({ mockup_id: mockupId, selected_concept: concept, feedback: conceptFeedback || undefined }),
       })
       clearInterval(timer)
       const data = await res.json()
@@ -578,7 +570,7 @@ export default function MockupGeneratorPage() {
       })
       setFinalizeStep(PIPELINE_STEPS_FINALIZE.length - 1)
       setFinalizing(false)
-      setStep(outputType === 'signage' ? 5 : 6)
+      setStep(outputType === 'signage' ? 4 : 5)
     } catch (err: unknown) {
       setGenError(err instanceof Error ? err.message : 'Finalization failed')
       setFinalizing(false)
@@ -646,16 +638,20 @@ export default function MockupGeneratorPage() {
     setApproveError(null)
     setPipelineStep(0)
     setApproveStep(0)
-    setConceptA(null); setConceptB(null); setConceptC(null)
+    setConcepts({ a: null, b: null, c: null, d: null, e: null, f: null })
     setFinalizing(false); setFinalizeStep(0)
+    setConceptFeedback('')
+    setShowFeedbackFor(null)
+    setConceptVotes({ a: null, b: null, c: null })
+    setBookingType(null)
   }
 
   // ── Shared styles ──────────────────────────────────────────────────────────
   const inp: React.CSSProperties = {
-    width: '100%', padding: '10px 13px',
+    width: '100%', padding: '12px 16px',
     borderRadius: 8, border: '1px solid var(--border)',
     background: 'var(--surface2)', color: 'var(--text1)',
-    fontSize: 13, outline: 'none', boxSizing: 'border-box',
+    fontSize: 15, outline: 'none', boxSizing: 'border-box',
   }
   const sel: React.CSSProperties = { ...inp, appearance: 'none', cursor: 'pointer' }
 
@@ -664,25 +660,25 @@ export default function MockupGeneratorPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 0' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 16px' }}>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Wand2 size={22} style={{ color: 'var(--accent)' }} />
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Wand2 size={28} style={{ color: 'var(--accent)' }} />
             <h1 style={{
-              fontSize: 22, fontWeight: 800, color: 'var(--text1)',
+              fontSize: 28, fontWeight: 800, color: 'var(--text1)',
               fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase',
             }}>AI Mockup Generator</h1>
           </div>
           {/* Output type toggle */}
-          <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 10, padding: 3, border: '1px solid var(--border)', gap: 2 }}>
+          <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
             {(['wrap', 'signage'] as const).map(type => (
               <button
                 key={type}
                 onClick={() => { setOutputType(type); setStep(1); setSignType(''); setBodyType('') }}
                 style={{
-                  padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  padding: '8px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer',
                   background: outputType === type ? 'var(--accent)' : 'transparent',
                   color: outputType === type ? '#fff' : 'var(--text2)',
                 }}
@@ -692,7 +688,7 @@ export default function MockupGeneratorPage() {
             ))}
           </div>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>
+        <p style={{ fontSize: 15, color: 'var(--text3)', marginTop: 6 }}>
           {outputType === 'wrap'
             ? 'Select your vehicle, enter your brand info, and get 3 design concepts in minutes.'
             : 'Generate professional print-ready signs, banners, and door magnets.'}
@@ -700,7 +696,7 @@ export default function MockupGeneratorPage() {
       </div>
 
       {/* Step indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 36, overflowX: 'auto' }}>
         {(outputType === 'signage' ? SIGN_STEPS : WRAP_STEPS).map((s, i) => {
           const done = step > s.id
           const active = step === s.id
@@ -709,30 +705,30 @@ export default function MockupGeneratorPage() {
               <div
                 onClick={() => { if (done && !generating && !approving) setStep(s.id) }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '7px 14px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 18px', borderRadius: 10,
                   background: active ? 'rgba(79,127,255,0.12)' : 'transparent',
                   border: active ? '1px solid rgba(79,127,255,0.3)' : '1px solid transparent',
                   cursor: done ? 'pointer' : 'default',
                 }}
               >
                 <div style={{
-                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
                   background: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--surface2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {done
-                    ? <Check size={11} style={{ color: '#fff' }} />
-                    : <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#fff' : 'var(--text3)' }}>{s.id}</span>
+                    ? <Check size={13} style={{ color: '#fff' }} />
+                    : <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : 'var(--text3)' }}>{s.id}</span>
                   }
                 </div>
                 <span style={{
-                  fontSize: 11, fontWeight: 700,
+                  fontSize: 13, fontWeight: 700,
                   color: active ? 'var(--accent)' : done ? 'var(--green)' : 'var(--text3)',
                 }}>{s.label}</span>
               </div>
-              {i < STEPS.length - 1 && (
-                <ChevronRight size={12} style={{ color: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
+              {i < (outputType === 'signage' ? SIGN_STEPS : WRAP_STEPS).length - 1 && (
+                <ChevronRight size={14} style={{ color: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
               )}
             </div>
           )
@@ -741,31 +737,31 @@ export default function MockupGeneratorPage() {
 
       {/* ── STEP 1: Sign Type (signage mode) ──────────────────────────────────── */}
       {step === 1 && outputType === 'signage' && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>What type of sign?</h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 24 }}>Choose the format and size.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>What type of sign?</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>Choose the format and size.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14, marginBottom: 28 }}>
             {SIGN_TYPES.map(st => {
               const Icon = st.Icon
               const sel2 = signType === st.id
               return (
                 <div key={st.id} onClick={() => { setSignType(st.id); setTimeout(() => setStep(2), 100) }}
-                  style={{ padding: '16px 14px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
+                  style={{ padding: '20px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
                     border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
                     background: sel2 ? 'rgba(79,127,255,0.08)' : 'var(--surface2)', transition: 'all 0.15s' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: sel2 ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
-                    <Icon size={22} style={{ color: sel2 ? 'var(--accent)' : 'var(--text2)' }} />
+                  <div style={{ width: 52, height: 52, borderRadius: 12, background: sel2 ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                    <Icon size={26} style={{ color: sel2 ? 'var(--accent)' : 'var(--text2)' }} />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>{st.label}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)' }}>{st.sub}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{st.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{st.sub}</div>
                 </div>
               )
             })}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => setStep(2)} disabled={!signType}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 22px', borderRadius: 8, background: signType ? 'var(--accent)' : 'var(--surface2)', color: signType ? '#fff' : 'var(--text3)', fontSize: 13, fontWeight: 700, border: 'none', cursor: signType ? 'pointer' : 'not-allowed' }}>
-              Next: Brand Info <ChevronRight size={14} />
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 10, background: signType ? 'var(--accent)' : 'var(--surface2)', color: signType ? '#fff' : 'var(--text3)', fontSize: 15, fontWeight: 700, border: 'none', cursor: signType ? 'pointer' : 'not-allowed' }}>
+              Next: Brand Info <ChevronRight size={16} />
             </button>
           </div>
         </div>
@@ -773,15 +769,15 @@ export default function MockupGeneratorPage() {
 
       {/* ── STEP 1: Body Type (wrap mode) ─────────────────────────────────────── */}
       {step === 1 && outputType === 'wrap' && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>
             What type of vehicle are we wrapping?
           </h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 24 }}>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>
             Choose the category that best matches your vehicle.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
             {BODY_TYPES.map(bt => {
               const Icon = bt.Icon
               const sel2 = bodyType === bt.id
@@ -790,28 +786,29 @@ export default function MockupGeneratorPage() {
                   key={bt.id}
                   onClick={() => { setBodyType(bt.id); setTimeout(() => setStep(2), 120) }}
                   style={{
-                    padding: '20px 16px', borderRadius: 12, cursor: 'pointer',
+                    padding: '24px 20px', borderRadius: 14, cursor: 'pointer',
                     border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
                     background: sel2 ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
                     textAlign: 'center', transition: 'all 0.15s',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                    position: 'relative',
                   }}
                 >
                   <div style={{
-                    width: 52, height: 52, borderRadius: 12,
+                    width: 60, height: 60, borderRadius: 14,
                     background: sel2 ? 'rgba(79,127,255,0.15)' : 'var(--bg)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Icon size={26} style={{ color: sel2 ? 'var(--accent)' : 'var(--text2)' }} />
+                    <Icon size={30} style={{ color: sel2 ? 'var(--accent)' : 'var(--text2)' }} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>
                       {bt.label}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{bt.sub}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>{bt.sub}</div>
                   </div>
                   {sel2 && (
-                    <Check size={14} style={{ color: 'var(--accent)', position: 'absolute' as const, top: 10, right: 10 }} />
+                    <Check size={16} style={{ color: 'var(--accent)', position: 'absolute', top: 12, right: 12 }} />
                   )}
                 </div>
               )
@@ -822,27 +819,27 @@ export default function MockupGeneratorPage() {
 
       {/* ── STEP 2: Your Vehicle ──────────────────────────────────────────────── */}
       {step === 2 && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
             Select your vehicle
           </h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22 }}>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 26 }}>
             We use this to size the design correctly and calculate your quote.
           </p>
 
           {dbError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(242,90,90,0.08)', border: '1px solid rgba(242,90,90,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 18 }}>
-              <AlertTriangle size={15} style={{ color: 'var(--red)', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>Vehicle database error — use search below</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(242,90,90,0.08)', border: '1px solid rgba(242,90,90,0.3)', borderRadius: 12, padding: '12px 16px', marginBottom: 22 }}>
+              <AlertTriangle size={17} style={{ color: 'var(--red)', flexShrink: 0 }} />
+              <span style={{ fontSize: 14, color: 'var(--red)', fontWeight: 600 }}>Vehicle database error - use search below</span>
             </div>
           )}
 
           {/* Popular quick-picks */}
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
               Popular Vehicles
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {POPULAR_VEHICLES.map(v => {
                 const isActive = selectedMake === v.make && selectedModel === v.model
                 return (
@@ -850,7 +847,7 @@ export default function MockupGeneratorPage() {
                     key={v.label}
                     onClick={() => applyYMM(v.year, v.make, v.model)}
                     style={{
-                      padding: '6px 13px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                      padding: '8px 16px', borderRadius: 24, fontSize: 13, fontWeight: 500, cursor: 'pointer',
                       background: isActive ? 'rgba(79,127,255,0.12)' : 'var(--surface2)',
                       border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
                       color: isActive ? 'var(--accent)' : 'var(--text2)',
@@ -864,10 +861,10 @@ export default function MockupGeneratorPage() {
           </div>
 
           {/* YMM cascade */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
             {/* Year */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Year</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Year</label>
               <div style={{ position: 'relative' }}>
                 <select
                   value={selectedYear}
@@ -877,12 +874,12 @@ export default function MockupGeneratorPage() {
                   <option value="">Year</option>
                   {YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}
                 </select>
-                <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
               </div>
             </div>
             {/* Make */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Make</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Make</label>
               <div style={{ position: 'relative' }}>
                 <select
                   value={selectedMake}
@@ -890,15 +887,15 @@ export default function MockupGeneratorPage() {
                   disabled={!selectedYear || loadingMakes}
                   style={{ ...sel, opacity: (!selectedYear || loadingMakes) ? 0.45 : 1 }}
                 >
-                  <option value="">{loadingMakes ? 'Loading…' : 'Make'}</option>
+                  <option value="">{loadingMakes ? 'Loading...' : 'Make'}</option>
                   {makes.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
-                <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
               </div>
             </div>
             {/* Model */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Model</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Model</label>
               <div style={{ position: 'relative' }}>
                 <select
                   value={selectedModel}
@@ -906,39 +903,39 @@ export default function MockupGeneratorPage() {
                   disabled={!selectedMake || loadingModels}
                   style={{ ...sel, opacity: (!selectedMake || loadingModels) ? 0.45 : 1 }}
                 >
-                  <option value="">{loadingModels ? 'Loading…' : 'Model'}</option>
-                  {modelOptions.map(m => <option key={m.model} value={m.model}>{m.model}{m.sqft ? ` — ${m.sqft} sqft` : ''}</option>)}
+                  <option value="">{loadingModels ? 'Loading...' : 'Model'}</option>
+                  {modelOptions.map(m => <option key={m.model} value={m.model}>{m.model}{m.sqft ? ` - ${m.sqft} sqft` : ''}</option>)}
                 </select>
-                <ChevronDown size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
               </div>
             </div>
           </div>
 
           {/* OR search */}
-          <div style={{ position: 'relative', marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ position: 'relative', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-              <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>OR SEARCH</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 600 }}>OR SEARCH</span>
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
             <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
+              <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
               <input
-                style={{ ...inp, paddingLeft: 36 }}
-                placeholder="Search by make or model…"
+                style={{ ...inp, paddingLeft: 40 }}
+                placeholder="Search by make or model..."
                 value={vehicleSearch}
                 onChange={e => handleVehicleSearch(e.target.value)}
               />
-              {vehicleSearching && <Loader2 size={14} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--accent)' }} />}
+              {vehicleSearching && <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--accent)' }} />}
             </div>
             {vehicleResults.length > 0 && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, zIndex: 50, overflow: 'hidden', marginTop: 4 }}>
                 {vehicleResults.map((v, i) => (
                   <button key={i} onClick={() => selectVehicleFromSearch(v)}
-                    style={{ width: '100%', textAlign: 'left', padding: '10px 14px', background: 'transparent', border: 'none', color: 'var(--text1)', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--border)' }}>
+                    style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'transparent', border: 'none', color: 'var(--text1)', cursor: 'pointer', fontSize: 14, borderBottom: '1px solid var(--border)' }}>
                     <span style={{ fontWeight: 600 }}>{v.year_start} {v.make} {v.model}</span>
-                    {v.body_style && <span style={{ color: 'var(--text3)', marginLeft: 8, fontSize: 11 }}>{v.body_style}</span>}
-                    {v.full_wrap_sqft && <span style={{ color: 'var(--text3)', marginLeft: 6, fontSize: 11 }}>{v.full_wrap_sqft} sqft</span>}
+                    {v.body_style && <span style={{ color: 'var(--text3)', marginLeft: 10, fontSize: 12 }}>{v.body_style}</span>}
+                    {v.full_wrap_sqft && <span style={{ color: 'var(--text3)', marginLeft: 8, fontSize: 12 }}>{v.full_wrap_sqft} sqft</span>}
                   </button>
                 ))}
               </div>
@@ -947,36 +944,36 @@ export default function MockupGeneratorPage() {
 
           {/* Selected vehicle card */}
           {vehicleSelected && (
-            <div style={{ background: 'rgba(34,192,122,0.05)', border: '1px solid rgba(34,192,122,0.25)', borderRadius: 12, padding: 18, marginBottom: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <div style={{ background: 'rgba(34,192,122,0.05)', border: '1px solid rgba(34,192,122,0.25)', borderRadius: 14, padding: 22, marginBottom: 22 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text1)' }}>{selectedYear} {selectedMake} {selectedModel}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                  <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text1)' }}>{selectedYear} {selectedMake} {selectedModel}</div>
+                  <div style={{ fontSize: 14, color: 'var(--text3)', marginTop: 3 }}>
                     {vehicleMeasurement?.body_style || bodyType || 'Vehicle'}
                     {estimatedSqft ? ` · ${estimatedSqft} sqft` : ''}
                   </div>
                 </div>
                 {estimatedPrice && (
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
                       ${estimatedPrice.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>est. full wrap</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>est. full wrap</div>
                   </div>
                 )}
               </div>
 
               {vehicleMeasurement && (vehicleMeasurement.hood_sqft || vehicleMeasurement.roof_sqft || vehicleMeasurement.side_sqft || vehicleMeasurement.back_sqft) ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
                   {[
                     { label: 'Hood',  val: vehicleMeasurement.hood_sqft },
                     { label: 'Roof',  val: vehicleMeasurement.roof_sqft },
                     { label: 'Sides', val: vehicleMeasurement.side_sqft },
                     { label: 'Back',  val: vehicleMeasurement.back_sqft },
                   ].map(p => p.val ? (
-                    <div key={p.label} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '7px 10px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>{p.val}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{p.label} sqft</div>
+                    <div key={p.label} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '9px 12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>{p.val}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{p.label} sqft</div>
                     </div>
                   ) : null)}
                 </div>
@@ -986,20 +983,20 @@ export default function MockupGeneratorPage() {
               {templateTier !== null && (
                 <div>
                   {templateTier === 1 && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)', borderRadius: 8, padding: '5px 10px', fontSize: 11 }}>
-                      <Check size={11} style={{ color: 'var(--green)' }} />
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                      <Check size={12} style={{ color: 'var(--green)' }} />
                       <span style={{ color: 'var(--green)', fontWeight: 600 }}>Exact template available</span>
                     </div>
                   )}
                   {templateTier === 2 && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '5px 10px', fontSize: 11 }}>
-                      <Zap size={11} style={{ color: 'var(--amber)' }} />
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                      <Zap size={12} style={{ color: 'var(--amber)' }} />
                       <span style={{ color: 'var(--amber)', fontWeight: 600 }}>Similar template available</span>
                     </div>
                   )}
                   {templateTier === 3 && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 8, padding: '5px 10px', fontSize: 11 }}>
-                      <Bot size={11} style={{ color: 'var(--accent)' }} />
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                      <Bot size={12} style={{ color: 'var(--accent)' }} />
                       <span style={{ color: 'var(--accent)', fontWeight: 600 }}>AI-rendered mockup</span>
                     </div>
                   )}
@@ -1008,71 +1005,46 @@ export default function MockupGeneratorPage() {
             </div>
           )}
 
-          {/* Coverage selector */}
-          {vehicleSelected && (
-            <div style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                Wrap Coverage
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {COVERAGE_OPTIONS.map(c => (
-                  <div
-                    key={c.id}
-                    onClick={() => setCoverage(c.id)}
-                    style={{
-                      padding: '10px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'center',
-                      border: coverage === c.id ? '2px solid var(--accent)' : '1px solid var(--border)',
-                      background: coverage === c.id ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
-                    }}
-                  >
-                    <div style={{ fontSize: 12, fontWeight: 700, color: coverage === c.id ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>{c.label}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>{c.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Fallback */}
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
+          <div style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 22 }}>
             {"Don't see your vehicle? "}
             <button
               onClick={() => { setSelectedMake('Custom'); setSelectedModel('Vehicle'); setEstimatedSqft(280); setEstimatedPrice(3000); setStep(3) }}
-              style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+              style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
             >
               Continue anyway
             </button>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              <ChevronLeft size={14} /> Back
+            <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              <ChevronLeft size={16} /> Back
             </button>
             <button
               onClick={() => setStep(3)}
               disabled={!vehicleSelected}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 22px', borderRadius: 8, background: vehicleSelected ? 'var(--accent)' : 'var(--surface2)', color: vehicleSelected ? '#fff' : 'var(--text3)', fontSize: 13, fontWeight: 700, border: 'none', cursor: vehicleSelected ? 'pointer' : 'not-allowed' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 10, background: vehicleSelected ? 'var(--accent)' : 'var(--surface2)', color: vehicleSelected ? '#fff' : 'var(--text3)', fontSize: 15, fontWeight: 700, border: 'none', cursor: vehicleSelected ? 'pointer' : 'not-allowed' }}
             >
-              Next: Brand Info <ChevronRight size={14} />
+              Next: Brand Info <ChevronRight size={16} />
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 3 (wrap) / STEP 2 (signage): Brand ──────────────────────────── */}
+      {/* ── STEP 3 (wrap) / STEP 2 (signage): Brand & Generate ─────────────── */}
       {((outputType === 'wrap' && step === 3) || (outputType === 'signage' && step === 2)) && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Tell us about your brand</h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 18 }}>
-            Paste your website and we'll pull your brand info automatically, or fill it in below.
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Your brand info</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 22 }}>
+            Paste your website to auto-fill, or enter manually. We&apos;ll generate 3 concepts.
           </p>
 
-          {/* ── Website auto-fill ── */}
-          <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 12, padding: '14px 16px', marginBottom: 22 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Globe size={12} /> Auto-Fill From Website
+          {/* ── Website auto-fill (primary path) ── */}
+          <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 14, padding: '20px 22px', marginBottom: 28 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Globe size={16} /> Fastest way - paste your website
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
               <input
                 style={{ ...inp, flex: 1 }}
                 placeholder="yourcompany.com"
@@ -1084,29 +1056,29 @@ export default function MockupGeneratorPage() {
                 onClick={handleScrape}
                 disabled={scraping || !websiteScrapeUrl.trim()}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '10px 16px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '12px 22px', borderRadius: 10,
                   background: scraping || !websiteScrapeUrl.trim() ? 'var(--surface2)' : 'var(--accent)',
                   color: scraping || !websiteScrapeUrl.trim() ? 'var(--text3)' : '#fff',
-                  fontSize: 12, fontWeight: 700, border: 'none',
+                  fontSize: 15, fontWeight: 700, border: 'none',
                   cursor: scraping || !websiteScrapeUrl.trim() ? 'not-allowed' : 'pointer',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {scraping ? <><Loader2 size={13} className="animate-spin" /> Scanning…</> : <><Sparkles size={13} /> Auto-Fill</>}
+                {scraping ? <><Loader2 size={15} className="animate-spin" /> Scanning...</> : <><Sparkles size={15} /> Auto-Fill</>}
               </button>
             </div>
             {scrapeError && (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--red)' }}>{scrapeError}</div>
+              <div style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>{scrapeError}</div>
             )}
-            <div style={{ marginTop: 7, fontSize: 11, color: 'var(--text3)' }}>
-              Pulls company name, tagline, phone, and brand colors from your logo — not random site colors.
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text3)' }}>
+              Pulls company name, phone, colors &amp; logo from your website automatically.
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
               <input style={inp} placeholder="e.g. Pacific Northwest Plumbing" value={companyName} onChange={e => setCompanyName(e.target.value)} />
             </div>
 
@@ -1120,38 +1092,47 @@ export default function MockupGeneratorPage() {
               <input style={inp} placeholder="(253) 555-0100" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} />
             </div>
 
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Website</label>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Website</label>
               <input style={inp} placeholder="yoursite.com" value={website} onChange={e => setWebsite(e.target.value)} />
             </div>
 
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Industry</label>
-              <select style={{ ...inp, appearance: 'none' }} value={industry} onChange={e => setIndustry(e.target.value)}>
-                <option value="">Select industry…</option>
-                {INDUSTRIES.map(i2 => <option key={i2} value={i2}>{i2}</option>)}
-              </select>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Slogan</label>
+              <input style={inp} placeholder="Your tagline or slogan" value={tagline} onChange={e => setTagline(e.target.value)} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Industry</label>
+              <div style={{ position: 'relative' }}>
+                <select style={{ ...inp, appearance: 'none' }} value={industry} onChange={e => setIndustry(e.target.value)}>
+                  <option value="">Select industry...</option>
+                  {INDUSTRIES.map(i2 => <option key={i2} value={i2}>{i2}</option>)}
+                </select>
+                <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              </div>
             </div>
 
             {/* Logo */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Logo (optional)</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Logo (optional)</label>
               <div
                 onClick={() => logoRef.current?.click()}
-                style={{ height: 78, border: logoPreview ? '1px solid var(--border)' : '2px dashed var(--border)', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface2)', gap: 8, position: 'relative' }}
+                style={{ height: 90, border: logoPreview ? '1px solid var(--border)' : '2px dashed var(--border)', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface2)', gap: 10, position: 'relative' }}
               >
                 {logoPreview ? (
                   <>
-                    <img src={logoPreview} alt="Logo" style={{ maxHeight: 60, maxWidth: 140, objectFit: 'contain' }} />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logoPreview} alt="Logo" style={{ maxHeight: 70, maxWidth: 160, objectFit: 'contain' }} />
                     <button onClick={(e) => { e.stopPropagation(); setLogoFile(null); setLogoPreview(null); setLogoNoBg(null) }}
-                      style={{ position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: 'var(--red)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <X size={10} style={{ color: '#fff' }} />
+                      style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'var(--red)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <X size={12} style={{ color: '#fff' }} />
                     </button>
                   </>
                 ) : (
                   <>
-                    <Upload size={16} style={{ color: 'var(--text3)' }} />
-                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>Upload logo</span>
+                    <Upload size={18} style={{ color: 'var(--text3)' }} />
+                    <span style={{ fontSize: 14, color: 'var(--text3)' }}>Upload logo</span>
                   </>
                 )}
               </div>
@@ -1160,26 +1141,26 @@ export default function MockupGeneratorPage() {
 
             {/* Brand colors */}
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brand Colors (pick up to 3)</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 8 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brand Colors (pick up to 3)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                 {BRAND_COLORS_PRESET.map(c => (
                   <button key={c} onClick={() => {
                     if (brandColors.includes(c)) setBrandColors(brandColors.filter(x => x !== c))
                     else if (brandColors.length < 3) setBrandColors([...brandColors, c])
-                  }} style={{ width: 30, height: 30, borderRadius: 6, background: c, border: brandColors.includes(c) ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer' }} />
+                  }} style={{ width: 34, height: 34, borderRadius: 7, background: c, border: brandColors.includes(c) ? '3px solid var(--accent)' : '2px solid transparent', cursor: 'pointer' }} />
                 ))}
                 <input type="color" value={customColor} onChange={e => setCustomColor(e.target.value)}
                   onBlur={() => { if (!brandColors.includes(customColor) && brandColors.length < 3) setBrandColors([...brandColors, customColor]) }}
-                  style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2 }} />
+                  style={{ width: 34, height: 34, borderRadius: 7, border: '1px solid var(--border)', cursor: 'pointer', padding: 2 }} />
               </div>
               {brandColors.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {brandColors.map(c => (
-                    <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 5px', borderRadius: 20, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                      <div style={{ width: 14, height: 14, borderRadius: 3, background: c, border: '1px solid rgba(255,255,255,0.15)' }} />
-                      <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text2)' }}>{c.toUpperCase()}</span>
+                    <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 6px', borderRadius: 20, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, background: c, border: '1px solid rgba(255,255,255,0.15)' }} />
+                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text2)' }}>{c.toUpperCase()}</span>
                       <button onClick={() => setBrandColors(brandColors.filter(x => x !== c))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0, display: 'flex' }}>
-                        <X size={10} />
+                        <X size={11} />
                       </button>
                     </div>
                   ))}
@@ -1187,113 +1168,57 @@ export default function MockupGeneratorPage() {
               )}
             </div>
 
-            {/* Style */}
+            {/* Design Style */}
             <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Design Style</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 8 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Design Style</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
                 {STYLE_OPTIONS.map(s2 => (
                   <div key={s2.value} onClick={() => setStyleChoice(s2.value)}
-                    style={{ padding: '10px 13px', borderRadius: 9, cursor: 'pointer', border: styleChoice === s2.value ? '2px solid var(--accent)' : '1px solid var(--border)', background: styleChoice === s2.value ? 'rgba(79,127,255,0.07)' : 'var(--surface2)' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: styleChoice === s2.value ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>{s2.label}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)', lineHeight: 1.4 }}>{s2.desc}</div>
+                    style={{ padding: '14px 16px', borderRadius: 10, cursor: 'pointer', border: styleChoice === s2.value ? '2px solid var(--accent)' : '1px solid var(--border)', background: styleChoice === s2.value ? 'rgba(79,127,255,0.07)' : 'var(--surface2)' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: styleChoice === s2.value ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{s2.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.4 }}>{s2.desc}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Font */}
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Text Font</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {FONTS.map(f => (
-                  <div key={f.value} onClick={() => setFontChoice(f.value)}
-                    style={{ padding: '10px 12px', borderRadius: 8, cursor: 'pointer', textAlign: 'center', border: fontChoice === f.value ? '2px solid var(--accent)' : '1px solid var(--border)', background: fontChoice === f.value ? 'rgba(79,127,255,0.07)' : 'var(--surface2)' }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: fontChoice === f.value ? 'var(--accent)' : 'var(--text1)', fontFamily: `${f.value}, Impact, Arial Black, sans-serif`, lineHeight: 1 }}>{f.preview}</div>
-                    <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 4 }}>{f.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Style notes */}
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Additional Style Notes (optional)</label>
-              <textarea
-                style={{ ...inp, minHeight: 64, resize: 'vertical', lineHeight: 1.5 }}
-                placeholder="e.g. Dark background with flame graphics, large phone number on doors..."
-                value={styleNotes}
-                onChange={e => setStyleNotes(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
-            <button onClick={() => setStep(outputType === 'signage' ? 1 : 2)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              <ChevronLeft size={14} /> Back
-            </button>
-            <button
-              onClick={() => setStep(outputType === 'signage' ? 3 : 4)}
-              disabled={!companyName.trim()}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 22px', borderRadius: 8, background: companyName.trim() ? 'var(--accent)' : 'var(--surface2)', color: companyName.trim() ? '#fff' : 'var(--text3)', fontSize: 13, fontWeight: 700, border: 'none', cursor: companyName.trim() ? 'pointer' : 'not-allowed' }}
-            >
-              Next: Generate <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── STEP 4 (wrap) / STEP 3 (signage): Generate ────────────────────────── */}
-      {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3)) && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Ready to generate your wrap concept</h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22 }}>
-            Review your selections, then click Generate to start the AI pipeline.
-          </p>
-
-          {/* Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24, background: 'var(--surface2)', borderRadius: 10, padding: 18 }}>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Vehicle</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{selectedYear} {selectedMake} {selectedModel}</div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{BODY_TYPES.find(b => b.id === bodyType)?.label || bodyType} · {COVERAGE_OPTIONS.find(c => c.id === coverage)?.label}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Company</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{companyName}</div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{industry || 'No industry'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Brand Colors</div>
-              <div style={{ display: 'flex', gap: 5 }}>
-                {brandColors.map((c, i) => <div key={i} style={{ width: 20, height: 20, borderRadius: 4, background: c, border: '1px solid rgba(255,255,255,0.1)' }} />)}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Font & Style</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', fontFamily: `${fontChoice}, Impact, sans-serif` }}>{fontChoice}</div>
-              {styleChoice && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{STYLE_OPTIONS.find(s2 => s2.value === styleChoice)?.label}</div>}
-            </div>
-          </div>
-
-          {/* Pipeline progress */}
-          {generating && (
-            <div style={{ marginBottom: 24 }}>
-              {PIPELINE_STEPS_GENERATE.map((ps, i) => {
-                const done = pipelineStep > i
-                const active = pipelineStep === i
-                return (
-                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < PIPELINE_STEPS_GENERATE.length - 1 ? '1px solid var(--border)' : 'none', opacity: pipelineStep < i ? 0.3 : 1, transition: 'opacity 0.3s' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {done
-                        ? <Check size={13} style={{ color: 'var(--green)' }} />
-                        : active
-                          ? <Loader2 size={13} className="animate-spin" style={{ color: 'var(--accent)' }} />
-                          : <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)' }}>{i + 1}</span>
-                      }
+            {/* Coverage selector - moved here from step 2 for wrap mode */}
+            {outputType === 'wrap' && vehicleSelected && (
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Wrap Coverage
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  {COVERAGE_OPTIONS.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => setCoverage(c.id)}
+                      style={{
+                        padding: '14px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
+                        border: coverage === c.id ? '2px solid var(--accent)' : '1px solid var(--border)',
+                        background: coverage === c.id ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                      }}
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 700, color: coverage === c.id ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{c.label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{c.desc}</div>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)' }}>
-                      {ps.label}
-                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Generation progress */}
+          {generating && (
+            <div style={{ marginTop: 24, marginBottom: 20 }}>
+              {PIPELINE_STEPS_GENERATE.map((ps, i) => {
+                const done = pipelineStep > i; const active = pipelineStep === i
+                return (
+                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < PIPELINE_STEPS_GENERATE.length - 1 ? '1px solid var(--border)' : 'none', opacity: pipelineStep < i ? 0.3 : 1 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {done ? <Check size={13} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={13} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 10, color: 'var(--text3)' }}>{i + 1}</span>}
+                    </div>
+                    <span style={{ fontSize: 14, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{ps.label}</span>
                   </div>
                 )
               })}
@@ -1301,102 +1226,170 @@ export default function MockupGeneratorPage() {
           )}
 
           {genError && (
-            <div style={{ padding: '12px 16px', borderRadius: 8, marginBottom: 16, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 13, color: 'var(--red)' }}>
+            <div style={{ padding: '14px 18px', borderRadius: 10, marginTop: 20, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 14, color: 'var(--red)' }}>
               {genError}
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button onClick={() => setStep(outputType === 'signage' ? 2 : 3)} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.4 : 1 }}>
-              <ChevronLeft size={14} /> Back
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 28 }}>
+            <button onClick={() => setStep(outputType === 'signage' ? 1 : 2)} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.4 : 1 }}>
+              <ChevronLeft size={16} /> Back
             </button>
             <button
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={!companyName.trim() || generating}
               style={{
-                display: 'flex', alignItems: 'center', gap: 9,
-                padding: '12px 30px', borderRadius: 9,
-                background: generating ? 'rgba(79,127,255,0.5)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
-                color: '#fff', fontSize: 14, fontWeight: 800, border: 'none',
-                cursor: generating ? 'not-allowed' : 'pointer',
-                boxShadow: generating ? 'none' : '0 4px 20px rgba(79,127,255,0.4)',
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '14px 36px', borderRadius: 10,
+                background: !companyName.trim() || generating ? 'rgba(79,127,255,0.5)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
+                color: '#fff', fontSize: 16, fontWeight: 800, border: 'none',
+                cursor: !companyName.trim() || generating ? 'not-allowed' : 'pointer',
+                boxShadow: !companyName.trim() || generating ? 'none' : '0 4px 20px rgba(79,127,255,0.4)',
               }}
             >
               {generating
-                ? <><Loader2 size={16} className="animate-spin" /> Generating 3 Concepts…</>
-                : <><Sparkles size={16} /> {outputType === 'signage' ? 'Generate Sign Concepts' : 'Generate My Wrap Concepts'}</>
+                ? <><Loader2 size={18} className="animate-spin" /> Creating Concepts...</>
+                : <><Sparkles size={18} /> Generate My {outputType === 'signage' ? 'Sign' : 'Wrap'} Concepts</>
               }
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 5 (wrap) / STEP 4 (signage): Concept Picker ─────────────────── */}
-      {((outputType === 'wrap' && step === 5) || (outputType === 'signage' && step === 4)) && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Choose Your Design Direction</h2>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22 }}>
-            3 concepts generated with Recraft V3. Pick the direction you like — we'll refine it and add your info.
+      {/* ── STEP 4 (wrap) / STEP 3 (signage): Concept Picker ─────────────────── */}
+      {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3)) && (
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Choose Your Design Direction</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>
+            6 concepts generated. Pick the direction you like and tell us what to keep or change.
           </p>
 
-          {(conceptA || conceptB || conceptC) ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 24 }}>
+          {Object.values(concepts).some(Boolean) ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 28 }}>
               {([
-                { id: 'a' as const, url: conceptA, label: 'Bold & Aggressive' },
-                { id: 'b' as const, url: conceptB, label: 'Clean & Professional' },
-                { id: 'c' as const, url: conceptC, label: 'Dynamic & Gradient' },
+                { id: 'a', url: concepts.a, label: 'Bold & Aggressive' },
+                { id: 'b', url: concepts.b, label: 'Clean & Professional' },
+                { id: 'c', url: concepts.c, label: 'Dynamic Gradient' },
+                { id: 'd', url: concepts.d, label: 'Sleek Minimal' },
+                { id: 'e', url: concepts.e, label: 'Vibrant Full-Color' },
+                { id: 'f', url: concepts.f, label: 'Classic Traditional' },
               ]).map(concept => concept.url ? (
                 <div
                   key={concept.id}
-                  onClick={() => setSelectedConcept(concept.id)}
                   style={{
-                    borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                    borderRadius: 14, overflow: 'hidden',
                     border: selectedConcept === concept.id ? '3px solid var(--accent)' : '1px solid var(--border)',
                     background: 'var(--surface2)', transition: 'border-color 0.15s',
                     position: 'relative',
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={concept.url} alt={concept.label} style={{ width: '100%', display: 'block', height: 160, objectFit: 'cover' }} />
-                  <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Option {concept.id.toUpperCase()}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{concept.label}</div>
+                  {/* Image - click to expand */}
+                  <div
+                    onClick={() => setExpandedImage(concept.url)}
+                    style={{ cursor: 'zoom-in', position: 'relative' }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={concept.url} alt={concept.label} style={{ width: '100%', display: 'block', height: 320, objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', top: 10, right: 10, padding: '5px 9px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <ZoomIn size={11} /> Click to expand
                     </div>
-                    {selectedConcept === concept.id && <Check size={16} style={{ color: 'var(--accent)' }} />}
                   </div>
-                  {selectedConcept === concept.id && (
-                    <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Check size={12} style={{ color: '#fff' }} />
+
+                  <div style={{ padding: '14px 16px' }}>
+                    {/* Label and select */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: selectedConcept === concept.id ? 'var(--accent)' : 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {concept.label}
+                      </div>
+                      {selectedConcept === concept.id && <Check size={18} style={{ color: 'var(--accent)' }} />}
                     </div>
-                  )}
+
+                    {/* Thumbs up / down */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <button
+                        onClick={() => setConceptVotes(prev => ({ ...prev, [concept.id]: prev[concept.id] === 'up' ? null : 'up' }))}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                          background: conceptVotes[concept.id] === 'up' ? 'rgba(34,192,122,0.15)' : 'var(--bg)',
+                          border: conceptVotes[concept.id] === 'up' ? '1px solid var(--green)' : '1px solid var(--border)',
+                          color: conceptVotes[concept.id] === 'up' ? 'var(--green)' : 'var(--text3)',
+                          fontSize: 13, fontWeight: 600,
+                        }}
+                      >
+                        <ThumbsUp size={14} /> Like
+                      </button>
+                      <button
+                        onClick={() => setConceptVotes(prev => ({ ...prev, [concept.id]: prev[concept.id] === 'down' ? null : 'down' }))}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                          background: conceptVotes[concept.id] === 'down' ? 'rgba(242,90,90,0.15)' : 'var(--bg)',
+                          border: conceptVotes[concept.id] === 'down' ? '1px solid var(--red)' : '1px solid var(--border)',
+                          color: conceptVotes[concept.id] === 'down' ? 'var(--red)' : 'var(--text3)',
+                          fontSize: 13, fontWeight: 600,
+                        }}
+                      >
+                        <ThumbsDown size={14} /> Dislike
+                      </button>
+                    </div>
+
+                    {/* Select button */}
+                    <button
+                      onClick={() => { setSelectedConcept(concept.id); setShowFeedbackFor(concept.id) }}
+                      style={{
+                        width: '100%', padding: '11px 0', borderRadius: 9, cursor: 'pointer',
+                        background: selectedConcept === concept.id ? 'var(--accent)' : 'var(--bg)',
+                        border: selectedConcept === concept.id ? 'none' : '1px solid var(--border)',
+                        color: selectedConcept === concept.id ? '#fff' : 'var(--text2)',
+                        fontSize: 14, fontWeight: 700, textAlign: 'center',
+                      }}
+                    >
+                      {selectedConcept === concept.id ? 'Selected' : 'Use This Concept'}
+                    </button>
+                  </div>
                 </div>
               ) : null)}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: 40 }}>
-              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)', display: 'block', margin: '0 auto 10px' }} />
-              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Loading concepts…</div>
+            <div style={{ textAlign: 'center', padding: 60 }}>
+              <Loader2 size={28} className="animate-spin" style={{ color: 'var(--accent)', display: 'block', margin: '0 auto 14px' }} />
+              <div style={{ fontSize: 15, color: 'var(--text3)' }}>Loading concepts...</div>
+            </div>
+          )}
+
+          {/* Feedback textarea - shows when user picks a concept */}
+          {showFeedbackFor && (
+            <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 14, padding: '20px 22px', marginBottom: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>
+                Tell us what you love and what you&apos;d change about this design
+              </div>
+              <textarea
+                value={conceptFeedback}
+                onChange={e => setConceptFeedback(e.target.value)}
+                placeholder="e.g. Love the color layout, but make the logo bigger. Change the background pattern to something simpler..."
+                style={{
+                  ...inp, minHeight: 100, resize: 'vertical', fontFamily: 'inherit',
+                }}
+              />
             </div>
           )}
 
           {genError && (
-            <div style={{ padding: '12px 16px', borderRadius: 8, marginBottom: 16, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 13, color: 'var(--red)' }}>
+            <div style={{ padding: '14px 18px', borderRadius: 10, marginBottom: 20, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 14, color: 'var(--red)' }}>
               {genError}
             </div>
           )}
 
           {/* Finalize progress */}
           {finalizing && (
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 24 }}>
               {PIPELINE_STEPS_FINALIZE.map((ps, i) => {
                 const done = finalizeStep > i; const active = finalizeStep === i
                 return (
-                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < PIPELINE_STEPS_FINALIZE.length - 1 ? '1px solid var(--border)' : 'none', opacity: finalizeStep < i ? 0.3 : 1 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {done ? <Check size={11} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={11} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 9, color: 'var(--text3)' }}>{i + 1}</span>}
+                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < PIPELINE_STEPS_FINALIZE.length - 1 ? '1px solid var(--border)' : 'none', opacity: finalizeStep < i ? 0.3 : 1 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {done ? <Check size={13} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={13} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 10, color: 'var(--text3)' }}>{i + 1}</span>}
                     </div>
-                    <span style={{ fontSize: 12, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{ps.label}</span>
+                    <span style={{ fontSize: 14, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{ps.label}</span>
                   </div>
                 )
               })}
@@ -1404,175 +1397,300 @@ export default function MockupGeneratorPage() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setStep(outputType === 'signage' ? 3 : 4)} disabled={finalizing}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
-                <ChevronLeft size={14} /> Back
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setStep(outputType === 'signage' ? 2 : 3)} disabled={finalizing}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
+                <ChevronLeft size={16} /> Back
               </button>
-              <button onClick={() => { setStep(outputType === 'signage' ? 3 : 4); setTimeout(() => handleGenerate(), 50) }} disabled={finalizing}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
-                <RefreshCw size={11} /> Regenerate All
+              <button onClick={() => { setStep(outputType === 'signage' ? 2 : 3); setTimeout(() => handleGenerate(), 50) }} disabled={finalizing}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
+                <RefreshCw size={13} /> Regenerate All
               </button>
             </div>
             <button
               onClick={() => handleFinalize(selectedConcept)}
-              disabled={finalizing || !conceptA}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 9, background: finalizing || !conceptA ? 'var(--surface2)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)', color: finalizing || !conceptA ? 'var(--text3)' : '#fff', fontSize: 14, fontWeight: 800, border: 'none', cursor: finalizing || !conceptA ? 'not-allowed' : 'pointer', boxShadow: !finalizing && conceptA ? '0 4px 20px rgba(79,127,255,0.4)' : 'none' }}
+              disabled={finalizing || !Object.values(concepts).some(Boolean)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 32px', borderRadius: 10, background: finalizing || !Object.values(concepts).some(Boolean) ? 'var(--surface2)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)', color: finalizing || !Object.values(concepts).some(Boolean) ? 'var(--text3)' : '#fff', fontSize: 16, fontWeight: 800, border: 'none', cursor: finalizing || !Object.values(concepts).some(Boolean) ? 'not-allowed' : 'pointer', boxShadow: !finalizing && Object.values(concepts).some(Boolean) ? '0 4px 20px rgba(79,127,255,0.4)' : 'none' }}
             >
-              {finalizing ? <><Loader2 size={15} className="animate-spin" /> Finalizing…</> : <><Sparkles size={15} /> Use This Concept</>}
+              {finalizing ? <><Loader2 size={17} className="animate-spin" /> Finalizing...</> : <><Sparkles size={17} /> Continue with Selected</>}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 6 (wrap) / STEP 5 (signage): Result ────────────────────────── */}
-      {((outputType === 'wrap' && step === 6) || (outputType === 'signage' && step === 5)) && (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
-          {/* Header */}
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Sparkles size={15} style={{ color: 'var(--accent)' }} /> Concept Ready
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                {selectedYear} {selectedMake} {selectedModel} · {companyName || 'Custom Wrap'}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              <button onClick={() => { setStep(4); handleGenerate() }} disabled={generating}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                <RefreshCw size={11} /> Regenerate
-              </button>
-              <button onClick={() => setStep(3)}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                Adjust Brand
-              </button>
-              {primaryDisplay && (
-                <>
-                  <button onClick={() => setShowEditor(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--purple)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    <Pencil size={11} /> Edit / Add Text
-                  </button>
-                  <button onClick={() => handleDownload(primaryDisplay, `wrap-concept-${selectedMake}-${Date.now()}.jpg`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 7, background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.3)', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    <Download size={11} /> Download
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div style={{ padding: 20 }}>
-            {/* Primary image — vehicle render */}
-            {primaryDisplay ? (
+      {/* ── STEP 5 (wrap) / STEP 4 (signage): Result ────────────────────────── */}
+      {((outputType === 'wrap' && step === 5) || (outputType === 'signage' && step === 4)) && (
+        <div>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 28 }}>
+            {/* Header */}
+            <div style={{ padding: '18px 28px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                  <Car size={13} style={{ color: 'var(--accent)' }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {renderUrl ? 'On-Vehicle Render' : 'Design Concept'}
-                  </span>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text1)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Sparkles size={18} style={{ color: 'var(--accent)' }} /> Concept Ready
                 </div>
-                <div
-                  style={{ position: 'relative', cursor: zoomed ? 'zoom-out' : 'zoom-in' }}
-                  onClick={() => setZoomed(!zoomed)}
-                >
-                  <img
-                    src={primaryDisplay}
-                    alt="Vehicle wrap concept"
-                    style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)', display: 'block', maxHeight: zoomed ? 'none' : 520, objectFit: 'cover', transition: 'max-height 0.3s' }}
-                  />
-                  <div style={{ position: 'absolute', top: 10, right: 10, padding: '4px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {zoomed ? <ZoomOut size={10} /> : <ZoomIn size={10} />}
-                    {zoomed ? 'Collapse' : 'Zoom'}
-                  </div>
+                <div style={{ fontSize: 14, color: 'var(--text3)', marginTop: 2 }}>
+                  {selectedYear} {selectedMake} {selectedModel} · {companyName || 'Custom Wrap'}
                 </div>
-
-                {/* Flat design toggle */}
-                {mockupStatus?.concept_url && renderUrl && (
-                  <div style={{ marginTop: 12 }}>
-                    <button
-                      onClick={() => setShowFlat(!showFlat)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      <Layers size={12} /> {showFlat ? 'Hide flat design' : 'Also show flat design'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => { setStep(outputType === 'signage' ? 2 : 3); handleGenerate() }} disabled={generating}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  <RefreshCw size={13} /> Regenerate
+                </button>
+                <button onClick={() => setStep(outputType === 'signage' ? 2 : 3)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Adjust Brand
+                </button>
+                {primaryDisplay && (
+                  <>
+                    <button onClick={() => setShowEditor(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--purple)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                      <Pencil size={13} /> Edit / Add Text
                     </button>
-                    {showFlat && (
-                      <div style={{ marginTop: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Flat Design</div>
-                        <img
-                          src={mockupStatus.concept_url}
-                          alt="Flat wrap design"
-                          style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)', maxHeight: 300, objectFit: 'cover' }}
-                        />
-                      </div>
-                    )}
+                    <button onClick={() => handleDownload(primaryDisplay, `wrap-concept-${selectedMake}-${Date.now()}.jpg`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.3)', color: 'var(--accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                      <Download size={13} /> Download
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: 28 }}>
+              {/* Primary image - vehicle render */}
+              {primaryDisplay ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Car size={15} style={{ color: 'var(--accent)' }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {renderUrl ? 'On-Vehicle Render' : 'Design Concept'}
+                    </span>
+                  </div>
+                  <div
+                    style={{ position: 'relative', cursor: zoomed ? 'zoom-out' : 'zoom-in' }}
+                    onClick={() => setZoomed(!zoomed)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={primaryDisplay}
+                      alt="Vehicle wrap concept"
+                      style={{ width: '100%', borderRadius: 12, border: '1px solid var(--border)', display: 'block', maxHeight: zoomed ? 'none' : 600, objectFit: 'cover', transition: 'max-height 0.3s' }}
+                    />
+                    <div style={{ position: 'absolute', top: 12, right: 12, padding: '6px 10px', borderRadius: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {zoomed ? <ZoomOut size={12} /> : <ZoomIn size={12} />}
+                      {zoomed ? 'Collapse' : 'Zoom'}
+                    </div>
+                  </div>
+
+                  {/* Flat design toggle */}
+                  {mockupStatus?.concept_url && renderUrl && (
+                    <div style={{ marginTop: 16 }}>
+                      <button
+                        onClick={() => setShowFlat(!showFlat)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 9, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        <Layers size={14} /> {showFlat ? 'Hide flat design' : 'Also show flat design'}
+                      </button>
+                      {showFlat && (
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Flat Design</div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={mockupStatus.concept_url}
+                            alt="Flat wrap design"
+                            style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)', maxHeight: 400, objectFit: 'cover' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
+                  <ImageIcon size={36} style={{ marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
+                  <div style={{ fontSize: 16 }}>No image generated yet</div>
+                </div>
+              )}
+
+              {/* Approve section */}
+              <div style={{ marginTop: 28, padding: 24, borderRadius: 14, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Happy with this concept?</div>
+                <p style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 20 }}>
+                  Approve to generate your high-resolution print-ready files.
+                </p>
+
+                {approving && (
+                  <div style={{ marginBottom: 20 }}>
+                    {APPROVE_STEPS.map((as2, i) => {
+                      const done = approveStep > i
+                      const active = approveStep === i
+                      return (
+                        <div key={as2.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', opacity: approveStep < i ? 0.3 : 1 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: '50%', background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {done ? <Check size={13} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={13} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 10, color: 'var(--text3)' }}>{i + 1}</span>}
+                          </div>
+                          <span style={{ fontSize: 14, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{as2.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {approveError && (
+                  <div style={{ padding: '12px 16px', borderRadius: 10, marginBottom: 16, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 14, color: 'var(--red)' }}>
+                    {approveError}
+                  </div>
+                )}
+
+                {printUrl ? (
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button onClick={() => handleDownload(printUrl, `wrap-print-ready-${Date.now()}.pdf`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 10, background: 'var(--green)', color: '#fff', fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                      <Download size={16} /> Download Print File
+                    </button>
+                    <button onClick={reset}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+                      Start New Mockup
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={handleApprove}
+                      disabled={approving || !mockupId}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 26px', borderRadius: 10, background: approving ? 'rgba(34,192,122,0.5)' : 'var(--green)', color: '#fff', fontSize: 15, fontWeight: 700, border: 'none', cursor: approving ? 'not-allowed' : 'pointer' }}
+                    >
+                      {approving ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : <><Check size={16} /> Approve &amp; Get Print Files</>}
+                    </button>
+                    <button onClick={reset}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+                      Start Over
+                    </button>
                   </div>
                 )}
               </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
-                <ImageIcon size={32} style={{ marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
-                <div style={{ fontSize: 14 }}>No image generated yet</div>
-              </div>
-            )}
+            </div>
+          </div>
 
-            {/* Approve section */}
-            <div style={{ marginTop: 24, padding: 20, borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Happy with this concept?</div>
-              <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
-                Approve to upscale to print resolution and generate a print-ready PDF with bleed marks.
+          {/* ── Book Your Wrap section ($250 deposit) ── */}
+          {outputType === 'wrap' && primaryDisplay && (
+            <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>Book Your Wrap</h2>
+              <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 24 }}>
+                Your $250 deposit secures your design. We&apos;ll vectorize your concept and our in-house designer will refine it with you.
               </p>
 
-              {approving && (
-                <div style={{ marginBottom: 16 }}>
-                  {APPROVE_STEPS.map((as, i) => {
-                    const done = approveStep > i
-                    const active = approveStep === i
-                    return (
-                      <div key={as.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', opacity: approveStep < i ? 0.3 : 1 }}>
-                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {done ? <Check size={11} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={11} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 9, color: 'var(--text3)' }}>{i + 1}</span>}
-                        </div>
-                        <span style={{ fontSize: 12, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{as.label}</span>
-                      </div>
-                    )
-                  })}
+              {/* Summary card */}
+              <div style={{ background: 'var(--surface2)', borderRadius: 14, padding: 22, marginBottom: 24, border: '1px solid var(--border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Vehicle</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>{selectedYear} {selectedMake} {selectedModel}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Company</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>{companyName || 'Custom Wrap'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Estimated Price</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {estimatedPrice ? `$${estimatedPrice.toLocaleString()}` : 'TBD'}
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {approveError && (
-                <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 12, color: 'var(--red)' }}>
-                  {approveError}
+              {/* Scheduling options */}
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 12 }}>How would you like to meet with our designer?</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 28 }}>
+                <div
+                  onClick={() => setBookingType('zoom')}
+                  style={{
+                    padding: '22px 20px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
+                    border: bookingType === 'zoom' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: bookingType === 'zoom' ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: bookingType === 'zoom' ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Video size={26} style={{ color: bookingType === 'zoom' ? 'var(--accent)' : 'var(--text2)' }} />
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: bookingType === 'zoom' ? 'var(--accent)' : 'var(--text1)' }}>Online Zoom Consultation</div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>Meet with our designer virtually</div>
                 </div>
-              )}
+                <div
+                  onClick={() => setBookingType('inshop')}
+                  style={{
+                    padding: '22px 20px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
+                    border: bookingType === 'inshop' ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: bookingType === 'inshop' ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: bookingType === 'inshop' ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MapPin size={26} style={{ color: bookingType === 'inshop' ? 'var(--accent)' : 'var(--text2)' }} />
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: bookingType === 'inshop' ? 'var(--accent)' : 'var(--text1)' }}>In-Shop Visit</div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>Come see us in person</div>
+                </div>
+              </div>
 
-              {printUrl ? (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => handleDownload(printUrl, `wrap-print-ready-${Date.now()}.pdf`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 8, background: 'var(--green)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                    <Download size={14} /> Download Print PDF
-                  </button>
-                  <button onClick={reset}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    Start New Mockup
-                  </button>
+              {/* $250 deposit button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => {
+                    // Navigate to deposit page (or trigger Stripe checkout)
+                    window.location.href = `/deposit?mockup_id=${mockupId}&type=${bookingType || 'zoom'}&vehicle=${encodeURIComponent(`${selectedYear} ${selectedMake} ${selectedModel}`)}&company=${encodeURIComponent(companyName)}`
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '16px 40px', borderRadius: 12,
+                    background: 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
+                    color: '#fff', fontSize: 18, fontWeight: 800, border: 'none', cursor: 'pointer',
+                    boxShadow: '0 4px 24px rgba(79,127,255,0.4)',
+                  }}
+                >
+                  <Calendar size={20} /> Pay $250 Design Deposit
+                </button>
+                <div style={{ fontSize: 14, color: 'var(--text3)', maxWidth: 360 }}>
+                  Applied toward your total wrap cost. Includes vectorization and a design refinement session.
                 </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button
-                    onClick={handleApprove}
-                    disabled={approving || !mockupId}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 22px', borderRadius: 8, background: approving ? 'rgba(34,192,122,0.5)' : 'var(--green)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', cursor: approving ? 'not-allowed' : 'pointer' }}
-                  >
-                    {approving ? <><Loader2 size={14} className="animate-spin" /> Processing…</> : <><Check size={14} /> Approve & Get Print Files</>}
-                  </button>
-                  <button onClick={reset}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    Start Over
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Image Expand Modal ─────────────────────────────────────────────────── */}
+      {expandedImage && (
+        <div
+          onClick={() => setExpandedImage(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.85)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 40, cursor: 'zoom-out',
+          }}
+        >
+          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={expandedImage}
+              alt="Expanded concept"
+              style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, objectFit: 'contain' }}
+            />
+            <button
+              onClick={() => setExpandedImage(null)}
+              style={{
+                position: 'absolute', top: -16, right: -16,
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                color: 'var(--text1)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
       )}
