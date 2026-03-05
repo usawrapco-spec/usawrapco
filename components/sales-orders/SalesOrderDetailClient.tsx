@@ -736,10 +736,10 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
       </div>
 
       {/* ── 4-Column Info Grid ─────────────────────────────────────── */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 16, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, marginBottom: 16, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
           {/* Col 1: Customer */}
-          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--card-border)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
               <User size={11} /> Customer
             </div>
@@ -775,7 +775,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
           </div>
 
           {/* Col 2: Status */}
-          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--card-border)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
               <Circle size={11} /> Status
             </div>
@@ -801,7 +801,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
           </div>
 
           {/* Col 3: Team */}
-          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--card-border)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
               <Users size={11} /> Team
             </div>
@@ -832,14 +832,14 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         </div>
 
         {/* Show All Information */}
-        <div style={{ borderTop: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center' }}>
+        <div style={{ borderTop: '1px solid var(--card-border)', padding: '8px 20px', display: 'flex', alignItems: 'center' }}>
           <button onClick={() => setShowAllInfo(!showAllInfo)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
             <ChevronDown size={12} style={{ transform: showAllInfo ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             {showAllInfo ? 'Hide All Information' : 'Show All Information'}
           </button>
         </div>
         {showAllInfo && (
-          <div style={{ borderTop: '1px solid var(--border)', padding: '16px 20px' }}>
+          <div style={{ borderTop: '1px solid var(--card-border)', padding: '16px 20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
               <div><label className="field-label">Title</label><input value={title} onChange={e => setTitle(e.target.value)} className="field" disabled={!canWrite} /></div>
               <div>
