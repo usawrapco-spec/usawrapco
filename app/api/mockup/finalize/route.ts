@@ -8,6 +8,7 @@ export const maxDuration = 300
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { polishMockup, compositeText } from '@/lib/mockup/pipeline'
 
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin()
@@ -77,45 +78,32 @@ export async function POST(req: NextRequest) {
     const { concept_url: polishedUrl } = await polishMockup({
       mockup_id,
       composited_url: artworkUrl,
-      org_id: orgId,
+      org_id: orgId || '',
     })
 
-    // Vehicle render (wraps only)
-    let renderUrl: string | null = null
-    if (mockup.output_type !== 'signage') {
-      await admin.from('mockup_results').update({ current_step: 4, step_name: 'Rendering on vehicle (AI preview)…' }).eq('id', mockup_id)
-      renderUrl = await renderOnVehicle(
-        polishedUrl,
-        String(inputData.vehicle_body_type || 'van'),
-        String(inputData.vehicle_year || ''),
-        String(inputData.vehicle_make || ''),
-        String(inputData.vehicle_model || ''),
-      )
-    }
-
     // Text composite on top
-    await admin.from('mockup_results').update({ current_step: 5, step_name: 'Adding your information…' }).eq('id', mockup_id)
-    const textBase = renderUrl || polishedUrl
+    await admin.from('mockup_results').update({ current_step: 4, step_name: 'Adding your information…' }).eq('id', mockup_id)
+    const textBase = polishedUrl
     const { composited_url: finalUrl } = await compositeText({
       mockup_id,
-      template_id: mockup.template_id || null,
+      template_id: (mockup.template_id as string) || undefined,
       artwork_url: textBase,
-      company_name: mockup.company_name || '',
-      tagline: mockup.tagline || '',
-      phone: mockup.phone || '',
-      website: mockup.website || '',
-      font_choice: mockup.font_choice || 'Impact',
-      brand_colors: mockup.brand_colors || ['#1a56f0', '#ffffff'],
-      logo_url: mockup.logo_url || undefined,
-      org_id: orgId,
+      company_name: String(mockup.company_name || ''),
+      tagline: String(mockup.tagline || ''),
+      phone: String(mockup.phone || ''),
+      website: String(mockup.website || ''),
+      font_choice: String(mockup.font_choice || 'Impact'),
+      brand_colors: (mockup.brand_colors as string[]) || ['#1a56f0', '#ffffff'],
+      logo_url: (mockup.logo_url as string) || undefined,
+      org_id: orgId || '',
     })
 
     await admin.from('mockup_results').update({
       status: 'concept_ready',
       current_step: 6,
       step_name: 'Concept ready',
-      final_mockup_url: artworkUrl as string,
-      concept_url: artworkUrl as string,
+      final_mockup_url: (finalUrl || artworkUrl) as string,
+      concept_url: polishedUrl as string,
     }).eq('id', mockup_id)
 
     return NextResponse.json({
