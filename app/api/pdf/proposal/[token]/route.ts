@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
+
+export const maxDuration = 60
+export const runtime = 'nodejs'
 import {
   Document, Page, Text, View, StyleSheet, Font, Image, renderToBuffer,
 } from '@react-pdf/renderer'
