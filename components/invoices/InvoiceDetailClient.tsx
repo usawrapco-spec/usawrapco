@@ -433,7 +433,12 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   }
 
   function handleExportPdf() {
-    window.location.href = `/api/pdf/invoice/${invoiceId}`
+    const a = document.createElement('a')
+    a.href = `/api/pdf/invoice/${invoiceId}`
+    a.download = `invoice-${inv.invoice_number}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   function handleSendInvoice() {

@@ -5,6 +5,7 @@ import {
 } from '@react-pdf/renderer'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { BRAND, PDF_COLORS, formatCurrency, formatDate } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 Font.register({
   family: 'Inter',
@@ -135,7 +136,7 @@ function SalesOrderPage({ project, customer, lineItems }: any) {
         React.createElement(Text, { style: s.secTitle }, 'SALES ORDER'),
         React.createElement(Text, { style: s.secMeta }, `Job: ${jobNum}  |  Date: ${formatDate(project.created_at)}`),
       ),
-      React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
     ),
     React.createElement(View, { style: s.accentLineBlue }),
 

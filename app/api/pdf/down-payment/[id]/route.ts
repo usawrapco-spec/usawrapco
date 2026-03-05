@@ -8,6 +8,7 @@ import {
   BRAND, PDF_COLORS,
   formatCurrency, formatDate,
 } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
 Font.register({
@@ -105,7 +106,7 @@ function DownPaymentPDF({ salesOrder, customer }: {
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
-        React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
         React.createElement(View, { style: s.headerRight },
           React.createElement(Text, { style: s.headerTitle }, 'DOWN PAYMENT INVOICE'),
           React.createElement(Text, { style: s.headerSubtitle }, 'Deposit Required'),
@@ -212,7 +213,7 @@ function DownPaymentPDF({ salesOrder, customer }: {
 
       // Footer
       React.createElement(View, { fixed: true, style: s.footer },
-        React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+        React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
         React.createElement(Text, { style: s.footerText }, BRAND.tagline),
         React.createElement(Text, { style: s.footerText }, `${BRAND.phone} | ${BRAND.website}`),
       ),

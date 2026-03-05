@@ -244,6 +244,7 @@ export async function compositeText(params: {
     website = '',
     font_choice = 'Impact',
     brand_colors = ['#ffffff', '#cccccc', '#f59e0b'],
+    logo_url,
     org_id: orgId,
   } = params
   const admin = getSupabaseAdmin()
@@ -300,6 +301,25 @@ export async function compositeText(params: {
     } else {
       finalBuffer = artResized
     }
+  }
+
+  // Composite logo if provided
+  if (logo_url) {
+    try {
+      const logoRes = await fetch(logo_url)
+      if (logoRes.ok) {
+        const logoBuffer = Buffer.from(await logoRes.arrayBuffer())
+        const logoW = Math.round(targetW * 0.14)
+        const padding = Math.round(targetW * 0.03)
+        const logoPng = await sharp(logoBuffer).resize(logoW, undefined, { fit: 'inside' }).ensureAlpha().png().toBuffer()
+        const logoMeta = await sharp(logoPng).metadata()
+        const logoH = logoMeta.height || Math.round(logoW * 0.5)
+        finalBuffer = await sharp(finalBuffer)
+          .composite([{ input: logoPng, left: padding, top: targetH - logoH - padding }])
+          .png()
+          .toBuffer()
+      }
+    } catch { /* logo composite failed silently */ }
   }
 
   // Upload composited image

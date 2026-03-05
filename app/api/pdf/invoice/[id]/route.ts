@@ -8,6 +8,7 @@ import {
   BRAND, PDF_COLORS, PDF_TERMS,
   formatCurrency, formatDate,
 } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 Font.register({
   family: 'Inter',
@@ -168,7 +169,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
-        React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
         React.createElement(View, { style: s.headerRight },
           React.createElement(Text, { style: s.headerTitle }, 'INVOICE'),
           React.createElement(Text, { style: s.headerMetaBold }, invNumber),
@@ -331,7 +332,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
       // Footer
       React.createElement(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
         React.createElement(View, { style: s.footer },
-          React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+          React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
           React.createElement(Text, { style: s.footerTagline }, BRAND.tagline),
           React.createElement(Text, { style: s.footerRight }, `${BRAND.phone}  |  ${BRAND.email}`),
         ),

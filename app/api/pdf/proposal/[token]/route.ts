@@ -8,6 +8,7 @@ import {
   BRAND, PDF_COLORS, PDF_TERMS,
   formatCurrency, formatDate, addDays,
 } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 Font.register({
   family: 'Inter',
@@ -149,7 +150,7 @@ function CoverPage({ estimate, customer }: { estimate: any; customer: any }) {
 
   return React.createElement(Page, { size: 'LETTER', style: s.coverPage },
     React.createElement(View, { style: s.coverContent },
-      React.createElement(Image, { style: s.coverLogo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.coverLogo, src: getPdfLogoSrc() }),
       React.createElement(View, { style: s.coverDividerTop }),
       React.createElement(Text, { style: s.coverTitle }, 'VEHICLE WRAP PROPOSAL'),
       React.createElement(Text, { style: s.coverSubtitle }, 'Prepared exclusively for'),
@@ -203,7 +204,7 @@ function ProposalDetailsPage({ estimate, lineItems }: { estimate: any; lineItems
   return React.createElement(Page, { size: 'LETTER', style: s.page },
     // Header
     React.createElement(View, { style: s.headerBand },
-      React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
       React.createElement(View, { style: s.headerRight },
         React.createElement(Text, { style: s.headerTitle }, 'VEHICLE WRAP PROPOSAL'),
         React.createElement(Text, { style: s.headerMetaBold }, estNumber),
@@ -374,7 +375,7 @@ function ProposalDetailsPage({ estimate, lineItems }: { estimate: any; lineItems
     ),
 
     React.createElement(View, { style: s.footer },
-      React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
       React.createElement(Text, { style: s.footerTagline }, BRAND.tagline),
       React.createElement(Text, { style: s.footerRight }, `${BRAND.phone}  |  ${BRAND.email}`),
     ),
@@ -396,7 +397,7 @@ function ProposalTermsPage({ estimate }: { estimate: any }) {
 
   return React.createElement(Page, { size: 'LETTER', style: s.page },
     React.createElement(View, { style: s.headerBand },
-      React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
       React.createElement(View, { style: s.headerRight },
         React.createElement(Text, { style: s.headerTitle }, 'PROPOSAL'),
         React.createElement(Text, { style: s.headerMetaBold }, estNumber),
@@ -465,7 +466,7 @@ function ProposalTermsPage({ estimate }: { estimate: any }) {
     ),
 
     React.createElement(View, { style: s.footer },
-      React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
       React.createElement(Text, { style: s.footerTagline }, BRAND.tagline),
       React.createElement(Text, { style: s.footerRight }, `${BRAND.phone}  |  ${BRAND.email}`),
     ),

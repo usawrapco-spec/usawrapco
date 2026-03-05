@@ -11,7 +11,7 @@ import {
   Users, Palette, Receipt, ShoppingCart, CreditCard, FileText, Pencil,
   MoreHorizontal, Copy, Archive, Trash2, Link2, DollarSign as TransactionIcon,
   ChevronRight, Loader2, Truck, List, Image as ImageIcon,
-  AlertCircle, CheckCircle2, FileDown,
+  AlertCircle, CheckCircle2, FileDown, Bot, Printer,
   Layers, ClipboardCheck, AlertTriangle, PenLine,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -24,6 +24,10 @@ import CustomerSearchModal, { type CustomerRow } from '@/components/shared/Custo
 import SharedVehicleSelector from '@/components/shared/VehicleSelector'
 import JobSalesTab from '@/components/projects/JobSalesTab'
 import JobDesignTab from '@/components/projects/JobDesignTab'
+import JobProductionTab from '@/components/projects/JobProductionTab'
+import JobInstallTab from '@/components/projects/JobInstallTab'
+import JobConciergeTab from '@/components/projects/JobConciergeTab'
+import JobTimeline, { buildMilestones } from '@/components/projects/JobTimeline'
 import CustomerSlideOver from '@/components/shared/CustomerSlideOver'
 
 // ─── Vehicle Database (for SurveyTab) ─────────────────────────────────────────
@@ -109,7 +113,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
 
 const PIPE_STAGES: PipeStage[] = ['sales_in', 'production', 'install', 'prod_review', 'sales_close', 'done']
 
-type Tab = 'survey' | 'overview' | 'timeline' | 'comments' | 'photos' | 'vehicle_info' | 'design_brief' | 'scope' | 'signoff' | 'design' | 'sales' | 'checklist'
+type Tab = 'vehicle' | 'chat' | 'sales' | 'design' | 'production' | 'install' | 'concierge'
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function JobDetailClient({
@@ -122,7 +126,7 @@ export default function JobDetailClient({
   const supabase = createClient()
 
   const [project, setProject] = useState(initialProject as unknown as Project & { customer?: CustomerRow | null })
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('vehicle')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [approvals] = useState<StageApproval[]>(initialApprovals)
@@ -175,6 +179,21 @@ export default function JobDetailClient({
   const [copying, setCopying] = useState(false)
   const [portalCopied, setPortalCopied] = useState(false)
 
+  // Header dropdowns
+  const [viewDropOpen, setViewDropOpen] = useState(false)
+  const [docsDropOpen, setDocsDropOpen] = useState(false)
+  const [linksDropOpen, setLinksDropOpen] = useState(false)
+  const viewDropRef = useRef<HTMLDivElement>(null)
+  const docsDropRef = useRef<HTMLDivElement>(null)
+  const linksDropRef = useRef<HTMLDivElement>(null)
+
+  // Department sign-off status
+  const [deptSignOffs, setDeptSignOffs] = useState<Record<string, boolean>>({ dept_sales: false, dept_production: false, dept_install: false })
+  const [deptChecklistOpen, setDeptChecklistOpen] = useState(false)
+
+  // Related docs list (for direct links)
+  const [relatedDocsList, setRelatedDocsList] = useState<{ estimates: any[]; salesOrders: any[]; invoices: any[]; payments: any[] }>({ estimates: [], salesOrders: [], invoices: [], payments: [] })
+
   // Transaction panel state
   const [txAmount, setTxAmount] = useState('')
   const [txType, setTxType] = useState('payment')
@@ -213,6 +232,17 @@ export default function JobDetailClient({
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
+
+  // Header dropdowns close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (viewDropRef.current && !viewDropRef.current.contains(e.target as Node)) setViewDropOpen(false)
+      if (docsDropRef.current && !docsDropRef.current.contains(e.target as Node)) setDocsDropOpen(false)
+      if (linksDropRef.current && !linksDropRef.current.contains(e.target as Node)) setLinksDropOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Edit state
   const [editTitle, setEditTitle] = useState(project.title)
@@ -257,17 +287,28 @@ export default function JobDetailClient({
   useEffect(() => {
     const pid = project.id
     Promise.all([
-      supabase.from('estimates').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-      supabase.from('sales_orders').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-      supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-      supabase.from('payments').select('id, invoice:invoice_id!inner(project_id)', { count: 'exact', head: true }).eq('invoice.project_id', pid),
+      supabase.from('estimates').select('id, title, status, total, estimate_number').eq('project_id', pid).order('created_at', { ascending: false }),
+      supabase.from('sales_orders').select('id, title, status, total, order_number').eq('project_id', pid).order('created_at', { ascending: false }),
+      supabase.from('invoices').select('id, title, status, total, invoice_number').eq('project_id', pid).order('created_at', { ascending: false }),
+      supabase.from('payments').select('id, amount, type, created_at').eq('project_id', pid).order('created_at', { ascending: false }),
     ]).then(([e, s, i, p]) => {
+      const elist = e.data || []
+      const slist = s.data || []
+      const ilist = i.data || []
+      const plist = p.data || []
+      setRelatedDocsList({ estimates: elist, salesOrders: slist, invoices: ilist, payments: plist })
       setRelatedDocs({
-        estimates: e.count ?? 0,
-        salesOrders: s.count ?? 0,
-        invoices: i.count ?? 0,
-        payments: p.count ?? 0,
+        estimates: elist.length,
+        salesOrders: slist.length,
+        invoices: ilist.length,
+        payments: plist.length,
       })
+    })
+    // Load dept sign-offs
+    supabase.from('stage_approvals').select('stage').eq('project_id', pid).in('stage', ['dept_sales', 'dept_production', 'dept_install']).then(({ data }) => {
+      const signed: Record<string, boolean> = { dept_sales: false, dept_production: false, dept_install: false }
+      ;(data || []).forEach((r: any) => { if (r.stage in signed) signed[r.stage] = true })
+      setDeptSignOffs(signed)
     })
   }, [project.id])
 

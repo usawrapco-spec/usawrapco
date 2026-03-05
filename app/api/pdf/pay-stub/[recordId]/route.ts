@@ -8,6 +8,7 @@ import {
   BRAND, PDF_COLORS,
   formatCurrency, formatDate,
 } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 Font.register({
   family: 'Inter',
@@ -151,7 +152,7 @@ function PayStubPDF({ record, employee, period }: {
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
-        React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
         React.createElement(View, { style: s.headerRight },
           React.createElement(Text, { style: s.headerTitle }, 'PAY STUB'),
           React.createElement(Text, { style: s.headerMetaBold }, `Pay Date: ${payDate}`),
@@ -286,7 +287,7 @@ function PayStubPDF({ record, employee, period }: {
       // Footer
       React.createElement(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
         React.createElement(View, { style: s.footer },
-          React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+          React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
           React.createElement(Text, { style: s.footerText }, `${BRAND.name}  |  ${BRAND.phone}  |  ${BRAND.email}`),
         ),
       ),

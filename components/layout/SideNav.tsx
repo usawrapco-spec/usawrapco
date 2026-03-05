@@ -17,7 +17,7 @@ import {
   Shield, Rocket, UserCheck,
   Globe, LayoutGrid, Compass,
   Wand2, LayoutTemplate, Car,
-  Anchor, Bot,
+  Anchor, Bot, Sparkles,
 } from 'lucide-react'
 
 interface NavItem {
@@ -85,6 +85,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/design',              label: 'Design Studio',    icon: LayoutGrid,    roles: ['owner', 'admin', 'designer'] },
       { href: '/design/intakes',      label: 'Design Intake',    icon: FileInput,     badge: 'intakes' },
       { href: '/mockup-generator',    label: 'Mockup Generator', icon: Wand2 },
+      { href: '/design-my-wrap',      label: 'Customer Studio',  icon: Sparkles },
     ],
   },
   {

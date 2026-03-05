@@ -367,6 +367,13 @@ export default function MockupGeneratorPage() {
     }, 300)
   }
 
+  function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, '').slice(0, 10)
+    if (digits.length < 4) return digits
+    if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+
   function selectVehicleFromSearch(v: VehicleMeasurement) {
     const year = v.year_start ? String(v.year_start) : ''
     applyYMM(year, v.make, v.model)
@@ -383,15 +390,24 @@ export default function MockupGeneratorPage() {
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
       setLogoPreview(dataUrl)
-      // Attempt bg removal
+      // Attempt bg removal + color extraction in parallel
       try {
-        const res = await fetch('/api/mockup/remove-bg', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: dataUrl }),
-        })
-        const data = await res.json()
-        if (data.success && !data.skipped) setLogoNoBg(data.imageBase64)
+        const [bgRes, colorRes] = await Promise.all([
+          fetch('/api/mockup/remove-bg', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: dataUrl }),
+          }),
+          fetch('/api/mockup/scrape-brand', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ logo_base64: dataUrl }),
+          }),
+        ])
+        const bgData = await bgRes.json()
+        if (bgData.success && !bgData.skipped) setLogoNoBg(bgData.imageBase64)
+        const colorData = await colorRes.json()
+        if (colorData.brand_colors?.length) setBrandColors(colorData.brand_colors.slice(0, 5))
       } catch { /* silent */ }
     }
     reader.readAsDataURL(f)
@@ -430,7 +446,7 @@ export default function MockupGeneratorPage() {
       if (!res.ok) { setScrapeError(data.error || 'Scrape failed'); return }
       if (data.company_name) setCompanyName(data.company_name)
       if (data.tagline) setTagline(data.tagline)
-      if (data.phone) setPhone(data.phone)
+      if (data.phone) setPhone(formatPhone(data.phone))
       if (data.website) setWebsite(data.website)
       if (data.brand_colors?.length) setBrandColors(data.brand_colors)
       if (data.logo_url) {
@@ -1101,7 +1117,7 @@ export default function MockupGeneratorPage() {
 
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phone</label>
-              <input style={inp} placeholder="(253) 555-0100" value={phone} onChange={e => setPhone(e.target.value)} />
+              <input style={inp} placeholder="(253) 555-0100" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} />
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>

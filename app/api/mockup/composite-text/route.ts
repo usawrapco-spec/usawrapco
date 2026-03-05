@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
     website = '',
     font_choice = 'Impact',
     brand_colors = ['#ffffff', '#cccccc', '#f59e0b'],
+    logo_url,
     org_id,
   } = await req.json()
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const result = await compositeText({
       mockup_id, template_id, artwork_url,
       company_name, tagline, phone, website,
-      font_choice, brand_colors, org_id: orgId,
+      font_choice, brand_colors, logo_url, org_id: orgId,
     })
     return NextResponse.json(result)
   } catch (err: any) {

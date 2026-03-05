@@ -68,18 +68,7 @@ function cleanCompanyName(raw: string): string {
 
 // ── Color extraction via Claude vision ────────────────────────────────────────
 
-async function extractLogoColors(logoUrl: string): Promise<string[]> {
-  try {
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'url', url: logoUrl } },
-          {
-            type: 'text',
-            text: `Look at this logo image. Extract the 2-3 most dominant brand colors FROM THE LOGO ITSELF — not background colors, not white/light backgrounds unless they are clearly intentional brand colors.
+const COLOR_EXTRACTION_PROMPT = `Look at this logo image. Extract the 2-3 most dominant brand colors FROM THE LOGO ITSELF — not background colors, not white/light backgrounds unless they are clearly intentional brand colors.
 
 Return JSON only, no explanation:
 {"colors": ["#hex1", "#hex2", "#hex3"]}
@@ -89,8 +78,18 @@ Rules:
 - Skip pure white (#ffffff or near-white) backgrounds unless the logo is on a colored background
 - Skip very light grays unless that is a primary brand color
 - Order: primary color first, then secondary, then accent
-- Maximum 3 colors`,
-          },
+- Maximum 3 colors`
+
+async function extractLogoColors(logoUrl: string): Promise<string[]> {
+  try {
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'url', url: logoUrl } },
+          { type: 'text', text: COLOR_EXTRACTION_PROMPT },
         ],
       }],
     })
@@ -106,11 +105,46 @@ Rules:
   return []
 }
 
+async function extractLogoColorsBase64(base64DataUrl: string): Promise<string[]> {
+  try {
+    const match = base64DataUrl.match(/^data:(image\/\w+);base64,(.+)$/)
+    if (!match) return []
+    const mediaType = match[1] as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+    const data = match[2]
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data } },
+          { type: 'text', text: COLOR_EXTRACTION_PROMPT },
+        ],
+      }],
+    })
+    const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
+    const m = text.match(/\{[\s\S]*\}/)
+    if (m) {
+      const parsed = JSON.parse(m[0])
+      const colors: string[] = (parsed.colors || []).filter((c: string) => /^#[0-9a-fA-F]{6}$/.test(c))
+      return colors.slice(0, 3)
+    }
+  } catch { /* fall through */ }
+  return []
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
-    const { url } = await req.json()
+    const { url, logo_base64 } = await req.json()
+
+    // Logo-only color extraction (no website URL needed)
+    if (!url && logo_base64) {
+      const brand_colors = await extractLogoColorsBase64(logo_base64)
+      return NextResponse.json({ brand_colors })
+    }
+
     if (!url || typeof url !== 'string') {
       return NextResponse.json({ error: 'url required' }, { status: 400 })
     }

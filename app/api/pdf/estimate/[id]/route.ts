@@ -8,6 +8,7 @@ import {
   BRAND, PDF_COLORS, PDF_TERMS,
   formatCurrency, formatDate, addDays,
 } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
 Font.register({
@@ -128,7 +129,7 @@ function Header({ type, number, date, validUntil }: {
 }) {
   return React.createElement(View, null,
     React.createElement(View, { style: s.headerBand },
-      React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
       React.createElement(View, { style: s.headerRight },
         React.createElement(Text, { style: s.headerTitle }, type),
         React.createElement(Text, { style: s.headerMetaBold }, number),
@@ -142,7 +143,7 @@ function Header({ type, number, date, validUntil }: {
 
 function Footer({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) {
   return React.createElement(View, { style: s.footer },
-    React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+    React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
     React.createElement(Text, { style: s.footerTagline }, BRAND.tagline),
     React.createElement(Text, { style: s.footerRight },
       `Page ${pageNumber} of ${totalPages}  |  ${BRAND.phone}`

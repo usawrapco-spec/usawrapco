@@ -563,7 +563,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
               </button>
               {showActions && (
                 <div style={{
-                  position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 50,
+                  position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 9999,
                   background: 'var(--surface2)', border: '1px solid var(--border)',
                   borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                 }}>
@@ -623,6 +623,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
                   <a
                     href={`/api/pdf/quote/${orderId}`}
+                    download={`quote-SO${so.so_number}.pdf`}
                     onClick={() => setShowActions(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
@@ -637,6 +638,7 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                   </a>
                   <a
                     href={`/api/pdf/down-payment/${orderId}`}
+                    download={`down-payment-SO${so.so_number}.pdf`}
                     onClick={() => setShowActions(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',

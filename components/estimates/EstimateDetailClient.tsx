@@ -1286,7 +1286,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
         background: 'linear-gradient(135deg, var(--card-bg) 0%, rgba(79,127,255,0.03) 100%)',
         border: '1px solid var(--card-border)', borderRadius: 20,
-        padding: '18px 22px', position: 'relative', overflow: 'hidden',
+        padding: '18px 22px', position: 'relative',
       }}>
         {/* Accent glow */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${STATUS_CONFIG[est.status as EstimateStatus]?.color || 'var(--accent)'}, transparent)`, opacity: 0.5 }} />
@@ -1341,11 +1341,11 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               <div style={{
                 position: 'absolute', right: 0, top: '100%', marginTop: 4,
                 background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 10, padding: 6, minWidth: 180, zIndex: 100,
+                borderRadius: 10, padding: 6, minWidth: 180, zIndex: 9999,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={() => { setPdfMenuOpen(false); window.location.href = `/api/pdf/estimate/${estimateId}` }} />
-                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={() => { setPdfMenuOpen(false); window.location.href = `/api/pdf/proposal/${estimateId}` }} />
+                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={() => { setPdfMenuOpen(false); const a = document.createElement('a'); a.href = `/api/pdf/estimate/${estimateId}`; a.download = `estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a) }} />
+                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={() => { setPdfMenuOpen(false); const a = document.createElement('a'); a.href = `/api/pdf/proposal/${estimateId}`; a.download = `proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a) }} />
                 <MenuButton icon={<DollarSign size={13} />} label="Quick Print" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
@@ -1435,7 +1435,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               <div style={{
                 position: 'absolute', right: 0, top: '100%', marginTop: 4,
                 background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 10, padding: 6, minWidth: 230, zIndex: 100,
+                borderRadius: 10, padding: 6, minWidth: 230, zIndex: 9999,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
                 {canWrite && (status === 'draft' || status === 'sent' || status === 'accepted') && (
@@ -1883,7 +1883,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   <div style={{
                     position: 'absolute', right: 0, top: '100%', marginTop: 4,
                     background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderRadius: 10, padding: 6, minWidth: 240, zIndex: 100,
+                    borderRadius: 10, padding: 6, minWidth: 240, zIndex: 9999,
                     boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                   }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', padding: '4px 12px', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont }}>

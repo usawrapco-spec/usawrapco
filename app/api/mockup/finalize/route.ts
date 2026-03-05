@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
       website: mockup.website || '',
       font_choice: mockup.font_choice || 'Impact',
       brand_colors: mockup.brand_colors || ['#1a56f0', '#ffffff'],
+      logo_url: mockup.logo_url || undefined,
       org_id: orgId,
     })
 

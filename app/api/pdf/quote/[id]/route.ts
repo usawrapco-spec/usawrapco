@@ -8,6 +8,7 @@ import {
   BRAND, PDF_COLORS,
   formatCurrency, formatDate, addDays,
 } from '@/lib/pdf/brand'
+import { getPdfLogoSrc } from '@/lib/pdf/logo'
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
 Font.register({
@@ -128,7 +129,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       // Header: Logo left, Quote number right
       React.createElement(View, { style: s.headerRow },
         React.createElement(View, { style: s.logoArea },
-          React.createElement(Image, { style: s.logo, src: BRAND.logoUrl }),
+          React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
           React.createElement(Text, { style: s.companyName }, BRAND.name),
           React.createElement(Text, { style: s.companyInfo },
             `${BRAND.address}\n${BRAND.city}\n${BRAND.phone}\n${BRAND.website}`
@@ -266,7 +267,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
 
       // Footer
       React.createElement(View, { fixed: true, style: s.footer },
-        React.createElement(Image, { style: s.footerLogo, src: BRAND.logoUrl }),
+        React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
         React.createElement(Text, { style: s.footerText }, BRAND.tagline),
         React.createElement(Text, { style: s.footerText }, `${BRAND.phone} | ${BRAND.website}`),
       ),
