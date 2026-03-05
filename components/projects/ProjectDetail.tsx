@@ -192,10 +192,10 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     supabase.from('send_backs').select('*').eq('project_id', project.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSendBacks(data) })
-    // Look up portal token from linked sales order
-    const soId = (initial.form_data as any)?.sales_order_id
-    if (soId) {
-      supabase.from('sales_orders').select('portal_token').eq('id', soId).single()
+    // Look up customer portal token for new multi-page portal
+    const custId = (initial.form_data as any)?.customerId || initial.customer_id
+    if (custId) {
+      supabase.from('customers').select('portal_token').eq('id', custId).single()
         .then(({ data }) => { if (data?.portal_token) setPortalToken(data.portal_token) })
     }
   }, [project.id])
@@ -683,7 +683,7 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
                 <button
                   onClick={async () => {
                     const token = portalToken || project.id
-                    const link = `${window.location.origin}/portal/quote/${token}`
+                    const link = `${window.location.origin}/portal/${token}`
                     try { await navigator.clipboard.writeText(link); setToast('Customer portal link copied!') } catch { setToast(link) }
                     setTimeout(() => setToast(''), 3000)
                     setPortalMenuOpen(false)

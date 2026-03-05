@@ -33,6 +33,8 @@ export interface ProposalPackage {
   badge: string | null
   description: string | null
   price: number
+  price_mode: 'auto' | 'manual'
+  line_item_ids: string[]
   includes: string[]
   photos: string[]
   video_url: string | null

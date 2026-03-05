@@ -76,16 +76,32 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       await admin.from('proposal_packages').delete().eq('proposal_id', params.id)
 
       if (body.packages.length > 0) {
-        const pkgs = body.packages.map((p: any, i: number) => ({
-          proposal_id: params.id,
-          name: p.name || `Package ${i + 1}`,
-          badge: p.badge || null,
-          description: p.description || null,
-          price: p.price || 0,
-          includes: p.includes || [],
-          photos: p.photos || [],
-          video_url: p.video_url || null,
-          sort_order: i,
+        const pkgs = await Promise.all(body.packages.map(async (p: any, i: number) => {
+          const lineItemIds = p.line_item_ids || []
+          const priceMode = p.price_mode || 'manual'
+          let computedPrice = p.price || 0
+
+          if (priceMode === 'auto' && lineItemIds.length > 0) {
+            const { data: items } = await admin
+              .from('line_items')
+              .select('total_price')
+              .in('id', lineItemIds)
+            computedPrice = (items || []).reduce((sum: number, li: any) => sum + (li.total_price || 0), 0)
+          }
+
+          return {
+            proposal_id: params.id,
+            name: p.name || `Package ${i + 1}`,
+            badge: p.badge || null,
+            description: p.description || null,
+            price: computedPrice,
+            price_mode: priceMode,
+            line_item_ids: lineItemIds,
+            includes: p.includes || [],
+            photos: p.photos || [],
+            video_url: p.video_url || null,
+            sort_order: i,
+          }
         }))
         await admin.from('proposal_packages').insert(pkgs)
       }

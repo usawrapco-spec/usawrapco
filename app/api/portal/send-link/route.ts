@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     const { data: customer } = await admin
       .from('customers')
-      .select('name, email, phone')
+      .select('name, email, phone, portal_token')
       .eq('id', project.customer_id)
       .single()
 
@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Customer has no email address' }, { status: 400 })
     }
 
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'}/portal/${project.portal_token}`
+    // Use customer portal_token for the new multi-page portal, fall back to project token
+    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'}/portal/${customer.portal_token || project.portal_token}`
     const installDate = project.install_date
       ? new Date(project.install_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
       : null
