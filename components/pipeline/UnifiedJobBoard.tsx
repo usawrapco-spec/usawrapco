@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Project, PipeStage, PipelineType } from '@/types'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import {
   Briefcase, Printer, Wrench, Search, CheckCircle,
   LayoutGrid, List, ChevronRight, DollarSign,
@@ -17,6 +16,7 @@ import NewJobModal from '@/components/modals/NewJobModal'
 import SalesPipeline from './SalesPipeline'
 import ProductionPipeline from './ProductionPipeline'
 import InstallPipeline from './InstallPipeline'
+import KanbanBoard, { KanbanColumn } from '@/components/pipeline/KanbanBoard'
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -39,12 +39,13 @@ const STAGES: { key: PipeStage; label: string; icon: LucideIcon; color: string }
   { key: 'sales_close', label: 'Sales Close',   icon: CheckCircle, color: '#8b5cf6' },
 ]
 
-const DEPT_STATUS_BADGES = [
-  { key: 'sales_in',    short: 'SLS', color: '#4f7fff' },
-  { key: 'production',  short: 'PRD', color: '#22c07a' },
-  { key: 'install',     short: 'INS', color: '#22d3ee' },
-  { key: 'prod_review', short: 'QC',  color: '#f59e0b' },
-  { key: 'sales_close', short: 'CLO', color: '#8b5cf6' },
+
+const ALL_JOBS_COLUMNS: KanbanColumn[] = [
+  { key: 'sales_in',    label: 'Sales Intake', color: '#4f7fff', icon: Briefcase,   filterFn: p => (p.pipe_stage || 'sales_in') === 'sales_in' },
+  { key: 'production',  label: 'Production',   color: '#22c07a', icon: Printer,     filterFn: p => p.pipe_stage === 'production' },
+  { key: 'install',     label: 'Install',      color: '#22d3ee', icon: Wrench,      filterFn: p => p.pipe_stage === 'install' },
+  { key: 'prod_review', label: 'QC Review',    color: '#f59e0b', icon: Search,      filterFn: p => p.pipe_stage === 'prod_review' },
+  { key: 'sales_close', label: 'Sales Close',  color: '#8b5cf6', icon: CheckCircle, filterFn: p => p.pipe_stage === 'sales_close' },
 ]
 
 type ViewMode = 'kanban' | 'list'
@@ -233,6 +234,16 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
 
   const totalPipelineValue = filtered.reduce((s, p) => s + (p.revenue || 0), 0)
 
+  const handleAllStageChange = async (projectId: string, newStage: string) => {
+    await supabase.from('projects').update({
+      pipe_stage: newStage as PipeStage,
+      updated_at: new Date().toISOString(),
+    }).eq('id', projectId)
+    setProjects(prev => prev.map(p =>
+      p.id === projectId ? { ...p, pipe_stage: newStage as PipeStage } : p
+    ))
+  }
+
   // Sorted list for table view
   const sortedList = useMemo(() => {
     const list = [...filtered]
@@ -395,6 +406,7 @@ export default function UnifiedJobBoard({ profile, initialProjects, orgId }: Uni
             setShowNewJob={setShowNewJob}
             orgId={orgId}
             router={router}
+            onStageChange={handleAllStageChange}
           />
         ) : deptView === 'sales' ? (
           <SalesPipeline orgId={orgId} profileId={profile.id} role={profile.role} divisionFilter={activePipeline} />
@@ -424,7 +436,7 @@ function AllJobsView({
   installerFilter, setInstallerFilter,
   searchQuery, setSearchQuery, viewMode, setViewMode,
   sortKey, sortAsc, handleSort, sortedList,
-  totalPipelineValue, showNewJob, setShowNewJob, orgId, router,
+  totalPipelineValue, showNewJob, setShowNewJob, orgId, router, onStageChange,
 }: {
   profile: Profile
   projects: Project[]
@@ -450,6 +462,7 @@ function AllJobsView({
   setShowNewJob: (v: boolean) => void
   orgId: string
   router: ReturnType<typeof useRouter>
+  onStageChange: (projectId: string, newStage: string) => void
 }) {
 
   return (
@@ -591,193 +604,18 @@ function AllJobsView({
 
       {/* ── KANBAN VIEW ────────────────────────────────────────────── */}
       {viewMode === 'kanban' && (
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 16 }}>
-          {STAGES.map(stage => {
-            const stageJobs = filtered.filter(p => (p.pipe_stage || 'sales_in') === stage.key)
-            const stageValue = stageJobs.reduce((s, p) => s + (p.revenue || 0), 0)
-            const Icon = stage.icon
-            return (
-              <div key={stage.key} style={{
-                flex: '1 0 260px', maxWidth: 320, minHeight: 200,
-                background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-                borderRadius: 16, padding: 14,
-              }}>
-                {/* Column header */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  marginBottom: 12, paddingBottom: 10,
-                  borderBottom: `2px solid ${stage.color}20`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{
-                      width: 24, height: 24, borderRadius: 6,
-                      background: `${stage.color}15`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <Icon size={12} style={{ color: stage.color }} />
-                    </div>
-                    <span style={{
-                      fontSize: 11, fontWeight: 800, color: stage.color,
-                      fontFamily: 'Barlow Condensed, sans-serif',
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
-                    }}>
-                      {stage.label}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {stageValue > 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {fmtMoney(stageValue)}
-                      </span>
-                    )}
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, color: stage.color,
-                      background: `${stage.color}15`, padding: '2px 8px',
-                      borderRadius: 10, fontFamily: 'JetBrains Mono, monospace',
-                    }}>
-                      {stageJobs.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {stageJobs.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 12, color: 'var(--text3)', opacity: 0.5 }}>No jobs</div>
-                  ) : stageJobs.map((project, idx) => {
-                    const customerName = (project.customer as any)?.name || (project.form_data as any)?.clientName || project.title || 'Untitled'
-                    const vehicle = project.vehicle_desc || (project.form_data as any)?.vehicle || ''
-                    const gpm = project.gpm || 0
-                    const days = daysOpen(project)
-                    const mockupUrl = (project.form_data as any)?.mockup_url || null
-                    const initial = customerName.charAt(0).toUpperCase()
-                    const sendBack = (project.send_backs as any[])?.some?.((sb: any) => !sb.resolved)
-                    const installDate = project.install_date || (project.form_data as any)?.installDate
-                    let urgency = ''; let urgencyColor = 'var(--text3)'
-                    if (installDate) {
-                      const daysUntil = Math.ceil((new Date(installDate).getTime() - Date.now()) / 86400000)
-                      if (daysUntil < 0) { urgency = `${Math.abs(daysUntil)}d late`; urgencyColor = 'var(--red)' }
-                      else if (daysUntil === 0) { urgency = 'TODAY'; urgencyColor = 'var(--red)' }
-                      else if (daysUntil <= 3) { urgency = `${daysUntil}d`; urgencyColor = 'var(--amber)' }
-                    }
-                    return (
-                      <Link
-                        key={project.id}
-                        href={`/projects/${project.id}`}
-                        style={{ textDecoration: 'none', display: 'block', animation: `staggerIn .3s ease ${idx * 0.04}s both` }}
-                      >
-                        <div
-                          style={{
-                            borderRadius: 10, padding: '9px 11px', cursor: 'pointer',
-                            background: 'var(--surface)',
-                            border: `1px solid ${sendBack ? '#f25a5a30' : 'var(--card-border)'}`,
-                            borderLeft: `3px solid ${stage.color}`,
-                            display: 'flex', gap: 9, alignItems: 'flex-start',
-                            position: 'relative',
-                            transition: 'all 0.18s ease',
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = `${stage.color}60`
-                            e.currentTarget.style.transform = 'translateY(-1px)'
-                            e.currentTarget.style.boxShadow = `0 4px 14px ${stage.color}18`
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = sendBack ? '#f25a5a30' : 'var(--card-border)'
-                            e.currentTarget.style.transform = 'none'
-                            e.currentTarget.style.boxShadow = 'none'
-                          }}
-                        >
-                          {sendBack && (
-                            <div style={{
-                              position: 'absolute', top: -6, right: 8, fontSize: 8, fontWeight: 900,
-                              background: 'var(--red)', color: '#fff', padding: '1px 5px', borderRadius: 4, letterSpacing: '.04em',
-                            }}>SENT BACK</div>
-                          )}
-
-                          {/* Thumbnail / Initials */}
-                          <div style={{
-                            width: 40, height: 40, borderRadius: 7, flexShrink: 0, overflow: 'hidden',
-                            background: `${stage.color}18`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            {mockupUrl ? (
-                              <img src={mockupUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ fontSize: 15, fontWeight: 900, color: stage.color }}>{initial}</span>
-                            )}
-                          </div>
-
-                          {/* Content */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            {/* Name + Revenue */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 1 }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 4 }}>
-                                {customerName}
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                                {urgency && <span style={{ fontSize: 9, fontWeight: 800, color: urgencyColor }}>{urgency}</span>}
-                                {project.revenue ? (
-                                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>
-                                    {fmtMoney(project.revenue)}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-
-                            {/* Vehicle */}
-                            <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {vehicle || '\u2014'}
-                            </div>
-
-                            {/* Dept status badges */}
-                            <div style={{ display: 'flex', gap: 3 }}>
-                              {DEPT_STATUS_BADGES.map(d => {
-                                const done = project.checkout?.[d.key]
-                                const isCurrent = (project.pipe_stage || 'sales_in') === d.key
-                                return (
-                                  <span key={d.key} style={{
-                                    fontSize: 7, fontWeight: 800, padding: '1px 4px', borderRadius: 3,
-                                    letterSpacing: '0.04em',
-                                    background: done ? 'rgba(34,192,122,0.12)' : isCurrent ? `${d.color}18` : 'transparent',
-                                    color: done ? '#22c07a' : isCurrent ? d.color : 'var(--text3)',
-                                    border: `1px solid ${done ? 'rgba(34,192,122,0.3)' : isCurrent ? `${d.color}40` : 'rgba(90,96,128,0.3)'}`,
-                                  }}>
-                                    {done ? '✓' : isCurrent ? '●' : '·'} {d.short}
-                                  </span>
-                                )
-                              })}
-                            </div>
-
-                            {/* GPM + days */}
-                            {(gpm > 0 || days > 0) && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                                {gpm > 0 ? (
-                                  <span style={{
-                                    fontSize: 9, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace',
-                                    color: gpm >= 70 ? 'var(--green)' : gpm >= 55 ? 'var(--amber)' : 'var(--red)',
-                                  }}>
-                                    {gpm.toFixed(0)}% GPM
-                                  </span>
-                                ) : <span />}
-                                {days > 0 && (
-                                  <span style={{
-                                    fontSize: 9, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace',
-                                    color: days > 14 ? 'var(--red)' : days > 7 ? 'var(--amber)' : 'var(--text3)',
-                                  }}>
-                                    {days}d
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+        <div style={{ minHeight: 560 }}>
+          <KanbanBoard
+            columns={ALL_JOBS_COLUMNS}
+            projects={filtered}
+            department="all"
+            profileId={profile.id}
+            orgId={orgId}
+            profile={profile}
+            onProjectClick={p => router.push(`/projects/${p.id}`)}
+            onStageChange={onStageChange}
+            showGhosts={false}
+          />
         </div>
       )}
 

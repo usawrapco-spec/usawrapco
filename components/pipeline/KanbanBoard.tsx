@@ -25,7 +25,7 @@ export interface KanbanColumn {
 interface KanbanBoardProps {
   columns: KanbanColumn[]
   projects: any[]
-  department: 'sales' | 'production' | 'install'
+  department: 'sales' | 'production' | 'install' | 'all'
   profileId: string
   orgId: string
   profile?: Profile

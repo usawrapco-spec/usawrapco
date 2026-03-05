@@ -92,7 +92,7 @@ const fDate = (d: string | null | undefined) =>
 
 interface PipelineJobCardProps {
   project: Project
-  department: 'sales' | 'production' | 'install'
+  department: 'sales' | 'production' | 'install' | 'all'
   isGhost: boolean
   onClick?: () => void
   isDragging?: () => boolean
