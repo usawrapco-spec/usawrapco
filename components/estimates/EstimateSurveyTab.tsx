@@ -515,10 +515,10 @@ export default function EstimateSurveyTab({
       {/* ── ADD VEHICLE PANEL ── */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 16, overflow: 'hidden',
+        borderRadius: 16,
       }}>
         {/* Tab toggle: VIN | DB | Manual */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', borderRadius: '16px 16px 0 0', overflow: 'hidden' }}>
           {([
             { key: 'vin' as AddMode,    label: 'Scan / VIN',  icon: <ScanLine size={12} /> },
             { key: 'db'  as AddMode,    label: 'Vehicle DB',  icon: <Database size={12} /> },
