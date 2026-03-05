@@ -9,7 +9,6 @@ import {
   MoreVertical, Wrench, X, Calendar, Clock,
   CheckCircle, ExternalLink, ImagePlay, Link2,
 } from 'lucide-react'
-import { RaceTrackTimeline } from './RaceTrackTimeline'
 import JobContextMenu from '@/components/shared/JobContextMenu'
 import type { Project } from '@/types'
 
@@ -351,9 +350,6 @@ export default function PipelineJobCard({
             }
           }}
         >
-          {/* Race track */}
-          {!isGhost && <RaceTrackTimeline project={project} />}
-
           {/* Send-back badge */}
           {hasSendBack && !isGhost && (
             <div style={{
@@ -410,17 +406,14 @@ export default function PipelineJobCard({
             </div>
           )}
 
-          {/* Revenue strip */}
-          {fields.includes('revenue') && !isGhost && revenue > 0 && !compact && (
+          {/* Job total */}
+          {fields.includes('revenue') && !isGhost && revenue > 0 && (
             <div style={{
-              display: 'flex', gap: 10, marginBottom: 6,
-              padding: '4px 0',
-              borderTop: '1px solid var(--border)',
-              borderBottom: '1px solid var(--border)',
+              fontSize: 13, fontWeight: 800, color: 'var(--accent)',
+              fontFamily: 'JetBrains Mono, monospace',
+              marginBottom: 6,
             }}>
-              <MiniStat label="Sale" value={fM(revenue)} color="var(--accent)" />
-              <MiniStat label="Profit" value={fM(profit)} color={profit >= 0 ? 'var(--green)' : '#ef4444'} />
-              <MiniStat label="GPM" value={`${Math.round(gpm)}%`} color={gpm >= 70 ? 'var(--green)' : gpm >= 55 ? '#f59e0b' : '#ef4444'} />
+              {fM(revenue)}
             </div>
           )}
 
