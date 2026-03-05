@@ -82,10 +82,17 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
   const [laborHours, setLaborHours]     = useState((specs.laborHours as number) || 0)
   const [discountPct, setDiscountPct]   = useState((specs.discountPct as number) || 0)
   const [salePrice, setSalePrice]       = useState((specs.unitPriceSaved as number) || 0)
+  const [pricingMode, setPricingMode]   = useState<'per_pad' | 'total'>((specs.pricingMode as 'per_pad' | 'total') || 'per_pad')
+  const [pricePerPad, setPricePerPad]   = useState((specs.pricePerPad as number) || 0)
 
   const padCost      = DEKWAVE_PRODUCTS.find(p => p.key === product)?.padCost ?? PAD_COST
   const totalSqft    = useMemo(() => sections.reduce((s, sec) => s + sectionSqft(sec), 0), [sections])
   const padCount     = Math.ceil(totalSqft / PAD_SQFT)
+
+  // In per_pad mode, sale price is derived from pricePerPad × padCount
+  const effectiveSalePrice = pricingMode === 'per_pad' && pricePerPad > 0
+    ? Math.round(padCount * pricePerPad * (1 - discountPct / 100))
+    : salePrice
   const materialCost = padCount * padCost
   const laserCost    = laserActive ? LASER_COST : 0
   const laborCost    = useMemo(() => {
@@ -94,9 +101,9 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
     return laborRate
   }, [laborMode, laborRate, laborHours, totalSqft])
   const cogs        = materialCost + laserCost + laborCost + scanCost + hardwareCost
-  const gpm         = calcGPMPct(salePrice, cogs)
-  const gp          = salePrice - cogs
-  const ratePerSqft = totalSqft > 0 ? salePrice / totalSqft : 0
+  const gpm         = calcGPMPct(effectiveSalePrice, cogs)
+  const gp          = effectiveSalePrice - cogs
+  const ratePerSqft = totalSqft > 0 ? effectiveSalePrice / totalSqft : 0
 
   function addSection() { if (!canWrite) return; setSections(prev => [...prev, newSec()]) }
   function removeSection(id: string) { if (!canWrite) return; setSections(prev => prev.filter(s => s.id !== id)) }
@@ -108,16 +115,17 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
   useEffect(() => {
     onChange({
       name: 'DEKWAVE ' + product.toUpperCase() + ' Decking \u2014 ' + Math.round(totalSqft) + ' sqft',
-      unit_price: salePrice,
+      unit_price: effectiveSalePrice,
       specs: {
         dekwaveProduct: product, deckSections: sections, laserActive, scanCost,
         hardwareCost, laborMode, laborRate, laborHours, discountPct,
+        pricingMode, pricePerPad,
         vinylArea: totalSqft, padCount, materialCost, laserCost, laborCost,
-        productLineType: 'boat_decking', vehicleType: 'marine', unitPriceSaved: salePrice,
+        productLineType: 'boat_decking', vehicleType: 'marine', unitPriceSaved: effectiveSalePrice,
       },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, sections, laserActive, scanCost, hardwareCost, laborMode, laborRate, laborHours, discountPct, salePrice, totalSqft])
+  }, [product, sections, laserActive, scanCost, hardwareCost, laborMode, laborRate, laborHours, discountPct, salePrice, pricePerPad, pricingMode, totalSqft])
 
   const gadget: React.CSSProperties = {
     marginTop: 10, padding: 10,
@@ -296,18 +304,51 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
       <div style={hr} />
 
       {/* 5. Sale Price & Discount */}
-      <div style={{ marginBottom: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        <div>
-          <label style={calcFieldLabelCompact}>Sale Price</label>
-          <input type="number" value={salePrice || ''} onChange={e => setSalePrice(Number(e.target.value))}
-            style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} />
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <div style={secLabel}>Pricing</div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={() => canWrite && setPricingMode('per_pad')} style={pillBtnCompact(pricingMode === 'per_pad', 'var(--cyan)')}>Per Pad</button>
+            <button onClick={() => canWrite && setPricingMode('total')} style={pillBtnCompact(pricingMode === 'total', 'var(--accent)')}>Total</button>
+          </div>
         </div>
-        <div>
-          <label style={calcFieldLabelCompact}>Discount %</label>
-          <input type="number" value={discountPct || ''} onChange={e => setDiscountPct(Number(e.target.value))}
-            style={{ ...calcInputCompact, ...mono, textAlign: 'right', borderColor: discountPct > 0 ? 'var(--amber)' : undefined }}
-            disabled={!canWrite} min={0} max={50} step={1} placeholder="0" />
-        </div>
+        {pricingMode === 'per_pad' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <div>
+              <label style={calcFieldLabelCompact}>Price per Pad ($/pad)</label>
+              <input type="number" value={pricePerPad || ''} onChange={e => setPricePerPad(Number(e.target.value))}
+                style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} min={0} step={25} placeholder="0" />
+            </div>
+            <div>
+              <label style={calcFieldLabelCompact}>Discount %</label>
+              <input type="number" value={discountPct || ''} onChange={e => setDiscountPct(Number(e.target.value))}
+                style={{ ...calcInputCompact, ...mono, textAlign: 'right', borderColor: discountPct > 0 ? 'var(--amber)' : undefined }}
+                disabled={!canWrite} min={0} max={50} step={1} placeholder="0" />
+            </div>
+            {pricePerPad > 0 && padCount > 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: '5px 8px', background: 'rgba(34,211,238,0.06)', borderRadius: 6, border: '1px solid rgba(34,211,238,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>
+                  {padCount} pads &times; {fmtC(pricePerPad)}/pad{discountPct > 0 ? ` − ${discountPct}%` : ''}
+                </span>
+                <span style={{ ...mono, fontSize: 13, fontWeight: 800, color: 'var(--cyan)' }}>{fmtC(effectiveSalePrice)}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <div>
+              <label style={calcFieldLabelCompact}>Sale Price</label>
+              <input type="number" value={salePrice || ''} onChange={e => setSalePrice(Number(e.target.value))}
+                style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} />
+            </div>
+            <div>
+              <label style={calcFieldLabelCompact}>Discount %</label>
+              <input type="number" value={discountPct || ''} onChange={e => setDiscountPct(Number(e.target.value))}
+                style={{ ...calcInputCompact, ...mono, textAlign: 'right', borderColor: discountPct > 0 ? 'var(--amber)' : undefined }}
+                disabled={!canWrite} min={0} max={50} step={1} placeholder="0" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quote Breakdown Table */}
@@ -345,7 +386,7 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
                 <td style={{ padding: '4px 8px', fontSize: 9, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text2)', textTransform: 'uppercase' }}>TOTAL</td>
                 <td style={{ padding: '4px 8px', textAlign: 'right', ...mono, fontSize: 10, fontWeight: 700, color: 'var(--cyan)' }}>{fmtN(totalSqft, 1)} sqft</td>
                 <td />
-                <td style={{ padding: '4px 8px', textAlign: 'right', ...mono, fontSize: 11, fontWeight: 800, color: 'var(--accent)' }}>{fmtC(salePrice)}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', ...mono, fontSize: 11, fontWeight: 800, color: 'var(--accent)' }}>{fmtC(effectiveSalePrice)}</td>
               </tr>
             </tbody>
           </table>
@@ -367,16 +408,20 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
         gpm={gpm}
         gp={gp}
         cogs={cogs}
-        currentPrice={salePrice}
+        currentPrice={effectiveSalePrice}
         onSetPrice={p => {
           if (!canWrite) return
-          setSalePrice(discountPct > 0 ? Math.round(p * (1 - discountPct / 100)) : p)
+          if (pricingMode === 'per_pad' && padCount > 0) {
+            setPricePerPad(Math.round(p / padCount))
+          } else {
+            setSalePrice(discountPct > 0 ? Math.round(p * (1 - discountPct / 100)) : p)
+          }
         }}
         canWrite={canWrite}
       />
 
       {/* Create Section Proposal button */}
-      {onCreateProposal && canWrite && salePrice > 0 && sections.filter(s => sectionSqft(s) > 0).length >= 2 && (
+      {onCreateProposal && canWrite && effectiveSalePrice > 0 && sections.filter(s => sectionSqft(s) > 0).length >= 2 && (
         <button
           onClick={() => {
             const activeSections = sections.filter(s => sectionSqft(s) > 0)
@@ -393,7 +438,7 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
                 scanning_fee: 0,
                 design_fee: 0,
                 cogs: Math.round(secCogs),
-                sale_price: Math.round(salePrice * frac),
+                sale_price: Math.round(effectiveSalePrice * frac),
               }
             })
             const config: BundleConfig = {

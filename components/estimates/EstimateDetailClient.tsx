@@ -1423,11 +1423,54 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
                 <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={() => { setPdfMenuOpen(false); const a = document.createElement('a'); a.href = `/api/pdf/estimate/${estimateId}`; a.download = `estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a) }} />
+                <MenuButton icon={<Wrench size={13} />} label="Work Order" onClick={async () => {
+                  setPdfMenuOpen(false)
+                  try {
+                    const res = await fetch('/api/pdf/workorder', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        ref: est.estimate_number || estimateId,
+                        title: est.title || 'Work Order',
+                        customer: est.customer?.name || '',
+                        items: lineItemsList.map(li => ({ name: li.name, description: li.description, qty: li.quantity, specs: li.specs })),
+                        notes: est.notes || '',
+                        vehicleYear, vehicleMake, vehicleModel,
+                      }),
+                    })
+                    const blob = await res.blob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                  } catch { showToast('Work order PDF failed') }
+                }} />
                 <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={() => { setPdfMenuOpen(false); const a = document.createElement('a'); a.href = `/api/pdf/proposal/${estimateId}`; a.download = `proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a) }} />
                 <MenuButton icon={<DollarSign size={13} />} label="Quick Print" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
           </div>
+
+          {/* Send as Proposal */}
+          {savedId && (
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/estimate/view/${savedId}`
+                navigator.clipboard.writeText(url).then(() => showToast('Proposal link copied!')).catch(() => {})
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(34,192,122,0.12)', border: '1px solid rgba(34,192,122,0.35)',
+                borderRadius: 8, padding: '8px 14px', color: 'var(--green)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: headingFont, letterSpacing: '0.03em',
+              }}
+            >
+              <Link2 size={14} />
+              Send Proposal
+            </button>
+          )}
 
           {/* Customer Portal */}
           <button
@@ -1888,7 +1931,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           { key: 'production' as TabKey, label: 'Production' },
           { key: 'install' as TabKey, label: 'Install' },
           { key: 'notes' as TabKey, label: 'Notes' },
-          { key: 'proposal' as TabKey, label: 'Proposal' },
           { key: 'activity' as TabKey, label: 'Activity' },
         ]).map(tab => (
           <button
