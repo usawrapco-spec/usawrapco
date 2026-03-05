@@ -5,9 +5,11 @@ import { usePortal } from '@/lib/portal-context'
 import { C, PORTAL_STAGES, getPortalStageIndex, fmt } from '@/lib/portal-theme'
 import Link from 'next/link'
 import {
-  CheckCircle2, Circle, MapPin, Calendar, MessageSquare,
+  CheckCircle2, Circle, MapPin, Calendar, MessageSquare, Camera,
   Image as ImageIcon, ArrowLeft, Clock, FileText, CreditCard, ClipboardList, ChevronRight,
 } from 'lucide-react'
+import type { TimelineMilestone } from '@/components/projects/JobTimeline'
+import PortalCustomerTimeline from './PortalCustomerTimeline'
 
 interface Props {
   project: {
@@ -23,10 +25,13 @@ interface Props {
   hasInvoice?: boolean
   invoicePaid?: boolean
   hasSalesOrder?: boolean
+  timelineMilestones?: TimelineMilestone[]
+  token?: string
 }
 
-export default function PortalJobDetail({ project, photos, proofs, milestones, hasEstimate, hasInvoice, invoicePaid, hasSalesOrder }: Props) {
-  const { token } = usePortal()
+export default function PortalJobDetail({ project, photos, proofs, milestones, hasEstimate, hasInvoice, invoicePaid, hasSalesOrder, timelineMilestones, token: tokenProp }: Props) {
+  const portal = usePortal()
+  const token = tokenProp || portal.token
   const base = `/portal/${token}`
   const currentIdx = getPortalStageIndex(project.pipe_stage)
   const [lightbox, setLightbox] = useState<string | null>(null)
@@ -46,7 +51,7 @@ export default function PortalJobDetail({ project, photos, proofs, milestones, h
         <div style={{ fontSize: 13, color: C.text2, marginBottom: 20 }}>{project.vehicle_desc}</div>
       )}
 
-      {/* Stage timeline */}
+      {/* Job Timeline */}
       <section style={{
         background: C.surface,
         border: `1px solid ${C.border}`,
@@ -55,64 +60,88 @@ export default function PortalJobDetail({ project, photos, proofs, milestones, h
         marginBottom: 20,
       }}>
         <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Progress</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {PORTAL_STAGES.map((stage, i) => {
-            const done = i < currentIdx
-            const active = i === currentIdx
-            const color = done ? C.green : active ? C.accent : C.text3
-            return (
-              <div key={stage.key} style={{ display: 'flex', gap: 12, position: 'relative' }}>
-                {/* Line */}
-                {i < PORTAL_STAGES.length - 1 && (
-                  <div style={{
-                    position: 'absolute',
-                    left: 9,
-                    top: 22,
-                    width: 2,
-                    height: 28,
-                    background: done ? C.green : C.border,
-                  }} />
-                )}
-                {/* Icon */}
-                <div style={{ flexShrink: 0, marginTop: 1 }}>
-                  {done ? (
-                    <CheckCircle2 size={20} color={C.green} />
-                  ) : active ? (
+        {timelineMilestones ? (
+          <PortalCustomerTimeline milestones={timelineMilestones} />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {PORTAL_STAGES.map((stage, i) => {
+              const done = i < currentIdx
+              const active = i === currentIdx
+              const color = done ? C.green : active ? C.accent : C.text3
+              return (
+                <div key={stage.key} style={{ display: 'flex', gap: 12, position: 'relative' }}>
+                  {i < PORTAL_STAGES.length - 1 && (
                     <div style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: '50%',
-                      border: `2px solid ${C.accent}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
+                      position: 'absolute',
+                      left: 9,
+                      top: 22,
+                      width: 2,
+                      height: 28,
+                      background: done ? C.green : C.border,
+                    }} />
+                  )}
+                  <div style={{ flexShrink: 0, marginTop: 1 }}>
+                    {done ? (
+                      <CheckCircle2 size={20} color={C.green} />
+                    ) : active ? (
                       <div style={{
-                        width: 8,
-                        height: 8,
+                        width: 20,
+                        height: 20,
                         borderRadius: '50%',
-                        background: C.accent,
-                        animation: 'portalPulse 2s ease-in-out infinite',
-                      }} />
-                    </div>
-                  ) : (
-                    <Circle size={20} color={C.text3} />
-                  )}
-                </div>
-                {/* Label */}
-                <div style={{ paddingBottom: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: active ? 600 : 400, color }}>
-                    {stage.label}
+                        border: `2px solid ${C.accent}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <div style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: C.accent,
+                          animation: 'portalPulse 2s ease-in-out infinite',
+                        }} />
+                      </div>
+                    ) : (
+                      <Circle size={20} color={C.text3} />
+                    )}
                   </div>
-                  {active && (
-                    <div style={{ fontSize: 11, color: C.accent, marginTop: 2 }}>Current stage</div>
-                  )}
+                  <div style={{ paddingBottom: 20 }}>
+                    <div style={{ fontSize: 14, fontWeight: active ? 600 : 400, color }}>
+                      {stage.label}
+                    </div>
+                    {active && (
+                      <div style={{ fontSize: 11, color: C.accent, marginTop: 2 }}>Current stage</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </section>
+
+      {/* Upload Photos CTA */}
+      <Link
+        href={`${base}/upload?project=${project.id}`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: '14px 20px',
+          background: `${C.green}15`,
+          border: `1px solid ${C.green}35`,
+          color: C.green,
+          borderRadius: 12,
+          fontWeight: 600,
+          fontSize: 14,
+          textDecoration: 'none',
+          marginBottom: 20,
+        }}
+      >
+        <Camera size={18} />
+        Upload Photos & Measurements
+      </Link>
 
       {/* Details */}
       <section style={{

@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import PortalJobDetail from '@/components/portal/PortalJobDetail'
+import { buildMilestones } from '@/components/projects/JobTimeline'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ export default async function PortalJobDetailPage({
   // Verify project belongs to this customer
   const { data: project } = await supabase
     .from('projects')
-    .select('id, title, vehicle_desc, pipe_stage, install_date, install_address, is_mobile_install, install_completed_date, warranty_years, warranty_expiry, created_at, revenue, type, customer_id, notes')
+    .select('id, title, vehicle_desc, pipe_stage, install_date, install_address, is_mobile_install, install_completed_date, warranty_years, warranty_expiry, created_at, revenue, type, customer_id, notes, form_data')
     .eq('id', jobId)
     .eq('customer_id', customer.id)
     .single()
@@ -69,6 +70,10 @@ export default async function PortalJobDetailPage({
       .maybeSingle(),
   ])
 
+  // Build timeline milestones from form_data
+  const formData = (project as any).form_data || {}
+  const timelineMilestones = buildMilestones(formData, project.created_at)
+
   return (
     <PortalJobDetail
       project={project as any}
@@ -79,6 +84,8 @@ export default async function PortalJobDetailPage({
       hasInvoice={!!invoiceRes.data}
       invoicePaid={invoiceRes.data?.status === 'paid'}
       hasSalesOrder={!!salesOrderRes.data}
+      timelineMilestones={timelineMilestones}
+      token={token}
     />
   )
 }

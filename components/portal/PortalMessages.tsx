@@ -14,6 +14,7 @@ interface Message {
   created_at: string
   project_id?: string | null
   customer_id?: string | null
+  attachment_url?: string | null
 }
 
 interface Props {
@@ -29,6 +30,9 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
   const [text, setText] = useState('')
   const [senderName, setSenderName] = useState(customerName || '')
   const [sending, setSending] = useState(false)
+  const [attachmentPreview, setAttachmentPreview] = useState<{ file: File; url: string } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
@@ -62,10 +66,47 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
     return () => { supabase.removeChannel(channel) }
   }, [customerId, supabase])
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAttachmentPreview({ file, url: URL.createObjectURL(file) })
+    e.target.value = ''
+  }
+
+  function clearAttachment() {
+    if (attachmentPreview) {
+      URL.revokeObjectURL(attachmentPreview.url)
+      setAttachmentPreview(null)
+    }
+  }
+
   async function handleSend() {
-    if (!text.trim() || sending) return
+    if ((!text.trim() && !attachmentPreview) || sending) return
     setSending(true)
+
+    let attachmentUrl: string | null = null
+
     try {
+      // Upload attachment first if present
+      if (attachmentPreview) {
+        setUploading(true)
+        const formData = new FormData()
+        formData.append('file', attachmentPreview.file)
+        formData.append('portal_token', token)
+        formData.append('category', 'message_attachment')
+
+        const uploadRes = await fetch('/api/portal/upload', { method: 'POST', body: formData })
+        const uploadData = await uploadRes.json()
+        if (uploadRes.ok && uploadData.url) {
+          attachmentUrl = uploadData.url
+        }
+        setUploading(false)
+      }
+
+      const messageBody = attachmentUrl && !text.trim()
+        ? '[Sent an image]'
+        : text.trim()
+
       const res = await fetch('/api/portal/customer-messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,16 +115,19 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
           customerId,
           orgId,
           senderName: senderName || 'Customer',
-          body: text.trim(),
+          body: messageBody,
+          attachment_url: attachmentUrl,
         }),
       })
       if (res.ok) {
         const data = await res.json()
         setMessages(prev => [...prev, data.message])
         setText('')
+        clearAttachment()
       }
     } finally {
       setSending(false)
+      setUploading(false)
     }
   }
 
@@ -131,9 +175,22 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
                     {msg.sender_name}
                   </div>
                 )}
-                <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                  {msg.body}
-                </div>
+                {msg.attachment_url && (
+                  <img
+                    src={msg.attachment_url}
+                    alt="Attachment"
+                    style={{
+                      maxWidth: '100%',
+                      borderRadius: 8,
+                      marginBottom: msg.body && msg.body !== '[Sent an image]' ? 8 : 0,
+                    }}
+                  />
+                )}
+                {msg.body && msg.body !== '[Sent an image]' && (
+                  <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                    {msg.body}
+                  </div>
+                )}
                 <div style={{
                   fontSize: 10,
                   color: isCustomer ? 'rgba(255,255,255,0.5)' : C.text3,
@@ -170,7 +227,52 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
             }}
           />
         )}
-        <div style={{ display: 'flex', gap: 8 }}>
+        {/* Attachment preview */}
+        {attachmentPreview && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{ position: 'relative', width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: C.surface2, flexShrink: 0 }}>
+              <img src={attachmentPreview.url} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <button
+                onClick={clearAttachment}
+                style={{
+                  position: 'absolute', top: 2, right: 2, width: 16, height: 16, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 10,
+                }}
+              >
+                x
+              </button>
+            </div>
+            <span style={{ fontSize: 12, color: C.text3 }}>{attachmentPreview.file.name}</span>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: C.surface2,
+              border: `1px solid ${C.border}`,
+              color: C.text3,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Paperclip size={18} />
+          </button>
           <input
             type="text"
             placeholder="Type a message..."
@@ -189,22 +291,22 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
           />
           <button
             onClick={handleSend}
-            disabled={!text.trim() || sending}
+            disabled={(!text.trim() && !attachmentPreview) || sending}
             style={{
               width: 44,
               height: 44,
               borderRadius: '50%',
-              background: text.trim() ? C.accent : C.surface2,
+              background: (text.trim() || attachmentPreview) ? C.accent : C.surface2,
               border: 'none',
               color: '#fff',
-              cursor: text.trim() ? 'pointer' : 'default',
+              cursor: (text.trim() || attachmentPreview) ? 'pointer' : 'default',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {sending ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={18} />}
           </button>
         </div>
       </div>

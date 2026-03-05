@@ -29,12 +29,18 @@ export default async function PortalTokenLayout({
       .eq('customer_id', customer.id)
       .order('created_at', { ascending: false })
 
-    // Fetch org name, fleet count, and loyalty data in parallel
-    const [orgRes, fleetRes, invoiceRes, redemptionRes] = await Promise.all([
+    const projectIds = (projects || []).map(p => p.id)
+
+    // Fetch org name, fleet count, loyalty data, pending proofs, and unread messages in parallel
+    const [orgRes, fleetRes, invoiceRes, redemptionRes, proofsRes, messagesRes] = await Promise.all([
       supabase.from('orgs').select('name').eq('id', customer.org_id).single(),
       supabase.from('fleet_vehicles').select('id', { count: 'exact', head: true }).eq('customer_id', customer.id).not('name', 'is', null),
       supabase.from('invoices').select('total').eq('customer_id', customer.id).eq('status', 'paid'),
       supabase.from('loyalty_redemptions').select('points_redeemed, status').eq('customer_id', customer.id),
+      projectIds.length > 0
+        ? supabase.from('design_proofs').select('id', { count: 'exact', head: true }).in('project_id', projectIds).eq('status', 'pending')
+        : Promise.resolve({ count: 0 }),
+      supabase.from('portal_messages').select('id', { count: 'exact', head: true }).eq('customer_id', customer.id).eq('read', false).eq('direction', 'inbound'),
     ])
 
     // Compute loyalty points balance
@@ -59,6 +65,8 @@ export default async function PortalTokenLayout({
       projects: projects || [],
       hasFleet: (fleetRes.count ?? 0) > 0,
       loyaltyPoints,
+      pendingProofs: proofsRes.count ?? 0,
+      unreadMessages: messagesRes.count ?? 0,
     }
 
     return (

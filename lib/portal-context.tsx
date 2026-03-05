@@ -31,6 +31,8 @@ export interface PortalContextValue {
   hasFleet?: boolean
   loyaltyPoints?: number
   referralCredits?: number
+  pendingProofs?: number
+  unreadMessages?: number
 }
 
 const PortalCtx = createContext<PortalContextValue | null>(null)

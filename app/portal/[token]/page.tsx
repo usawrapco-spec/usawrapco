@@ -21,8 +21,16 @@ export default async function PortalTokenPage({
     .single()
 
   if (customer) {
-    // Fetch dashboard data
-    const [activityRes, invoiceRes, proofsRes] = await Promise.all([
+    // Get project IDs first
+    const { data: custProjects } = await supabase
+      .from('projects')
+      .select('id, form_data')
+      .eq('customer_id', customer.id)
+
+    const projectIds = (custProjects || []).map((p: any) => p.id)
+
+    // Fetch dashboard data in parallel
+    const [activityRes, invoiceRes, proofsRes, photosRes] = await Promise.all([
       supabase
         .from('activity_log')
         .select('id, action, details, created_at')
@@ -35,25 +43,42 @@ export default async function PortalTokenPage({
         .select('balance_due')
         .eq('customer_id', customer.id)
         .in('status', ['open', 'sent', 'partial', 'overdue']),
-      supabase
-        .from('design_proofs')
-        .select('id, project_id')
-        .eq('customer_status', 'pending')
-        .in('project_id', (
-          await supabase
-            .from('projects')
-            .select('id')
-            .eq('customer_id', customer.id)
-        ).data?.map((p: any) => p.id) || []),
+      projectIds.length > 0
+        ? supabase
+            .from('design_proofs')
+            .select('id, project_id')
+            .eq('customer_status', 'pending')
+            .in('project_id', projectIds)
+        : Promise.resolve({ data: [] }),
+      projectIds.length > 0
+        ? supabase
+            .from('job_images')
+            .select('project_id')
+            .in('project_id', projectIds)
+        : Promise.resolve({ data: [] }),
     ])
 
     const invoiceBalance = (invoiceRes.data || []).reduce((sum: number, inv: any) => sum + (inv.balance_due || 0), 0)
+
+    // Build photo counts per project
+    const photoCounts: Record<string, number> = {}
+    for (const p of (photosRes.data || [])) {
+      photoCounts[p.project_id] = (photoCounts[p.project_id] || 0) + 1
+    }
+
+    // Build form_data map for timeline
+    const formDataMap: Record<string, Record<string, any>> = {}
+    for (const p of (custProjects || [])) {
+      if ((p as any).form_data) formDataMap[p.id] = (p as any).form_data
+    }
 
     return (
       <PortalHomePage
         recentActivity={(activityRes.data || []) as any[]}
         invoiceBalance={invoiceBalance}
         proofsPending={(proofsRes.data || []).length}
+        photoCounts={photoCounts}
+        formDataMap={formDataMap}
       />
     )
   }
