@@ -113,6 +113,7 @@ export default function PhotoInspection({
   const imageRef = useRef<HTMLImageElement | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const rafRef = useRef<number | null>(null)
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -147,22 +148,60 @@ export default function PhotoInspection({
 
   // ─── Upload ────────────────────────────────────────────────────────────────
 
+  // Compress + resize before upload so large phone photos don't freeze the browser
+  const compressImage = useCallback(async (file: File): Promise<File> => {
+    const MAX_PX = 1920
+    const QUALITY = 0.85
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const scale = Math.min(1, MAX_PX / Math.max(img.naturalWidth, img.naturalHeight))
+        const w = Math.round(img.naturalWidth * scale)
+        const h = Math.round(img.naturalHeight * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(file); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return }
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+          },
+          'image/jpeg',
+          QUALITY,
+        )
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.src = url
+    })
+  }, [])
+
   const uploadFiles = useCallback(
     async (files: File[]) => {
       if (!canWrite) return
       const remaining = MAX_PHOTOS - photos.length
       if (remaining <= 0) return
       const toUpload = files.slice(0, remaining)
+      // Hard limit — reject files over 50MB before touching memory
+      const oversized = toUpload.filter(f => f.size > 50 * 1024 * 1024)
+      if (oversized.length > 0) {
+        alert(`File too large: ${oversized.map(f => f.name).join(', ')}. Max 50MB per photo.`)
+        return
+      }
       setUploading(true)
       try {
         const newPhotos: InspectionPhoto[] = []
         for (const file of toUpload) {
-          const ext = file.name.split('.').pop() || 'jpg'
-          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+          const compressed = await compressImage(file)
+          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
           const path = `inspections/${lineItemId}/${fileName}`
           const { error } = await supabase.storage
             .from('project-files')
-            .upload(path, file, { upsert: true })
+            .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
           if (error) {
             console.error('Upload error:', error)
             continue
@@ -183,7 +222,7 @@ export default function PhotoInspection({
         setUploading(false)
       }
     },
-    [canWrite, photos, lineItemId, supabase, updatePhotos],
+    [canWrite, photos, lineItemId, supabase, updatePhotos, compressImage],
   )
 
   const handleFileInput = useCallback(
@@ -435,13 +474,17 @@ export default function PhotoInspection({
       const coords = getCanvasCoords(e)
       if (!coords) return
 
-      setCurrentAction((prev) => {
-        if (!prev) return prev
-        if (prev.type === 'freehand') {
-          return { ...prev, points: [...prev.points, coords] }
-        }
-        // For arrow/rectangle, keep start and update end
-        return { ...prev, points: [prev.points[0], coords] }
+      // Throttle state updates to one per animation frame to prevent canvas freeze
+      if (rafRef.current !== null) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        setCurrentAction((prev) => {
+          if (!prev) return prev
+          if (prev.type === 'freehand') {
+            return { ...prev, points: [...prev.points, coords] }
+          }
+          return { ...prev, points: [prev.points[0], coords] }
+        })
       })
     },
     [isDrawing, currentAction, getCanvasCoords],
