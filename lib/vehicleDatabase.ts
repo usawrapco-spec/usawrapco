@@ -186,7 +186,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 8), p('fender_front_passenger', 8),
       p('quarter_rear_driver', 9), p('quarter_rear_passenger', 9),
     ],
-    totalSqft: 160,
+    totalSqft: 159,
   },
   {
     make: 'Tesla', model: 'Model 3', yearStart: 2017, yearEnd: 2026,
@@ -220,7 +220,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
       p('quarter_rear_driver', 12), p('quarter_rear_passenger', 12),
     ],
-    totalSqft: 212,
+    totalSqft: 202,
   },
   {
     make: 'Toyota', model: 'RAV4', yearStart: 2019, yearEnd: 2026,
@@ -236,7 +236,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
       p('quarter_rear_driver', 12), p('quarter_rear_passenger', 12),
     ],
-    totalSqft: 212,
+    totalSqft: 202,
   },
   {
     make: 'Tesla', model: 'Model Y', yearStart: 2020, yearEnd: 2026,
@@ -252,7 +252,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
       p('quarter_rear_driver', 13), p('quarter_rear_passenger', 13),
     ],
-    totalSqft: 224,
+    totalSqft: 214,
   },
   {
     make: 'Tesla', model: 'Model X', yearStart: 2016, yearEnd: 2026,
@@ -268,7 +268,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 12), p('fender_front_passenger', 12),
       p('quarter_rear_driver', 14), p('quarter_rear_passenger', 14),
     ],
-    totalSqft: 262,
+    totalSqft: 241,
   },
   {
     make: 'Subaru', model: 'Outback', yearStart: 2015, yearEnd: 2026,
@@ -284,7 +284,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 9), p('fender_front_passenger', 9),
       p('quarter_rear_driver', 11), p('quarter_rear_passenger', 11),
     ],
-    totalSqft: 207,
+    totalSqft: 197,
   },
   {
     make: 'Subaru', model: 'Forester', yearStart: 2019, yearEnd: 2026,
@@ -300,7 +300,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 9), p('fender_front_passenger', 9),
       p('quarter_rear_driver', 11), p('quarter_rear_passenger', 11),
     ],
-    totalSqft: 204,
+    totalSqft: 193,
   },
   {
     make: 'Jeep', model: 'Wrangler', yearStart: 2018, yearEnd: 2026,
@@ -334,7 +334,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 16), p('bed_passenger_side', 16),
       p('trunk', 8),
     ],
-    totalSqft: 224,
+    totalSqft: 223,
   },
 
   // ── TRUCKS ────────────────────────────────────────────────────────────────
@@ -354,7 +354,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 18), p('bed_passenger_side', 18),
       p('trunk', 10),
     ],
-    totalSqft: 284,
+    totalSqft: 264,
   },
   {
     make: 'Ford', model: 'F-250', yearStart: 2017, yearEnd: 2026,
@@ -372,7 +372,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 20), p('bed_passenger_side', 20),
       p('trunk', 12),
     ],
-    totalSqft: 320,
+    totalSqft: 301,
   },
   {
     make: 'Chevrolet', model: 'Silverado', yearStart: 2019, yearEnd: 2026,
@@ -390,7 +390,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 18), p('bed_passenger_side', 18),
       p('trunk', 10),
     ],
-    totalSqft: 284,
+    totalSqft: 264,
   },
   {
     make: 'GMC', model: 'Sierra', yearStart: 2019, yearEnd: 2026,
@@ -408,7 +408,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 18), p('bed_passenger_side', 18),
       p('trunk', 10),
     ],
-    totalSqft: 284,
+    totalSqft: 264,
   },
   {
     make: 'Toyota', model: 'Tacoma', yearStart: 2016, yearEnd: 2026,
@@ -426,7 +426,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 14), p('bed_passenger_side', 14),
       p('trunk', 8),
     ],
-    totalSqft: 240,
+    totalSqft: 220,
   },
   {
     make: 'Toyota', model: 'Tundra', yearStart: 2022, yearEnd: 2026,
@@ -444,7 +444,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 18), p('bed_passenger_side', 18),
       p('trunk', 10),
     ],
-    totalSqft: 298,
+    totalSqft: 279,
   },
   {
     make: 'RAM', model: '1500', yearStart: 2019, yearEnd: 2026,
@@ -462,7 +462,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 18), p('bed_passenger_side', 18),
       p('trunk', 10),
     ],
-    totalSqft: 284,
+    totalSqft: 264,
   },
   {
     make: 'RAM', model: '2500', yearStart: 2019, yearEnd: 2026,
@@ -480,7 +480,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('bed_driver_side', 20), p('bed_passenger_side', 20),
       p('trunk', 12),
     ],
-    totalSqft: 320,
+    totalSqft: 301,
   },
 
   // ── VANS ──────────────────────────────────────────────────────────────────
@@ -516,7 +516,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('a_pillars', 3), p('b_pillars', 3),
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
     ],
-    totalSqft: 304,
+    totalSqft: 294,
   },
   {
     make: 'Ford', model: 'Transit', variant: 'High Roof',
@@ -533,7 +533,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('a_pillars', 3), p('b_pillars', 3),
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
     ],
-    totalSqft: 352,
+    totalSqft: 332,
   },
   {
     make: 'Ford', model: 'E-Series', yearStart: 2008, yearEnd: 2026,
@@ -615,7 +615,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('a_pillars', 3), p('b_pillars', 3),
       p('fender_front_driver', 9), p('fender_front_passenger', 9),
     ],
-    totalSqft: 340,
+    totalSqft: 330,
   },
   {
     make: 'Mercedes-Benz', model: 'Metris', yearStart: 2016, yearEnd: 2026,
@@ -647,7 +647,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('a_pillars', 3), p('b_pillars', 3),
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
     ],
-    totalSqft: 322,
+    totalSqft: 312,
   },
   {
     make: 'Toyota', model: 'Sienna', yearStart: 2021, yearEnd: 2026,
@@ -664,7 +664,7 @@ export const VEHICLE_DATABASE: VehiclePanelSpec[] = [
       p('fender_front_driver', 10), p('fender_front_passenger', 10),
       p('quarter_rear_driver', 12), p('quarter_rear_passenger', 12),
     ],
-    totalSqft: 218,
+    totalSqft: 207,
   },
 
   // ── COMMERCIAL / BOX TRUCKS ───────────────────────────────────────────────

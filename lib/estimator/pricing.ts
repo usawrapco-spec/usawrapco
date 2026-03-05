@@ -2,7 +2,7 @@ import type { LineItemState, LineItemCalc, Coverage } from './types'
 import { SIZE_SQFT, TIER_SIZE_MAP } from './types'
 import { VAN_PRICING, PPF_PACKAGES } from './vehicleDb'
 
-const MATERIAL_BUFFER = 1.12 // 12% waste buffer
+const MATERIAL_BUFFER = 1 // no additional waste — material rates already account for it
 
 // ─── Box Truck Sqft Calculator ─────────────────────────────────────────────
 export function calcBoxTruckSqft(
@@ -46,7 +46,7 @@ export function calcTrailerSqft(
 
   // V-nose addition
   if (vnose === 'half_standard') {
-    total += lengthFt * 0.5 * 2 // small v-nose both sides
+    total += heightFt * 2.5 * 2 // standard v-nose: height × 2.5ft depth × 2 sides
   } else if (vnose === 'custom' && vnoseH > 0 && vnoseL > 0) {
     total += vnoseH * vnoseL * 2 // custom v-nose both sides
   }
@@ -218,32 +218,42 @@ function solveSalePrice(
 
 // ─── Main Line Item Calculator ─────────────────────────────────────────────
 export function calcLineItem(item: LineItemState): LineItemCalc {
-  // PPF is priced by packages, not formula
+  // PPF uses package material costs but GPM solver for sale price
   if (item.type === 'ppf') {
     const ppf = calcPPFTotal(item.ppfSelected || [])
     const design = item.designFee || 0
+    const matCost = ppf.matCost
+
+    let salePrice = 0
+    if (item.manualSale && item.salePrice > 0) {
+      salePrice = item.salePrice
+    } else {
+      salePrice = solveSalePrice(matCost, design, item.installRateMode, item.laborPct, item.laborFlat, item.targetGPM)
+    }
+
     const labor = item.installRateMode === 'pct'
-      ? ppf.salePrice * (item.laborPct / 100)
+      ? Math.round(salePrice * (item.laborPct / 100))
       : item.laborFlat
-    const cogs = ppf.matCost + labor + design
-    const profit = ppf.salePrice - cogs
-    const gpm = ppf.salePrice > 0 ? (profit / ppf.salePrice) * 100 : 0
+    const cogs = matCost + labor + design
+    const profit = salePrice - cogs
+    const gpm = salePrice > 0 ? (profit / salePrice) * 100 : 0
 
     return {
-      salePrice: ppf.salePrice,
-      matCost: ppf.matCost,
+      salePrice,
+      matCost,
       labor,
       design,
       cogs,
       profit,
       gpm,
-      effectiveLaborPct: ppf.salePrice > 0 ? (labor / ppf.salePrice) * 100 : 0,
+      effectiveLaborPct: salePrice > 0 ? (labor / salePrice) * 100 : 0,
     }
   }
 
   // Calculate sqft based on type
   let sqft = 0
   let extraRevenue = 0
+  let matCostOverride: number | null = null
 
   switch (item.type) {
     case 'vehicle':
@@ -284,9 +294,9 @@ export function calcLineItem(item: LineItemState): LineItemCalc {
         item.marTransomHeight || 0,
         item.matRate || 2.10
       )
-      // Marine calc handles its own waste pricing — use boatSqft for base sqft
-      // and override material cost downstream via totalCost
+      // Marine calc handles its own waste pricing (waste at 2× rate)
       sqft = marine.boatSqft
+      matCostOverride = marine.totalCost
       break
     }
 
@@ -296,8 +306,8 @@ export function calcLineItem(item: LineItemState): LineItemCalc {
       break
   }
 
-  // Material cost
-  const matCost = Math.round(sqft * item.matRate * MATERIAL_BUFFER)
+  // Material cost (marine overrides with its own waste-inclusive calc)
+  const matCost = matCostOverride ?? Math.round(sqft * item.matRate * MATERIAL_BUFFER)
   const design = item.designFee || 150
 
   // Sale price logic (before cab/roof addon — addons are pure revenue, no COGS)

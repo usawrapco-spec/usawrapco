@@ -12,7 +12,7 @@ import {
   TrendingUp, Calculator, Settings,
   Package, Image, Link2, UserPlus, Ruler, Phone, Globe,
   FoldVertical, UnfoldVertical,
-  GripVertical, Upload, Camera, ExternalLink,
+  GripVertical, Upload, Camera, ExternalLink, Eye,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
@@ -48,6 +48,7 @@ import type { CalcOutput } from '@/components/estimates/calculators/types'
 import EstimateSurveyTab from '@/components/estimates/EstimateSurveyTab'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import SharedVehicleSelector from '@/components/shared/VehicleSelector'
+import TeamMultiSelect from '@/components/shared/TeamMultiSelect'
 
 // ─── Tier-to-panel-key mapping ───────────────────────────────────────────────
 const TIER_TO_PANEL_KEY: Record<string, string> = {
@@ -208,7 +209,7 @@ const STATUS_CONFIG: Record<EstimateStatus, { label: string; color: string; bg: 
   void:     { label: 'VOID',     color: 'var(--text3)',  bg: 'rgba(90,96,128,0.12)' },
 }
 
-type TabKey = 'items' | 'survey' | 'design' | 'production' | 'install' | 'notes' | 'activity' | 'proposal'
+type TabKey = 'items' | 'survey' | 'design' | 'production' | 'install' | 'notes' | 'activity'
 
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 
@@ -384,119 +385,6 @@ function gpmBadge(gpm: number): { label: string; color: string; bg: string } {
 }
 
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
-
-function TeamMultiSelect({
-  label,
-  members,
-  selectedIds,
-  onChange,
-  canWrite,
-  accentColor = '#4f7fff',
-}: {
-  label: string
-  members: Pick<Profile, 'id' | 'name' | 'role'>[]
-  selectedIds: string[]
-  onChange: (ids: string[]) => void
-  canWrite: boolean
-  accentColor?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const selected = members.filter(m => selectedIds.includes(m.id))
-  const available = members.filter(m => !selectedIds.includes(m.id))
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const toggle = (id: string) => {
-    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
-  }
-
-  return (
-    <div style={{ marginBottom: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 72 }}>{label}</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flex: 1 }}>
-          {selected.map(m => (
-            <span
-              key={m.id}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                fontSize: 11, fontWeight: 600, padding: '2px 7px',
-                borderRadius: 4, background: `${accentColor}20`, color: accentColor,
-                border: `1px solid ${accentColor}30`,
-              }}
-            >
-              {m.name}
-              {canWrite && (
-                <button
-                  onClick={() => toggle(m.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: accentColor, padding: 0, lineHeight: 1, fontSize: 13, marginLeft: 1 }}
-                >×</button>
-              )}
-            </span>
-          ))}
-          {selected.length === 0 && (
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>None</span>
-          )}
-        </div>
-      </div>
-      {canWrite && (
-        <div ref={ref} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setOpen(!open)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontSize: 11, color: 'var(--text3)', cursor: 'pointer',
-              background: 'none', border: '1px dashed rgba(255,255,255,0.12)',
-              borderRadius: 5, padding: '2px 8px',
-            }}
-          >
-            <Plus size={10} /> Add
-          </button>
-          {open && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, marginTop: 4,
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-              zIndex: 300, minWidth: 160,
-            }}>
-              {available.length === 0 ? (
-                <p style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text3)' }}>All assigned</p>
-              ) : available.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => { toggle(m.id); setOpen(false) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    width: '100%', padding: '7px 12px', background: 'none',
-                    border: 'none', cursor: 'pointer', color: 'var(--text1)',
-                    fontSize: 12, textAlign: 'left',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  <span style={{
-                    width: 22, height: 22, borderRadius: '50%',
-                    background: `${accentColor}20`, color: accentColor,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, fontWeight: 700, flexShrink: 0,
-                  }}>{m.name?.[0]?.toUpperCase()}</span>
-                  {m.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── Props ──────────────────────────────────────────────────────────────────────
 
@@ -1925,7 +1813,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
-          { key: 'items' as TabKey, label: 'Items', count: lineItemsList.length },
+          { key: 'items' as TabKey, label: 'Items & Proposal', count: lineItemsList.length },
           { key: 'survey' as TabKey, label: 'Survey' },
           { key: 'design' as TabKey, label: 'Design' },
           { key: 'production' as TabKey, label: 'Production' },
@@ -2347,6 +2235,53 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               )}
             </div>
 
+            {/* ── PROPOSAL BUILDER (unified with items) ── */}
+            <div style={{ ...cardStyle, marginTop: 16 }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont }}>
+                  Proposal Builder
+                </div>
+                <button
+                  onClick={() => setProposalSlideOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '6px 14px', borderRadius: 8,
+                    border: 'none', background: 'var(--accent)',
+                    color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
+                  }}
+                >
+                  <Eye size={12} /> Preview & Send
+                </button>
+              </div>
+              <div style={{ padding: '0' }}>
+                <ProposalBuilder
+                  estimateId={estimateId}
+                  customerId={est.customer_id}
+                  customerEmail={est.customer?.email || null}
+                  customerName={est.customer?.name || null}
+                  customerPhone={null}
+                />
+              </div>
+            </div>
+
+            {/* Proposal Slide-Over (preview & send) */}
+            <ProposalSlideOver
+              open={proposalSlideOpen}
+              onClose={() => setProposalSlideOpen(false)}
+              estimateId={estimateId}
+              customerId={est.customer_id}
+              customerName={est.customer?.name || null}
+              customerEmail={est.customer?.email || null}
+              customerPhone={null}
+              lineItems={lineItemsList.map(li => ({
+                id: li.id, name: li.description || li.product_type || 'Item',
+                salePrice: li.total_price || 0, gpm: 0, type: li.product_type || 'custom',
+              }))}
+              totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
+              totalGPM={0}
+            />
+
             {/* Right: Unified Financial Panel */}
             <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
 
@@ -2487,6 +2422,12 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
                 >
                   Send Estimate
+                </button>
+                <button
+                  onClick={() => setProposalSlideOpen(true)}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  <FileText size={14} /> Build Proposal
                 </button>
               </div>
 
@@ -2910,74 +2851,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           </div>
         </div>
       )}
-      {activeTab === 'proposal' && (
-        <div>
-          {/* Top action bar */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: 16, flexWrap: 'wrap', gap: 8,
-          }}>
-            <div style={{
-              fontSize: 14, fontWeight: 700, color: 'var(--text1)',
-              fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>
-              Estimate & Proposal
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => {/* send estimate as-is */}}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 16px', borderRadius: 8,
-                  border: '1px solid var(--border)', background: 'var(--surface2)',
-                  color: 'var(--text2)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-              >
-                <Send size={14} /> Send Estimate
-              </button>
-              <button
-                onClick={() => setProposalSlideOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 16px', borderRadius: 8,
-                  border: 'none', background: 'var(--accent)',
-                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-              >
-                <FileText size={14} /> Build Proposal <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-
-          {/* Proposal Builder */}
-          <ProposalBuilder
-            estimateId={estimateId}
-            customerId={est.customer_id}
-            customerEmail={est.customer?.email || null}
-            customerName={est.customer?.name || null}
-            customerPhone={null}
-          />
-
-          {/* Slide-over preview */}
-          <ProposalSlideOver
-            open={proposalSlideOpen}
-            onClose={() => setProposalSlideOpen(false)}
-            estimateId={estimateId}
-            customerId={est.customer_id}
-            customerName={est.customer?.name || null}
-            customerEmail={est.customer?.email || null}
-            customerPhone={null}
-            lineItems={lineItemsList.map(li => ({
-              id: li.id, name: li.description || li.product_type || 'Item',
-              salePrice: li.total_price || 0, gpm: 0, type: li.product_type || 'custom',
-            }))}
-            totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
-            totalGPM={0}
-          />
-        </div>
-      )}
+      {/* Proposal tab removed — now unified into Items & Proposal tab above */}
       {activeTab === 'activity' && (
         <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
       )}

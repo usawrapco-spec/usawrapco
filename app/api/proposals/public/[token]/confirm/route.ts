@@ -7,7 +7,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   try {
     const admin = getSupabaseAdmin()
     const body = await req.json()
-    const { package_id, upsell_ids, stripe_payment_intent_id, scheduled_date, customer_notes, total_amount, deposit_amount } = body
+    const { package_id, upsell_ids, stripe_payment_intent_id, scheduled_date, customer_notes } = body
 
     // Fetch proposal + estimate
     const { data: proposal } = await admin
@@ -19,6 +19,30 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     if (!proposal) return NextResponse.json({ error: 'Proposal not found' }, { status: 404 })
 
     const estimate = proposal.estimate
+
+    // Server-side total calculation (never trust frontend)
+    const { data: pkg } = await admin
+      .from('proposal_packages')
+      .select('price')
+      .eq('id', package_id)
+      .eq('proposal_id', proposal.id)
+      .single()
+
+    if (!pkg) return NextResponse.json({ error: 'Invalid package' }, { status: 400 })
+
+    let serverTotal = Number(pkg.price) || 0
+    if (upsell_ids?.length > 0) {
+      const { data: validUpsells } = await admin
+        .from('proposal_upsells')
+        .select('price')
+        .in('id', upsell_ids)
+        .eq('proposal_id', proposal.id)
+      if (validUpsells) {
+        serverTotal += validUpsells.reduce((sum: number, u: any) => sum + (Number(u.price) || 0), 0)
+      }
+    }
+
+    const serverDeposit = proposal.deposit_amount ?? 250
 
     // 1. Update proposal status
     await admin.from('proposals').update({
@@ -33,8 +57,8 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
       proposal_id: proposal.id,
       package_id,
       upsell_ids: upsell_ids || [],
-      total_amount: total_amount || 0,
-      deposit_amount: deposit_amount || proposal.deposit_amount || 250,
+      total_amount: serverTotal,
+      deposit_amount: serverDeposit,
       stripe_payment_intent_id: stripe_payment_intent_id || null,
       deposit_paid_at: new Date().toISOString(),
       scheduled_date: scheduled_date || null,
@@ -52,10 +76,10 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
           customer_id: estimate.customer_id,
           sales_rep_id: estimate.sales_rep_id,
           line_items: estimate.line_items || [],
-          subtotal: total_amount || estimate.subtotal || 0,
+          subtotal: serverTotal,
           tax_percent: estimate.tax_percent || 0,
           tax_amount: estimate.tax_amount || 0,
-          total: total_amount || estimate.total || 0,
+          total: serverTotal,
           status: 'new',
           notes: estimate.notes || null,
           so_date: new Date().toISOString().split('T')[0],
@@ -83,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
         org_id: estimate.org_id || ORG_ID,
         user_id: estimate.sales_rep_id,
         title: 'Proposal Accepted!',
-        message: `Customer accepted your proposal! Package: ${pkgName}, Total: $${Number(total_amount || 0).toLocaleString()}, Deposit paid.`,
+        message: `Customer accepted your proposal! Package: ${pkgName}, Total: $${serverTotal.toLocaleString()}, Deposit paid.`,
         type: 'proposal_accepted',
         read: false,
       }).then(() => {})
@@ -98,8 +122,8 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
       details: {
         package_id,
         upsell_ids,
-        total_amount,
-        deposit_amount,
+        total_amount: serverTotal,
+        deposit_amount: serverDeposit,
         stripe_payment_intent_id,
         sales_order_id: salesOrder?.id,
       },

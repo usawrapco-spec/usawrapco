@@ -35,19 +35,26 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
     if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
-    // Calculate total with upsells
-    let total = Number(pkg.price)
+    // Validate package belongs to this proposal
+    if (pkg.proposal_id !== proposal.id) {
+      return NextResponse.json({ error: 'Package does not belong to this proposal' }, { status: 400 })
+    }
+
+    // Calculate total with upsells (server-side — never trust frontend total)
+    let total = Number(pkg.price) || 0
     if (upsell_ids?.length > 0) {
       const { data: selectedUpsells } = await admin
         .from('proposal_upsells')
-        .select('price')
+        .select('id, price')
         .in('id', upsell_ids)
-      if (selectedUpsells) {
-        total += selectedUpsells.reduce((sum: number, u: any) => sum + Number(u.price), 0)
+        .eq('proposal_id', proposal.id)
+      if (!selectedUpsells || selectedUpsells.length !== upsell_ids.length) {
+        return NextResponse.json({ error: 'One or more upsells are invalid' }, { status: 400 })
       }
+      total += selectedUpsells.reduce((sum: number, u: any) => sum + (Number(u.price) || 0), 0)
     }
 
-    const depositAmount = proposal.deposit_amount || 250
+    const depositAmount = proposal.deposit_amount ?? 250
 
     // Store signature
     if (signature_base64) {
