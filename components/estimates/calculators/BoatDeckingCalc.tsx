@@ -1,209 +1,435 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { Anchor, Plus, Trash2, Layers } from 'lucide-react'
 import type { LineItemSpecs } from '@/types'
 import {
-  CalcOutput, DESIGN_FEE_DEFAULT,
-  autoPrice, calcGPMPct,
+  CalcOutput,
+  calcGPMPct,
   calcFieldLabelCompact, calcInputCompact, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
+
+export interface ZoneProposalItem {
+  zone_key: string
+  zone_label: string
+  sqft: number
+  material_cost: number
+  installer_pay: number
+  scanning_fee: number
+  design_fee: number
+  cogs: number
+  sale_price: number
+}
+
+export interface BundleConfig {
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  min_zones: number
+  total_zones: number
+  discount_label: string
+}
+
+// DEKWAVE only — 29 sqft/pad, $350/pad
+const PAD_SQFT     = 29
+const PAD_COST     = 350
+const LASER_COST   = 350
+const SCAN_DEFAULT = 350
+
+const DEKWAVE_PRODUCTS = [
+  { key: '6mm', label: '6mm Dual Color', padCost: PAD_COST },
+  { key: '9mm', label: '9mm Tri Color',  padCost: PAD_COST },
+] as const
+
+type DekwaveKey = typeof DEKWAVE_PRODUCTS[number]['key']
+type ShapeType  = 'rectangle' | 'triangle' | 'manual'
+type LaborMode  = 'sqft' | 'flat' | 'hourly'
+
+interface DeckSection {
+  id: string; name: string; length: number; width: number
+  shape: ShapeType; manualSqft: number
+}
+
+function sectionSqft(s: DeckSection): number {
+  if (s.shape === 'manual')   return s.manualSqft
+  if (s.shape === 'triangle') return Math.round(s.length * s.width * 0.5 * 10) / 10
+  return Math.round(s.length * s.width * 10) / 10
+}
+
+const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+const fmtN = (n: number, d = 1) => new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n)
+const newSec = (): DeckSection => ({ id: 's-' + Date.now() + '-' + Math.random(), name: '', length: 0, width: 0, shape: 'rectangle', manualSqft: 0 })
 
 interface Props {
   specs: LineItemSpecs
   onChange: (out: CalcOutput) => void
   canWrite: boolean
+  onCreateProposal?: (zones: ZoneProposalItem[], config: BundleConfig) => void
 }
 
-const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreateProposal }: Props) {
+  const [product, setProduct]           = useState<DekwaveKey>((specs.dekwaveProduct as DekwaveKey) || '6mm')
+  const [sections, setSections]         = useState<DeckSection[]>(() => {
+    const saved = specs.deckSections as DeckSection[] | undefined
+    if (saved && Array.isArray(saved) && saved.length > 0) return saved
+    return [newSec()]
+  })
+  const [laserActive, setLaserActive]   = useState(!!(specs.laserActive as boolean))
+  const [scanCost, setScanCost]         = useState((specs.scanCost as number) ?? SCAN_DEFAULT)
+  const [hardwareCost, setHardwareCost] = useState((specs.hardwareCost as number) || 0)
+  const [laborMode, setLaborMode]       = useState<LaborMode>((specs.laborMode as LaborMode) || 'sqft')
+  const [laborRate, setLaborRate]       = useState((specs.laborRate as number) || 0)
+  const [laborHours, setLaborHours]     = useState((specs.laborHours as number) || 0)
+  const [discountPct, setDiscountPct]   = useState((specs.discountPct as number) || 0)
+  const [salePrice, setSalePrice]       = useState((specs.unitPriceSaved as number) || 0)
 
-const DECKING_MATERIALS = [
-  { key: 'seadek',     label: 'SeaDek',    rate: 18 },
-  { key: 'hydroturf',  label: 'Hydro-Turf',rate: 14 },
-  { key: 'marinemat',  label: 'MarineMat', rate: 12 },
-]
+  const padCost      = DEKWAVE_PRODUCTS.find(p => p.key === product)?.padCost ?? PAD_COST
+  const totalSqft    = useMemo(() => sections.reduce((s, sec) => s + sectionSqft(sec), 0), [sections])
+  const padCount     = Math.ceil(totalSqft / PAD_SQFT)
+  const materialCost = padCount * padCost
+  const laserCost    = laserActive ? LASER_COST : 0
+  const laborCost    = useMemo(() => {
+    if (laborMode === 'sqft')   return totalSqft * laborRate
+    if (laborMode === 'hourly') return laborRate * laborHours
+    return laborRate
+  }, [laborMode, laborRate, laborHours, totalSqft])
+  const cogs        = materialCost + laserCost + laborCost + scanCost + hardwareCost
+  const gpm         = calcGPMPct(salePrice, cogs)
+  const gp          = salePrice - cogs
+  const ratePerSqft = totalSqft > 0 ? salePrice / totalSqft : 0
 
-const ZONES = [
-  { key: 'cockpit_floor', label: 'Cockpit Floor', sqftFn: (L: number, B: number) => Math.round(L * B * 0.35) },
-  { key: 'bow_deck',      label: 'Bow Deck',      sqftFn: (L: number, B: number) => Math.round(L * B * 0.20) },
-  { key: 'helm_station',  label: 'Helm Station',  sqftFn: () => 8 },
-  { key: 'swim_platform', label: 'Swim Platform', sqftFn: (_L: number, B: number) => Math.round(B * 4) },
-  { key: 'gunnel_pads',   label: 'Gunnel Pads',   sqftFn: (L: number) => Math.round(L * 2 * 0.5) },
-  { key: 'ladder_pad',    label: 'Ladder Pad',    sqftFn: () => 2 },
-  { key: 'hatch_covers',  label: 'Hatch Covers',  sqftFn: () => 6 },
-]
-
-export default function BoatDeckingCalc({ specs, onChange, canWrite }: Props) {
-  const [boatLength, setBoatLength]   = useState((specs.boatLength as number) || 24)
-  const [beamWidth, setBeamWidth]     = useState((specs.beamWidth as number) || 8)
-  const [selectedZones, setSelectedZones] = useState<Set<string>>(
-    new Set((specs.deckingZones as string[]) || [])
-  )
-  const [fullDeck, setFullDeck]       = useState(!!(specs.fullDeck as boolean))
-  const [deckMaterial, setDeckMaterial] = useState((specs.deckingMaterial as string) || 'seadek')
-  const [logoInlay, setLogoInlay]     = useState(!!(specs.customLogoInlay as boolean))
-  const [designFee, setDesignFee]     = useState((specs.designFee as number) ?? DESIGN_FEE_DEFAULT)
-  const [salePrice, setSalePrice]     = useState((specs.unitPriceSaved as number) || 0)
-
-  const toggleZone = (key: string) => {
+  function addSection() { if (!canWrite) return; setSections(prev => [...prev, newSec()]) }
+  function removeSection(id: string) { if (!canWrite) return; setSections(prev => prev.filter(s => s.id !== id)) }
+  function updateSection(id: string, field: keyof DeckSection, value: unknown) {
     if (!canWrite) return
-    setFullDeck(false)
-    setSelectedZones(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key); else next.add(key)
-      return next
-    })
+    setSections(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s))
   }
-
-  const toggleFullDeck = () => {
-    if (!canWrite) return
-    const newFull = !fullDeck
-    setFullDeck(newFull)
-    setSelectedZones(newFull ? new Set(ZONES.map(z => z.key)) : new Set())
-  }
-
-  const sqft = useMemo(() => {
-    const zones = fullDeck ? ZONES : ZONES.filter(z => selectedZones.has(z.key))
-    return zones.reduce((s, z) => s + z.sqftFn(boatLength, beamWidth), 0)
-  }, [boatLength, beamWidth, selectedZones, fullDeck])
-
-  const matRate  = DECKING_MATERIALS.find(m => m.key === deckMaterial)?.rate ?? 18
-  const matLabel = DECKING_MATERIALS.find(m => m.key === deckMaterial)?.label ?? deckMaterial
-
-  const materialCost = sqft * matRate
-  const installHours = Math.round((sqft / 8) * 10) / 10
-  const installerPay = Math.round(installHours * 55)
-  const logoCost     = logoInlay ? 350 : 0
-  const cogs         = materialCost + installerPay + logoCost + designFee
-  const gpm          = calcGPMPct(salePrice, cogs)
-  const gp           = salePrice - cogs
-  const auto73       = autoPrice(cogs)
 
   useEffect(() => {
     onChange({
-      name: `Boat Decking — ${boatLength}ft${fullDeck ? ' Full Deck' : ''}`,
+      name: 'DEKWAVE ' + product.toUpperCase() + ' Decking \u2014 ' + Math.round(totalSqft) + ' sqft',
       unit_price: salePrice,
       specs: {
-        boatLength, beamWidth, deckingZones: [...selectedZones], fullDeck,
-        deckingMaterial: deckMaterial, vinylType: matLabel, customLogoInlay: logoInlay,
-        vinylArea: sqft, materialCost, installerPay, estimatedHours: installHours,
-        designFee, productLineType: 'boat_decking', vehicleType: 'marine', unitPriceSaved: salePrice,
+        dekwaveProduct: product, deckSections: sections, laserActive, scanCost,
+        hardwareCost, laborMode, laborRate, laborHours, discountPct,
+        vinylArea: totalSqft, padCount, materialCost, laserCost, laborCost,
+        productLineType: 'boat_decking', vehicleType: 'marine', unitPriceSaved: salePrice,
       },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sqft, materialCost, salePrice, installerPay, designFee,
-      boatLength, beamWidth, deckMaterial, logoInlay, fullDeck, selectedZones])
+  }, [product, sections, laserActive, scanCost, hardwareCost, laborMode, laborRate, laborHours, discountPct, salePrice, totalSqft])
 
   const gadget: React.CSSProperties = {
     marginTop: 10, padding: 10,
     background: 'linear-gradient(145deg, var(--bg) 0%, rgba(13,15,20,0.95) 100%)',
     border: '1px solid var(--border)', borderRadius: 10,
   }
+  const secLabel: React.CSSProperties = {
+    fontSize: 9, fontWeight: 800, color: 'var(--text2)',
+    textTransform: 'uppercase', letterSpacing: '0.08em',
+    fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 5,
+  }
+  const hr: React.CSSProperties = { height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }
+  const mono: React.CSSProperties = { fontFamily: 'JetBrains Mono, monospace' }
 
   return (
     <div style={gadget}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif', marginBottom: 10 }}>
-        Boat Decking Calculator
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <Anchor size={12} style={{ color: 'var(--cyan)' }} />
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+          DEKWAVE Decking Calculator
+        </span>
+        {padCount > 0 && (
+          <span style={{ marginLeft: 'auto', fontSize: 10, ...mono, color: 'var(--cyan)', fontWeight: 700 }}>
+            {padCount} pads &middot; {PAD_SQFT} sqft/pad
+          </span>
+        )}
       </div>
 
-      {/* Dimensions + Full Deck toggle on same row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, alignItems: 'end', marginBottom: 8 }}>
-        <div>
-          <label style={calcFieldLabelCompact}>Boat Length (ft)</label>
-          <input type="number" value={boatLength} onChange={e => setBoatLength(Number(e.target.value))}
-            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }} disabled={!canWrite} />
-        </div>
-        <div>
-          <label style={calcFieldLabelCompact}>Beam Width (ft)</label>
-          <input type="number" value={beamWidth} onChange={e => setBeamWidth(Number(e.target.value))}
-            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }} disabled={!canWrite} />
-        </div>
-        <div style={{ paddingBottom: 1 }}>
-          <button onClick={toggleFullDeck} style={pillBtnCompact(fullDeck, 'var(--amber)')}>
-            Full Deck
-          </button>
-        </div>
-      </div>
-
-      {/* Zones + Material + Logo in 2-column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: 8 }}>
-        {/* Left: zones */}
-        <div>
-          <label style={calcFieldLabelCompact}>Zones</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 4 }}>
-            {ZONES.map(z => {
-              const sqftZ = z.sqftFn(boatLength, beamWidth)
-              const active = fullDeck || selectedZones.has(z.key)
-              return (
-                <button key={z.key} onClick={() => toggleZone(z.key)}
-                  style={{
-                    ...pillBtnCompact(active, 'var(--green)'),
-                    textAlign: 'left' as const,
-                    padding: '4px 7px',
-                    borderRadius: 6,
-                    display: 'flex',
-                    flexDirection: 'column' as const,
-                    gap: 1,
-                  }}>
-                  <span style={{ fontSize: 9 }}>{z.label}</span>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: active ? 'var(--green)' : 'var(--text3)' }}>{sqftZ} sqft</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-        {/* Right: material + logo */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 120 }}>
-          <div>
-            <label style={calcFieldLabelCompact}>Material</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {DECKING_MATERIALS.map(m => (
-                <button key={m.key} onClick={() => canWrite && setDeckMaterial(m.key)}
-                  style={{ ...pillBtnCompact(deckMaterial === m.key, 'var(--green)'), justifyContent: 'space-between', display: 'flex', width: '100%' }}>
-                  <span>{m.label}</span>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9 }}>${m.rate}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label style={calcFieldLabelCompact}>Logo Inlay</label>
-            <button onClick={() => canWrite && setLogoInlay(!logoInlay)}
-              style={{ ...pillBtnCompact(logoInlay, 'var(--purple)'), width: '100%', justifyContent: 'center', display: 'flex' }}>
-              {logoInlay ? '+$350' : 'No Logo'}
+      {/* 1. Material */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={secLabel}>Material</div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+          {DEKWAVE_PRODUCTS.map(p => (
+            <button key={p.key} onClick={() => canWrite && setProduct(p.key)}
+              style={pillBtnCompact(product === p.key, 'var(--cyan)')}>
+              {p.label} &middot; ${p.padCost}/pad
             </button>
+          ))}
+          <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 8, background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', color: 'var(--text3)', ...mono }}>
+            {PAD_SQFT} sqft/pad
+          </span>
+        </div>
+      </div>
+
+      <div style={hr} />
+
+      {/* 2. Deck Sections */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div style={secLabel}>Deck Sections</div>
+          {canWrite && (
+            <button onClick={addSection} style={{
+              display: 'flex', alignItems: 'center', gap: 3, padding: '2px 8px',
+              borderRadius: 5, fontSize: 9, fontWeight: 800, cursor: 'pointer',
+              border: '1px dashed rgba(34,192,122,0.4)', background: 'rgba(34,192,122,0.05)',
+              color: 'var(--green)', fontFamily: 'Barlow Condensed, sans-serif',
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>
+              <Plus size={9} /> Add Section
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 58px 58px 82px 44px 20px', gap: 3, padding: '0 2px', marginBottom: 3 }}>
+          {['Section Name', 'Len ft', 'Wid ft', 'Shape', 'Sqft', ''].map(h => (
+            <div key={h} style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif' }}>{h}</div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {sections.map(sec => {
+            const sqft     = sectionSqft(sec)
+            const isManual = sec.shape === 'manual'
+            return (
+              <div key={sec.id} style={{ display: 'grid', gridTemplateColumns: '1fr 58px 58px 82px 44px 20px', gap: 3, alignItems: 'center' }}>
+                <input value={sec.name} onChange={e => updateSection(sec.id, 'name', e.target.value)}
+                  placeholder="Section name" style={{ ...calcInputCompact, fontSize: 11, padding: '4px 7px' }} disabled={!canWrite} />
+                {isManual ? (
+                  <input type="number" value={sec.manualSqft || ''} onChange={e => updateSection(sec.id, 'manualSqft', Number(e.target.value))}
+                    style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px', gridColumn: '2 / 4' }}
+                    disabled={!canWrite} min={0} step={0.5} placeholder="sqft" />
+                ) : (
+                  <>
+                    <input type="number" value={sec.length || ''} onChange={e => updateSection(sec.id, 'length', Number(e.target.value))}
+                      style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px' }} disabled={!canWrite} min={0} step={0.5} />
+                    <input type="number" value={sec.width || ''} onChange={e => updateSection(sec.id, 'width', Number(e.target.value))}
+                      style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px' }} disabled={!canWrite} min={0} step={0.5} />
+                  </>
+                )}
+                <select value={sec.shape} onChange={e => updateSection(sec.id, 'shape', e.target.value as ShapeType)}
+                  style={{ ...calcInputCompact, fontSize: 10, padding: '4px 4px', appearance: 'none', WebkitAppearance: 'none' }} disabled={!canWrite}>
+                  <option value="rectangle">Rectangle</option>
+                  <option value="triangle">Triangle</option>
+                  <option value="manual">Manual</option>
+                </select>
+                <div style={{ ...mono, fontSize: 11, fontWeight: 700, color: sqft > 0 ? 'var(--cyan)' : 'var(--text3)', textAlign: 'right' }}>{fmtN(sqft, 1)}</div>
+                {canWrite && sections.length > 1 ? (
+                  <button onClick={() => removeSection(sec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 2, display: 'flex', alignItems: 'center' }}>
+                    <Trash2 size={11} />
+                  </button>
+                ) : <div />}
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, padding: '4px 8px', background: 'var(--surface)', borderRadius: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Total Net Sqft
+            {padCount > 0 && <span style={{ color: 'var(--text2)', marginLeft: 8 }}>&rarr; {padCount} pads needed</span>}
+          </span>
+          <span style={{ ...mono, fontSize: 13, fontWeight: 800, color: totalSqft > 0 ? 'var(--cyan)' : 'var(--text3)' }}>
+            {fmtN(totalSqft, 1)} sqft
+          </span>
+        </div>
+      </div>
+
+      <div style={hr} />
+
+      {/* 3. Add-ons & Overhead */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={secLabel}>Add-ons & Overhead</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, padding: '5px 8px', background: 'var(--surface)', borderRadius: 6 }}>
+          <button onClick={() => canWrite && setLaserActive(!laserActive)} style={pillBtnCompact(laserActive, 'var(--purple)')}>
+            Laser Engraving (+${LASER_COST})
+          </button>
+          {laserActive && <span style={{ fontSize: 9, color: 'var(--purple)', ...mono, fontWeight: 700 }}>{fmtC(laserCost)}</span>}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <div>
+            <label style={calcFieldLabelCompact}>Scan & Template ($)</label>
+            <input type="number" value={scanCost} onChange={e => setScanCost(Number(e.target.value))}
+              style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} min={0} step={25} />
+          </div>
+          <div>
+            <label style={calcFieldLabelCompact}>Hardware & Supplies ($)</label>
+            <input type="number" value={hardwareCost || ''} onChange={e => setHardwareCost(Number(e.target.value))}
+              style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} min={0} step={10} placeholder="0" />
           </div>
         </div>
       </div>
 
-      {/* Price row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+      <div style={hr} />
+
+      {/* 4. Installation Labor */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={secLabel}>Installation Labor</div>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+          {(['sqft', 'flat', 'hourly'] as const).map(key => (
+            <button key={key} onClick={() => canWrite && setLaborMode(key)} style={pillBtnCompact(laborMode === key, 'var(--accent)')}>
+              {key === 'sqft' ? 'Per Sqft' : key === 'flat' ? 'Flat Fee' : 'Hourly'}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: laborMode === 'hourly' ? '1fr 1fr' : '1fr', gap: 6 }}>
+          <div>
+            <label style={calcFieldLabelCompact}>
+              {laborMode === 'sqft' ? 'Rate ($/sqft) \u00b7 ' + Math.round(totalSqft) + ' sqft' : laborMode === 'hourly' ? 'Hourly Rate ($/hr)' : 'Flat Fee ($)'}
+            </label>
+            <input type="number" value={laborRate || ''} onChange={e => setLaborRate(Number(e.target.value))}
+              style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} min={0} step={laborMode === 'sqft' ? 0.5 : 25} placeholder="0" />
+          </div>
+          {laborMode === 'hourly' && (
+            <div>
+              <label style={calcFieldLabelCompact}>Hours</label>
+              <input type="number" value={laborHours || ''} onChange={e => setLaborHours(Number(e.target.value))}
+                style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} min={0} step={0.5} placeholder="0" />
+            </div>
+          )}
+        </div>
+        {laborCost > 0 && <div style={{ marginTop: 3, fontSize: 9, color: 'var(--text3)', ...mono }}>Labor COGS: {fmtC(laborCost)}</div>}
+      </div>
+
+      <div style={hr} />
+
+      {/* 5. Sale Price & Discount */}
+      <div style={{ marginBottom: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         <div>
           <label style={calcFieldLabelCompact}>Sale Price</label>
           <input type="number" value={salePrice || ''} onChange={e => setSalePrice(Number(e.target.value))}
-            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }} disabled={!canWrite} />
+            style={{ ...calcInputCompact, ...mono, textAlign: 'right' }} disabled={!canWrite} />
         </div>
         <div>
-          <label style={calcFieldLabelCompact}>Design Fee</label>
-          <input type="number" value={designFee || ''} onChange={e => setDesignFee(Number(e.target.value))}
-            style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }} disabled={!canWrite} />
+          <label style={calcFieldLabelCompact}>Discount %</label>
+          <input type="number" value={discountPct || ''} onChange={e => setDiscountPct(Number(e.target.value))}
+            style={{ ...calcInputCompact, ...mono, textAlign: 'right', borderColor: discountPct > 0 ? 'var(--amber)' : undefined }}
+            disabled={!canWrite} min={0} max={50} step={1} placeholder="0" />
         </div>
       </div>
 
+      {/* Quote Breakdown Table */}
+      {totalSqft > 0 && salePrice > 0 && (
+        <div style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ padding: '4px 10px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+              Quote Breakdown
+            </span>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg)' }}>
+                {['Section', 'Sqft', 'Rate', 'Total'].map(h => (
+                  <th key={h} style={{ padding: '3px 8px', textAlign: h === 'Section' ? 'left' : 'right', fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif', borderBottom: '1px solid var(--border)' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sections.filter(s => sectionSqft(s) > 0).map((sec, i) => {
+                const sqft  = sectionSqft(sec)
+                const total = sqft * ratePerSqft
+                return (
+                  <tr key={sec.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent' }}>
+                    <td style={{ padding: '3px 8px', color: 'var(--text1)', fontSize: 10, fontFamily: 'Barlow Condensed, sans-serif' }}>{sec.name || 'Section ' + (i + 1)}</td>
+                    <td style={{ padding: '3px 8px', textAlign: 'right', ...mono, fontSize: 10, color: 'var(--text2)' }}>{fmtN(sqft, 1)}</td>
+                    <td style={{ padding: '3px 8px', textAlign: 'right', ...mono, fontSize: 10, color: 'var(--text3)' }}>${fmtN(ratePerSqft, 2)}/sqft</td>
+                    <td style={{ padding: '3px 8px', textAlign: 'right', ...mono, fontSize: 10, fontWeight: 700, color: 'var(--text1)' }}>{fmtC(total)}</td>
+                  </tr>
+                )
+              })}
+              <tr style={{ background: 'rgba(79,127,255,0.06)', borderTop: '1px solid rgba(79,127,255,0.2)' }}>
+                <td style={{ padding: '4px 8px', fontSize: 9, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif', color: 'var(--text2)', textTransform: 'uppercase' }}>TOTAL</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', ...mono, fontSize: 10, fontWeight: 700, color: 'var(--cyan)' }}>{fmtN(totalSqft, 1)} sqft</td>
+                <td />
+                <td style={{ padding: '4px 8px', textAlign: 'right', ...mono, fontSize: 11, fontWeight: 800, color: 'var(--accent)' }}>{fmtC(salePrice)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ padding: '5px 10px', background: 'rgba(34,211,238,0.04)', borderTop: '1px solid rgba(34,211,238,0.12)', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 8, color: 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>Material Order</span>
+            <span style={{ fontSize: 9, color: 'var(--text2)', ...mono }}>{Math.round(totalSqft)} sqft net</span>
+            <span style={{ fontSize: 9, color: 'var(--cyan)', ...mono, fontWeight: 700 }}>{padCount} pad{padCount !== 1 ? 's' : ''} &times; {PAD_SQFT} sqft = {fmtC(materialCost)}</span>
+            {laserActive && <span style={{ fontSize: 9, color: 'var(--purple)', ...mono }}>+ laser {fmtC(laserCost)}</span>}
+          </div>
+        </div>
+      )}
+
       <OutputBar
         items={[
-          { label: 'Material', value: fmtC(materialCost) },
-          { label: 'Labor', value: fmtC(installerPay), color: 'var(--cyan)' },
-          { label: 'COGS', value: fmtC(cogs), color: 'var(--red)' },
+          { label: 'Mat (' + padCount + ' pads)', value: fmtC(materialCost) },
+          { label: 'Labor',                        value: fmtC(laborCost),   color: 'var(--cyan)' },
+          { label: 'COGS',                         value: fmtC(cogs),        color: 'var(--red)'  },
         ]}
         gpm={gpm}
         gp={gp}
-        autoPrice={Math.round(auto73)}
-        onSetPrice={(p) => setSalePrice(p)}
         cogs={cogs}
         currentPrice={salePrice}
+        onSetPrice={p => {
+          if (!canWrite) return
+          setSalePrice(discountPct > 0 ? Math.round(p * (1 - discountPct / 100)) : p)
+        }}
         canWrite={canWrite}
       />
+
+      {/* Create Section Proposal button */}
+      {onCreateProposal && canWrite && salePrice > 0 && sections.filter(s => sectionSqft(s) > 0).length >= 2 && (
+        <button
+          onClick={() => {
+            const activeSections = sections.filter(s => sectionSqft(s) > 0)
+            const zones: ZoneProposalItem[] = activeSections.map((sec, i) => {
+              const sqft = sectionSqft(sec)
+              const frac = totalSqft > 0 ? sqft / totalSqft : 1 / activeSections.length
+              const secCogs = cogs * frac
+              return {
+                zone_key: sec.id,
+                zone_label: sec.name || 'Section ' + (i + 1),
+                sqft,
+                material_cost: Math.round(materialCost * frac),
+                installer_pay: Math.round(laborCost * frac),
+                scanning_fee: 0,
+                design_fee: 0,
+                cogs: Math.round(secCogs),
+                sale_price: Math.round(salePrice * frac),
+              }
+            })
+            const config: BundleConfig = {
+              discount_type: 'percent',
+              discount_value: 5,
+              min_zones: activeSections.length,
+              total_zones: activeSections.length,
+              discount_label: 'Full Project Bundle',
+            }
+            onCreateProposal(zones, config)
+          }}
+          style={{
+            marginTop: 8,
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid rgba(79,127,255,0.4)',
+            background: 'rgba(79,127,255,0.08)',
+            color: 'var(--accent)',
+            fontSize: 11,
+            fontWeight: 800,
+            fontFamily: 'Barlow Condensed, sans-serif',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+          }}
+        >
+          <Layers size={13} />
+          Create Section Proposal
+        </button>
+      )}
+
     </div>
   )
 }
