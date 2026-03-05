@@ -10,7 +10,9 @@ import {
   calcFieldLabelCompact, calcInputCompact, calcSelect, pillBtnCompact,
 } from './types'
 import OutputBar from './OutputBar'
-import { calculateInstallPay } from '@/lib/estimator/vehicleDb'
+import { calculateInstallPay, calculateMarineInstallPay, calculateDeckingInstallPay } from '@/lib/estimator/vehicleDb'
+
+type InstallCategory = 'commercial' | 'marine' | 'decking'
 
 // ─── Vehicle measurement record from DB ─────────────────────────────────────
 interface VehicleRecord {
@@ -129,6 +131,9 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   })
   const [includeRoof, setIncludeRoof] = useState(!!(specs.includeRoof as boolean))
   const [manualSqft, setManualSqft]   = useState<number>((specs.manualSqft as number) || 0)
+  const [installCategory, setInstallCategory] = useState<InstallCategory>(
+    (specs.installCategory as InstallCategory) || 'commercial'
+  )
 
   const [material, setMaterial]       = useState((specs.vinylMaterial as string) || 'avery_1105')
   const [waste, setWaste]             = useState((specs.wasteBuffer as number) || 10)
@@ -164,8 +169,11 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   }
 
   // ─── Sqft calculation ──────────────────────────────────────────────────
+  // Manual sqft always wins when > 0, even if a vehicle is selected
   const sqft = useMemo(() => {
-    if (!vehicle) return manualSqft || 0
+    if (manualSqft > 0) return manualSqft
+
+    if (!vehicle) return 0
 
     let base = 0
     if (isCustom) {
@@ -196,7 +204,8 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
           if (d.measurement) {
             const v = parseVehicleRecord(mk, mdl, d.measurement as Record<string, unknown>)
             setVehicle(v)
-            if (!installOverride) {
+            // Skip DB install pay if manual sqft is active or install is overridden
+            if (!installOverride && !manualSqft) {
               if (v.install_pay) {
                 setInstallerPay(v.install_pay)
                 setInstallHours(v.install_hours || 0)
@@ -233,7 +242,10 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
     if (result.measurement) {
       const v = parseVehicleRecord(result.make, result.model, result.measurement)
       setVehicle(v)
-      if (!installOverride) {
+      // Only reset category if no manual sqft active
+      if (!manualSqft) setInstallCategory('commercial')
+      // Skip DB install pay if manual sqft is active or install is overridden
+      if (!installOverride && !manualSqft) {
         if (v.install_pay) {
           setInstallerPay(v.install_pay)
           setInstallHours(v.install_hours || 0)
@@ -263,7 +275,18 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
   const wrapSqftForTier  = vehicle?.full_wrap_sqft || 0
   const formulaResult    = wrapSqftForTier > 0 ? calculateInstallPay(wrapSqftForTier) : null
   const dbInstall        = vehicle?.install_pay ? { pay: vehicle.install_pay, hours: vehicle.install_hours || 0 } : null
-  const currentTierLabel = vehicle?.category || formulaResult?.tierLabel || '--'
+  // Auto-calculate install pay when manual sqft is entered (overrides vehicle DB)
+  const manualInstallResult = useMemo(() => {
+    if (manualSqft <= 0) return null
+    switch (installCategory) {
+      case 'marine':     return calculateMarineInstallPay(manualSqft)
+      case 'decking':    return calculateDeckingInstallPay(manualSqft)
+      case 'commercial':
+      default:           return calculateInstallPay(manualSqft)
+    }
+  }, [manualSqft, installCategory])
+
+  const currentTierLabel = vehicle?.category || formulaResult?.tierLabel || manualInstallResult?.tierLabel || '--'
 
   // ─── onChange → parent ─────────────────────────────────────────────────
   useEffect(() => {
@@ -283,18 +306,25 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         vinylMaterial: material,
         productLineType: isInstallOnly ? 'install_only' : 'commercial_vehicle',
         installTierLabel: currentTierLabel,
-        installOverride, gpmTarget, isInstallOnly,
+        installOverride, gpmTarget, isInstallOnly, installCategory,
         unitPriceSaved: salePrice,
       },
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sqft, materialCost, salePrice, installerPay, installHours, effectiveDFee,
       year, make, model, activePreset, material, waste, selectedPanels, currentTierLabel,
-      gpmTarget, installOverride, includeRoof, manualSqft])
+      gpmTarget, installOverride, includeRoof, manualSqft, installCategory])
+
+  // Auto-apply manual sqft install calculation
+  useEffect(() => {
+    if (!manualInstallResult || installOverride) return
+    setInstallerPay(manualInstallResult.pay)
+    setInstallHours(manualInstallResult.hours)
+  }, [manualInstallResult, installOverride])
 
   const applyDbInstall = () => {
     if (!canWrite) return
-    const src = dbInstall || formulaResult
+    const src = dbInstall || formulaResult || manualInstallResult
     if (!src) return
     setInstallerPay(src.pay)
     setInstallHours(src.hours)
@@ -410,13 +440,43 @@ export default function CommercialVehicleCalc({ specs, onChange, canWrite }: Pro
         </div>
       )}
 
-      {/* Manual sqft override (when no vehicle data) */}
-      {!vehicle && !isInstallOnly && (
+      {/* Manual sqft override — always available, overrides vehicle DB when filled */}
+      {!isInstallOnly && (
         <div style={{ marginBottom: 8 }}>
-          <label style={calcFieldLabelCompact}>Total Sqft (manual)</label>
+          <label style={calcFieldLabelCompact}>Custom Sqft {manualSqft > 0 && vehicle ? '(overriding vehicle)' : ''}</label>
           <input type="number" value={manualSqft || ''} onChange={e => setManualSqft(Number(e.target.value))}
             style={{ ...calcInputCompact, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', width: 120 }}
             disabled={!canWrite} placeholder="Enter sqft" />
+
+          {/* Install Category Selector — visible when manual sqft is entered */}
+          {manualSqft > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <label style={calcFieldLabelCompact}>Install Category</label>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {([
+                  { key: 'commercial' as const, label: 'Commercial', color: 'var(--accent)' },
+                  { key: 'marine' as const,     label: 'Marine',     color: 'var(--cyan)' },
+                  { key: 'decking' as const,    label: 'Decking',    color: 'var(--green)' },
+                ]).map(cat => (
+                  <button key={cat.key}
+                    onClick={() => canWrite && setInstallCategory(cat.key)}
+                    style={pillBtnCompact(installCategory === cat.key, cat.color)}>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+              {manualInstallResult && !installOverride && (
+                <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text2)' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--cyan)' }}>
+                    {manualInstallResult.hours}h × ${manualInstallResult.hourlyRate}/hr = {fmtC(manualInstallResult.pay)}
+                  </span>
+                  <span style={{ marginLeft: 6, color: 'var(--text3)' }}>
+                    ({installCategory === 'commercial' ? 'full rate' : '50% rate'})
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

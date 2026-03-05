@@ -51,6 +51,16 @@ export function calculateMarineInstallPay(boatSqft: number): InstallCalcResult {
   return { pay, hours, tierLabel: full.tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
 }
 
+// ─── Decking Install Cost (half hours, same as marine — flat surface) ─────
+export const DECKING_INSTALL_HOURS_FACTOR = 0.5
+
+export function calculateDeckingInstallPay(sqft: number): InstallCalcResult {
+  const full = calculateInstallPay(sqft)
+  const hours = Math.round((full.hours * DECKING_INSTALL_HOURS_FACTOR) * 10) / 10
+  const pay = Math.round((hours * INSTALL_HOURLY_RATE) / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO
+  return { pay, hours, tierLabel: full.tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
+}
+
 // Tier reference for display (auto-generated from formula at representative sqft midpoints)
 export const INSTALL_TIERS = [
   { label: 'XS',  sqftRange: '< 150',   ...calculateInstallPay(125) },
