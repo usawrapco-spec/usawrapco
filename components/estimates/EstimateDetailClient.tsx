@@ -10,7 +10,7 @@ import {
   ClipboardList, Activity,
   ToggleLeft, ToggleRight, Wrench, CircleDot,
   TrendingUp, Calculator, Settings,
-  Package, Image, Link2, UserPlus, Ruler,
+  Package, Image, Link2, UserPlus, Ruler, Phone, Globe,
   FoldVertical, UnfoldVertical,
   GripVertical, Upload, Camera, ExternalLink,
 } from 'lucide-react'
@@ -39,6 +39,8 @@ import TrailerCalc from '@/components/estimates/calculators/TrailerCalc'
 import MarineCalc from '@/components/estimates/calculators/MarineCalc'
 import PPFCalc from '@/components/estimates/calculators/PPFCalc'
 import BoatDeckingCalc from '@/components/estimates/calculators/BoatDeckingCalc'
+import type { ZoneProposalItem, BundleConfig } from '@/components/estimates/calculators/BoatDeckingCalc'
+import BoatDeckingProposalConfig from '@/components/estimates/BoatDeckingProposalConfig'
 import WallWrapCalc from '@/components/estimates/calculators/WallWrapCalc'
 import SignageCalc from '@/components/estimates/calculators/SignageCalc'
 // GPMSidebar removed — unified into right panel
@@ -558,6 +560,20 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [proposalOptions, setProposalOptions] = useState<{ label: string; itemIds: string[] }[]>(
     (est.form_data?.proposalOptions as { label: string; itemIds: string[] }[]) || []
   )
+  const [zoneProposalOpen, setZoneProposalOpen] = useState(false)
+  const [pendingProposalZones, setPendingProposalZones] = useState<ZoneProposalItem[]>([])
+  const [pendingBundleConfig, setPendingBundleConfig] = useState<BundleConfig | null>(null)
+  const [zoneProposalConfig, setZoneProposalConfig] = useState<{ mode: string; bundle: BundleConfig; zones: ZoneProposalItem[] } | null>(
+    (est.form_data?.proposalConfig as { mode: string; bundle: BundleConfig; zones: ZoneProposalItem[] }) || null
+  )
+  const [designSubTab, setDesignSubTab] = useState<'brief' | 'assets' | 'mockups' | 'intake'>('brief')
+  const [designBrief, setDesignBrief] = useState<{
+    wrapAreas: string[]; logoStatus: string; brandColors: string[];
+    tagline: string; phone: string; website: string; style: string; noWrap: string; notes: string;
+  }>((est.form_data?.designBrief as {
+    wrapAreas: string[]; logoStatus: string; brandColors: string[];
+    tagline: string; phone: string; website: string; style: string; noWrap: string; notes: string;
+  }) || { wrapAreas: [], logoStatus: '', brandColors: ['', '', ''], tagline: '', phone: '', website: '', style: '', noWrap: '', notes: '' })
   // Team multi-select arrays (new) — fall back to single legacy values
   const [salesRepIds, setSalesRepIds] = useState<string[]>(
     est.sales_rep_ids?.length ? est.sales_rep_ids : est.sales_rep_id ? [est.sales_rep_id] : []
@@ -1231,6 +1247,68 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       const has = opt.itemIds.includes(itemId)
       return { ...opt, itemIds: has ? opt.itemIds.filter(id => id !== itemId) : [...opt.itemIds, itemId] }
     }))
+  }
+
+  function handleCreateProposalFromCalc(zones: ZoneProposalItem[], config: BundleConfig) {
+    setPendingProposalZones(zones)
+    setPendingBundleConfig(config)
+    setZoneProposalOpen(true)
+  }
+
+  async function handleConfirmZoneProposal(zones: ZoneProposalItem[], config: BundleConfig) {
+    if (!savedId) { showToast('Save estimate first before creating proposal'); return }
+    try {
+      // Remove existing boat_decking line items from DB
+      const oldIds = lineItemsList.filter(li => (li.specs?.productLineType as string | undefined)?.startsWith('boat_decking')).map(li => li.id).filter(id => !id.startsWith('new-'))
+      if (oldIds.length > 0) await supabase.from('line_items').delete().in('id', oldIds)
+
+      // Insert per-zone line items
+      const remaining = lineItemsList.filter(li => !(li.specs?.productLineType as string | undefined)?.startsWith('boat_decking'))
+      const inserts = zones.map((z, i) => ({
+        parent_type: 'estimate' as const,
+        parent_id: savedId,
+        product_type: 'wrap' as const,
+        name: z.zone_label + ' — DEKWAVE Decking',
+        description: z.sqft + ' sqft',
+        quantity: 1,
+        unit_price: z.sale_price + z.scanning_fee,
+        unit_discount: 0,
+        total_price: z.sale_price + z.scanning_fee,
+        specs: { ...z, productLineType: 'boat_decking_zone', proposalZoneKey: z.zone_key },
+        sort_order: remaining.length + i,
+      }))
+      const { data: savedItems } = await supabase.from('line_items').insert(inserts).select()
+
+      const newConfig = { mode: 'zone_select', bundle: config, zones }
+      setZoneProposalConfig(newConfig)
+
+      const zoneLineItems: LineItem[] = (savedItems || []).map((item: Record<string, unknown>) => ({
+        id: item.id as string, parent_type: 'estimate', parent_id: savedId,
+        product_type: 'wrap', name: item.name as string, description: item.description as string | null,
+        quantity: 1, unit_price: item.unit_price as number, unit_discount: 0, total_price: item.total_price as number,
+        specs: item.specs as LineItem['specs'], sort_order: item.sort_order as number, created_at: item.created_at as string,
+      }))
+      setLineItemsList([...remaining, ...zoneLineItems])
+
+      await supabase.from('estimates').update({
+        form_data: { ...est.form_data, proposalConfig: newConfig },
+      }).eq('id', savedId)
+
+      setZoneProposalOpen(false)
+      showToast(`Zone proposal created — ${zones.length} sections`)
+    } catch (err) {
+      showToast('Proposal save error: ' + (err instanceof Error ? err.message : String(err)))
+    }
+  }
+
+  async function saveDesignBrief(brief: typeof designBrief) {
+    setDesignBrief(brief)
+    if (!savedId || isDemo) return
+    try {
+      await supabase.from('estimates').update({
+        form_data: { ...est.form_data, designBrief: brief },
+      }).eq('id', savedId)
+    } catch { /* swallow */ }
   }
 
   const sc = STATUS_CONFIG[status]
@@ -2183,6 +2261,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                       setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
                       handleLineItemSave(updatedItem)
                     }}
+                    onCreateProposal={handleCreateProposalFromCalc}
                   />
                 )
               })}
@@ -2420,43 +2499,233 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       )}
 
 
-      {activeTab === 'design' && (
-        <div style={{ ...cardStyle }}>
-          <div style={{ ...sectionPad }}>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: headingFont, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: 'var(--text1)', marginBottom: 12 }}>
-              <Paintbrush size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
-              Design Notes
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {lineItemsList.map((li, idx) => (
-                <div key={li.id} style={{ background: 'var(--bg)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 8, fontFamily: headingFont, textTransform: 'uppercase' as const }}>
-                    {li.name || `Line Item ${idx + 1}`}
-                  </div>
-                  <textarea
-                    value={li.specs?.designDetails || ''}
-                    onChange={e => {
-                      const updated = [...lineItemsList]
-                      updated[idx] = { ...li, specs: { ...li.specs, designDetails: e.target.value } }
-                      setLineItemsList(updated)
-                    }}
-                    onBlur={() => handleLineItemSave(lineItemsList[idx])}
-                    disabled={!canWrite}
-                    placeholder="Design instructions, colors, branding, files needed..."
-                    rows={5}
-                    style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 100, fontSize: 12 }}
-                  />
+      {activeTab === 'design' && (() => {
+        const dSubTabBtn = (key: typeof designSubTab, label: string): React.CSSProperties => ({
+          padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+          fontFamily: 'Barlow Condensed, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase',
+          border: designSubTab === key ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+          background: designSubTab === key ? 'rgba(79,127,255,0.12)' : 'var(--surface)',
+          color: designSubTab === key ? 'var(--accent)' : 'var(--text2)',
+        })
+        const db = designBrief
+        const fi = { ...fieldInputStyle, fontSize: 12 } as React.CSSProperties
+        const WRAP_AREAS = ['Full Wrap', 'Partial', 'Hood Only', 'Roof', 'Sides', 'Rear', 'Cab', 'Custom']
+        const STYLES = ['Bold', 'Clean', 'Techy', 'Classic', 'Playful', 'Minimalist']
+        const LOGO_STATUS = ['Has logo file', 'Needs design', 'Sending later']
+        return (
+          <div style={{ ...cardStyle }}>
+            <div style={{ ...sectionPad }}>
+              {/* Sub-tab nav */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['brief', 'assets', 'mockups', 'intake'] as const).map(k => (
+                    <button key={k} onClick={() => setDesignSubTab(k)} style={dSubTabBtn(k, k)}>
+                      {k === 'brief' ? 'Brief' : k === 'assets' ? 'Assets & Photos' : k === 'mockups' ? 'Mockups' : 'Intake Link'}
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-            {lineItemsList.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
-                No line items yet. Add items in the Items tab to enter design notes.
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                  <Paintbrush size={12} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+                  Design Studio
+                </div>
               </div>
-            )}
+
+              {/* Brief */}
+              {designSubTab === 'brief' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Barlow Condensed, sans-serif' }}>Wrap Areas</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {WRAP_AREAS.map(a => {
+                        const active = db.wrapAreas.includes(a)
+                        return (
+                          <button key={a} disabled={!canWrite} onClick={() => saveDesignBrief({ ...db, wrapAreas: active ? db.wrapAreas.filter(x => x !== a) : [...db.wrapAreas, a] })}
+                            style={{ padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', border: active ? '1.5px solid var(--green)' : '1px solid var(--border)', background: active ? 'rgba(34,192,122,0.12)' : 'var(--surface)', color: active ? 'var(--green)' : 'var(--text2)' }}>
+                            {a}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>What NOT to Wrap</label>
+                    <input value={db.noWrap} onChange={e => setDesignBrief(p => ({ ...p, noWrap: e.target.value }))} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="e.g. leave door handles, keep existing stickers..." style={fi} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Barlow Condensed, sans-serif' }}>Logo Status</label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {LOGO_STATUS.map(s => {
+                        const active = db.logoStatus === s
+                        return (
+                          <button key={s} disabled={!canWrite} onClick={() => saveDesignBrief({ ...db, logoStatus: s })}
+                            style={{ padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', border: active ? '1.5px solid var(--accent)' : '1px solid var(--border)', background: active ? 'rgba(79,127,255,0.12)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--text2)' }}>
+                            {s}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>Brand Color 1</label>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input type="color" value={db.brandColors[0] || '#ffffff'} onChange={e => { const c = [...db.brandColors]; c[0] = e.target.value; setDesignBrief(p => ({ ...p, brandColors: c })) }} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} style={{ width: 36, height: 32, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2, background: 'var(--bg)' }} />
+                        <input value={db.brandColors[0] || ''} onChange={e => { const c = [...db.brandColors]; c[0] = e.target.value; setDesignBrief(p => ({ ...p, brandColors: c })) }} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="#000000" style={{ ...fi, flex: 1, fontFamily: 'JetBrains Mono, monospace' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>Brand Color 2</label>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input type="color" value={db.brandColors[1] || '#ffffff'} onChange={e => { const c = [...db.brandColors]; c[1] = e.target.value; setDesignBrief(p => ({ ...p, brandColors: c })) }} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} style={{ width: 36, height: 32, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2, background: 'var(--bg)' }} />
+                        <input value={db.brandColors[1] || ''} onChange={e => { const c = [...db.brandColors]; c[1] = e.target.value; setDesignBrief(p => ({ ...p, brandColors: c })) }} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="#000000" style={{ ...fi, flex: 1, fontFamily: 'JetBrains Mono, monospace' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>Brand Color 3</label>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input type="color" value={db.brandColors[2] || '#ffffff'} onChange={e => { const c = [...db.brandColors]; c[2] = e.target.value; setDesignBrief(p => ({ ...p, brandColors: c })) }} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} style={{ width: 36, height: 32, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2, background: 'var(--bg)' }} />
+                        <input value={db.brandColors[2] || ''} onChange={e => { const c = [...db.brandColors]; c[2] = e.target.value; setDesignBrief(p => ({ ...p, brandColors: c })) }} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="#000000" style={{ ...fi, flex: 1, fontFamily: 'JetBrains Mono, monospace' }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>Tagline</label>
+                      <input value={db.tagline} onChange={e => setDesignBrief(p => ({ ...p, tagline: e.target.value }))} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="Your tagline here" style={fi} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>
+                        <Phone size={10} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 3 }} />Phone on Wrap
+                      </label>
+                      <input value={db.phone} onChange={e => setDesignBrief(p => ({ ...p, phone: e.target.value }))} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="(555) 555-5555" style={fi} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>
+                        <Globe size={10} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 3 }} />Website on Wrap
+                      </label>
+                      <input value={db.website} onChange={e => setDesignBrief(p => ({ ...p, website: e.target.value }))} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="www.yourbiz.com" style={fi} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'Barlow Condensed, sans-serif' }}>Style Direction</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {STYLES.map(s => {
+                        const active = db.style === s
+                        return (
+                          <button key={s} disabled={!canWrite} onClick={() => saveDesignBrief({ ...db, style: s })}
+                            style={{ padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', border: active ? '1.5px solid var(--purple)' : '1px solid var(--border)', background: active ? 'rgba(139,92,246,0.12)' : 'var(--surface)', color: active ? 'var(--purple)' : 'var(--text2)' }}>
+                            {s}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif' }}>Special Instructions</label>
+                    <textarea value={db.notes} onChange={e => setDesignBrief(p => ({ ...p, notes: e.target.value }))} onBlur={() => saveDesignBrief(designBrief)} disabled={!canWrite} placeholder="Any other design notes, references, or requests..." rows={3} style={{ ...fi, resize: 'vertical' as const, minHeight: 80 }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Assets & Photos */}
+              {designSubTab === 'assets' && (
+                <div>
+                  <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: '32px 20px', textAlign: 'center', marginBottom: 20 }}>
+                    <Upload size={28} style={{ color: 'var(--text3)', marginBottom: 8 }} />
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text2)', marginBottom: 4 }}>Upload Logo & Brand Files</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>PNG, SVG, AI, PDF — up to 50MB each</div>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      <Upload size={13} />
+                      Choose Files
+                      <input type="file" accept=".png,.svg,.ai,.pdf,.jpg,.jpeg,.eps" multiple style={{ display: 'none' }} onChange={async e => {
+                        if (!e.target.files || !savedId) return
+                        const { createClient } = await import('@/lib/supabase/client')
+                        const sb = createClient()
+                        for (const file of Array.from(e.target.files)) {
+                          const path = `estimates/${savedId}/design/${Date.now()}-${file.name}`
+                          await sb.storage.from('project-files').upload(path, file)
+                        }
+                        showToast('Files uploaded')
+                      }} />
+                    </label>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                    Vehicle inspection photos from the Survey tab are accessible here after the vehicle is documented.
+                  </div>
+                </div>
+              )}
+
+              {/* Mockups */}
+              {designSubTab === 'mockups' && (
+                <div>
+                  {(est.form_data?.concepts as unknown[])?.length ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+                      {((est.form_data?.concepts as { url: string; approved?: boolean; customerNotes?: string; createdAt?: string }[]) || []).map((c, i) => (
+                        <div key={i} style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${c.approved ? 'var(--green)' : 'var(--border)'}`, background: 'var(--surface2)' }}>
+                          <img src={c.url} alt="Concept" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
+                          <div style={{ padding: 10 }}>
+                            {c.approved && <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>Customer Approved</div>}
+                            {c.customerNotes && <div style={{ fontSize: 11, color: 'var(--text2)', fontStyle: 'italic' }}>&ldquo;{c.customerNotes}&rdquo;</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>
+                      No mockups yet. Use the mockup generator from the Items tab or send the intake link to the customer.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Intake Link */}
+              {designSubTab === 'intake' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ padding: '16px', background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Design Intake Link</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>Send this to the customer to collect their logo files, answer design questions, and view concepts — all in one place.</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1, padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {typeof window !== 'undefined' ? `${window.location.origin}/estimate/design-intake/${estimateId}` : `/estimate/design-intake/${estimateId}`}
+                      </div>
+                      <button onClick={() => {
+                        const url = `${window.location.origin}/estimate/design-intake/${estimateId}`
+                        navigator.clipboard.writeText(url)
+                        showToast('Design intake link copied!')
+                      }} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Copy size={13} />
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <button onClick={() => {
+                      const subject = encodeURIComponent('Design Intake for Your Wrap Project')
+                      const url = `${window.location.origin}/estimate/design-intake/${estimateId}`
+                      const body = encodeURIComponent(`Hi there,\n\nPlease use this link to upload your design files and complete your design brief for your upcoming wrap project:\n\n${url}\n\nLet me know if you have any questions!\n\nUSA Wrap Co`)
+                      window.open(`mailto:?subject=${subject}&body=${body}`)
+                    }} style={{ padding: '12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <Mail size={14} />
+                      Open in Email Client
+                    </button>
+                    <button onClick={() => {
+                      const url = `${window.location.origin}/estimate/design-intake/${estimateId}`
+                      const text = encodeURIComponent(`Hi! Here is your design intake link for your wrap project: ${url}`)
+                      window.open(`sms:?body=${text}`)
+                    }} style={{ padding: '12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <Phone size={14} />
+                      Open in SMS
+                    </button>
+                  </div>
+                  <div style={{ padding: '12px 14px', background: 'var(--surface2)', borderRadius: 8, fontSize: 11, color: 'var(--text3)' }}>
+                    <strong style={{ color: 'var(--text2)' }}>What the customer sees:</strong> A branded page to upload logos &amp; reference images, answer design questions, view any concepts you&apos;ve created, and mark up or approve mockups. Their submissions sync back here automatically.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
       {activeTab === 'production' && (
         <div style={{ ...cardStyle }}>
           <div style={{ ...sectionPad }}>
@@ -2828,6 +3097,16 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         vehicleDescription={est.title}
         type={emailModalType}
       />
+
+      {/* ── Zone Proposal Config Modal ─────────────────────────────────── */}
+      {zoneProposalOpen && pendingBundleConfig && (
+        <BoatDeckingProposalConfig
+          zones={pendingProposalZones}
+          config={pendingBundleConfig}
+          onConfirm={handleConfirmZoneProposal}
+          onClose={() => setZoneProposalOpen(false)}
+        />
+      )}
 
       {/* ── Toast ──────────────────────────────────────────────────────── */}
       {toast && (
@@ -3229,7 +3508,7 @@ function LineItemCard({
   item, index, canWrite, onChange, onBlurSave, onRemove,
   expandedSections, onToggleSection, leadType, team,
   products, allItems, onOpenAreaCalc, orgId,
-  onRollUp, onUnroll, rolledUpChildrenTotal,
+  onRollUp, onUnroll, rolledUpChildrenTotal, onCreateProposal,
 }: {
   item: LineItem; index: number; canWrite: boolean
   onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void
@@ -3242,6 +3521,7 @@ function LineItemCard({
   onRollUp?: () => void
   onUnroll?: () => void
   rolledUpChildrenTotal?: number
+  onCreateProposal?: (zones: import('@/components/estimates/calculators/BoatDeckingCalc').ZoneProposalItem[], config: import('@/components/estimates/calculators/BoatDeckingCalc').BundleConfig) => void
 }) {
   const router = useRouter()
   const latestRef = useRef(item)
@@ -3790,7 +4070,7 @@ function LineItemCard({
             <PPFCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
           )}
           {(productLineType === 'boat_decking' || (calcType === 'decking' && productLineType !== 'marine')) && (
-            <BoatDeckingCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />
+            <BoatDeckingCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} onCreateProposal={onCreateProposal} />
           )}
           {productLineType === 'wall_wrap' && (
             <WallWrapCalc specs={specs} onChange={handleCalcChange} canWrite={canWrite} />

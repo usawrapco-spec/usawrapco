@@ -26,11 +26,27 @@ interface EstimateViewClientProps {
 }
 
 interface EstimateLineItem {
+  id?: string
   item: string
   description: string
   vehicle: string
   qty: number
   price: number
+  specs?: Record<string, unknown> | null
+}
+
+interface BundleConfig {
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  min_zones: number
+  total_zones: number
+  discount_label: string
+}
+
+interface ProposalConfig {
+  mode: string
+  bundle: BundleConfig
+  zones: unknown[]
 }
 
 interface EstimateData {
@@ -48,6 +64,7 @@ interface EstimateData {
   taxAmount: number
   total: number
   status: string
+  proposalConfig?: ProposalConfig | null
 }
 
 const EMPTY_ESTIMATE: EstimateData = {
@@ -140,6 +157,9 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
   // Redirect timer
   const [countdown, setCountdown] = useState(3)
 
+  // Zone proposal selection
+  const [selectedZoneIds, setSelectedZoneIds] = useState<Set<string>>(new Set())
+
   // ─── Fetch estimate by token ─────────────────────────────────────────────
   useEffect(() => {
     setLoading(true)
@@ -151,6 +171,10 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
         } else {
           setEst(data)
           setSignerName(data.customerName)
+          // Pre-select all zones for zone proposals
+          if (data.proposalConfig?.mode === 'zone_select') {
+            setSelectedZoneIds(new Set(data.lineItems.map((li: EstimateLineItem) => li.id || li.item)))
+          }
         }
       })
       .catch(() => setFetchError('Failed to load estimate'))
@@ -276,6 +300,10 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
     const sigData = getSignatureData()
     if (!sigData || !signerName.trim()) return
 
+    const isZoneProposal = est.proposalConfig?.mode === 'zone_select'
+    const zoneItems = isZoneProposal ? est.lineItems.filter(li => selectedZoneIds.has(li.id || li.item)) : []
+    const finalTotal = zoneItems.reduce((s, li) => s + li.price * li.qty, 0)
+
     try {
       await fetch('/api/estimates/sign', {
         method: 'POST',
@@ -284,6 +312,7 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
           token,
           signerName: signerName.trim(),
           signatureData: sigData,
+          ...(isZoneProposal ? { selectedZones: Array.from(selectedZoneIds), finalTotal } : {}),
         }),
       })
     } catch {}
@@ -393,137 +422,189 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
         <div style={{ fontSize: 13, color: C.text2 }}>{est.customerPhone}</div>
       </div>
 
-      {/* Line items table */}
-      <div style={{
-        background: C.surface,
-        border: `1px solid ${C.border}`,
-        borderRadius: 14,
-        overflow: 'hidden',
-        marginBottom: 20,
-      }}>
-        {/* Table header */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto auto auto',
-          gap: 12,
-          padding: '14px 20px',
-          background: C.surface2,
-          fontSize: 11,
-          fontWeight: 800,
-          color: C.text3,
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-        }}>
-          <div>Item</div>
-          <div style={{ textAlign: 'center' }}>Qty</div>
-          <div style={{ textAlign: 'right' }}>Price</div>
-          <div style={{ textAlign: 'right' }}>Total</div>
-        </div>
+      {/* Line items — zone proposal or standard table */}
+      {est.proposalConfig?.mode === 'zone_select' ? (() => {
+        const bundle = est.proposalConfig!.bundle
+        const selectedItems = est.lineItems.filter(li => selectedZoneIds.has(li.id || li.item))
+        const subtotal = selectedItems.reduce((s, li) => s + li.price * li.qty, 0)
+        const qualifies = selectedZoneIds.size >= bundle.min_zones
+        const discountAmt = qualifies
+          ? bundle.discount_type === 'percent' ? subtotal * (bundle.discount_value / 100) : bundle.discount_value
+          : 0
+        const total = subtotal - discountAmt
+        const taxAmount = total * est.taxRate
+        const needed = Math.max(0, bundle.min_zones - selectedZoneIds.size)
 
-        {/* Line items */}
-        {est.lineItems.map((li, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr auto auto auto',
-              gap: 12,
-              padding: '16px 20px',
-              borderTop: `1px solid ${C.border}`,
-              alignItems: 'start',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 3 }}>
-                {li.item}
-              </div>
-              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
-                {li.description}
-              </div>
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              Select Your Sections
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+              {est.lineItems.map((li) => {
+                const key = li.id || li.item
+                const active = selectedZoneIds.has(key)
+                const scanFee = (li.specs?.scanning_fee as number | undefined) || 0
+                return (
+                  <div
+                    key={key}
+                    onClick={() => setSelectedZoneIds(prev => {
+                      const n = new Set(prev)
+                      active ? n.delete(key) : n.add(key)
+                      return n
+                    })}
+                    style={{
+                      padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
+                      border: `1.5px solid ${active ? C.accent : C.border}`,
+                      background: active ? C.accent + '10' : C.surface,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                        border: `2px solid ${active ? C.accent : C.border}`,
+                        background: active ? C.accent : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, color: '#fff', fontWeight: 900,
+                      }}>
+                        {active && '✓'}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: active ? C.text1 : C.text2 }}>{li.item}</div>
+                        <div style={{ fontSize: 11, color: C.text3, fontFamily: "'JetBrains Mono', monospace" }}>{li.description}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(li.price)}</div>
+                      {scanFee > 0 && <div style={{ fontSize: 10, color: C.amber, fontFamily: "'JetBrains Mono', monospace" }}>+{fmt(scanFee)} scan</div>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Bundle progress */}
+            {bundle.discount_value > 0 && (
               <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                marginTop: 6,
-                fontSize: 11,
-                color: C.accent,
-                fontWeight: 600,
+                padding: '12px 14px', borderRadius: 10, marginBottom: 14,
+                background: qualifies ? C.green + '10' : C.accent + '08',
+                border: `1px solid ${qualifies ? C.green + '30' : C.accent + '20'}`,
               }}>
-                <Truck size={11} />
-                {li.vehicle}
+                {qualifies ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: C.green }}>
+                    <CheckCircle size={14} />
+                    {bundle.discount_label} — {bundle.discount_type === 'percent' ? bundle.discount_value + '% off' : fmt(bundle.discount_value) + ' back'} applied!
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: C.text2 }}>
+                    Add <strong style={{ color: C.accent }}>{needed} more section{needed !== 1 ? 's' : ''}</strong> to unlock the {bundle.discount_label}
+                    {bundle.discount_type === 'percent' ? ` (${bundle.discount_value}% off)` : ` (${fmt(bundle.discount_value)} back)`}
+                  </div>
+                )}
+                <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: C.surface2 }}>
+                  <div style={{ height: '100%', borderRadius: 2, width: Math.min(100, (selectedZoneIds.size / bundle.min_zones) * 100) + '%', background: qualifies ? C.green : C.accent, transition: 'width 0.3s' }} />
+                </div>
+                <div style={{ marginTop: 4, fontSize: 10, color: C.text3 }}>{selectedZoneIds.size} of {bundle.min_zones} sections</div>
+              </div>
+            )}
+
+            {/* Running total */}
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: '16px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: C.text2 }}>{selectedZoneIds.size} section{selectedZoneIds.size !== 1 ? 's' : ''} selected</span>
+                <span style={{ fontSize: 14, color: C.text1, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmt(subtotal)}</span>
+              </div>
+              {qualifies && discountAmt > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: C.green }}>{bundle.discount_label}</span>
+                  <span style={{ fontSize: 14, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>-{fmt(discountAmt)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: C.text2 }}>Tax ({(est.taxRate * 100).toFixed(2)}%)</span>
+                <span style={{ fontSize: 14, color: C.text1, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmt(taxAmount)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>Total</span>
+                <span style={{ fontSize: 24, fontWeight: 900, color: qualifies && discountAmt > 0 ? C.green : C.text1, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(total + taxAmount)}</span>
               </div>
             </div>
-            <div style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: C.text1,
-              textAlign: 'center',
-              fontFamily: "'JetBrains Mono', monospace",
-              minWidth: 32,
-              paddingTop: 2,
-            }}>
-              {li.qty}
-            </div>
-            <div style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: C.text2,
-              textAlign: 'right',
-              fontFamily: "'JetBrains Mono', monospace",
-              minWidth: 80,
-              paddingTop: 2,
-            }}>
-              {fmt(li.price)}
-            </div>
-            <div style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: C.text1,
-              textAlign: 'right',
-              fontFamily: "'JetBrains Mono', monospace",
-              minWidth: 80,
-              paddingTop: 2,
-            }}>
-              {fmt(li.price * li.qty)}
-            </div>
           </div>
-        ))}
-
-        {/* Totals */}
+        )
+      })() : (
         <div style={{
-          borderTop: `1px solid ${C.border}`,
-          padding: '16px 20px',
+          background: C.surface,
+          border: `1px solid ${C.border}`,
+          borderRadius: 14,
+          overflow: 'hidden',
+          marginBottom: 20,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, color: C.text2 }}>Subtotal</span>
-            <span style={{ fontSize: 14, color: C.text1, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
-              {fmt(est.subtotal)}
-            </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, color: C.text2 }}>Tax ({(est.taxRate * 100).toFixed(2)}%)</span>
-            <span style={{ fontSize: 14, color: C.text1, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
-              {fmt(est.taxAmount)}
-            </span>
-          </div>
+          {/* Table header */}
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            paddingTop: 12,
-            borderTop: `1px solid ${C.border}`,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto auto auto',
+            gap: 12,
+            padding: '14px 20px',
+            background: C.surface2,
+            fontSize: 11,
+            fontWeight: 800,
+            color: C.text3,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
           }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>Total</span>
-            <span style={{
-              fontSize: 24,
-              fontWeight: 900,
-              color: C.green,
-              fontFamily: "'JetBrains Mono', monospace",
-            }}>
-              {fmt(est.total)}
-            </span>
+            <div>Item</div>
+            <div style={{ textAlign: 'center' }}>Qty</div>
+            <div style={{ textAlign: 'right' }}>Price</div>
+            <div style={{ textAlign: 'right' }}>Total</div>
+          </div>
+
+          {/* Line items */}
+          {est.lineItems.map((li, i) => (
+            <div
+              key={i}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr auto auto auto',
+                gap: 12,
+                padding: '16px 20px',
+                borderTop: `1px solid ${C.border}`,
+                alignItems: 'start',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 3 }}>{li.item}</div>
+                <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>{li.description}</div>
+                {li.vehicle && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: C.accent, fontWeight: 600 }}>
+                    <Truck size={11} />{li.vehicle}
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text1, textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", minWidth: 32, paddingTop: 2 }}>{li.qty}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text2, textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", minWidth: 80, paddingTop: 2 }}>{fmt(li.price)}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", minWidth: 80, paddingTop: 2 }}>{fmt(li.price * li.qty)}</div>
+            </div>
+          ))}
+
+          {/* Totals */}
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: C.text2 }}>Subtotal</span>
+              <span style={{ fontSize: 14, color: C.text1, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmt(est.subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: C.text2 }}>Tax ({(est.taxRate * 100).toFixed(2)}%)</span>
+              <span style={{ fontSize: 14, color: C.text1, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{fmt(est.taxAmount)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>Total</span>
+              <span style={{ fontSize: 24, fontWeight: 900, color: C.green, fontFamily: "'JetBrains Mono', monospace" }}>{fmt(est.total)}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Scope of work */}
       <div style={{

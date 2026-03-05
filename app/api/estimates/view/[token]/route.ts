@@ -28,12 +28,20 @@ export async function GET(
     const org = (est.org as any) || {}
     const taxRate = org.settings?.tax_rate || 8.25
 
+    const proposalConfig = (est.form_data as Record<string, unknown> | null)?.proposalConfig as {
+      mode: string
+      bundle: { discount_type: 'percent' | 'fixed'; discount_value: number; min_zones: number; total_zones: number; discount_label: string }
+      zones: unknown[]
+    } | null | undefined
+
     const items = (lineItems || []).map((li: any) => ({
+      id: li.id,
       item: li.product || li.name || 'Item',
       description: li.description || '',
       vehicle: li.vehicle || '',
       qty: li.qty || li.quantity || 1,
       price: li.price || li.unit_price || 0,
+      specs: li.specs || null,
     }))
 
     const subtotal = items.reduce((s: number, li: any) => s + li.price * li.qty, 0)
@@ -58,6 +66,7 @@ export async function GET(
       taxAmount,
       total,
       status: est.status,
+      proposalConfig: proposalConfig || null,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
