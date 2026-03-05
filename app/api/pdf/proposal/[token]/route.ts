@@ -47,7 +47,7 @@ const s = StyleSheet.create({
   coverMetaValue: { fontSize: 12, color: '#94a3b8' },
   coverBottom: { backgroundColor: '#0a0f1a', paddingHorizontal: 40, paddingVertical: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   coverBottomLine: { height: 2, backgroundColor: PDF_COLORS.accent },
-  coverTagline: { fontSize: 11, color: '#64748b', fontStyle: 'italic' },
+  coverTagline: { fontSize: 11, color: '#64748b' },
   coverContact: { fontSize: 10, color: '#475569' },
   // ── Content pages ──
   page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white },
@@ -105,7 +105,7 @@ const s = StyleSheet.create({
   proofBox: { backgroundColor: PDF_COLORS.dark, borderRadius: 8, padding: 20, marginBottom: 24 },
   proofTitle: { fontFamily: 'BarlowCondensed', fontSize: 18, fontWeight: 700, color: PDF_COLORS.white, marginBottom: 6 },
   proofStars: { fontSize: 14, color: PDF_COLORS.amber, marginBottom: 8 },
-  proofQuote: { fontSize: 11, color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 8 },
+  proofQuote: { fontSize: 11, color: '#94a3b8', lineHeight: 1.6, marginBottom: 8 },
   proofAuthor: { fontSize: 9, color: '#64748b', fontWeight: 600 },
   proofStat: { flexDirection: 'row', marginTop: 12 },
   proofStatItem: { flex: 1, alignItems: 'center' },
@@ -144,7 +144,7 @@ const s = StyleSheet.create({
   // Footer
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 40, paddingVertical: 12, borderTopWidth: 1, borderTopColor: PDF_COLORS.border, position: 'absolute', bottom: 0, left: 0, right: 0 },
   footerLogo: { width: 70, height: 22, objectFit: 'contain' },
-  footerTagline: { fontSize: 8, color: PDF_COLORS.textMuted, fontStyle: 'italic' },
+  footerTagline: { fontSize: 8, color: PDF_COLORS.textMuted },
   footerRight: { fontSize: 8, color: PDF_COLORS.textSecondary, textAlign: 'right' },
 })
 

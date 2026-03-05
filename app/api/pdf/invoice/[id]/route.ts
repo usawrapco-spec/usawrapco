@@ -105,7 +105,7 @@ const s = StyleSheet.create({
   // Footer
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 10, borderTopWidth: 1, borderTopColor: PDF_COLORS.border },
   footerLogo: { width: 70, height: 22, objectFit: 'contain' },
-  footerTagline: { fontSize: 8, color: PDF_COLORS.textMuted, fontStyle: 'italic' },
+  footerTagline: { fontSize: 8, color: PDF_COLORS.textMuted },
   footerRight: { fontSize: 8, color: PDF_COLORS.textSecondary, textAlign: 'right' },
   // Terms
   termsTitle: { fontFamily: 'BarlowCondensed', fontSize: 12, fontWeight: 700, marginBottom: 6, marginTop: 14 },

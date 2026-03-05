@@ -73,7 +73,7 @@ const s = StyleSheet.create({
   ytdLabel: { fontSize: 10, color: PDF_COLORS.textSecondary },
   ytdValue: { fontSize: 10, fontWeight: 600 },
   // Disclaimer
-  disclaimer: { fontSize: 7, color: PDF_COLORS.textMuted, textAlign: 'center', marginTop: 20, fontStyle: 'italic', padding: '8px 36px' },
+  disclaimer: { fontSize: 7, color: PDF_COLORS.textMuted, textAlign: 'center', marginTop: 20, padding: '8px 36px' },
   // Footer
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 10, borderTopWidth: 1, borderTopColor: PDF_COLORS.border },
   footerLogo: { width: 70, height: 22, objectFit: 'contain' },
