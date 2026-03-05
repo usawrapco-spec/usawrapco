@@ -36,11 +36,11 @@ Font.register({
 const s = StyleSheet.create({
   page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 60 },
   // Header
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 36, paddingTop: 28, paddingBottom: 16 },
-  logoArea: { flex: 1 },
+  logoCenter: { alignItems: 'center', paddingTop: 28, paddingBottom: 10 },
   logo: { width: 140, height: 45, objectFit: 'contain', marginBottom: 6 },
-  companyName: { fontFamily: 'BarlowCondensed', fontSize: 14, fontWeight: 700, color: PDF_COLORS.dark },
-  companyInfo: { fontSize: 8.5, color: PDF_COLORS.textSecondary, lineHeight: 1.5 },
+  companyName: { fontFamily: 'BarlowCondensed', fontSize: 14, fontWeight: 700, color: PDF_COLORS.dark, textAlign: 'center' },
+  companyInfo: { fontSize: 8.5, color: PDF_COLORS.textSecondary, lineHeight: 1.5, textAlign: 'center' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 36, paddingBottom: 16 },
   quoteRight: { alignItems: 'flex-end' },
   quoteLabel: { fontFamily: 'BarlowCondensed', fontSize: 28, fontWeight: 700, color: PDF_COLORS.accent, letterSpacing: 2 },
   quoteNumber: { fontSize: 14, fontWeight: 700, color: PDF_COLORS.dark, marginTop: 2 },
@@ -130,15 +130,16 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
     subject: 'Quote',
   },
     React.createElement(Page, { size: 'LETTER', style: s.page },
-      // Header: Logo left, Quote number right
-      React.createElement(View, { style: s.headerRow },
-        React.createElement(View, { style: s.logoArea },
-          React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
-          React.createElement(Text, { style: s.companyName }, BRAND.name),
-          React.createElement(Text, { style: s.companyInfo },
-            `${BRAND.address}\n${BRAND.city}\n${BRAND.phone}\n${BRAND.website}`
-          ),
+      // Header: Centered logo + company info, then quote number row
+      React.createElement(View, { style: s.logoCenter },
+        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
+        React.createElement(Text, { style: s.companyName }, BRAND.name),
+        React.createElement(Text, { style: s.companyInfo },
+          `${BRAND.address}\n${BRAND.city}\n${BRAND.phone}\n${BRAND.website}`
         ),
+      ),
+      React.createElement(View, { style: s.headerRow },
+        React.createElement(View, null),
         React.createElement(View, { style: s.quoteRight },
           React.createElement(Text, { style: s.quoteLabel }, 'QUOTE'),
           React.createElement(Text, { style: s.quoteNumber }, soNum),
@@ -251,7 +252,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       React.createElement(View, { style: s.termsBox },
         React.createElement(Text, { style: s.termsTitle }, 'Terms & Conditions'),
         React.createElement(Text, { style: s.termsText },
-          'This handcrafted quote is based on the specific information you have given us and is valid for 30 days. When you approve this quote you are agreeing to pay 100% of the quoted price. We require a 50% deposit to begin work on your project. Final payment is due upon completion/pickup of vehicle.'
+          'This handcrafted quote is based on the specific information you have given us and is valid for 30 days. When you approve this quote you are agreeing to pay 100% of the quoted price. We require a 50% deposit to begin work on your project. Final payment is due on delivery.'
         ),
       ),
 

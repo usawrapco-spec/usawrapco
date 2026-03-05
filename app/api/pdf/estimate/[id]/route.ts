@@ -298,7 +298,7 @@ function TotalsBlock({ estimate }: { estimate: any }) {
       React.createElement(Text, { style: s.totalsDepositValue }, formatCurrency(deposit)),
     ),
     React.createElement(View, { style: { ...s.totalsRow, marginTop: 4 } },
-      React.createElement(Text, { style: s.totalsLabel }, 'Balance at Pickup'),
+      React.createElement(Text, { style: s.totalsLabel }, 'Balance Due on Delivery'),
       React.createElement(Text, { style: s.totalsValue }, formatCurrency(balance)),
     ),
   )

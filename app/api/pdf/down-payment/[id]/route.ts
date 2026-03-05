@@ -187,7 +187,7 @@ function DownPaymentPDF({ salesOrder, customer }: {
         React.createElement(View, { style: s.balanceNote },
           React.createElement(Text, { style: s.balanceTitle }, 'Balance Due at Completion'),
           React.createElement(Text, { style: s.balanceText },
-            `Project Total: ${formatCurrency(total)}\nDeposit: ${formatCurrency(depositAmt)}\nRemaining Balance: ${formatCurrency(balance)}\n\nThe remaining balance of ${formatCurrency(balance)} is due upon completion and pickup of vehicle.`
+            `Project Total: ${formatCurrency(total)}\nDeposit: ${formatCurrency(depositAmt)}\nRemaining Balance: ${formatCurrency(balance)}\n\nThe remaining balance of ${formatCurrency(balance)} is due on delivery.`
           ),
         ),
 

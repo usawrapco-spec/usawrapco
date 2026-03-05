@@ -32,7 +32,7 @@ export const PDF_COLORS = {
 } as const
 
 export const PDF_TERMS = [
-  '50% deposit required to schedule. Remaining balance due upon vehicle pickup.',
+  '50% deposit required to schedule. Remaining balance due on delivery.',
   'Deposits are non-refundable after design work has begun.',
   'Customer responsible for vehicle being clean at time of drop-off.',
   'USA Wrap Co is not responsible for pre-existing paint defects or damage.',
