@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import VehicleSelectorFull, { VehicleMeasurements } from '@/components/shared/VehicleSelectorFull'
 import PhotoInspection from '@/components/estimates/PhotoInspection'
+import SurveyPhotoLightbox, { SurveyPhotoFull } from '@/components/estimates/SurveyPhotoLightbox'
 
 const supabase = createClient()
 
@@ -65,15 +66,8 @@ interface SurveyVehicle {
   _lineItemSpecs?: Record<string, unknown>
 }
 
-interface SurveyPhoto {
-  id: string
-  public_url: string
-  angle?: string
-  category?: string
-  caption?: string
-  concern_type?: string
-  is_flagged: boolean
-}
+// SurveyPhoto now uses the full type from the lightbox (includes share_token, markup_url, line_item_ids)
+type SurveyPhoto = SurveyPhotoFull
 
 type AddMode = 'vin' | 'db' | 'manual'
 
@@ -106,16 +100,18 @@ export default function EstimateSurveyTab({
   orgId,
   userId,
   onVehicleAddedToLineItems,
+  lineItems = [],
 }: {
   estimateId: string
   orgId: string
   userId: string
   onVehicleAddedToLineItems?: (v: SurveyVehicle) => void
+  lineItems?: { id: string; description: string; category?: string }[]
 }) {
   const [vehicles, setVehicles] = useState<SurveyVehicle[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
-  const [lightbox, setLightbox] = useState<SurveyPhoto | null>(null)
+  const [lightboxPhoto, setLightboxPhoto] = useState<SurveyPhoto | null>(null)
   const [inspectVehicleId, setInspectVehicleId] = useState<string | null>(null)
 
   // Add vehicle mode
@@ -484,10 +480,16 @@ export default function EstimateSurveyTab({
         .single()
 
       if (photoData) {
+        const photo: SurveyPhoto = {
+          ...photoData,
+          is_flagged: photoData.is_flagged || false,
+          line_item_ids: photoData.line_item_ids || [],
+          share_token: photoData.share_token || '',
+          markup_url: photoData.markup_url || null,
+          markup_data: photoData.markup_data || null,
+        }
         setVehicles(prev => prev.map(v =>
-          v.id === vehicleId
-            ? { ...v, photos: [...v.photos, { ...photoData, is_flagged: photoData.is_flagged || false }] }
-            : v
+          v.id === vehicleId ? { ...v, photos: [...v.photos, photo] } : v
         ))
       }
     }
@@ -778,7 +780,7 @@ export default function EstimateSurveyTab({
             onUpdate={(updates) => updateVehicle(vehicle.id, updates)}
             onUpload={(files, angle, category) => handlePhotoUpload(vehicle.id, files, angle, category)}
             onDelete={() => deleteVehicle(vehicle.id)}
-            onOpenLightbox={setLightbox}
+            onOpenLightbox={setLightboxPhoto}
             onAddToLineItems={() => onVehicleAddedToLineItems?.(vehicle)}
             onInspect={() => setInspectVehicleId(vehicle.id)}
           />
@@ -844,42 +846,25 @@ export default function EstimateSurveyTab({
         </div>
       )}
 
-      {/* LIGHTBOX */}
-      {lightbox && (
-        <div
-          onClick={() => setLightbox(null)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 600,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      {/* LIGHTBOX — full featured with markup, share, copy, line item assignment */}
+      {lightboxPhoto && (
+        <SurveyPhotoLightbox
+          photo={lightboxPhoto}
+          lineItems={lineItems}
+          orgId={orgId}
+          estimateId={estimateId}
+          canWrite={true}
+          onClose={() => setLightboxPhoto(null)}
+          onPhotoUpdated={updates => {
+            setVehicles(prev => prev.map(v => ({
+              ...v,
+              photos: v.photos.map(p =>
+                p.id === lightboxPhoto.id ? { ...p, ...updates } : p
+              ),
+            })))
+            setLightboxPhoto(prev => prev ? { ...prev, ...updates } : prev)
           }}
-        >
-          <button
-            onClick={() => setLightbox(null)}
-            style={{
-              position: 'absolute', top: 16, right: 16,
-              background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)',
-              cursor: 'pointer', padding: 4,
-            }}
-          >
-            <X size={24} />
-          </button>
-          <img
-            src={lightbox.public_url}
-            alt={lightbox.caption || lightbox.angle || 'photo'}
-            onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }}
-          />
-          {(lightbox.caption || lightbox.angle) && (
-            <div style={{
-              position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-              fontSize: 12, color: 'rgba(255,255,255,0.7)',
-              background: 'rgba(0,0,0,0.6)', padding: '6px 14px', borderRadius: 20,
-            }}>
-              {lightbox.angle} · {lightbox.caption}
-            </div>
-          )}
-        </div>
+        />
       )}
 
       <style>{`

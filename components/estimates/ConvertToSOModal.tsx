@@ -94,10 +94,41 @@ export default function ConvertToSOModal({ estimate, onClose, onSuccess, employe
 
       if (updateError) throw updateError
 
-      // Create jobs if mode is separate
+      // ── Fetch survey photos for this estimate so we can copy them to the job ──
+      const { data: surveyPhotos } = await supabase
+        .from('estimate_survey_photos')
+        .select('id, public_url, markup_url, angle, category, caption, concern_type, is_flagged, line_item_ids, survey_vehicle_id')
+        .eq('estimate_id', estimate.id)
+
+      // Helper: copy survey photos to job_images for a given project_id
+      const syncPhotosToJob = async (projectId: string) => {
+        if (!surveyPhotos?.length) return
+        const rows = surveyPhotos.map((p: any) => ({
+          org_id:       estimate.org_id,
+          project_id:   projectId,
+          image_url:    p.markup_url || p.public_url,
+          public_url:   p.markup_url || p.public_url,
+          category:     p.category || 'pre_install',
+          tags:         [p.angle, p.concern_type, p.is_flagged ? 'flagged' : null].filter(Boolean),
+          metadata: {
+            source:            'estimate_survey',
+            estimate_id:       estimate.id,
+            survey_photo_id:   p.id,
+            original_url:      p.public_url,
+            markup_url:        p.markup_url,
+            angle:             p.angle,
+            concern_type:      p.concern_type,
+            is_flagged:        p.is_flagged,
+            line_item_ids:     p.line_item_ids,
+          },
+        }))
+        await supabase.from('job_images').insert(rows)
+      }
+
+      // Create jobs
       if (mode === 'separate') {
-        const jobPromises = selectedLineItems.map(async (item: any) => {
-          return supabase.from('projects').insert({
+        const jobResults = await Promise.all(selectedLineItems.map(async (item: any) => {
+          const { data: job } = await supabase.from('projects').insert({
             org_id: estimate.org_id,
             title: item.name || 'Job from SO',
             customer_id: estimate.customer_id,
@@ -107,17 +138,15 @@ export default function ConvertToSOModal({ estimate, onClose, onSuccess, employe
             pipe_stage: 'sales_in',
             division: 'wraps',
             revenue: item.total_price,
-            form_data: {
-              estimate_id: estimate.id,
-              so_id: salesOrder.id,
-              line_item: item
-            }
-          })
-        })
-        await Promise.all(jobPromises)
+            form_data: { estimate_id: estimate.id, so_id: salesOrder.id, line_item: item }
+          }).select('id').single()
+          return job
+        }))
+        // Sync photos to all created jobs
+        await Promise.all(jobResults.filter(Boolean).map(j => syncPhotosToJob(j!.id)))
       } else {
         // Create single combined job
-        await supabase.from('projects').insert({
+        const { data: job } = await supabase.from('projects').insert({
           org_id: estimate.org_id,
           title: `Job from ${estimate.estimate_number}`,
           customer_id: estimate.customer_id,
@@ -127,12 +156,9 @@ export default function ConvertToSOModal({ estimate, onClose, onSuccess, employe
           pipe_stage: 'sales_in',
           division: 'wraps',
           revenue: soData.total,
-          form_data: {
-            estimate_id: estimate.id,
-            so_id: salesOrder.id,
-            line_items: selectedLineItems
-          }
-        })
+          form_data: { estimate_id: estimate.id, so_id: salesOrder.id, line_items: selectedLineItems }
+        }).select('id').single()
+        if (job) await syncPhotosToJob(job.id)
       }
 
       onSuccess(salesOrder.id)
