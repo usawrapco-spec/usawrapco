@@ -84,8 +84,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/design',              label: 'Design Studio',    icon: LayoutGrid,    roles: ['owner', 'admin', 'designer'] },
       { href: '/design/intakes',      label: 'Design Intake',    icon: FileInput,     badge: 'intakes' },
-      { href: '/mockup-generator',    label: 'Mockup Generator', icon: Wand2 },
-      { href: '/design-my-wrap',      label: 'Customer Studio',  icon: Sparkles },
+      { href: '/mockup-generator',    label: 'Wrap Lead Capture', icon: Wand2 },
+      { href: '/design-studio',       label: 'Design Studio',     icon: Sparkles, roles: ['owner', 'admin', 'designer'] },
     ],
   },
   {

@@ -62,13 +62,17 @@ export function calcMarineSqft(
   transom: boolean,
   transomWidthIn: number,
   transomHeightIn: number,
-  matRate: number
+  matRate: number,
+  // Optional yard-based pricing from saved material presets
+  rollWidthOverride?: number,  // actual roll width in inches
+  costPerYard?: number         // $ per linear yard — if provided, use yard-based cost
 ): {
   boatSqft: number
   totalMaterialSqft: number
   wasteSqft: number
   linearFtPerSide: number
   totalLinearFt: number
+  totalLinearYards: number
   panels: 1 | 2
   transomSqft: number
   materialCost: number
@@ -76,23 +80,25 @@ export function calcMarineSqft(
   totalCost: number
   rollWidthIn: number
   maxHeightIn: number
+  yardBased: boolean
 } {
-  // Roll width & max hull height per panel
-  const rollWidthIn = wrapType === 'printed' ? 54 : 60
+  // Roll width: use preset override, otherwise derive from wrap type
+  const rollWidthIn = rollWidthOverride ?? (wrapType === 'printed' ? 54 : 60)
   const usableIn = rollWidthIn - 2 // 2" bleed
-  const maxHeightIn = usableIn / 2  // 26" printed, 29" color change
+  const maxHeightIn = usableIn / 2
 
-  // Panel count: 1 if hull fits, 2 if it doesn't
+  // Panel count driven by actual roll width
   const panels: 1 | 2 = hullHeightIn <= maxHeightIn ? 1 : 2
 
   // 1 foot bleed per side
   const materialLengthPerSide = hullLengthFt + 2
 
-  // Linear feet of material to order
+  // Linear feet (and yards) of material to order
   const linearFtPerSide = materialLengthPerSide
   const totalLinearFt = materialLengthPerSide * panels * 2 // panels × 2 sides
+  const totalLinearYards = totalLinearFt / 3
 
-  // Actual boat square footage (what we charge the wrap rate on)
+  // Actual boat square footage
   const boatSqft = Math.round((hullLengthFt * (hullHeightIn / 12)) * 2)
 
   // Total material square footage (full roll width × linear feet)
@@ -103,14 +109,26 @@ export function calcMarineSqft(
     ? Math.round((transomWidthIn / 12) * (transomHeightIn / 12))
     : 0
 
-  // Waste = material ordered minus actual coverage (hull + transom)
+  // Waste = material ordered minus actual coverage
   const wasteSqft = Math.max(0, totalMaterialSqft - boatSqft - transomSqft)
 
-  // Cost: boat + transom at normal rate, waste at 2× rate
-  const coverageCost = (boatSqft + transomSqft) * matRate
-  const wasteCost = wasteSqft * matRate * 2
-  const materialCost = Math.round(coverageCost)
-  const totalCost = Math.round(coverageCost + wasteCost)
+  let materialCost: number
+  let wasteCost: number
+  let totalCost: number
+  const yardBased = costPerYard != null && costPerYard > 0
+
+  if (yardBased) {
+    // Yard-based: you buy totalLinearYards at costPerYard — waste is already baked in
+    totalCost = Math.round(totalLinearYards * costPerYard!)
+    materialCost = totalCost
+    wasteCost = 0
+  } else {
+    // Legacy sqft-based: coverage at matRate, waste at 2×
+    const coverageCost = (boatSqft + transomSqft) * matRate
+    wasteCost = wasteSqft * matRate * 2
+    materialCost = Math.round(coverageCost)
+    totalCost = Math.round(coverageCost + wasteCost)
+  }
 
   return {
     boatSqft: boatSqft + transomSqft,
@@ -118,13 +136,15 @@ export function calcMarineSqft(
     wasteSqft,
     linearFtPerSide,
     totalLinearFt,
+    totalLinearYards,
     panels,
     transomSqft,
     materialCost,
-    wasteCost: Math.round(wasteCost),
+    wasteCost,
     totalCost,
     rollWidthIn,
     maxHeightIn,
+    yardBased,
   }
 }
 

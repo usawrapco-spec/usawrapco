@@ -28,7 +28,7 @@ interface JobChatProps {
   defaultChannel?: Channel;
 }
 
-type Channel = 'internal' | 'customer' | 'threeway' | 'designer';
+type Channel = 'internal' | 'customer' | 'threeway' | 'designer' | 'install';
 
 const CHANNELS: { key: Channel; label: string; shortLabel: string; color: string; Icon: React.ElementType }[] = [
   { key: 'internal', label: 'Internal · Team Only', shortLabel: 'Internal', color: '#4f7fff', Icon: Lock },
