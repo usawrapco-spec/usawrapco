@@ -7,7 +7,7 @@ import {
   Car, Ruler, Paintbrush, ChevronDown, ChevronUp, ArrowRight,
   AlertTriangle, FileText, Download, MoreVertical, ClipboardList,
   StickyNote, Users, Calendar, Briefcase, DollarSign, Send, Link2,
-  CreditCard, Copy, Mail,
+  CreditCard, Copy, Mail, User, Circle,
 } from 'lucide-react'
 import PaymentSchedule from './PaymentSchedule'
 import type { Profile, SalesOrder, LineItem, LineItemSpecs, SalesOrderStatus } from '@/types'
@@ -212,6 +212,63 @@ function TeamMultiSelect({
   )
 }
 
+// ─── Predefined Task Lists ────────────────────────────────────────────────────
+
+const SO_TASKS: { key: string; label: string; required: boolean }[] = [
+  { key: 'deposit_collected',   label: 'Collect design deposit (50% down payment)',          required: true },
+  { key: 'intake_sent',         label: 'Send customer design intake link',                   required: true },
+  { key: 'install_confirmed',   label: 'Confirm install date with customer',                  required: true },
+  { key: 'vehicle_info',        label: 'Document vehicle year/make/model/VIN',               required: true },
+  { key: 'designer_assigned',   label: 'Assign designer to job',                             required: false },
+  { key: 'installer_assigned',  label: 'Assign or bid out installer',                        required: false },
+  { key: 'materials_ordered',   label: 'Order vinyl & laminate materials',                   required: false },
+  { key: 'job_created',         label: 'Create job in pipeline',                             required: true },
+  { key: 'so_sent',             label: 'Send sales order to customer for review',            required: false },
+  { key: 'invoiced',            label: 'Convert to invoice when complete',                   required: false },
+]
+
+function SOTasksPanel({ tasks, onChange }: { tasks: Record<string, boolean>; onChange: (t: Record<string, boolean>) => void }) {
+  const done = SO_TASKS.filter(t => tasks[t.key]).length
+  const requiredDone = SO_TASKS.filter(t => t.required && tasks[t.key]).length
+  const requiredTotal = SO_TASKS.filter(t => t.required).length
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif' }}>
+          Sales Order Tasks
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: requiredDone === requiredTotal ? 'var(--green)' : 'var(--amber)', fontWeight: 700 }}>
+            {requiredDone}/{requiredTotal} required · {done}/{SO_TASKS.length} total
+          </span>
+        </div>
+      </div>
+      {/* Progress bar */}
+      <div style={{ height: 4, background: 'var(--surface2)', borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${(done / SO_TASKS.length) * 100}%`, background: done === SO_TASKS.length ? 'var(--green)' : 'var(--accent)', borderRadius: 2, transition: 'width 0.3s ease' }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {SO_TASKS.map(task => (
+          <label key={task.key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '9px 12px', borderRadius: 8, background: tasks[task.key] ? 'rgba(34,192,122,0.06)' : 'var(--surface2)', border: `1px solid ${tasks[task.key] ? 'rgba(34,192,122,0.25)' : 'transparent'}`, transition: 'all 0.15s' }}>
+            <input
+              type="checkbox"
+              checked={!!tasks[task.key]}
+              onChange={() => onChange({ ...tasks, [task.key]: !tasks[task.key] })}
+              style={{ width: 15, height: 15, accentColor: 'var(--green)', cursor: 'pointer', flexShrink: 0 }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600, color: tasks[task.key] ? 'var(--green)' : 'var(--text2)', flex: 1 }}>{task.label}</span>
+            {task.required && !tasks[task.key] && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.12)', flexShrink: 0 }}>Required</span>
+            )}
+            {tasks[task.key] && <CheckCircle2 size={13} style={{ color: 'var(--green)', flexShrink: 0 }} />}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   profile: Profile
   salesOrder: SalesOrder | null
@@ -249,6 +306,10 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
   const [leadType, setLeadType] = useState<string>((so.form_data?.leadType as string) || 'inbound')
   const [torqBonus, setTorqBonus] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const [showAllInfo, setShowAllInfo] = useState(false)
+  const [soTasks, setSoTasks] = useState<Record<string, boolean>>(
+    (so.form_data?.tasks as Record<string, boolean>) || {}
+  )
   const [linkedCustomer, setLinkedCustomer] = useState<CustomerRow | null>(
     so.customer ? { id: so.customer.id, name: so.customer.name, email: so.customer.email ?? null, phone: null, company_name: null, lifetime_spend: null } : null
   )
@@ -498,41 +559,23 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
       )}
 
       {/* Top bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/sales-orders')} className="btn-ghost btn-sm">
-            <ArrowLeft size={14} /> Back
+          <button
+            onClick={() => router.push('/sales-orders')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', minHeight: 44, justifyContent: 'center' }}
+          >
+            <ArrowLeft size={14} /> <span>Back</span>
           </button>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="mono" style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 700 }}>
-                SO #{so.so_number}
-              </span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
-                borderRadius: 6, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg,
-              }}>
-                {sc.label}
-              </span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
-                borderRadius: 6, fontSize: 11, fontWeight: 700,
-                color: invoiceStatusConfig.color, background: invoiceStatusConfig.bg,
-              }}>
-                {invoiceStatusConfig.label}
-              </span>
-            </div>
+            <h1 style={{ fontSize: 24, fontWeight: 900, fontFamily: headingFont, color: 'var(--text1)', margin: 0, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ color: 'var(--text3)', fontWeight: 600 }}>SO</span>{' '}
+              <span style={{ fontFamily: monoFont }}>#{so.so_number}</span>
+            </h1>
             {so.estimate?.estimate_number && (
-              <button
-                onClick={() => router.push(`/estimates/${so.estimate_id}`)}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                  fontSize: 12, color: 'var(--text3)', marginTop: 2,
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}
-              >
+              <button onClick={() => router.push(`/estimates/${so.estimate_id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, color: 'var(--text3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <ArrowLeft size={10} />
-                <span className="mono">QT #{so.estimate?.estimate_number}</span>
+                <span style={{ fontFamily: monoFont }}>QT #{so.estimate?.estimate_number}</span>
               </button>
             )}
           </div>
@@ -692,160 +735,162 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         </div>
       </div>
 
-      {/* Status flow */}
-      <div style={{
-        display: 'flex', gap: 4, marginBottom: 24, padding: '12px 16px',
-        background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)',
-      }}>
-        {STATUS_FLOW.map((s, i) => {
-          const conf = STATUS_CONFIG[s]
-          const isActive = s === status
-          const isPast = STATUS_FLOW.indexOf(status) > i
-          return (
-            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1 }}>
-              <button
-                onClick={() => canWrite && handleStatusChange(s)}
-                disabled={!canWrite}
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
-                  fontSize: 12, fontWeight: 700, cursor: canWrite ? 'pointer' : 'default',
-                  background: isActive ? conf.bg : isPast ? 'rgba(34,192,122,0.08)' : 'var(--surface2)',
-                  color: isActive ? conf.color : isPast ? 'var(--green)' : 'var(--text3)',
-                  transition: 'all 0.15s',
-                  outline: isActive ? `2px solid ${conf.color}` : 'none',
-                  outlineOffset: -2,
-                }}
-              >
-                {conf.label}
-              </button>
-              {i < STATUS_FLOW.length - 1 && (
-                <ArrowRight size={12} style={{ color: 'var(--text3)', flexShrink: 0 }} />
-              )}
+      {/* ── 4-Column Info Grid ─────────────────────────────────────── */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          {/* Col 1: Customer */}
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <User size={11} /> Customer
             </div>
-          )
-        })}
+            {linkedCustomer ? (
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 2 }}>{linkedCustomer.name}</div>
+                {linkedCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--cyan)', marginBottom: 2 }}>{linkedCustomer.company_name}</div>}
+                {linkedCustomer.phone && <div style={{ fontSize: 12, color: 'var(--text2)', fontFamily: monoFont }}>{linkedCustomer.phone}</div>}
+                {linkedCustomer.email && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{linkedCustomer.email}</div>}
+                {(vehicleYear || vehicleMake || vehicleModel) && (
+                  <div style={{ fontSize: 11, color: 'var(--cyan)', marginTop: 4, fontFamily: monoFont }}>
+                    {[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(' ')}
+                    {vehicleColor && <span style={{ color: 'var(--text3)' }}> · {vehicleColor}</span>}
+                  </div>
+                )}
+                {canWrite && <button onClick={() => setCustomerModalOpen(true)} style={{ marginTop: 6, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600 }}>Change</button>}
+              </div>
+            ) : (
+              <button onClick={() => setCustomerModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+                <Plus size={12} /> Add Customer
+              </button>
+            )}
+            <CustomerSearchModal
+              open={customerModalOpen}
+              onClose={() => setCustomerModalOpen(false)}
+              orgId={profile.org_id}
+              onSelect={async (c) => {
+                setLinkedCustomer(c)
+                setCustomerModalOpen(false)
+                if (!isDemo) await supabase.from('sales_orders').update({ customer_id: c.id }).eq('id', orderId)
+              }}
+            />
+          </div>
+
+          {/* Col 2: Status */}
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Circle size={11} /> Status
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 12px', borderRadius: 6, fontSize: 11, fontWeight: 800, color: sc.color, background: sc.bg, letterSpacing: '0.05em', fontFamily: headingFont }}>
+                {sc.label}
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: invoiceStatusConfig.color, background: invoiceStatusConfig.bg }}>
+                {invoiceStatusConfig.label}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {STATUS_FLOW.map(s => {
+                const c = STATUS_CONFIG[s]
+                return (
+                  <button key={s} onClick={() => canWrite && handleStatusChange(s)} disabled={!canWrite || status === s}
+                    style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${status === s ? c.color : 'var(--border)'}`, background: status === s ? c.bg : 'transparent', color: status === s ? c.color : 'var(--text3)', fontSize: 10, fontWeight: 700, cursor: canWrite && status !== s ? 'pointer' : 'default', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Col 3: Team */}
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Users size={11} /> Team
+            </div>
+            <TeamMultiSelect label="Sales Rep(s)" members={team.filter(t => ['owner','admin','sales_agent'].includes(t.role))} selectedIds={salesRepIds} onChange={setSalesRepIds} canWrite={canWrite} accentColor="#4f7fff" />
+            <TeamMultiSelect label="Installer(s)" members={team.filter(t => t.role === 'installer')} selectedIds={installerIds} onChange={setInstallerIds} canWrite={canWrite} accentColor="#22c07a" />
+            <TeamMultiSelect label="Designer(s)" members={team.filter(t => ['designer','admin','owner'].includes(t.role))} selectedIds={designerIds} onChange={setDesignerIds} canWrite={canWrite} accentColor="#8b5cf6" />
+            <TeamMultiSelect label="Prod Mgr(s)" members={team.filter(t => ['production','admin','owner'].includes(t.role))} selectedIds={productionMgrIds} onChange={setProductionMgrIds} canWrite={canWrite} accentColor="#f59e0b" />
+          </div>
+
+          {/* Col 4: Dates */}
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Calendar size={11} /> Dates
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                { label: 'SO Date', value: soDate, set: setSoDate },
+                { label: 'Install Date', value: installDate, set: setInstallDate },
+                { label: 'Due Date', value: dueDate, set: setDueDate },
+              ].map(d => (
+                <div key={d.label}>
+                  <label style={{ fontSize: 11, color: 'var(--text3)' }}>{d.label}</label>
+                  <input type="date" value={d.value} onChange={e => d.set(e.target.value)} disabled={!canWrite} className="field" style={{ padding: '4px 8px', fontSize: 12 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Show All Information */}
+        <div style={{ borderTop: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center' }}>
+          <button onClick={() => setShowAllInfo(!showAllInfo)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+            <ChevronDown size={12} style={{ transform: showAllInfo ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            {showAllInfo ? 'Hide All Information' : 'Show All Information'}
+          </button>
+        </div>
+        {showAllInfo && (
+          <div style={{ borderTop: '1px solid var(--border)', padding: '16px 20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              <div><label className="field-label">Title</label><input value={title} onChange={e => setTitle(e.target.value)} className="field" disabled={!canWrite} /></div>
+              <div>
+                <label className="field-label">Payment Terms</label>
+                <select value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} className="field" disabled={!canWrite}>
+                  {PAYMENT_TERMS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div><label className="field-label">Down Payment %</label><input type="number" value={downPaymentPct} onChange={e => setDownPaymentPct(Number(e.target.value))} className="field" disabled={!canWrite} min={0} max={100} /></div>
+              <div />
+              <div><label className="field-label">Year</label><input value={vehicleYear} onChange={e => setVehicleYear(e.target.value)} className="field" disabled={!canWrite} placeholder="2024" maxLength={4} /></div>
+              <div><label className="field-label">Make</label><input value={vehicleMake} onChange={e => setVehicleMake(e.target.value)} className="field" disabled={!canWrite} placeholder="Ford" /></div>
+              <div><label className="field-label">Model</label><input value={vehicleModel} onChange={e => setVehicleModel(e.target.value)} className="field" disabled={!canWrite} placeholder="Transit 350" /></div>
+              <div><label className="field-label">Color</label><input value={vehicleColor} onChange={e => setVehicleColor(e.target.value)} className="field" disabled={!canWrite} placeholder="White" /></div>
+              <div style={{ gridColumn: '1 / -1' }}><label className="field-label">VIN</label><input value={vehicleVin} onChange={e => setVehicleVin(e.target.value)} className="field" disabled={!canWrite} placeholder="1FTFW1E8..." /></div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'flex-start' }}>
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* SO info card */}
-          <div className="card">
-            <div className="section-label">Sales Order Details</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label className="field-label">Title</label>
-                <input
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                />
-              </div>
-              <div>
-                <label className="field-label">Customer</label>
-                {linkedCustomer ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linkedCustomer.name}</div>
-                    {linkedCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{linkedCustomer.company_name}</div>}
-                    {linkedCustomer.phone && <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>{linkedCustomer.phone}</div>}
-                    {linkedCustomer.email && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{linkedCustomer.email}</div>}
-                    {canWrite && (
-                      <button onClick={() => setCustomerModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600, textAlign: 'left', marginTop: 2 }}>Change</button>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setCustomerModalOpen(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}
-                  >
-                    <Plus size={12} /> Add Customer
-                  </button>
-                )}
-                <CustomerSearchModal
-                  open={customerModalOpen}
-                  onClose={() => setCustomerModalOpen(false)}
-                  orgId={profile.org_id}
-                  onSelect={async (c) => {
-                    setLinkedCustomer(c)
-                    setCustomerModalOpen(false)
-                    if (!isDemo) await supabase.from('sales_orders').update({ customer_id: c.id }).eq('id', orderId)
-                  }}
-                />
-              </div>
-              <div>
-                <label className="field-label">Year</label>
-                <input
-                  value={vehicleYear}
-                  onChange={e => setVehicleYear(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="2024"
-                  maxLength={4}
-                />
-              </div>
-              <div>
-                <label className="field-label">Make</label>
-                <input
-                  value={vehicleMake}
-                  onChange={e => setVehicleMake(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="Ford"
-                />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label className="field-label">Model</label>
-                <input
-                  value={vehicleModel}
-                  onChange={e => setVehicleModel(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="Transit 350"
-                />
-              </div>
-              <div>
-                <label className="field-label">Color</label>
-                <input
-                  value={vehicleColor}
-                  onChange={e => setVehicleColor(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="White"
-                />
-              </div>
-              <div>
-                <label className="field-label">VIN</label>
-                <input
-                  value={vehicleVin}
-                  onChange={e => setVehicleVin(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="1FTFW1E8..."
-                />
-              </div>
-            </div>
-          </div>
 
           {/* Detail tabs */}
           <div className="card" style={{ padding: 0 }}>
-            <div style={{
-              display: 'flex', borderBottom: '1px solid var(--border)',
-            }}>
-              {DETAIL_TABS.map(t => (
+            <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
+              {([
+                { key: 'items' as DetailTab, label: 'Items', count: lineItemsList.length },
+                { key: 'payment_schedule' as DetailTab, label: 'Payment Schedule' },
+                { key: 'tasks' as DetailTab, label: 'Tasks' },
+                { key: 'notes' as DetailTab, label: 'Notes' },
+              ]).map(t => (
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px',
-                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                    background: 'none',
-                    color: activeTab === t.key ? 'var(--accent)' : 'var(--text3)',
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px',
+                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === t.key ? 700 : 500,
+                    background: 'transparent', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em',
+                    color: activeTab === t.key ? 'var(--text1)' : 'var(--text3)',
                     borderBottom: activeTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                    transition: 'all 0.15s',
+                    marginBottom: -2, transition: 'all 0.15s',
                   }}
                 >
-                  {t.icon} {t.label}
+                  {t.label}
+                  {(t as any).count !== undefined && (
+                    <span style={{ fontFamily: monoFont, fontSize: 11, fontWeight: 700, background: activeTab === t.key ? 'rgba(79,127,255,0.2)' : 'rgba(90,96,128,0.15)', color: activeTab === t.key ? 'var(--accent)' : 'var(--text3)', padding: '1px 7px', borderRadius: 10 }}>
+                      {(t as any).count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -919,11 +964,15 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
 
               {/* Tasks tab */}
               {activeTab === 'tasks' && (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)', fontSize: 13 }}>
-                  <ClipboardList size={24} style={{ marginBottom: 8, opacity: 0.4 }} />
-                  <div>No tasks linked to this sales order yet.</div>
-                  <div style={{ marginTop: 4, fontSize: 12 }}>Tasks will appear here once a job is created.</div>
-                </div>
+                <SOTasksPanel
+                  tasks={soTasks}
+                  onChange={async (updated) => {
+                    setSoTasks(updated)
+                    if (!isDemo) {
+                      await supabase.from('sales_orders').update({ form_data: { ...so.form_data, tasks: updated } }).eq('id', orderId)
+                    }
+                  }}
+                />
               )}
 
               {/* Notes tab */}

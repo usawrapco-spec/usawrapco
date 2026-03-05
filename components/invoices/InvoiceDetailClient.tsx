@@ -6,7 +6,7 @@ import {
   ArrowLeft, Send, CheckCircle2, XCircle, FileText, DollarSign,
   Calendar, User, CreditCard, Download, Clock, AlertTriangle,
   ExternalLink, Ban, Link2, Copy, Check, Plus, Users,
-  Package, StickyNote, Save, ClipboardCheck, Car, Camera, Layers, PenLine,
+  Package, StickyNote, Save, ClipboardCheck, Car, Camera, Layers, PenLine, ChevronDown,
 } from 'lucide-react'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
@@ -80,7 +80,7 @@ function calcInvItemCOGS(item: LineItem): { material: number; labor: number; des
   return { material, labor, design, misc }
 }
 
-type InvTab = 'items' | 'notes' | 'survey'
+type InvTab = 'items' | 'tasks' | 'notes' | 'survey'
 
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
 
@@ -195,6 +195,50 @@ function TeamMultiSelect({
   )
 }
 
+// ─── Invoice Predefined Tasks ────────────────────────────────────────────────
+
+const INV_TASKS: { key: string; label: string; required: boolean }[] = [
+  { key: 'invoice_sent',        label: 'Send invoice to customer',                        required: true },
+  { key: 'deposit_recorded',    label: 'Record deposit / down payment',                   required: true },
+  { key: 'materials_confirmed', label: 'Confirm all materials & install costs are accurate', required: true },
+  { key: 'job_complete',        label: 'Mark job as complete in pipeline',                required: true },
+  { key: 'balance_collected',   label: 'Collect balance due on vehicle pickup',           required: true },
+  { key: 'receipt_sent',        label: 'Send payment receipt to customer',                required: false },
+  { key: 'google_review',       label: 'Request Google review from customer',             required: false },
+  { key: 'job_closed',          label: 'Close job in system (mark done)',                 required: true },
+  { key: 'warranty_info',       label: 'Send warranty & care instructions to customer',   required: false },
+]
+
+function InvTasksPanel({ tasks, onChange }: { tasks: Record<string, boolean>; onChange: (t: Record<string, boolean>) => void }) {
+  const done = INV_TASKS.filter(t => tasks[t.key]).length
+  const requiredDone = INV_TASKS.filter(t => t.required && tasks[t.key]).length
+  const requiredTotal = INV_TASKS.filter(t => t.required).length
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif' }}>Invoice Tasks</div>
+        <span style={{ fontSize: 11, color: requiredDone === requiredTotal ? 'var(--green)' : 'var(--amber)', fontWeight: 700 }}>
+          {requiredDone}/{requiredTotal} required · {done}/{INV_TASKS.length} total
+        </span>
+      </div>
+      <div style={{ height: 4, background: 'var(--surface2)', borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${(done / INV_TASKS.length) * 100}%`, background: done === INV_TASKS.length ? 'var(--green)' : 'var(--accent)', borderRadius: 2, transition: 'width 0.3s ease' }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {INV_TASKS.map(task => (
+          <label key={task.key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '9px 12px', borderRadius: 8, background: tasks[task.key] ? 'rgba(34,192,122,0.06)' : 'var(--surface2)', border: `1px solid ${tasks[task.key] ? 'rgba(34,192,122,0.25)' : 'transparent'}`, transition: 'all 0.15s' }}>
+            <input type="checkbox" checked={!!tasks[task.key]} onChange={() => onChange({ ...tasks, [task.key]: !tasks[task.key] })} style={{ width: 15, height: 15, accentColor: 'var(--green)', cursor: 'pointer', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: tasks[task.key] ? 'var(--green)' : 'var(--text2)', flex: 1 }}>{task.label}</span>
+            {task.required && !tasks[task.key] && <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.12)', flexShrink: 0 }}>Required</span>}
+            {tasks[task.key] && <CheckCircle2 size={13} style={{ color: 'var(--green)', flexShrink: 0 }} />}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   profile: Profile
   invoice: Invoice | null
@@ -262,6 +306,10 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const surveyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showSendModal, setShowSendModal] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
+  const [showAllInfo, setShowAllInfo] = useState(false)
+  const [invTasks, setInvTasks] = useState<Record<string, boolean>>(
+    (inv.form_data?.tasks as Record<string, boolean>) || {}
+  )
 
   // Calculated totals — use stored total from DB when available to avoid NaN from missing columns
   const subtotal = useMemo(() => items.reduce((s, li) => s + li.total_price, 0), [items])
@@ -551,218 +599,183 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
       )}
 
       {/* Top bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/invoices')} className="btn-ghost btn-sm">
-            <ArrowLeft size={14} /> Back
+          <button onClick={() => router.push('/invoices')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', minHeight: 44, justifyContent: 'center' }}>
+            <ArrowLeft size={14} /> <span>Back</span>
           </button>
           <div>
-            <span className="mono" style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
-              INV-{inv.invoice_number}
-            </span>
-            <span style={{
-              marginLeft: 10, display: 'inline-flex', alignItems: 'center', padding: '2px 10px',
-              borderRadius: 6, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg,
-            }}>
-              {sc.label}
-            </span>
+            <h1 style={{ fontSize: 24, fontWeight: 900, fontFamily: invHeadingFont, color: 'var(--text1)', margin: 0, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ color: 'var(--text3)', fontWeight: 600 }}>INV</span>{' '}
+              <span style={{ fontFamily: invMonoFont }}>#{inv.invoice_number}</span>
+            </h1>
+            {inv.sales_order && (
+              <button onClick={() => router.push(`/sales-orders/${inv.so_id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 12, color: 'var(--text3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ArrowLeft size={10} />
+                <span style={{ fontFamily: invMonoFont }}>SO #{inv.sales_order.so_number}</span>
+              </button>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {canWrite && status === 'draft' && (
-            <button onClick={handleSendInvoice} className="btn-ghost btn-sm">
-              <Send size={13} /> Send Invoice
+            <button onClick={handleSendInvoice} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--text1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: invHeadingFont, letterSpacing: '0.03em' }}>
+              <Send size={14} /> Send Invoice
             </button>
           )}
-          <button onClick={handleExportPdf} className="btn-ghost btn-sm">
-            <Download size={13} /> Download PDF
+          <button onClick={handleExportPdf} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', color: 'var(--text1)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: invHeadingFont, letterSpacing: '0.03em' }}>
+            <Download size={14} /> Download PDF
           </button>
           {canWrite && (
-            <button onClick={handleSave} disabled={saving} className="btn-primary btn-sm">
-              <Save size={13} /> {saving ? 'Saving...' : 'Save'}
+            <button onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--green)', border: 'none', borderRadius: 12, padding: '9px 18px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, fontFamily: invHeadingFont, letterSpacing: '0.03em', boxShadow: '0 2px 12px rgba(34,192,122,0.25)' }}>
+              <Save size={14} /> {saving ? 'Saving...' : 'Save'}
             </button>
           )}
         </div>
       </div>
 
+      {/* ── 4-Column Info Grid ─────────────────────────────────────── */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          {/* Col 1: Customer */}
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <User size={11} /> Customer
+            </div>
+            {linkedCustomer ? (
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 2 }}>{linkedCustomer.name}</div>
+                {linkedCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--cyan)', marginBottom: 2 }}>{linkedCustomer.company_name}</div>}
+                {linkedCustomer.phone && <div style={{ fontSize: 12, color: 'var(--text2)', fontFamily: invMonoFont }}>{linkedCustomer.phone}</div>}
+                {linkedCustomer.email && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{linkedCustomer.email}</div>}
+                {(vehicleYear || vehicleMake || vehicleModel) && (
+                  <div style={{ fontSize: 11, color: 'var(--cyan)', marginTop: 4, fontFamily: invMonoFont }}>
+                    {[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(' ')}
+                    {vehicleColor && <span style={{ color: 'var(--text3)' }}> · {vehicleColor}</span>}
+                  </div>
+                )}
+                {canWrite && <button onClick={() => setCustomerModalOpen(true)} style={{ marginTop: 6, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600 }}>Change</button>}
+              </div>
+            ) : (
+              <button onClick={() => setCustomerModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+                <Plus size={12} /> Add Customer
+              </button>
+            )}
+            <CustomerSearchModal
+              open={customerModalOpen}
+              onClose={() => setCustomerModalOpen(false)}
+              orgId={profile.org_id}
+              onSelect={async (c) => {
+                setLinkedCustomer(c)
+                setCustomerModalOpen(false)
+                if (!isDemo) await supabase.from('invoices').update({ customer_id: c.id }).eq('id', invoiceId)
+              }}
+            />
+          </div>
+
+          {/* Col 2: Status */}
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Status</div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 12px', borderRadius: 6, fontSize: 11, fontWeight: 800, color: sc.color, background: sc.bg, letterSpacing: '0.05em', fontFamily: invHeadingFont, marginBottom: 8 }}>
+              {sc.label}
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {(['draft','sent','open','partial','paid','overdue','void'] as const).map(s => {
+                const c = STATUS_CONFIG[s]
+                return (
+                  <button key={s} onClick={() => canWrite && setStatus(s)} disabled={!canWrite || status === s}
+                    style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${status === s ? c.color : 'var(--border)'}`, background: status === s ? c.bg : 'transparent', color: status === s ? c.color : 'var(--text3)', fontSize: 10, fontWeight: 700, cursor: canWrite && status !== s ? 'pointer' : 'default', fontFamily: invHeadingFont, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Col 3: Team */}
+          <div style={{ padding: '16px 20px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Users size={11} /> Team
+            </div>
+            <TeamMultiSelect label="Sales Rep(s)" members={team.filter(t => ['owner','admin','sales_agent'].includes(t.role))} selectedIds={salesRepIds} onChange={setSalesRepIds} canWrite={canWrite} accentColor="#4f7fff" />
+            <TeamMultiSelect label="Installer(s)" members={team.filter(t => t.role === 'installer')} selectedIds={installerIds} onChange={setInstallerIds} canWrite={canWrite} accentColor="#22c07a" />
+            <TeamMultiSelect label="Designer(s)" members={team.filter(t => ['designer','admin','owner'].includes(t.role))} selectedIds={designerIds} onChange={setDesignerIds} canWrite={canWrite} accentColor="#8b5cf6" />
+            <TeamMultiSelect label="Prod Mgr(s)" members={team.filter(t => ['production','admin','owner'].includes(t.role))} selectedIds={productionMgrIds} onChange={setProductionMgrIds} canWrite={canWrite} accentColor="#f59e0b" />
+          </div>
+
+          {/* Col 4: Dates */}
+          <div style={{ padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Calendar size={11} /> Dates
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text3)' }}>Invoice Date</label>
+                <input value={fmtDate(inv.invoice_date)} className="field" disabled style={{ padding: '4px 8px', fontSize: 12, opacity: 0.7 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: status === 'overdue' ? 'var(--red)' : 'var(--text3)' }}>Due Date</label>
+                <input value={fmtDate(inv.due_date)} className="field" disabled style={{ padding: '4px 8px', fontSize: 12, opacity: 0.7, color: status === 'overdue' ? 'var(--red)' : undefined }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Show All Information */}
+        <div style={{ borderTop: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center' }}>
+          <button onClick={() => setShowAllInfo(!showAllInfo)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+            <ChevronDown size={12} style={{ transform: showAllInfo ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            {showAllInfo ? 'Hide All Information' : 'Show All Information'}
+          </button>
+        </div>
+        {showAllInfo && (
+          <div style={{ borderTop: '1px solid var(--border)', padding: '16px 20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+              <div><label className="field-label">Title</label><input value={title} onChange={e => setTitle(e.target.value)} className="field" disabled={!canWrite} /></div>
+              <div><label className="field-label">Year</label><input value={vehicleYear} onChange={e => setVehicleYear(e.target.value)} onBlur={e => handleSaveVehicle(e.target.value, vehicleMake, vehicleModel)} className="field" disabled={!canWrite} placeholder="2024" maxLength={4} /></div>
+              <div><label className="field-label">Make</label><input value={vehicleMake} onChange={e => setVehicleMake(e.target.value)} onBlur={e => handleSaveVehicle(vehicleYear, e.target.value, vehicleModel)} className="field" disabled={!canWrite} placeholder="Ford" /></div>
+              <div><label className="field-label">Model</label><input value={vehicleModel} onChange={e => setVehicleModel(e.target.value)} onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, e.target.value)} className="field" disabled={!canWrite} placeholder="Transit 350" /></div>
+              <div><label className="field-label">Color</label><input value={vehicleColor} onChange={e => setVehicleColor(e.target.value)} onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, vehicleModel, vehicleVin, e.target.value)} className="field" disabled={!canWrite} placeholder="White" /></div>
+              <div style={{ gridColumn: 'span 3' }}><label className="field-label">VIN</label><input value={vehicleVin} onChange={e => setVehicleVin(e.target.value)} onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, vehicleModel, e.target.value, vehicleColor)} className="field" disabled={!canWrite} placeholder="1FTFW1E8..." /></div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'flex-start' }}>
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Invoice info card */}
-          <div className="card">
-            <div className="section-label">Invoice Details</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label className="field-label">Title</label>
-                <input
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="Invoice title"
-                />
-              </div>
-              <div>
-                <label className="field-label">Customer</label>
-                {linkedCustomer ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <User size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{linkedCustomer.name}</span>
-                    </div>
-                    {linkedCustomer.company_name && <div style={{ fontSize: 11, color: 'var(--cyan)' }}>{linkedCustomer.company_name}</div>}
-                    {linkedCustomer.phone && <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'JetBrains Mono, monospace' }}>{linkedCustomer.phone}</div>}
-                    {linkedCustomer.email && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{linkedCustomer.email}</div>}
-                    {canWrite && (
-                      <button onClick={() => setCustomerModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, fontWeight: 600, textAlign: 'left', marginTop: 2 }}>Change</button>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setCustomerModalOpen(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(79,127,255,0.1)', border: '1px dashed rgba(79,127,255,0.3)', borderRadius: 6, padding: '8px 12px', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}
-                  >
-                    <Plus size={12} /> Add Customer
-                  </button>
-                )}
-                <CustomerSearchModal
-                  open={customerModalOpen}
-                  onClose={() => setCustomerModalOpen(false)}
-                  orgId={profile.org_id}
-                  onSelect={async (c) => {
-                    setLinkedCustomer(c)
-                    setCustomerModalOpen(false)
-                    if (!isDemo) await supabase.from('invoices').update({ customer_id: c.id }).eq('id', invoiceId)
-                  }}
-                />
-              </div>
-              <div>
-                <label className="field-label">Year</label>
-                <input
-                  value={vehicleYear}
-                  onChange={e => setVehicleYear(e.target.value)}
-                  onBlur={e => handleSaveVehicle(e.target.value, vehicleMake, vehicleModel)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="2024"
-                  maxLength={4}
-                />
-              </div>
-              <div>
-                <label className="field-label">Make</label>
-                <input
-                  value={vehicleMake}
-                  onChange={e => setVehicleMake(e.target.value)}
-                  onBlur={e => handleSaveVehicle(vehicleYear, e.target.value, vehicleModel)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="Ford"
-                />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label className="field-label">Model</label>
-                <input
-                  value={vehicleModel}
-                  onChange={e => setVehicleModel(e.target.value)}
-                  onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="Transit 350"
-                />
-              </div>
-              <div>
-                <label className="field-label">Color</label>
-                <input
-                  value={vehicleColor}
-                  onChange={e => setVehicleColor(e.target.value)}
-                  onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, vehicleModel, vehicleVin, e.target.value)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="White"
-                />
-              </div>
-              <div>
-                <label className="field-label">VIN</label>
-                <input
-                  value={vehicleVin}
-                  onChange={e => setVehicleVin(e.target.value)}
-                  onBlur={e => handleSaveVehicle(vehicleYear, vehicleMake, vehicleModel, e.target.value, vehicleColor)}
-                  className="field"
-                  disabled={!canWrite}
-                  placeholder="1FTFW1E8..."
-                />
-              </div>
-              <div>
-                <label className="field-label">Invoice Date</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Calendar size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                  <input
-                    value={fmtDate(inv.invoice_date)}
-                    className="field"
-                    disabled
-                    style={{ opacity: 0.7 }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="field-label">Due Date</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Clock size={13} style={{
-                    color: status === 'overdue' ? 'var(--red)' : 'var(--accent)',
-                    flexShrink: 0,
-                  }} />
-                  <input
-                    value={fmtDate(inv.due_date)}
-                    className="field"
-                    disabled
-                    style={{ opacity: 0.7 }}
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Sales Order link */}
-            {inv.sales_order && (
-              <div style={{ marginTop: 12 }}>
-                <label className="field-label">Linked Sales Order</label>
-                <button
-                  onClick={() => router.push(`/sales-orders/${inv.so_id}`)}
-                  className="btn-ghost btn-sm"
-                  style={{ gap: 6 }}
-                >
-                  <ExternalLink size={12} />
-                  <span className="mono" style={{ fontSize: 12, color: 'var(--accent)' }}>
-                    SO-{inv.sales_order.so_number}
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Tabbed section: Survey | Line Items | Notes */}
+          {/* Tabbed section */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {/* Tab bar */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--surface2)', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
               {([
-                { key: 'items'  as InvTab, label: `Items (${items.length})`, icon: <Package size={13} /> },
-                { key: 'notes'  as InvTab, label: 'Notes',      icon: <StickyNote size={13} /> },
-                { key: 'survey' as InvTab, label: 'Survey',     icon: <ClipboardCheck size={13} /> },
+                { key: 'items'  as InvTab, label: 'Items', count: items.length },
+                { key: 'tasks'  as InvTab, label: 'Tasks' },
+                { key: 'notes'  as InvTab, label: 'Notes' },
+                { key: 'survey' as InvTab, label: 'Survey' },
               ]).map(t => (
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '10px 16px', border: 'none', background: 'transparent',
+                    padding: '10px 18px', border: 'none', background: 'transparent',
                     borderBottom: activeTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                    color: activeTab === t.key ? 'var(--accent)' : 'var(--text3)',
+                    color: activeTab === t.key ? 'var(--text1)' : 'var(--text3)',
                     fontSize: 13, fontWeight: activeTab === t.key ? 700 : 500,
                     fontFamily: invHeadingFont, textTransform: 'uppercase',
                     letterSpacing: '0.05em', cursor: 'pointer', whiteSpace: 'nowrap',
-                    transition: 'color 0.12s',
+                    marginBottom: -2, transition: 'all 0.15s',
                   }}
                 >
-                  {t.icon} {t.label}
+                  {t.label}
+                  {(t as any).count !== undefined && (
+                    <span style={{ fontFamily: invMonoFont, fontSize: 11, fontWeight: 700, background: activeTab === t.key ? 'rgba(79,127,255,0.2)' : 'rgba(90,96,128,0.15)', color: activeTab === t.key ? 'var(--accent)' : 'var(--text3)', padding: '1px 7px', borderRadius: 10 }}>
+                      {(t as any).count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -804,6 +817,19 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                     </div>
                   )}
                 </>
+              )}
+
+              {/* Tasks tab */}
+              {activeTab === 'tasks' && (
+                <InvTasksPanel
+                  tasks={invTasks}
+                  onChange={async (updated) => {
+                    setInvTasks(updated)
+                    if (!isDemo) {
+                      await supabase.from('invoices').update({ form_data: { ...inv.form_data, tasks: updated } }).eq('id', invoiceId)
+                    }
+                  }}
+                />
               )}
 
               {/* Notes tab */}
