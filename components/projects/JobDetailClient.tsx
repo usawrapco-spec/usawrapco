@@ -178,6 +178,7 @@ export default function JobDetailClient({
   })
   const [copying, setCopying] = useState(false)
   const [portalCopied, setPortalCopied] = useState(false)
+  const [portalToken, setPortalToken] = useState<string | null>(null)
 
   // Header dropdowns
   const [viewDropOpen, setViewDropOpen] = useState(false)
@@ -344,6 +345,17 @@ export default function JobDetailClient({
   }, [project.id])
 
   useEffect(() => { loadConnectedJobs() }, [loadConnectedJobs])
+
+  // Load customer portal token for portal link
+  useEffect(() => {
+    const custId = (fd.customerId as string) || project.customer_id
+    if (custId) {
+      supabase.from('customers').select('portal_token').eq('id', custId).single()
+        .then(({ data }) => { if (data?.portal_token) setPortalToken(data.portal_token) })
+    } else if ((project as any).portal_token) {
+      setPortalToken((project as any).portal_token)
+    }
+  }, [project.id])
 
   const fmt$ = (v: number | null | undefined) =>
     v != null ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'
@@ -1037,7 +1049,7 @@ export default function JobDetailClient({
             {linksDropOpen && (
               <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 200, padding: '4px 0' }}>
                 <button
-                  onClick={() => { navigator.clipboard.writeText('https://portal.usawrapco.com'); setPortalCopied(true); setLinksDropOpen(false); setTimeout(() => setPortalCopied(false), 2000) }}
+                  onClick={() => { const url = portalToken ? `${window.location.origin}/portal/${portalToken}` : 'https://portal.usawrapco.com'; navigator.clipboard.writeText(url); setPortalCopied(true); setLinksDropOpen(false); setTimeout(() => setPortalCopied(false), 2000) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text1)', cursor: 'pointer', fontSize: 12, textAlign: 'left' }}
                 >
                   <Copy size={11} style={{ color: 'var(--text3)' }} /> {portalCopied ? 'Copied!' : 'Customer Portal (copy link)'}
