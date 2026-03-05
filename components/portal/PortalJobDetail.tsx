@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { TimelineMilestone } from '@/components/projects/JobTimeline'
 import PortalCustomerTimeline from './PortalCustomerTimeline'
+import PortalMessages from './PortalMessages'
 
 interface Props {
   project: {
@@ -27,9 +28,11 @@ interface Props {
   hasSalesOrder?: boolean
   timelineMilestones?: TimelineMilestone[]
   token?: string
+  jobMessages?: { id: string; sender_name: string; body: string; direction: string; created_at: string; project_id?: string | null; customer_id?: string | null; attachment_url?: string | null }[]
+  customerId?: string
 }
 
-export default function PortalJobDetail({ project, photos, proofs, milestones, hasEstimate, hasInvoice, invoicePaid, hasSalesOrder, timelineMilestones, token: tokenProp }: Props) {
+export default function PortalJobDetail({ project, photos, proofs, milestones, hasEstimate, hasInvoice, invoicePaid, hasSalesOrder, timelineMilestones, token: tokenProp, jobMessages, customerId }: Props) {
   const portal = usePortal()
   const token = tokenProp || portal.token
   const base = `/portal/${token}`
@@ -304,6 +307,28 @@ export default function PortalJobDetail({ project, photos, proofs, milestones, h
         <MessageSquare size={18} />
         Message the Team
       </Link>
+
+      {/* Job Chat */}
+      {jobMessages && customerId && (
+        <div style={{ marginTop: 20, background: C.surface, borderRadius: 16, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <MessageSquare size={16} style={{ color: C.accent }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text1, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Job Chat
+            </span>
+            <span style={{ fontSize: 11, color: C.text3 }}>({jobMessages.length} messages)</span>
+          </div>
+          <div style={{ maxHeight: 400, overflow: 'hidden' }}>
+            <PortalMessages
+              initialMessages={jobMessages}
+              customerId={customerId}
+              customerName={portal.customer.name}
+              orgId={portal.customer.id}
+              projectId={project.id}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightbox && (

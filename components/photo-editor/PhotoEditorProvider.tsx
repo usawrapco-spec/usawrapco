@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useRef } from 'react'
 import type { ImageSource, PhotoEditorContextValue } from './types'
 
 const PhotoEditorContext = createContext<PhotoEditorContextValue | null>(null)
@@ -16,9 +16,11 @@ export function PhotoEditorProvider({ children }: { children: React.ReactNode })
   const [isCopyToOpen, setIsCopyToOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState<ImageSource | null>(null)
   const [editorImage, setEditorImage] = useState<ImageSource | null>(null)
+  const onSavedRef = useRef<(() => void) | null>(null)
 
-  const openEditor = useCallback((image: ImageSource) => {
+  const openEditor = useCallback((image: ImageSource, onSaved?: () => void) => {
     setEditorImage(image)
+    onSavedRef.current = onSaved || null
     setIsEditorOpen(true)
   }, [])
 
@@ -28,6 +30,7 @@ export function PhotoEditorProvider({ children }: { children: React.ReactNode })
   }, [])
 
   const closeEditor = useCallback(() => {
+    if (onSavedRef.current) { onSavedRef.current(); onSavedRef.current = null }
     setIsEditorOpen(false)
     setEditorImage(null)
   }, [])

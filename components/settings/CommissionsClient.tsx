@@ -72,21 +72,15 @@ export default function CommissionsClient({ profile, settings, agents }: Props) 
     setSaving(true)
     const orgId = profile.org_id
 
-    // Save rate settings
-    for (const rate of [...SOURCE_RATES, ...BONUS_RATES]) {
-      const existing = settings.find((s: any) => s.key === rate.key)
-      if (existing) {
-        await supabase.from('shop_settings').update({ value: values[rate.key] }).eq('id', existing.id)
-      } else {
-        await supabase.from('shop_settings').insert({
-          org_id: orgId,
-          key: rate.key,
-          value: values[rate.key],
-          category: 'commission',
-          is_sensitive: true,
-        })
-      }
-    }
+    // Upsert rate settings (uses unique constraint on org_id + key)
+    const rows = [...SOURCE_RATES, ...BONUS_RATES].map(rate => ({
+      org_id: orgId,
+      key: rate.key,
+      value: values[rate.key],
+      category: 'commission',
+      is_sensitive: true,
+    }))
+    await supabase.from('shop_settings').upsert(rows, { onConflict: 'org_id,key' })
 
     // Save per-agent overrides
     for (const agent of salesAgents) {

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Home, Palette, Camera, MessageSquare, Menu, X,
   Briefcase, Receipt, ShoppingBag, Calendar, Map,
-  Compass, Anchor, Star, Gift, Bell,
+  Compass, Anchor, Star, Gift, Bell, User, Bot,
 } from 'lucide-react'
 import { C } from '@/lib/portal-theme'
 import { PortalProvider, type PortalContextValue } from '@/lib/portal-context'
@@ -89,6 +89,8 @@ export default function PortalShell({
     { label: 'Fishing App',      icon: Anchor,       href: '/fishing', external: true },
     { label: 'Loyalty Program',  icon: Star,         href: '/portal/loyalty', external: true },
     { label: 'Referrals',        icon: Gift,         href: '/portal/referrals', external: true },
+    { label: 'AI Assistant',     icon: Bot,          href: `${base}/chat` },
+    { label: 'My Profile',       icon: User,         href: `${base}/profile` },
   ]
 
   function handleMoreItemClick(href: string) {

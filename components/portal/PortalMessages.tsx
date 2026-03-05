@@ -22,9 +22,10 @@ interface Props {
   customerId: string
   customerName: string
   orgId: string
+  projectId?: string  // When set, scopes chat to a specific job
 }
 
-export default function PortalMessages({ initialMessages, customerId, customerName, orgId }: Props) {
+export default function PortalMessages({ initialMessages, customerId, customerName, orgId, projectId }: Props) {
   const { token } = usePortal()
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [text, setText] = useState('')
@@ -55,6 +56,8 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
         },
         (payload) => {
           const newMsg = payload.new as Message
+          // If scoped to a project, only show messages for that project
+          if (projectId && newMsg.project_id !== projectId) return
           setMessages(prev => {
             if (prev.some(m => m.id === newMsg.id)) return prev
             return [...prev, newMsg]
@@ -117,6 +120,7 @@ export default function PortalMessages({ initialMessages, customerId, customerNa
           senderName: senderName || 'Customer',
           body: messageBody,
           attachment_url: attachmentUrl,
+          ...(projectId && { project_id: projectId }),
         }),
       })
       if (res.ok) {

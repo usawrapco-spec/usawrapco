@@ -7,7 +7,7 @@ import {
   FileText, CreditCard, MessageSquare, Calendar,
   ChevronRight, Activity, AlertCircle, Upload, Zap,
   CheckCircle, Clock, Camera, Palette, Briefcase,
-  ShoppingBag,
+  ShoppingBag, MapPin,
 } from 'lucide-react'
 import PortalCustomerTimeline from './PortalCustomerTimeline'
 import { buildMilestones } from '@/components/projects/JobTimeline'
@@ -104,6 +104,19 @@ export default function PortalHomePage({ recentActivity, invoiceBalance, proofsP
       description: 'We need vehicle information and your logo files to get started.',
       href: `${base}/upload`,
       urgency: 'pending',
+    })
+  }
+
+  // Check for mobile install projects needing address
+  const mobileNoAddress = activeProjects.filter((p: any) => p.is_mobile_install && !p.install_address)
+  if (mobileNoAddress.length > 0) {
+    actionItems.push({
+      id: 'install-address',
+      icon: MapPin,
+      title: 'Add Your Installation Address',
+      description: 'We need the address where you want us to come for your mobile installation.',
+      href: `${base}/profile`,
+      urgency: 'urgent',
     })
   }
 
@@ -297,7 +310,8 @@ export default function PortalHomePage({ recentActivity, invoiceBalance, proofsP
             },
             { label: 'Upload Photos', icon: Camera, href: `${base}/upload`, color: C.green },
             { label: 'Message Team', icon: MessageSquare, href: `${base}/messages`, color: '#22d3ee' },
-            { label: 'View Jobs', icon: Briefcase, href: `${base}/jobs`, color: '#8b5cf6' },
+            { label: 'Request Quote', icon: FileText, href: `/portal/quote/${token}`, color: '#f59e0b' },
+            { label: 'AI Assistant', icon: Activity, href: `${base}/chat`, color: '#8b5cf6' },
           ].map((action) => (
             <Link key={action.label} href={action.href} style={{ textDecoration: 'none', color: 'inherit' }}>
               <div style={{

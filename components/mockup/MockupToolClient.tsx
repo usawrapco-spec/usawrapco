@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Wand2, Download, RefreshCw, Globe, Check, Palette, Building2,
   Car, ChevronDown, Upload, X, Clock, ImageIcon, FileText,
-  Layers, Zap, History, Eye, Plus, AlertCircle, Star,
+  Layers, Zap, History, Eye, Plus, AlertCircle, Star, Send, Loader2,
 } from 'lucide-react'
 import VehicleSelector from '@/components/shared/VehicleSelector'
 import type { VehicleSelectResult } from '@/components/shared/VehicleSelector'
@@ -253,6 +253,14 @@ export default function MockupToolClient({
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const genCtxRef = useRef<Record<string, string>>({})
 
+  // Send to customer
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sendMethod, setSendMethod] = useState<'sms' | 'email'>('sms')
+  const [sendTo, setSendTo] = useState('')
+  const [sendNote, setSendNote] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
+
   // History
   const [history, setHistory] = useState<HistoryRecord[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -454,6 +462,32 @@ export default function MockupToolClient({
     } catch {
       setError('Network error. Please try again.')
       setGenStep('error')
+    }
+  }
+
+  const sendMockupToCustomer = async () => {
+    if (!sendTo.trim() || !imageUrl) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/portal/send-mockup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_url: imageUrl,
+          method: sendMethod,
+          recipient: sendTo,
+          note: sendNote,
+          project_id: defaultProjectId || null,
+          vehicle: `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim(),
+        }),
+      })
+      if (!res.ok) throw new Error('Send failed')
+      setSendSuccess(true)
+      setTimeout(() => { setSendSuccess(false); setShowSendModal(false) }, 2000)
+    } catch {
+      setError('Failed to send mockup. Please try again.')
+    } finally {
+      setSending(false)
     }
   }
 
@@ -873,6 +907,16 @@ export default function MockupToolClient({
                         <Eye size={13} /> Use in Estimate
                       </button>
                     )}
+                    <button
+                      onClick={() => setShowSendModal(true)}
+                      style={{
+                        padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(34,192,122,0.3)',
+                        background: 'rgba(34,192,122,0.1)', color: '#22c07a', fontSize: 12, fontWeight: 700,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <Send size={13} /> Send to Customer
+                    </button>
                   </div>
 
                   {/* Brand Analysis Card */}
@@ -1066,6 +1110,101 @@ export default function MockupToolClient({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Send to Customer Modal ── */}
+      {showSendModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowSendModal(false) }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)', marginBottom: 4, fontFamily: 'Barlow Condensed, sans-serif' }}>
+              Send Mockup to Customer
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+              Send this mockup via text or email. They&apos;ll receive a link to view and mark up the design.
+            </p>
+
+            {/* Method toggle */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              {(['sms', 'email'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setSendMethod(m)}
+                  style={{
+                    flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid',
+                    borderColor: sendMethod === m ? 'rgba(79,127,255,0.4)' : 'var(--border)',
+                    background: sendMethod === m ? 'rgba(79,127,255,0.1)' : 'transparent',
+                    color: sendMethod === m ? 'var(--accent)' : 'var(--text3)',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase',
+                    fontFamily: 'Barlow Condensed, sans-serif',
+                  }}
+                >
+                  {m === 'sms' ? 'Text / SMS' : 'Email'}
+                </button>
+              ))}
+            </div>
+
+            {/* Recipient */}
+            <input
+              value={sendTo}
+              onChange={e => setSendTo(e.target.value)}
+              placeholder={sendMethod === 'sms' ? 'Phone number' : 'Email address'}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--bg)',
+                color: 'var(--text1)', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 10,
+              }}
+            />
+
+            {/* Note */}
+            <textarea
+              value={sendNote}
+              onChange={e => setSendNote(e.target.value)}
+              placeholder="Add a note (optional)..."
+              rows={2}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 8, resize: 'none',
+                border: '1px solid var(--border)', background: 'var(--bg)',
+                color: 'var(--text1)', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 14,
+              }}
+            />
+
+            {/* Preview thumbnail */}
+            {imageUrl && (
+              <img src={imageUrl} alt="mockup preview" style={{ width: '100%', borderRadius: 8, marginBottom: 14, maxHeight: 160, objectFit: 'cover' }} />
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setShowSendModal(false)}
+                style={{
+                  flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendMockupToCustomer}
+                disabled={sending || !sendTo.trim()}
+                style={{
+                  flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
+                  background: sendSuccess ? '#22c07a' : '#4f7fff',
+                  color: '#fff', fontSize: 13, fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  opacity: (!sendTo.trim() || sending) ? 0.6 : 1,
+                }}
+              >
+                {sending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                 : sendSuccess ? <Check size={14} />
+                 : <Send size={14} />}
+                {sending ? 'Sending...' : sendSuccess ? 'Sent!' : 'Send'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

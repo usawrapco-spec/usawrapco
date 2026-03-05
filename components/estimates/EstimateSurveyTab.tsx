@@ -11,6 +11,7 @@ import {
 import VehicleSelectorFull, { VehicleMeasurements } from '@/components/shared/VehicleSelectorFull'
 import PhotoInspection from '@/components/estimates/PhotoInspection'
 import SurveyPhotoLightbox, { SurveyPhotoFull } from '@/components/estimates/SurveyPhotoLightbox'
+import { PhotoEditorProvider, usePhotoEditor } from '@/components/photo-editor/PhotoEditorProvider'
 
 const supabase = createClient()
 
@@ -54,10 +55,13 @@ interface SurveyVehicle {
   vehicle_plate?: string
   design_notes?: string
   concern_notes?: string
+  install_notes?: string
   existing_graphics: boolean
   surface_condition?: string
   sqft?: number
   sort_order: number
+  handle_count: number
+  mirror_count: number
   photos: SurveyPhoto[]
   // UI state
   _expanded: boolean
@@ -85,7 +89,16 @@ const CONCERN_TYPES = [
   { id: 'dent',           label: 'Dent/Damage',     color: 'var(--red)' },
   { id: 'scratch',        label: 'Scratch',         color: '#facc15' },
   { id: 'existing_vinyl', label: 'Existing Vinyl',  color: 'var(--accent)' },
+  { id: 'paint_damage',   label: 'Paint Damage',    color: '#f97316' },
+  { id: 'rivets',         label: 'Rivets/Fasteners',color: 'var(--cyan)' },
+  { id: 'curved_surface', label: 'Curved Surface',  color: 'var(--purple)' },
+  { id: 'recessed',       label: 'Recessed Area',   color: '#6366f1' },
   { id: 'other',          label: 'Other',           color: 'var(--text2)' },
+]
+
+const UPSELL_ITEMS = [
+  { id: 'handles', label: 'Handle Wraps', price: 75, max: 20, icon: '⊞' },
+  { id: 'mirrors', label: 'Mirror Wraps', price: 100, max: 10, icon: '◑' },
 ]
 
 const SURFACE_CONDITIONS = [
@@ -95,19 +108,30 @@ const SURFACE_CONDITIONS = [
 ]
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────
-export default function EstimateSurveyTab({
-  estimateId,
-  orgId,
-  userId,
-  onVehicleAddedToLineItems,
-  lineItems = [],
-}: {
+interface SurveyTabProps {
   estimateId: string
   orgId: string
   userId: string
   onVehicleAddedToLineItems?: (v: SurveyVehicle) => void
   lineItems?: { id: string; description: string; category?: string }[]
-}) {
+}
+
+export default function EstimateSurveyTab(props: SurveyTabProps) {
+  return (
+    <PhotoEditorProvider>
+      <EstimateSurveyTabInner {...props} />
+    </PhotoEditorProvider>
+  )
+}
+
+function EstimateSurveyTabInner({
+  estimateId,
+  orgId,
+  userId,
+  onVehicleAddedToLineItems,
+  lineItems = [],
+}: SurveyTabProps) {
+  const { openEditor } = usePhotoEditor()
   const [vehicles, setVehicles] = useState<SurveyVehicle[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
@@ -864,6 +888,39 @@ export default function EstimateSurveyTab({
             })))
             setLightboxPhoto(prev => prev ? { ...prev, ...updates } : prev)
           }}
+          onOpenFabricEditor={() => {
+            openEditor({
+              url: lightboxPhoto.markup_url || lightboxPhoto.public_url,
+              sourceType: 'survey_photo',
+              sourceId: lightboxPhoto.id,
+              surveyPhotoId: lightboxPhoto.id,
+              estimateId,
+              orgId,
+              fileName: `survey-${lightboxPhoto.id.slice(0, 8)}.jpg`,
+              storagePath: `survey/${estimateId}/${lightboxPhoto.id}/markup_${Date.now()}.jpg`,
+            }, () => {
+              // Refresh photo data after markup saved
+              const fetchUpdated = async () => {
+                const sb = createClient()
+                const { data } = await sb
+                  .from('estimate_survey_photos')
+                  .select('markup_url')
+                  .eq('id', lightboxPhoto.id)
+                  .single()
+                if (data?.markup_url) {
+                  const updates = { markup_url: data.markup_url }
+                  setVehicles(prev => prev.map(v => ({
+                    ...v,
+                    photos: v.photos.map(p =>
+                      p.id === lightboxPhoto.id ? { ...p, ...updates } : p
+                    ),
+                  })))
+                  setLightboxPhoto(prev => prev ? { ...prev, ...updates } : prev)
+                }
+              }
+              fetchUpdated()
+            })
+          }}
         />
       )}
 
@@ -1143,6 +1200,73 @@ function VehicleCard({
                 color: 'var(--text1)', outline: 'none', resize: 'none', boxSizing: 'border-box',
               }}
             />
+            {/* Installation notes */}
+            <textarea
+              value={vehicle.install_notes || ''}
+              onChange={e => onUpdate({ install_notes: e.target.value })}
+              placeholder="Installation concerns — access issues, indoor/outdoor, tight spots, anything that affects install..."
+              rows={2}
+              style={{
+                width: '100%', background: 'var(--bg)', marginTop: 8,
+                border: '1px solid var(--border)',
+                borderRadius: 8, padding: '8px 10px', fontSize: 12,
+                color: 'var(--text1)', outline: 'none', resize: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {/* ADD-ONS / UPSELLS */}
+          <div>
+            <p style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, margin: '0 0 8px' }}>
+              Add-ons
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {UPSELL_ITEMS.map(item => {
+                const count = item.id === 'handles' ? (vehicle.handle_count || 0) : (vehicle.mirror_count || 0)
+                const fieldName = item.id === 'handles' ? 'handle_count' : 'mirror_count'
+                return (
+                  <div key={item.id} style={{
+                    flex: '1 1 140px', padding: '8px 10px', borderRadius: 10,
+                    border: count > 0 ? '1px solid rgba(34,192,122,0.3)' : '1px solid var(--border)',
+                    background: count > 0 ? 'rgba(34,192,122,0.06)' : 'transparent',
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>
+                      {item.icon} {item.label}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 6 }}>
+                      ${item.price}/each
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button
+                        onClick={() => onUpdate({ [fieldName]: Math.max(0, count - 1) })}
+                        disabled={count === 0}
+                        style={{
+                          width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)',
+                          background: 'var(--bg)', color: 'var(--text2)', cursor: count > 0 ? 'pointer' : 'not-allowed',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700,
+                        }}
+                      >-</button>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: count > 0 ? 'var(--green)' : 'var(--text3)', minWidth: 20, textAlign: 'center' }}>
+                        {count}
+                      </span>
+                      <button
+                        onClick={() => onUpdate({ [fieldName]: Math.min(item.max, count + 1) })}
+                        style={{
+                          width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)',
+                          background: 'var(--bg)', color: 'var(--text2)', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700,
+                        }}
+                      >+</button>
+                      {count > 0 && (
+                        <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 700, marginLeft: 'auto' }}>
+                          ${count * item.price}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* PHOTOS */}

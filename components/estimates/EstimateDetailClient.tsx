@@ -349,9 +349,7 @@ function fmtPercent(n: number): string {
 const COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boolean }> = {
   inbound:  { base: 0.045, max: 0.075, bonuses: true },
   outbound: { base: 0.07,  max: 0.10,  bonuses: true },
-  presold:  { base: 0.05,  max: 0.05,  bonuses: false },
-  referral: { base: 0.045, max: 0.075, bonuses: true },
-  walk_in:  { base: 0.045, max: 0.075, bonuses: true },
+  handoff:  { base: 0.05,  max: 0.05,  bonuses: false },
 }
 
 function calcGPM(item: LineItem, source: string = 'inbound'): { sale: number; materialCost: number; laborCost: number; designFee: number; miscCost: number; cogs: number; gp: number; gpm: number; commission: number; commissionRate: number; estimatedHours: number } {
@@ -472,7 +470,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     est.production_manager_ids?.length ? est.production_manager_ids : est.production_manager_id ? [est.production_manager_id] : []
   )
   const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
-  const [torqBonus, setTorqBonus] = useState(false)
+  const [assignedAgent, setAssignedAgent] = useState<string>((est.form_data?.assignedAgent as string) || '')
   // Vehicle fields — read from new DB columns, fall back to form_data for older estimates
   const [vehicleYear, setVehicleYear] = useState<string>(est.vehicle_year || (est.form_data?.vehicleYear as string) || '')
   const [vehicleMake, setVehicleMake] = useState<string>(est.vehicle_make || (est.form_data?.vehicleMake as string) || '')
@@ -565,17 +563,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const totalCOGS = useMemo(() => lineItemsList.reduce((s, li) => s + calcGPM(li, leadType).cogs, 0), [lineItemsList, leadType])
   const totalGP = useMemo(() => subtotal - totalCOGS, [subtotal, totalCOGS])
   const overallGPM = useMemo(() => subtotal > 0 ? (totalGP / subtotal) * 100 : 0, [totalGP, subtotal])
-  const totalCommission = useMemo(() => lineItemsList.reduce((s, li) => s + calcGPM(li, leadType).commission, 0), [lineItemsList, leadType])
-  const commRows = (() => {
-    const rows: { label: string; val: number }[] = [{ label: 'Base Commission', val: totalCommission }]
-    if (leadType === 'inbound' || leadType === 'outbound') {
-      if (overallGPM >= 73) rows.push({ label: 'GPM Bonus (+2%)', val: subtotal * 0.02 })
-      rows.push({ label: 'Torq Bonus (+1%)', val: subtotal * 0.01 })
-    }
-    return rows
-  })()
-  const totalComm = commRows.reduce((s, r) => s + r.val, 0)
-
   // Unified panel: COGS breakdown by category
   const cogsBreakdown = useMemo(() => lineItemsList.reduce((acc, li) => {
     const g = calcGPM(li, leadType)
@@ -586,17 +573,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     return acc
   }, { material: 0, labor: 0, design: 0, misc: 0 }), [lineItemsList, leadType])
 
-  // Unified panel: commission rate respecting torqBonus checkbox
-  const commRate = useMemo(() => {
-    const rates = COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound
-    if (!rates.bonuses || overallGPM < 65) return rates.base
-    let rate = rates.base
-    if (overallGPM >= 73) rate += 0.02
-    if (torqBonus) rate += 0.01
-    return Math.min(rate, rates.max)
-  }, [leadType, overallGPM, torqBonus])
-
-  const estCommission = useMemo(() => Math.max(0, totalGP * commRate), [totalGP, commRate])
 
   // Proposal slide-over
   const [proposalSlideOpen, setProposalSlideOpen] = useState(false)
@@ -647,7 +623,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         production_manager_id: productionMgrIds[0] || null,
         production_manager_ids: productionMgrIds,
         project_manager_id: null,
-        form_data: { ...est.form_data, leadType, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
+        form_data: { ...est.form_data, leadType, assignedAgent: assignedAgent || undefined, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
       }
       if (!savedId) {
         // First save — create estimate in DB
@@ -970,7 +946,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           quantity: li.quantity, unit_price: li.unit_price, unit_discount: li.unit_discount,
           total_price: li.total_price, specs: li.specs, sort_order: li.sort_order,
         })),
-        form_data: { leadType, discount, taxRate, notes, customerNote },
+        form_data: { leadType, assignedAgent: assignedAgent || undefined, discount, taxRate, notes, customerNote },
         created_by: profile.id,
       })
       if (error) throw error
@@ -1734,11 +1710,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 disabled={!canWrite}
                 style={fieldSelectStyle}
               >
-                <option value="inbound">Inbound (4.5-7.5%)</option>
-                <option value="outbound">Outbound (7-10%)</option>
-                <option value="presold">Pre-Sold (5% flat)</option>
-                <option value="referral">Referral (4.5-7.5%)</option>
-                <option value="walk_in">Walk-In (4.5-7.5%)</option>
+                <option value="inbound">Inbound</option>
+                <option value="outbound">Outbound</option>
+                <option value="handoff">Handoff</option>
               </select>
             </div>
             <div>
@@ -2351,36 +2325,32 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 </div>
               </div>
 
-              {/* ── COMMISSION PREVIEW ──────────────────── */}
+              {/* ── LEAD TYPE & AGENT ──────────────────── */}
               <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Commission Preview</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
-                <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                  {(['inbound', 'outbound', 'presold'] as const).map(lt => (
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                  {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
                     <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
-                      {lt === 'presold' ? 'Pre-Sold' : lt === 'inbound' ? 'In' : 'Out'}
+                      {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
                     </button>
                   ))}
                 </div>
-                {(COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound).bonuses && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
-                    <input type="checkbox" checked={torqBonus} onChange={() => setTorqBonus(!torqBonus)} />
-                    Torq Training Bonus (+1%)
-                  </label>
-                )}
-                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Commission Rate</span>
-                    <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text1)' }}>{(commRate * 100).toFixed(1)}%</span>
-                  </div>
-                  {overallGPM < 65 && subtotal > 0 && (
-                    <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>Low margin — base rate only</div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
-                    <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(estCommission)}</span>
-                  </div>
-                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Agent</div>
+                <select
+                  value={assignedAgent}
+                  onChange={e => setAssignedAgent(e.target.value)}
+                  style={{
+                    width: '100%', padding: '6px 8px', borderRadius: 6, fontSize: 12,
+                    background: 'var(--bg)', border: '1px solid var(--border)',
+                    color: 'var(--text1)', fontFamily: headingFont, cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">— Select Agent —</option>
+                  {team.filter(a => ['sales_agent', 'admin', 'owner'].includes(a.role)).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* ── TOTALS ──────────────────────────────── */}

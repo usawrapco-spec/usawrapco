@@ -21,7 +21,7 @@ const monoFont        = 'JetBrains Mono, monospace'
 const COMMISSION_RATES: Record<string, { base: number; max: number; bonuses: boolean }> = {
   inbound:  { base: 0.045, max: 0.075, bonuses: true },
   outbound: { base: 0.07,  max: 0.10,  bonuses: true },
-  presold:  { base: 0.05,  max: 0.05,  bonuses: false },
+  handoff:  { base: 0.05,  max: 0.05,  bonuses: false },
 }
 
 const CATEGORIES = [
@@ -109,7 +109,6 @@ export default function EstimateTemplateDetailClient({ profile, template, isNew 
   const [description, setDescription] = useState(template?.description || '')
   const [taxRate, setTaxRate]     = useState<number>((template?.form_data?.taxRate as number) ?? 0.0825)
   const [leadType, setLeadType]   = useState<string>((template?.form_data?.leadType as string) || 'inbound')
-  const [torqBonus, setTorqBonus] = useState(false)
   const [saving, setSaving]       = useState(false)
   const [creating, setCreating]   = useState(false)
   const [toast, setToast]         = useState<string | null>(null)
@@ -146,16 +145,6 @@ export default function EstimateTemplateDetailClient({ profile, template, isNew 
   const totalGP     = useMemo(() => subtotal - totalCOGS, [subtotal, totalCOGS])
   const overallGPM  = useMemo(() => subtotal > 0 ? (totalGP / subtotal) * 100 : 0, [totalGP, subtotal])
 
-  const commRate = useMemo(() => {
-    const rates = COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound
-    if (!rates.bonuses || overallGPM < 65) return rates.base
-    let rate = rates.base
-    if (overallGPM >= 73) rate += 0.02
-    if (torqBonus) rate += 0.01
-    return Math.min(rate, rates.max)
-  }, [leadType, overallGPM, torqBonus])
-
-  const estCommission = useMemo(() => Math.max(0, totalGP * commRate), [totalGP, commRate])
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const fmtCurrency = (n: number) =>
@@ -527,35 +516,15 @@ export default function EstimateTemplateDetailClient({ profile, template, isNew 
             </div>
           </div>
 
-          {/* ── COMMISSION PREVIEW ──────────────────── */}
+          {/* ── LEAD TYPE ──────────────────── */}
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Commission Preview</div>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-              {(['inbound', 'outbound', 'presold'] as const).map(lt => (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
                 <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
-                  {lt === 'presold' ? 'Pre-Sold' : lt === 'inbound' ? 'In' : 'Out'}
+                  {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
                 </button>
               ))}
-            </div>
-            {(COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound).bonuses && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
-                <input type="checkbox" checked={torqBonus} onChange={() => setTorqBonus(!torqBonus)} />
-                Torq Training Bonus (+1%)
-              </label>
-            )}
-            <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>Commission Rate</span>
-                <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text1)' }}>{(commRate * 100).toFixed(1)}%</span>
-              </div>
-              {overallGPM < 65 && subtotal > 0 && (
-                <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>Low margin — base rate only</div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
-                <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(estCommission)}</span>
-              </div>
             </div>
           </div>
 

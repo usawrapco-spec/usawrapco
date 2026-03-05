@@ -32,7 +32,7 @@ export default async function PortalJobDetailPage({
 
   if (!project) return notFound()
 
-  const [photosRes, proofsRes, milestonesRes, estimateRes, invoiceRes, salesOrderRes] = await Promise.all([
+  const [photosRes, proofsRes, milestonesRes, estimateRes, invoiceRes, salesOrderRes, messagesRes] = await Promise.all([
     supabase
       .from('job_images')
       .select('id, image_url, category, description, created_at')
@@ -68,6 +68,11 @@ export default async function PortalJobDetailPage({
       .eq('project_id', project.id)
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('portal_messages')
+      .select('id, sender_name, body, direction, created_at, project_id, customer_id, attachment_url')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: true }),
   ])
 
   // Build timeline milestones from form_data
@@ -86,6 +91,8 @@ export default async function PortalJobDetailPage({
       hasSalesOrder={!!salesOrderRes.data}
       timelineMilestones={timelineMilestones}
       token={token}
+      jobMessages={(messagesRes.data || []) as any[]}
+      customerId={customer.id}
     />
   )
 }

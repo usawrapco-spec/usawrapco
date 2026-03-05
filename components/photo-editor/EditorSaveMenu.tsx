@@ -15,7 +15,7 @@ interface EditorSaveMenuProps {
   onSaved: () => void
 }
 
-type SaveMode = 'overwrite' | 'copy' | 'media'
+type SaveMode = 'overwrite' | 'copy' | 'media' | 'survey_markup'
 
 export default function EditorSaveMenu({ image, getCanvasBlob, onSaved }: EditorSaveMenuProps) {
   const { toast } = useToast()
@@ -45,6 +45,7 @@ export default function EditorSaveMenu({ image, getCanvasBlob, onSaved }: Editor
   }
 
   async function handleSave(mode: SaveMode) {
+    if (mode === 'survey_markup') { handleSurveyMarkupSave(); return }
     setSaving(true)
     setSavedMode(null)
 
@@ -130,11 +131,47 @@ export default function EditorSaveMenu({ image, getCanvasBlob, onSaved }: Editor
     }
   }
 
-  const options: { mode: SaveMode; label: string; desc: string }[] = [
-    { mode: 'overwrite', label: 'Save (Overwrite)', desc: 'Replace the original file' },
-    { mode: 'copy', label: 'Save as Copy', desc: 'New file in same location' },
-    { mode: 'media', label: 'Save to Media Library', desc: 'Add to media library' },
-  ]
+  async function handleSurveyMarkupSave() {
+    setSaving(true)
+    setSavedMode(null)
+    try {
+      const blob = await getCanvasBlob()
+      if (!blob) { toast('Failed to export canvas', 'error'); setSaving(false); return }
+
+      const photoId = image.surveyPhotoId || image.sourceId
+      const estimateId = image.estimateId
+      const path = `survey/${estimateId}/${photoId}/markup_${Date.now()}.jpg`
+      const url = await uploadBlob(blob, path)
+      if (!url) { toast('Upload failed', 'error'); setSaving(false); return }
+
+      await supabase
+        .from('estimate_survey_photos')
+        .update({ markup_url: url })
+        .eq('id', photoId)
+
+      toast('Markup saved', 'success')
+      setSavedMode('survey_markup')
+      setTimeout(() => setSavedMode(null), 2000)
+      onSaved()
+    } catch (err) {
+      console.error('Survey markup save error:', err)
+      toast('Save failed', 'error')
+    } finally {
+      setSaving(false)
+      setOpen(false)
+    }
+  }
+
+  // For survey photos, show a single "Save Markup" button instead of the dropdown
+  const isSurveyPhoto = image.sourceType === 'survey_photo'
+
+  const options: { mode: SaveMode; label: string; desc: string }[] = isSurveyPhoto
+    ? [{ mode: 'survey_markup', label: 'Save Markup', desc: 'Save annotated photo' }]
+    : [
+        { mode: 'overwrite', label: 'Save (Overwrite)', desc: 'Replace the original file' },
+        { mode: 'copy', label: 'Save as Copy', desc: 'New file in same location' },
+        { mode: 'media', label: 'Save to Media Library', desc: 'Add to media library' },
+      ]
 
   return (
     <div ref={menuRef} style={{ position: 'relative' }}>

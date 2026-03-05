@@ -46,6 +46,7 @@ interface Props {
   canWrite: boolean
   onClose: () => void
   onPhotoUpdated: (updated: Partial<SurveyPhotoFull>) => void
+  onOpenFabricEditor?: () => void  // If provided, opens Fabric.js editor instead of canvas markup
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ const ANGLE_LABEL: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function SurveyPhotoLightbox({
-  photo, lineItems, orgId, estimateId, canWrite, onClose, onPhotoUpdated,
+  photo, lineItems, orgId, estimateId, canWrite, onClose, onPhotoUpdated, onOpenFabricEditor,
 }: Props) {
   const supabase = createClient()
 
@@ -424,7 +425,7 @@ export default function SurveyPhotoLightbox({
               </button>
             )}
             {canWrite && (
-              <button onClick={enterMarkupMode} style={btnStyle('rgba(79,127,255,0.12)', '#4f7fff')}>
+              <button onClick={onOpenFabricEditor || enterMarkupMode} style={btnStyle('rgba(79,127,255,0.12)', '#4f7fff')}>
                 <Pencil size={14} />
                 <span style={{ fontSize: 11, fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700 }}>Mark Up</span>
               </button>

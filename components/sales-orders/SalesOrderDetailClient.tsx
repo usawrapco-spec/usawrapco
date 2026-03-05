@@ -442,7 +442,21 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
           form_data: { sales_order_id: isDemo ? null : orderId },
         }).select().single()
         if (error) throw error
-        if (data) router.push(`/projects/${data.id}`)
+        if (data) {
+          // Auto-create design intake for the new job
+          try {
+            await fetch('/api/design-intake/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                project_id: data.id,
+                customer_id: so.customer_id,
+                org_id: so.org_id || profile.org_id,
+              }),
+            })
+          } catch {} // Non-blocking
+          router.push(`/projects/${data.id}`)
+        }
       } else {
         const inserts = lineItemsList.map(li => ({
           org_id: so.org_id || profile.org_id,

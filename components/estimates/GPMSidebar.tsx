@@ -1,14 +1,21 @@
 'use client'
 
 import type { LineItem } from '@/types'
-import { TrendingUp, DollarSign } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
+
+interface Agent {
+  id: string
+  name: string
+  role: string
+}
 
 interface Props {
   lineItems: LineItem[]
   leadType: string
   onLeadTypeChange: (lt: string) => void
-  torqBonus: boolean
-  onTorqChange: (v: boolean) => void
+  agents: Agent[]
+  selectedAgent: string
+  onAgentChange: (id: string) => void
 }
 
 const fmtC = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
@@ -30,15 +37,7 @@ function gpmColor(gpm: number): string {
   return 'var(--red)'
 }
 
-const COMMISSION_RATES: Record<string, { base: number; gpMax: number; torqBonus: number; gpmBonus: number; hasBonus: boolean }> = {
-  inbound:  { base: 0.045, gpMax: 0.075, torqBonus: 0.01, gpmBonus: 0.02, hasBonus: true },
-  outbound: { base: 0.07,  gpMax: 0.10,  torqBonus: 0.01, gpmBonus: 0.02, hasBonus: true },
-  presold:  { base: 0.05,  gpMax: 0.05,  torqBonus: 0,    gpmBonus: 0,    hasBonus: false },
-  referral: { base: 0.045, gpMax: 0.075, torqBonus: 0.01, gpmBonus: 0.02, hasBonus: true },
-  walk_in:  { base: 0.045, gpMax: 0.075, torqBonus: 0.01, gpmBonus: 0.02, hasBonus: true },
-}
-
-export default function GPMSidebar({ lineItems, leadType, onLeadTypeChange, torqBonus, onTorqChange }: Props) {
+export default function GPMSidebar({ lineItems, leadType, onLeadTypeChange, agents, selectedAgent, onAgentChange }: Props) {
   const revenue   = lineItems.reduce((s, li) => s + li.total_price, 0)
   const costBreak = lineItems.reduce((acc, li) => {
     const c = calcItemCOGS(li)
@@ -52,18 +51,9 @@ export default function GPMSidebar({ lineItems, leadType, onLeadTypeChange, torq
   const totalCOGS = costBreak.mat + costBreak.install + costBreak.design + costBreak.other
   const gp        = revenue - totalCOGS
   const gpm       = revenue > 0 ? (gp / revenue) * 100 : 0
-
-  const rates  = COMMISSION_RATES[leadType] || COMMISSION_RATES.inbound
-  const lowGPM = gpm < 65
-  let commRate  = rates.base
-  if (!lowGPM && rates.hasBonus) {
-    if (gpm >= 73) commRate += rates.gpmBonus
-    if (torqBonus) commRate += rates.torqBonus
-    commRate = Math.min(commRate, rates.gpMax)
-  }
-  const commission = Math.max(0, gp * commRate)
-
   const color = gpmColor(gpm)
+
+  const salesAgents = agents.filter(a => ['sales_agent', 'admin', 'owner'].includes(a.role))
 
   const row = (label: string, value: string, bold = false) => (
     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12 }}>
@@ -110,61 +100,51 @@ export default function GPMSidebar({ lineItems, leadType, onLeadTypeChange, torq
           </div>
         </div>
 
-        {/* Commission Preview */}
+        {/* Lead Type */}
         <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontFamily: heading }}>
-            Commission Preview
-          </div>
-
-          {/* Lead Type Toggle */}
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: heading }}>Lead Type</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {[
-                { key: 'inbound', label: 'In' },
-                { key: 'outbound', label: 'Out' },
-                { key: 'presold', label: 'Pre-sold' },
-              ].map(opt => (
-                <button key={opt.key}
-                  onClick={() => onLeadTypeChange(opt.key)}
-                  style={{
-                    flex: 1, padding: '4px 6px', borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 700,
-                    fontFamily: heading, letterSpacing: '0.04em', textTransform: 'uppercase',
-                    border: leadType === opt.key ? '2px solid var(--accent)' : '1px solid var(--border)',
-                    background: leadType === opt.key ? 'rgba(79,127,255,0.12)' : 'var(--bg)',
-                    color: leadType === opt.key ? 'var(--accent)' : 'var(--text3)',
-                  }}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Torq Bonus */}
-          {rates.hasBonus && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
-              <input type="checkbox" checked={torqBonus} onChange={() => onTorqChange(!torqBonus)} />
-              Torq Training Bonus (+1%)
-            </label>
-          )}
-
-          {/* Commission breakdown */}
-          <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)' }}>
-            {row('Commission Rate', `${(commRate * 100).toFixed(1)}%`)}
-            {lowGPM && (
-              <div style={{ fontSize: 10, color: 'var(--amber)', padding: '4px 0', fontStyle: 'italic' }}>
-                Low margin — base rate only
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, marginTop: 4, borderTop: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
-              <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>
-                <DollarSign size={12} style={{ display: 'inline', verticalAlign: '-1px' }} />
-                {fmtC(commission).replace('$', '')}
-              </span>
-            </div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: heading }}>Lead Type</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {[
+              { key: 'inbound', label: 'In' },
+              { key: 'outbound', label: 'Out' },
+              { key: 'handoff', label: 'Handoff' },
+            ].map(opt => (
+              <button key={opt.key}
+                onClick={() => onLeadTypeChange(opt.key)}
+                style={{
+                  flex: 1, padding: '4px 6px', borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                  fontFamily: heading, letterSpacing: '0.04em', textTransform: 'uppercase',
+                  border: leadType === opt.key ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  background: leadType === opt.key ? 'rgba(79,127,255,0.12)' : 'var(--bg)',
+                  color: leadType === opt.key ? 'var(--accent)' : 'var(--text3)',
+                }}>
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Agent */}
+        {salesAgents.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: heading }}>Agent</div>
+            <select
+              value={selectedAgent}
+              onChange={e => onAgentChange(e.target.value)}
+              style={{
+                width: '100%', padding: '6px 8px', borderRadius: 6, fontSize: 12,
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                color: 'var(--text1)', fontFamily: heading, cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="">— Select —</option>
+              {salesAgents.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     </div>
   )
