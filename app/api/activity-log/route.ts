@@ -9,6 +9,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   const projectId = url.searchParams.get('project_id')
+  const customerId = url.searchParams.get('customer_id')
   const limit = parseInt(url.searchParams.get('limit') || '50')
 
   const admin = getSupabaseAdmin()
@@ -23,6 +24,7 @@ export async function GET(req: Request) {
     .limit(limit)
 
   if (projectId) query = query.eq('project_id', projectId)
+  if (customerId) query = query.eq('customer_id', customerId)
 
   const { data, error } = await query
   if (error) return Response.json({ logs: [] })

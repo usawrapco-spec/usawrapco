@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import {
   ArrowRight, DollarSign, FileUp, Mail, MessageSquare,
   CheckCircle2, XCircle, StickyNote, Send, User, Bot,
-  Monitor, Clock, Palette, Wrench, ChevronRight,
+  Monitor, Clock, Palette, Wrench, ChevronRight, Heart,
 } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -223,6 +223,11 @@ function ActionIcon({ metadata }: { metadata?: Record<string, any> }) {
   if (type === 'estimate_created') return <StickyNote style={{ ...s, color: 'var(--accent)' }} />
   if (type === 'estimate_viewed') return <Monitor style={{ ...s, color: 'var(--text2)' }} />
   if (type === 'estimate_accepted') return <CheckCircle2 style={{ ...s, color: 'var(--green)' }} />
+  if (type === 'mockup_concepts_generated') return <Palette style={{ ...s, color: 'var(--accent)' }} />
+  if (type === 'concept_selected') return <CheckCircle2 style={{ ...s, color: 'var(--cyan)' }} />
+  if (type === 'mockup_approved') return <CheckCircle2 style={{ ...s, color: 'var(--green)' }} />
+  if (type === 'mockup_generation_failed') return <XCircle style={{ ...s, color: 'var(--red)' }} />
+  if (type === 'render_saved') return <Heart style={{ ...s, color: 'var(--red)' }} />
   return <Clock style={{ ...s, color: 'var(--text3)' }} />
 }
 

@@ -12,6 +12,7 @@ import {
   Camera, Download, Filter,
 } from 'lucide-react'
 import CustomerLoyaltyPanel from '@/components/customers/CustomerLoyaltyPanel'
+import CustomerDesignsTab from '@/components/customers/CustomerDesignsTab'
 import ClickToCallButton from '@/components/phone/ClickToCallButton'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 import type { Profile } from '@/types'
@@ -142,10 +143,11 @@ const TAG_COLORS: Record<CustomerTag, string> = {
   referral: '#f59e0b',
 }
 
-type TabKey = 'activity' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments' | 'fleet' | 'photos'
+type TabKey = 'activity' | 'designs' | 'associations' | 'tasks' | 'notes' | 'appointments' | 'documents' | 'payments' | 'fleet' | 'photos'
 
 const TAB_DEFS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'activity', label: 'Activity', Icon: Activity },
+  { key: 'designs', label: 'Designs', Icon: Heart },
   { key: 'photos', label: 'Photos', Icon: Camera },
   { key: 'fleet', label: 'Fleet', Icon: Truck },
   { key: 'associations', label: 'Associations', Icon: Link2 },
@@ -2027,6 +2029,9 @@ export default function CustomerDetailClient({ profile, customer, projects }: Pr
 
         {activeTab === 'fleet' && (
           <CustomerFleetPanel customerId={customer.id} orgId={customer.org_id || ''} />
+        )}
+        {activeTab === 'designs' && (
+          <CustomerDesignsTab customerId={customer.id} orgId={customer.org_id || ''} />
         )}
         {activeTab === 'photos' && (
           <CustomerPhotosTab customerId={customer.id} />

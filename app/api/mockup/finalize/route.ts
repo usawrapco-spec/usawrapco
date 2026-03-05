@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { polishMockup, compositeText } from '@/lib/mockup/pipeline'
+import { logMockupActivity } from '@/lib/mockup/logActivity'
 
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin()
@@ -105,6 +106,17 @@ export async function POST(req: NextRequest) {
       final_mockup_url: (finalUrl || artworkUrl) as string,
       concept_url: polishedUrl as string,
     }).eq('id', mockup_id)
+
+    await logMockupActivity({
+      org_id: (mockup.org_id as string) || orgId || '',
+      customer_id: (mockup.customer_id as string) || null,
+      project_id: (mockup.project_id as string) || null,
+      mockup_id,
+      action: 'concept_selected',
+      details: `Concept ${selected_concept.toUpperCase()} selected and refined`,
+      metadata: { selected_concept },
+      actor_type: 'user',
+    })
 
     return NextResponse.json({
       mockup_id,

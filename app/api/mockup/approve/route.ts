@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { upscaleMockup, exportPrint } from '@/lib/mockup/pipeline'
+import { logMockupActivity } from '@/lib/mockup/logActivity'
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const { data: mockup, error: fetchErr } = await admin
     .from('mockup_results')
-    .select('concept_url, org_id')
+    .select('concept_url, org_id, customer_id, project_id')
     .eq('id', mockup_id)
     .single()
 
@@ -52,6 +53,18 @@ export async function POST(req: NextRequest) {
       mockup_id,
       upscaled_url: upscaledUrl,
       org_id: orgId,
+    })
+
+    await logMockupActivity({
+      org_id: orgId,
+      customer_id: mockup.customer_id || null,
+      project_id: mockup.project_id || null,
+      mockup_id,
+      action: 'mockup_approved',
+      details: 'Mockup approved, upscaled, and print PDF exported',
+      metadata: { upscaled_url: upscaledUrl, print_url: printUrl },
+      actor_type: 'user',
+      actor_id: user.id,
     })
 
     return NextResponse.json({

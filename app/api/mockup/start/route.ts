@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 import Anthropic from '@anthropic-ai/sdk'
 import { randomUUID } from 'crypto'
 import { logHealth, generateWrapConcept, type ImageProvider } from '@/lib/mockup/pipeline'
+import { logMockupActivity } from '@/lib/mockup/logActivity'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -149,6 +150,7 @@ export async function POST(req: NextRequest) {
     // Re-render from selected concept: lock all 3 slots to this style variant
     force_style,            // 'a' | 'b' | 'c' | undefined
     provider = 'openai' as ImageProvider,
+    customer_id,
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {
@@ -161,6 +163,7 @@ export async function POST(req: NextRequest) {
     id: mockupId,
     org_id: orgId,
     project_id: project_id || null,
+    customer_id: customer_id || null,
     template_id: template_id || null,
     status: 'processing',
     current_step: 1,
@@ -244,6 +247,18 @@ export async function POST(req: NextRequest) {
       step_name: 'Choose your concept',
     }).eq('id', mockupId)
 
+    await logMockupActivity({
+      org_id: orgId,
+      customer_id: customer_id || null,
+      project_id: project_id || null,
+      mockup_id: mockupId,
+      action: 'mockup_concepts_generated',
+      details: `6 design concepts generated for ${company_name || 'customer'}`,
+      metadata: { company_name, vehicle_body_type, output_type, provider },
+      actor_type: 'ai',
+      actor_id: user?.id || null,
+    })
+
     return NextResponse.json({
       mockup_id: mockupId,
       status: 'concepts_ready',
@@ -262,6 +277,14 @@ export async function POST(req: NextRequest) {
       status: 'failed',
       error_message: msg,
     }).eq('id', mockupId)
+    await logMockupActivity({
+      org_id: orgId,
+      customer_id: customer_id || null,
+      mockup_id: mockupId,
+      action: 'mockup_generation_failed',
+      details: msg,
+      actor_type: 'system',
+    })
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
