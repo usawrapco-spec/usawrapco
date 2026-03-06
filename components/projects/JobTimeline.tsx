@@ -111,37 +111,34 @@ export default function JobTimeline({ milestones, onMilestoneClick }: Props) {
       background: 'var(--surface)',
       border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: 12,
-      padding: '14px 20px',
+      padding: '14px 20px 18px',
       marginBottom: 16,
-      overflow: 'hidden',
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            fontSize: 10, fontWeight: 800, color: 'var(--text3)',
-            textTransform: 'uppercase', letterSpacing: '0.12em',
-            fontFamily: 'Barlow Condensed, sans-serif',
-          }}>
-            Job Timeline
-          </div>
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-            background: pct === 100 ? 'rgba(34,192,122,0.15)' : 'rgba(79,127,255,0.12)',
-            color: pct === 100 ? 'var(--green)' : 'var(--accent)',
-            fontFamily: 'JetBrains Mono, monospace',
-          }}>
-            {doneCount}/{totalCount} · {pct}%
-          </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 800, color: 'var(--text3)',
+          textTransform: 'uppercase', letterSpacing: '0.12em',
+          fontFamily: 'Barlow Condensed, sans-serif',
+        }}>
+          Job Timeline
         </div>
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+          background: pct === 100 ? 'rgba(34,192,122,0.15)' : 'rgba(79,127,255,0.12)',
+          color: pct === 100 ? 'var(--green)' : 'var(--accent)',
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          {doneCount}/{totalCount} · {pct}%
+        </span>
       </div>
 
       {/* Track */}
-      <div style={{ position: 'relative', paddingBottom: 28 }}>
+      <div style={{ position: 'relative' }}>
         {/* Connector line background */}
         <div style={{
           position: 'absolute',
-          top: 12,
+          top: 11,
           left: 12,
           right: 12,
           height: 3,
@@ -152,7 +149,7 @@ export default function JobTimeline({ milestones, onMilestoneClick }: Props) {
         {/* Connector line fill */}
         <div style={{
           position: 'absolute',
-          top: 12,
+          top: 11,
           left: 12,
           width: `calc(${pct}% - 12px)`,
           height: 3,
@@ -169,10 +166,9 @@ export default function JobTimeline({ milestones, onMilestoneClick }: Props) {
           justifyContent: 'space-between',
           position: 'relative',
           zIndex: 2,
-          overflowX: 'auto',
           gap: 0,
         }}>
-          {milestones.map((m, i) => {
+          {milestones.map((m) => {
             const color = STATUS_COLOR[m.status]
             const bg = STATUS_BG[m.status]
             const isActive = m.status === 'in_progress'
@@ -181,15 +177,24 @@ export default function JobTimeline({ milestones, onMilestoneClick }: Props) {
             return (
               <div
                 key={m.key}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: onMilestoneClick ? 'pointer' : 'default', flexShrink: 0, minWidth: 0, position: 'relative' }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 7,
+                  cursor: onMilestoneClick ? 'pointer' : 'default',
+                  flexShrink: 0,
+                  minWidth: 0,
+                  position: 'relative',
+                }}
                 onClick={() => onMilestoneClick?.(m.key)}
                 onMouseEnter={() => setTooltip(m.key)}
                 onMouseLeave={() => setTooltip(null)}
               >
                 {/* Node circle */}
                 <div style={{
-                  width: 24,
-                  height: 24,
+                  width: 22,
+                  height: 22,
                   borderRadius: '50%',
                   background: bg,
                   border: `2px solid ${color}`,
@@ -197,6 +202,7 @@ export default function JobTimeline({ milestones, onMilestoneClick }: Props) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   transition: 'all 0.2s',
+                  flexShrink: 0,
                   boxShadow: isActive
                     ? `0 0 0 4px ${color}30, 0 0 12px ${color}60`
                     : isDone
@@ -205,52 +211,56 @@ export default function JobTimeline({ milestones, onMilestoneClick }: Props) {
                   animation: isActive ? 'pulse 2s ease-in-out infinite' : 'none',
                 }}>
                   {isDone
-                    ? <CheckCircle2 size={13} style={{ color }} />
+                    ? <CheckCircle2 size={12} style={{ color }} />
                     : isActive
-                    ? <Clock size={11} style={{ color }} />
-                    : <Circle size={11} style={{ color: 'var(--text3)' }} />
+                    ? <Clock size={10} style={{ color }} />
+                    : <Circle size={10} style={{ color: 'var(--text3)' }} />
                   }
                 </div>
 
-                {/* Label */}
+                {/* Label — vertical to fit without overlap */}
                 <div style={{
-                  position: 'absolute',
-                  top: 28,
                   fontSize: 9,
                   fontWeight: 700,
                   color: isDone ? 'var(--green)' : isActive ? '#f59e0b' : 'var(--text3)',
-                  textAlign: 'center',
                   whiteSpace: 'nowrap',
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase',
                   fontFamily: 'Barlow Condensed, sans-serif',
-                  maxWidth: 60,
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  maxHeight: 60,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  lineHeight: 1,
                 }}>
                   {m.label}
                 </div>
 
                 {/* Tooltip */}
-                {tooltip === m.key && m.completedAt && (
+                {tooltip === m.key && (
                   <div style={{
                     position: 'absolute',
-                    bottom: '100%',
+                    bottom: 'calc(100% + 6px)',
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    marginBottom: 8,
-                    background: 'var(--surface)',
+                    background: '#1a1d27',
                     border: '1px solid rgba(255,255,255,0.12)',
                     borderRadius: 6,
-                    padding: '5px 8px',
-                    fontSize: 10,
+                    padding: '6px 10px',
+                    fontSize: 11,
                     color: 'var(--text2)',
                     whiteSpace: 'nowrap',
                     zIndex: 100,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                    pointerEvents: 'none',
                   }}>
-                    {m.completedBy && <span style={{ color: 'var(--text1)', fontWeight: 700 }}>{m.completedBy} · </span>}
-                    {new Date(m.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    <div style={{ color: 'var(--text1)', fontWeight: 700, marginBottom: 2 }}>{m.label}</div>
+                    {m.completedBy && <span style={{ color: 'var(--accent)' }}>{m.completedBy} · </span>}
+                    {m.completedAt
+                      ? new Date(m.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : <span style={{ color: 'var(--text3)', fontSize: 10 }}>{isActive ? 'In Progress' : 'Pending'}</span>
+                    }
                   </div>
                 )}
               </div>
