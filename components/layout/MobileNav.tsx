@@ -84,8 +84,15 @@ const MORE_SECTIONS: MoreSection[] = [
       { href: '/inbox',      label: 'Inbox',       icon: MessageCircle },
       { href: '/tasks',      label: 'Tasks',       icon: CheckSquare },
       { href: '/calendar',   label: 'Calendar',    icon: Calendar },
-      { href: '/portal',     label: 'Portal',      icon: Globe },
       { href: '/design/intakes', label: 'Intake',  icon: FileInput },
+    ],
+  },
+  {
+    label: 'Portals',
+    items: [
+      { href: '/portal',              label: 'Customer Portal',  icon: Globe },
+      { href: '/portals/dealer',      label: 'Dealer Hub',       icon: Store },
+      { href: '/portals/sales-agent', label: 'Sales Agents',     icon: UserPlus },
     ],
   },
   {

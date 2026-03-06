@@ -17,7 +17,7 @@ import {
   Shield, Rocket, UserCheck,
   Globe, LayoutGrid, Compass,
   Wand2, LayoutTemplate, Car,
-  Anchor, Bot, Sparkles,
+  Anchor, Bot, Sparkles, Store,
 } from 'lucide-react'
 
 interface NavItem {
@@ -49,7 +49,17 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/estimates',  label: 'Estimates',        icon: FileText, roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/customers',  label: 'Customers',        icon: Users,    roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/invoices',   label: 'Invoices',         icon: Receipt,  roles: ['owner', 'admin', 'sales_agent'] },
-      { href: '/portal',     label: 'Customer Portal',  icon: Globe,    roles: ['owner', 'admin', 'sales_agent'] },
+    ],
+  },
+  {
+    id: 'portals',
+    label: 'PORTALS',
+    icon: Globe,
+    roles: ['owner', 'admin', 'sales_agent'],
+    items: [
+      { href: '/portal',              label: 'Customer Portal',    icon: Globe },
+      { href: '/portals/dealer',      label: 'Dealer Portal',      icon: Store,    roles: ['owner', 'admin'] },
+      { href: '/portals/sales-agent', label: 'Sales Agent Portal', icon: UserPlus, roles: ['owner', 'admin', 'sales_agent'] },
     ],
   },
   {
