@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Home, Palette, Camera, MessageSquare, Menu, X, FileText,
   Briefcase, Receipt, ShoppingBag, Calendar, Map,
-  Compass, Anchor, Star, Gift, Bell, User, Bot,
+  Compass, Anchor, Star, Gift, Bell, User, Bot, Rocket,
 } from 'lucide-react'
 import { C } from '@/lib/portal-theme'
 import { PortalProvider, type PortalContextValue } from '@/lib/portal-context'
@@ -86,6 +86,7 @@ export default function PortalShell({
     { label: 'Product Catalog',  icon: ShoppingBag,  href: `${base}/catalog` },
     { label: 'Schedule',         icon: Calendar,     href: `${base}/schedule` },
     ...(ctx.hasFleet ? [{ label: 'Fleet Manager', icon: Map, href: `${base}/fleet` }] : []),
+    { label: 'Financing',         icon: Rocket,       href: `${base}/financing` },
     { label: 'Explorer',         icon: Compass,      href: `${base}/explorer` },
     { label: 'Fishing App',      icon: Anchor,       href: '/fishing', external: true },
     { label: 'Loyalty Program',  icon: Star,         href: '/portal/loyalty', external: true },
