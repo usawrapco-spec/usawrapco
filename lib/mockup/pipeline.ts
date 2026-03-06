@@ -49,7 +49,7 @@ async function pollReplicate(predictionId: string, timeoutMs = 120000): Promise<
 }
 
 // ── Image provider type ─────────────────────────────────────────────────────
-export type ImageProvider = 'openai' | 'ideogram'
+export type ImageProvider = 'openai' | 'ideogram' | 'ideogram_v3'
 
 // ── OpenAI gpt-image-1 ─────────────────────────────────────────────────────
 const OPENAI_SIZE_MAP: Record<string, string> = {
@@ -251,6 +251,9 @@ export async function generateArtwork(params: {
   if (slot === 'a') dbPatch.concept_a_url = storedUrl
   if (slot === 'b') dbPatch.concept_b_url = storedUrl
   if (slot === 'c') dbPatch.concept_c_url = storedUrl
+  if (slot === 'd') dbPatch.concept_d_url = storedUrl
+  if (slot === 'e') dbPatch.concept_e_url = storedUrl
+  if (slot === 'f') dbPatch.concept_f_url = storedUrl
 
   await admin.from('mockup_results').update(dbPatch).eq('id', mockup_id)
 
@@ -293,6 +296,52 @@ export async function generateWrapConcept(params: {
 
   if (provider === 'openai') {
     imgBuffer = await generateWithOpenAI(prompt, size_key)
+  } else if (provider === 'ideogram_v3') {
+    // Ideogram V3 Turbo via Replicate — fastest with best text rendering
+    const token = process.env.REPLICATE_API_TOKEN
+    if (!token) {
+      await logHealth(orgId, 'generate-concept', 'REPLICATE_API_TOKEN not set')
+      throw new Error('Replicate not configured')
+    }
+
+    const aspectRatio = IDEOGRAM_ASPECT_MAP[size_key] || '16:9'
+
+    const createRes = await fetch(`${REPLICATE_API}/models/ideogram-ai/ideogram-v3-turbo/predictions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'wait',
+      },
+      body: JSON.stringify({
+        input: {
+          prompt,
+          aspect_ratio: aspectRatio,
+          style_type: 'RENDER_3D',
+          rendering_speed: 'TURBO',
+          magic_prompt_option: 'ON',
+          negative_prompt: 'blurry, distorted text, misspelled words, low quality, watermark, signature, cropped vehicle, interior view, cartoon, amateur, sketch, hand-drawn',
+        },
+      }),
+    })
+
+    if (!createRes.ok) {
+      const err = await createRes.text()
+      throw new Error(`Ideogram V3 Turbo API failed: ${err}`)
+    }
+
+    let prediction = await createRes.json()
+    if (prediction.status !== 'succeeded') {
+      const output = await pollReplicate(prediction.id, 60000)
+      prediction = { ...prediction, output }
+    }
+
+    const rawUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+    if (!rawUrl) throw new Error('No image URL returned from Ideogram V3')
+
+    const imgRes = await fetch(rawUrl)
+    if (!imgRes.ok) throw new Error('Failed to download image from Ideogram V3')
+    imgBuffer = Buffer.from(await imgRes.arrayBuffer())
   } else {
     // Legacy Ideogram V2 via Replicate
     const token = process.env.REPLICATE_API_TOKEN
@@ -357,6 +406,9 @@ export async function generateWrapConcept(params: {
   if (slot === 'a') dbPatch.concept_a_url = storedUrl
   if (slot === 'b') dbPatch.concept_b_url = storedUrl
   if (slot === 'c') dbPatch.concept_c_url = storedUrl
+  if (slot === 'd') dbPatch.concept_d_url = storedUrl
+  if (slot === 'e') dbPatch.concept_e_url = storedUrl
+  if (slot === 'f') dbPatch.concept_f_url = storedUrl
 
   await admin.from('mockup_results').update(dbPatch).eq('id', mockup_id)
 

@@ -91,6 +91,16 @@ const BRAND_COLORS_PRESET = [
   '#e5e5e5', '#888888', '#333333', '#111111',
 ]
 
+const BOAT_SUB_TYPES = [
+  { id: 'center_console', label: 'Center Console',  desc: 'Fishing, open deck, T-top' },
+  { id: 'bowrider',       label: 'Bowrider',         desc: 'Sport, open bow seating' },
+  { id: 'pontoon',        label: 'Pontoon',           desc: 'Flat deck, dual pontoons' },
+  { id: 'bass',           label: 'Bass Boat',         desc: 'Low-profile, sleek hull' },
+  { id: 'cruiser',        label: 'Cabin Cruiser',     desc: 'Enclosed cabin, yacht-style' },
+  { id: 'ski',            label: 'Ski / Wake Boat',   desc: 'Inboard, tower, wakeboard' },
+  { id: 'jetski',         label: 'Jet Ski / PWC',     desc: 'Personal watercraft' },
+]
+
 const COVERAGE_OPTIONS = [
   { id: 'full',          label: 'Full Wrap',      desc: '100% coverage',          pct: 1.0  },
   { id: 'three_quarter', label: '3/4 Wrap',       desc: 'Sides + roof + hood',    pct: 0.75 },
@@ -198,6 +208,7 @@ export default function MockupGeneratorPage() {
 
   // Step 1 - Body Type
   const [bodyType, setBodyType] = useState('')
+  const [boatSubType, setBoatSubType] = useState('')
 
   // Step 2 - Vehicle
   const [selectedYear, setSelectedYear] = useState('')
@@ -551,6 +562,7 @@ export default function MockupGeneratorPage() {
           industry,
           style_notes: styleChoice,
           inspiration_urls: inspoUrls,
+          boat_sub_type: boatSubType || undefined,
         }),
       })
       const data = await res.json()
@@ -830,7 +842,7 @@ export default function MockupGeneratorPage() {
               return (
                 <div
                   key={bt.id}
-                  onClick={() => { setBodyType(bt.id); setTimeout(() => setStep(2), 120) }}
+                  onClick={() => { setBodyType(bt.id); setBoatSubType(''); if (bt.id !== 'boat') setTimeout(() => setStep(2), 120) }}
                   style={{
                     padding: '24px 20px', borderRadius: 14, cursor: 'pointer',
                     border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
@@ -860,6 +872,40 @@ export default function MockupGeneratorPage() {
               )
             })}
           </div>
+
+          {/* Boat sub-type selector */}
+          {bodyType === 'boat' && (
+            <div style={{ marginTop: 28 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
+                What type of boat?
+              </h3>
+              <p style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 16 }}>
+                Select your hull type for the most accurate mockup.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                {BOAT_SUB_TYPES.map(bt => {
+                  const sel = boatSubType === bt.id
+                  return (
+                    <div
+                      key={bt.id}
+                      onClick={() => { setBoatSubType(bt.id); setTimeout(() => setStep(2), 120) }}
+                      style={{
+                        padding: '16px 14px', borderRadius: 12, cursor: 'pointer',
+                        border: sel ? '2px solid var(--accent)' : '1px solid var(--border)',
+                        background: sel ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 700, color: sel ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>
+                        {bt.label}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{bt.desc}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

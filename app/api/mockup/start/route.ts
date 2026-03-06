@@ -22,9 +22,17 @@ const VEHICLE_DESCRIPTIONS: Record<string, string> = {
   box_truck: 'box truck, side profile view on white studio background',
   trailer: 'semi trailer, side view on white studio background',
   boat: 'center console boat, side view on white background',
+  // Boat sub-types
+  boat_center_console: 'center console fishing boat, side profile view on white studio background, open deck, T-top frame',
+  boat_bowrider: 'bowrider sport boat, side profile view on white studio background, open bow seating area',
+  boat_pontoon: 'pontoon boat, side profile view on white studio background, dual aluminum pontoons, flat deck',
+  boat_bass: 'bass boat, low profile, side view on white studio background, sleek low-profile hull',
+  boat_cruiser: 'cabin cruiser yacht, side profile view on white studio background, enclosed cabin',
+  boat_ski: 'ski wake boat, side profile view on white studio background, inboard engine, tower',
+  boat_jetski: 'jet ski personal watercraft, side view on white studio background, compact hull',
 }
 
-// ── Prompt builders (Ideogram V2 — text-aware) ──────────────────────────────
+// ── Prompt builders (Ideogram V3 — text-aware, 3D render) ──────────────────
 
 function buildWrapPrompts(params: {
   company_name: string
@@ -39,20 +47,28 @@ function buildWrapPrompts(params: {
   vehicle_make: string
   vehicle_model: string
   wrap_coverage: string
+  boat_sub_type?: string
   base_analysis?: string
 }): Record<string, string> {
   const {
     company_name, phone, website, tagline, industry,
     brand_colors, style_notes, vehicle_body_type,
     vehicle_year, vehicle_make, vehicle_model,
-    wrap_coverage, base_analysis,
+    wrap_coverage, boat_sub_type, base_analysis,
   } = params
 
-  const colorStr = brand_colors.length ? brand_colors.join(', ') : '#1a56f0, #ffffff'
-  const vehicleDesc = VEHICLE_DESCRIPTIONS[vehicle_body_type] || VEHICLE_DESCRIPTIONS.van
+  // Resolve vehicle description — use boat sub-type if available
+  const descKey = boat_sub_type ? `boat_${boat_sub_type}` : vehicle_body_type
+  const vehicleDesc = VEHICLE_DESCRIPTIONS[descKey] || VEHICLE_DESCRIPTIONS[vehicle_body_type] || VEHICLE_DESCRIPTIONS.van
   const vehicleName = [vehicle_year, vehicle_make, vehicle_model].filter(Boolean).join(' ') || 'commercial van'
   const coverDesc = wrap_coverage === 'full' ? 'full wrap covering entire vehicle' : `${wrap_coverage} wrap`
   const extraNotes = style_notes ? ` Design notes: ${style_notes}.` : ''
+
+  // Explicit color enforcement for consistency
+  const primaryColor = brand_colors[0] || '#1a56f0'
+  const secondaryColor = brand_colors[1] || '#ffffff'
+  const colorStr = brand_colors.length ? brand_colors.join(', ') : '#1a56f0, #ffffff'
+  const colorEnforce = `Primary color MUST be ${primaryColor}. Secondary color MUST be ${secondaryColor}.`
 
   // Build the text elements that should appear on the wrap
   const textElements: string[] = []
@@ -64,15 +80,15 @@ function buildWrapPrompts(params: {
     ? `The wrap MUST prominently display: ${textElements.join(', ')}.`
     : ''
 
-  const base = `Professional vehicle wrap mockup: ${vehicleName} ${vehicleDesc}, ${coverDesc}, brand colors ${colorStr}. ${textDesc}${industry ? ` ${industry} industry branding.` : ''}${extraNotes} ${base_analysis || ''} Photorealistic vinyl wrap applied to the vehicle, studio lighting, commercial photography`
+  const base = `Professional vehicle wrap mockup: ${vehicleName} ${vehicleDesc}, ${coverDesc}, brand colors ${colorStr}. ${colorEnforce} ${textDesc}${industry ? ` ${industry} industry branding.` : ''}${extraNotes} ${base_analysis || ''} Photorealistic vinyl wrap applied to the vehicle with accurate proportions, studio lighting, commercial photography, high detail`
 
   return {
-    a: `${base}. BOLD AGGRESSIVE style — dark background, high contrast, sharp angular graphics, dramatic look, powerful brand presence`,
-    b: `${base}. CLEAN PROFESSIONAL style — white/light areas, geometric color blocking, corporate feel, minimal and polished, modern business look`,
-    c: `${base}. DYNAMIC GRADIENT style — flowing diagonal design elements, color gradient from ${brand_colors[0] || '#1a56f0'} to ${brand_colors[1] || '#ffffff'}, energetic motion lines, eye-catching composition`,
-    d: `${base}. SLEEK MINIMAL style — single accent stripe, large white/neutral areas, subtle branding, understated elegance, premium fleet look`,
-    e: `${base}. VIBRANT FULL-COLOR style — rich saturated colors covering entire vehicle, large bold graphics, eye-catching from a distance, attention-grabbing street presence`,
-    f: `${base}. CLASSIC TRADITIONAL style — timeless layout, centered logo placement, clean horizontal lines, professional fleet branding, trusted business look`,
+    a: `${base}. BOLD AGGRESSIVE style — dark charcoal/black base color, sharp angular geometric cuts, high-contrast color blocks in ${primaryColor}, dramatic shadows, powerful brand presence, racing-inspired graphics`,
+    b: `${base}. CLEAN PROFESSIONAL style — white/light gray base, thin ${primaryColor} accent lines, geometric color blocking, corporate feel, minimal and polished, modern business look, clean edges`,
+    c: `${base}. DYNAMIC GRADIENT style — flowing diagonal design elements, smooth color gradient from ${primaryColor} to ${secondaryColor}, energetic motion lines, eye-catching composition, sweeping curves`,
+    d: `${base}. SLEEK MINIMAL style — single ${primaryColor} accent stripe, large white/neutral areas, subtle branding, understated elegance, premium fleet look, thin pinstripe details`,
+    e: `${base}. VIBRANT FULL-COLOR style — rich saturated ${primaryColor} covering entire vehicle, large bold graphics, eye-catching from a distance, attention-grabbing street presence, full coverage design`,
+    f: `${base}. CLASSIC TRADITIONAL style — timeless layout, centered logo placement, clean horizontal lines in ${primaryColor}, professional fleet branding, trusted business look, balanced composition`,
   }
 }
 
@@ -149,9 +165,10 @@ export async function POST(req: NextRequest) {
     font_choice = 'Impact',
     // Re-render from selected concept: lock all 3 slots to this style variant
     force_style,            // 'a' | 'b' | 'c' | undefined
-    provider = 'openai' as ImageProvider,
+    provider = 'ideogram_v3' as ImageProvider,
     customer_id,
     inspiration_urls = [] as string[],
+    boat_sub_type = '',
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {
@@ -184,11 +201,12 @@ export async function POST(req: NextRequest) {
     font_choice,
     wrap_coverage: wrap_coverage || 'full',
     inspiration_urls: body.inspiration_urls || null,
+    boat_sub_type: boat_sub_type || null,
     input_prompt: JSON.stringify({
       brand_colors, company_name, industry, style_notes,
       vehicle_make, vehicle_model, vehicle_year, vehicle_body_type,
       wrap_coverage, vehicle_sqft, output_type, sign_type,
-      phone, website, tagline,
+      phone, website, tagline, boat_sub_type,
       inspiration_urls: body.inspiration_urls || [],
     }),
   })
@@ -225,7 +243,7 @@ export async function POST(req: NextRequest) {
       baseAnalysis = msg.content[0].type === 'text' ? msg.content[0].text : ''
     } catch { /* non-fatal */ }
 
-    // ── Step 2: Generate 6 design concepts with Ideogram V2 (text-aware) ────
+    // ── Step 2: Generate 6 design concepts (parallel batches for speed) ─────
     await admin.from('mockup_results').update({ current_step: 2, step_name: 'Generating design concepts…' }).eq('id', mockupId)
 
     const prompts = output_type === 'signage'
@@ -234,21 +252,27 @@ export async function POST(req: NextRequest) {
           company_name, phone, website, tagline, industry,
           brand_colors, style_notes, vehicle_body_type, wrap_coverage,
           vehicle_year, vehicle_make, vehicle_model,
+          boat_sub_type: boat_sub_type || undefined,
           base_analysis: baseAnalysis,
         })
 
     const sizeKey = output_type === 'signage' ? (size_key as string) : 'landscape_16_9'
-    const slots = ['a', 'b', 'c', 'd', 'e', 'f'] as const
 
-    // Generate sequentially to avoid rate limits
+    // Generate in 2 parallel batches of 3 for speed (~8-12s total vs 60-90s sequential)
     const results: Record<string, string> = {}
-    for (const slot of slots) {
-      if (prompts[slot]) {
-        const result = await generateWrapConcept({ mockup_id: mockupId, prompt: prompts[slot], org_id: orgId, size_key: sizeKey, slot, provider })
-        results[slot] = result.artwork_url
-        if (slot !== 'f') await new Promise(r => setTimeout(r, 800))
-      }
-    }
+    const batch1 = (['a', 'b', 'c'] as const).map(async (slot) => {
+      if (!prompts[slot]) return
+      const result = await generateWrapConcept({ mockup_id: mockupId, prompt: prompts[slot], org_id: orgId, size_key: sizeKey, slot, provider })
+      results[slot] = result.artwork_url
+    })
+    await Promise.all(batch1)
+
+    const batch2 = (['d', 'e', 'f'] as const).map(async (slot) => {
+      if (!prompts[slot]) return
+      const result = await generateWrapConcept({ mockup_id: mockupId, prompt: prompts[slot], org_id: orgId, size_key: sizeKey, slot, provider })
+      results[slot] = result.artwork_url
+    })
+    await Promise.all(batch2)
 
     await admin.from('mockup_results').update({
       concept_a_url: results.a || null,
