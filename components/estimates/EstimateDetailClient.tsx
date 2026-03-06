@@ -504,6 +504,11 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
   const templateMenuRef = useRef<HTMLDivElement>(null)
 
+  // Copy from previous proposal
+  const [proposalSearch, setProposalSearch] = useState('')
+  const [proposalResults, setProposalResults] = useState<{ id: string; estimate_id: string; title: string; customer_name: string; estimate_number: string; status: string; created_at: string }[]>([])
+  const [proposalSearching, setProposalSearching] = useState(false)
+
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const pdfMenuRef = useRef<HTMLDivElement>(null)
 
@@ -1030,6 +1035,98 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     showToast(`Template "${tmpl.name}" loaded`)
     // Increment use count
     await supabase.from('estimate_templates').update({ use_count: (tmpl.use_count || 0) + 1 }).eq('id', tmpl.id)
+  }
+
+  async function searchPreviousProposals(query: string) {
+    setProposalSearch(query)
+    if (query.length < 2) { setProposalResults([]); return }
+    setProposalSearching(true)
+    try {
+      // Search proposals + also search estimates by customer name / number
+      const { data } = await supabase
+        .from('proposals')
+        .select('id, estimate_id, title, status, created_at, estimates!inner(estimate_number, customers(name))')
+        .neq('estimate_id', estimateId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (data) {
+        const q = query.toLowerCase()
+        const filtered = data.filter((p: any) => {
+          const t = (p.title || '').toLowerCase()
+          const cn = (p.estimates?.customers?.name || '').toLowerCase()
+          const en = (p.estimates?.estimate_number || '').toLowerCase()
+          return t.includes(q) || cn.includes(q) || en.includes(q)
+        })
+        setProposalResults(filtered.map((p: any) => ({
+          id: p.id,
+          estimate_id: p.estimate_id,
+          title: p.title || 'Untitled Proposal',
+          customer_name: p.estimates?.customers?.name || '',
+          estimate_number: p.estimates?.estimate_number || '',
+          status: p.status,
+          created_at: p.created_at,
+        })))
+      }
+    } catch { /* ignore */ }
+    setProposalSearching(false)
+  }
+
+  async function handleCopyFromProposal(proposalId: string, proposalTitle: string) {
+    setTemplateMenuOpen(false)
+    setProposalSearch('')
+    setProposalResults([])
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}`)
+      const data = await res.json()
+      if (!data.proposal) { showToast('Could not load proposal'); return }
+
+      // Copy the line items from proposal packages
+      const allItems: LineItem[] = []
+      let idx = 0
+      for (const pkg of (data.packages || [])) {
+        for (const cli of (pkg.custom_line_items || [])) {
+          allItems.push({
+            id: `copy-${Date.now()}-${idx++}`,
+            parent_type: 'estimate' as const,
+            parent_id: estimateId,
+            product_type: 'wrap' as const,
+            name: cli.name || pkg.name || '',
+            description: cli.description || null,
+            quantity: 1,
+            unit_price: parseFloat(cli.price) || 0,
+            unit_discount: 0,
+            total_price: parseFloat(cli.price) || 0,
+            specs: {} as LineItemSpecs,
+            sort_order: idx,
+            created_at: new Date().toISOString(),
+          })
+        }
+        // If package has linked line items but no custom ones, create a placeholder
+        if ((pkg.custom_line_items || []).length === 0 && pkg.name) {
+          allItems.push({
+            id: `copy-${Date.now()}-${idx++}`,
+            parent_type: 'estimate' as const,
+            parent_id: estimateId,
+            product_type: 'wrap' as const,
+            name: pkg.name,
+            description: pkg.description || null,
+            quantity: 1,
+            unit_price: parseFloat(pkg.price) || 0,
+            unit_discount: 0,
+            total_price: parseFloat(pkg.price) || 0,
+            specs: {} as LineItemSpecs,
+            sort_order: idx,
+            created_at: new Date().toISOString(),
+          })
+        }
+      }
+      if (allItems.length > 0) {
+        setLineItemsList(allItems)
+      }
+      showToast(`Copied proposal "${proposalTitle}"`)
+    } catch {
+      showToast('Error loading proposal')
+    }
   }
 
   async function handleDelete() {
@@ -2056,6 +2153,48 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                     >
                       <Save size={12} /> Save Current as Template
                     </button>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', padding: '4px 12px', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont }}>
+                      Copy from Previous Proposal
+                    </div>
+                    <div style={{ padding: '4px 8px' }}>
+                      <input
+                        value={proposalSearch}
+                        onChange={e => searchPreviousProposals(e.target.value)}
+                        placeholder="Search by customer, title, or EST#..."
+                        style={{
+                          width: '100%', padding: '7px 10px', background: 'var(--bg)',
+                          border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)',
+                          fontSize: 12, outline: 'none',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    </div>
+                    {proposalSearching && (
+                      <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--text3)' }}>Searching...</div>
+                    )}
+                    {proposalResults.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleCopyFromProposal(p.id, p.title)}
+                        style={{
+                          display: 'block', width: '100%', padding: '8px 12px',
+                          border: 'none', borderRadius: 6, cursor: 'pointer',
+                          background: 'transparent', color: 'var(--text1)',
+                          fontSize: 12, textAlign: 'left',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ fontWeight: 600 }}>{p.customer_name || p.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {p.estimate_number && `${p.estimate_number} · `}{p.title}{p.status !== 'draft' && ` · ${p.status}`}
+                        </div>
+                      </button>
+                    ))}
+                    {proposalSearch.length >= 2 && !proposalSearching && proposalResults.length === 0 && (
+                      <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--text3)' }}>No proposals found</div>
+                    )}
                   </div>
                 )}
               </div>
