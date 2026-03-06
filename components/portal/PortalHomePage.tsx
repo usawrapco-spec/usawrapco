@@ -27,14 +27,27 @@ interface Props {
   proofsPending: number
   photoCounts?: Record<string, number>
   formDataMap?: Record<string, Record<string, any>>
+  pendingProposals?: { id: string; title: string | null; status: string }[]
 }
 
-export default function PortalHomePage({ recentActivity, invoiceBalance, proofsPending, photoCounts, formDataMap }: Props) {
+export default function PortalHomePage({ recentActivity, invoiceBalance, proofsPending, photoCounts, formDataMap, pendingProposals = [] }: Props) {
   const { customer, token, projects } = usePortal()
   const base = `/portal/${token}`
 
   // Build action items from data
   const actionItems: ActionItem[] = []
+
+  // Pending proposals — most urgent
+  for (const p of pendingProposals) {
+    actionItems.push({
+      id: `proposal-${p.id}`,
+      icon: FileText,
+      title: p.title || 'New Proposal Awaiting Your Review',
+      description: 'Your sales rep has sent you a proposal. Tap to view options and select a package.',
+      href: `${base}/proposals/${p.id}`,
+      urgency: 'urgent',
+    })
+  }
 
   if (proofsPending > 0) {
     actionItems.push({

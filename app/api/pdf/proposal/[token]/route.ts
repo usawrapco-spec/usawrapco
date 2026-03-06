@@ -497,11 +497,100 @@ export async function GET(
 ) {
   try {
     const admin = getSupabaseAdmin()
+    const url = new URL(_req.url)
+    const packageId = url.searchParams.get('package')
 
-    // token can be either a UUID (estimate id) or a token string
-    // Try by id first, then by form_data token
+    // token can be either a UUID (estimate id) or a public_token from proposals table
     let estimate: any = null
 
+    // If packageId is provided, resolve via proposals table first
+    if (packageId) {
+      const { data: proposal } = await admin
+        .from('proposals')
+        .select('id, estimate_id, public_token')
+        .eq('public_token', params.token)
+        .single()
+
+      if (proposal?.estimate_id) {
+        const { data: est } = await admin
+          .from('estimates')
+          .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
+          .eq('id', proposal.estimate_id)
+          .single()
+        estimate = est
+
+        // Fetch the specific package
+        const { data: pkg } = await admin
+          .from('proposal_packages')
+          .select('*')
+          .eq('id', packageId)
+          .eq('proposal_id', proposal.id)
+          .single()
+
+        if (estimate && pkg) {
+          // Build line items from package: custom_line_items + linked line_item_ids
+          let lineItems: any[] = []
+
+          // Linked estimate line items
+          const linkedIds: string[] = pkg.line_item_ids || []
+          if (linkedIds.length > 0) {
+            const { data: linked } = await admin
+              .from('line_items')
+              .select('*')
+              .in('id', linkedIds)
+              .order('sort_order', { ascending: true })
+            lineItems = linked || []
+          }
+
+          // Custom line items from package
+          const customItems: any[] = pkg.custom_line_items || []
+          for (const ci of customItems) {
+            lineItems.push({
+              id: `custom-${ci.name}`,
+              name: ci.name || 'Item',
+              description: ci.description || null,
+              unit_price: ci.price || 0,
+              total_price: ci.price || 0,
+              quantity: 1,
+              specs: {},
+            })
+          }
+
+          // Override estimate totals with package price
+          const packageTotal = Number(pkg.price) || 0
+          const taxRate = estimate.tax_rate || 0
+          const taxAmt = Math.round(packageTotal * taxRate * 100) / 100
+          const total = packageTotal + taxAmt
+
+          const pkgEstimate = {
+            ...estimate,
+            subtotal: packageTotal,
+            discount: 0,
+            tax_amount: taxAmt,
+            total,
+            _packageName: pkg.name,
+          }
+
+          const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
+
+          const buffer = await renderToBuffer(
+            React.createElement(ProposalPDF, { estimate: pkgEstimate, lineItems }) as any
+          )
+
+          const safeTitle = (pkg.name || 'Package').replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')
+
+          return new NextResponse(new Uint8Array(buffer), {
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `attachment; filename="USA-Wrap-Co-${safeTitle}-${estNumber}.pdf"`,
+              'Cache-Control': 'no-store',
+            },
+          })
+        }
+      }
+    }
+
+    // Default: full proposal PDF (original behavior)
     const { data: byId } = await admin
       .from('estimates')
       .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
@@ -511,13 +600,29 @@ export async function GET(
     if (byId) {
       estimate = byId
     } else {
-      // fallback: token stored in form_data.proposalToken
-      const { data: byToken } = await admin
-        .from('estimates')
-        .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
-        .eq('form_data->>proposalToken', params.token)
+      // Try by public_token → estimate
+      const { data: proposal } = await admin
+        .from('proposals')
+        .select('estimate_id')
+        .eq('public_token', params.token)
         .single()
-      estimate = byToken
+
+      if (proposal?.estimate_id) {
+        const { data: est } = await admin
+          .from('estimates')
+          .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
+          .eq('id', proposal.estimate_id)
+          .single()
+        estimate = est
+      } else {
+        // fallback: token stored in form_data.proposalToken
+        const { data: byToken } = await admin
+          .from('estimates')
+          .select('*, customer:customer_id(id, name, email, phone, business_name, company_name, address)')
+          .eq('form_data->>proposalToken', params.token)
+          .single()
+        estimate = byToken
+      }
     }
 
     if (!estimate) {

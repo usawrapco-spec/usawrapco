@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Home, Palette, Camera, MessageSquare, Menu, X,
+  Home, Palette, Camera, MessageSquare, Menu, X, FileText,
   Briefcase, Receipt, ShoppingBag, Calendar, Map,
   Compass, Anchor, Star, Gift, Bell, User, Bot,
 } from 'lucide-react'
@@ -80,6 +80,7 @@ export default function PortalShell({
   const showBadge = pts > 0
 
   const moreItems: { label: string; icon: typeof Briefcase; href: string; external?: boolean }[] = [
+    { label: 'Proposals',        icon: FileText,     href: `${base}/proposals` },
     { label: 'My Jobs',          icon: Briefcase,    href: `${base}/jobs` },
     { label: 'Invoices & Pay',   icon: Receipt,      href: `${base}/invoices` },
     { label: 'Product Catalog',  icon: ShoppingBag,  href: `${base}/catalog` },

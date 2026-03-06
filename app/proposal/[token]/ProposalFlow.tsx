@@ -25,6 +25,7 @@ interface ProposalFlowProps {
   salesRep: any
   vehicleInfo: any
   surveyVehicles?: any[]
+  portalToken?: string
 }
 
 type Step = 'landing' | 'packages' | 'upsells' | 'review' | 'payment' | 'success'
@@ -32,7 +33,7 @@ const STEP_ORDER: Step[] = ['landing', 'packages', 'upsells', 'review', 'payment
 
 export default function ProposalFlow({
   token, proposal, packages, upsells, customer, salesRep, vehicleInfo,
-  surveyVehicles = [],
+  surveyVehicles = [], portalToken,
 }: ProposalFlowProps) {
   const [step, setStep] = useState<Step>('landing')
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
@@ -499,6 +500,7 @@ export default function ProposalFlow({
           onContinue={goNext}
           onBack={goBack}
           colors={C}
+          proposalToken={token}
         />
       )}
 

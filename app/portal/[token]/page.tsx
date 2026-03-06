@@ -29,8 +29,15 @@ export default async function PortalTokenPage({
 
     const projectIds = (custProjects || []).map((p: any) => p.id)
 
+    // Get estimate IDs for proposal lookup
+    const { data: custEstimates } = await supabase
+      .from('estimates')
+      .select('id')
+      .eq('customer_id', customer.id)
+    const estimateIds = (custEstimates || []).map((e: any) => e.id)
+
     // Fetch dashboard data in parallel
-    const [activityRes, invoiceRes, proofsRes, photosRes] = await Promise.all([
+    const [activityRes, invoiceRes, proofsRes, photosRes, proposalsRes] = await Promise.all([
       supabase
         .from('activity_log')
         .select('id, action, details, created_at')
@@ -56,6 +63,13 @@ export default async function PortalTokenPage({
             .select('project_id')
             .in('project_id', projectIds)
         : Promise.resolve({ data: [] }),
+      estimateIds.length > 0
+        ? supabase
+            .from('proposals')
+            .select('id, title, status')
+            .in('estimate_id', estimateIds)
+            .in('status', ['sent', 'viewed'])
+        : Promise.resolve({ data: [] }),
     ])
 
     const invoiceBalance = (invoiceRes.data || []).reduce((sum: number, inv: any) => sum + (inv.balance_due || 0), 0)
@@ -79,6 +93,7 @@ export default async function PortalTokenPage({
         proofsPending={(proofsRes.data || []).length}
         photoCounts={photoCounts}
         formDataMap={formDataMap}
+        pendingProposals={(proposalsRes.data || []) as any[]}
       />
     )
   }

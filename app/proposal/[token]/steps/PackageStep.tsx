@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Play, Download } from 'lucide-react'
 import { useState } from 'react'
 
 interface PackageStepProps {
@@ -10,12 +10,36 @@ interface PackageStepProps {
   onContinue: () => void
   onBack: () => void
   colors: any
+  proposalToken?: string
 }
 
 export default function PackageStep({
-  packages, selectedId, onSelect, onContinue, onBack, colors: C,
+  packages, selectedId, onSelect, onContinue, onBack, colors: C, proposalToken,
 }: PackageStepProps) {
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState<string | null>(null)
+
+  async function handleDownloadPdf(pkgId: string, pkgName: string) {
+    if (!proposalToken) return
+    setDownloading(pkgId)
+    try {
+      const res = await fetch(`/api/pdf/proposal/${proposalToken}?package=${pkgId}`)
+      if (!res.ok) throw new Error('PDF failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${pkgName.replace(/[^a-zA-Z0-9]/g, '-')}-estimate.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // silently fail
+    } finally {
+      setDownloading(null)
+    }
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px 120px' }}>
@@ -195,6 +219,24 @@ export default function PackageStep({
                 >
                   {isSelected ? 'Selected' : 'Select This Package'}
                 </button>
+
+                {/* Download PDF button */}
+                {proposalToken && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDownloadPdf(pkg.id, pkg.name) }}
+                    disabled={downloading === pkg.id}
+                    style={{
+                      width: '100%', padding: '10px', border: `1px solid ${C.border}`,
+                      borderRadius: 10, background: 'transparent',
+                      color: C.text2, fontSize: 12, fontWeight: 600, cursor: 'pointer', marginTop: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      opacity: downloading === pkg.id ? 0.5 : 1,
+                    }}
+                  >
+                    <Download size={14} />
+                    {downloading === pkg.id ? 'Downloading...' : 'Download Estimate PDF'}
+                  </button>
+                )}
               </div>
             </div>
           )
