@@ -1016,6 +1016,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   async function handleLoadTemplate(tmpl: typeof templates[0]) {
     setTemplateMenuOpen(false)
+    const offset = lineItemsList.length
     const items: LineItem[] = (tmpl.line_items as Partial<LineItem>[]).map((li, i) => ({
       id: `tmpl-${Date.now()}-${i}`,
       parent_type: 'estimate' as const,
@@ -1028,11 +1029,11 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       unit_discount: li.unit_discount || 0,
       total_price: li.total_price || 0,
       specs: (li.specs || {}) as LineItemSpecs,
-      sort_order: li.sort_order || i,
+      sort_order: offset + i,
       created_at: new Date().toISOString(),
     }))
-    setLineItemsList(items)
-    showToast(`Template "${tmpl.name}" loaded`)
+    setLineItemsList(prev => [...prev, ...items])
+    showToast(`Template "${tmpl.name}" added (${items.length} items)`)
     // Increment use count
     await supabase.from('estimate_templates').update({ use_count: (tmpl.use_count || 0) + 1 }).eq('id', tmpl.id)
   }
@@ -1071,59 +1072,48 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     setProposalSearching(false)
   }
 
-  async function handleCopyFromProposal(proposalId: string, proposalTitle: string) {
+  async function handleCopyFromProposal(sourceProposalId: string, proposalTitle: string) {
     setTemplateMenuOpen(false)
     setProposalSearch('')
     setProposalResults([])
     try {
-      const res = await fetch(`/api/proposals/${proposalId}`)
+      // Fetch the source proposal to get its estimate_id
+      const res = await fetch(`/api/proposals/${sourceProposalId}`)
       const data = await res.json()
       if (!data.proposal) { showToast('Could not load proposal'); return }
 
-      // Copy the line items from proposal packages
-      const allItems: LineItem[] = []
-      let idx = 0
-      for (const pkg of (data.packages || [])) {
-        for (const cli of (pkg.custom_line_items || [])) {
-          allItems.push({
-            id: `copy-${Date.now()}-${idx++}`,
-            parent_type: 'estimate' as const,
-            parent_id: estimateId,
-            product_type: 'wrap' as const,
-            name: cli.name || pkg.name || '',
-            description: cli.description || null,
-            quantity: 1,
-            unit_price: parseFloat(cli.price) || 0,
-            unit_discount: 0,
-            total_price: parseFloat(cli.price) || 0,
-            specs: {} as LineItemSpecs,
-            sort_order: idx,
-            created_at: new Date().toISOString(),
-          })
-        }
-        // If package has linked line items but no custom ones, create a placeholder
-        if ((pkg.custom_line_items || []).length === 0 && pkg.name) {
-          allItems.push({
-            id: `copy-${Date.now()}-${idx++}`,
-            parent_type: 'estimate' as const,
-            parent_id: estimateId,
-            product_type: 'wrap' as const,
-            name: pkg.name,
-            description: pkg.description || null,
-            quantity: 1,
-            unit_price: parseFloat(pkg.price) || 0,
-            unit_discount: 0,
-            total_price: parseFloat(pkg.price) || 0,
-            specs: {} as LineItemSpecs,
-            sort_order: idx,
-            created_at: new Date().toISOString(),
-          })
-        }
+      // Fetch the real line items from the source estimate (with full specs/calculators)
+      const { data: sourceItems, error } = await supabase
+        .from('line_items')
+        .select('*')
+        .eq('parent_type', 'estimate')
+        .eq('parent_id', data.proposal.estimate_id)
+        .order('sort_order')
+
+      if (error || !sourceItems?.length) {
+        showToast('No line items found on source estimate')
+        return
       }
-      if (allItems.length > 0) {
-        setLineItemsList(allItems)
-      }
-      showToast(`Copied proposal "${proposalTitle}"`)
+
+      // Clone line items with new IDs, preserving all specs/calculator data
+      const cloned: LineItem[] = sourceItems.map((li: any, i: number) => ({
+        id: `copy-${Date.now()}-${i}`,
+        parent_type: 'estimate' as const,
+        parent_id: estimateId,
+        product_type: li.product_type || 'wrap',
+        name: li.name || '',
+        description: li.description || null,
+        quantity: li.quantity || 1,
+        unit_price: li.unit_price || 0,
+        unit_discount: li.unit_discount || 0,
+        total_price: li.total_price || 0,
+        specs: (li.specs || {}) as LineItemSpecs,
+        sort_order: i,
+        created_at: new Date().toISOString(),
+      }))
+
+      setLineItemsList(prev => [...prev, ...cloned])
+      showToast(`Copied ${cloned.length} items from "${proposalTitle}"`)
     } catch {
       showToast('Error loading proposal')
     }
