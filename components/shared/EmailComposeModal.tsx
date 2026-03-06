@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { X, Mail, MessageSquare, Send, Paperclip, FileText, Loader2, AlertTriangle, Plus } from 'lucide-react'
+import { X, Mail, MessageSquare, Send, Paperclip, FileText, Loader2, AlertTriangle, Plus, Eye, Sparkles, ChevronDown } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -13,6 +13,8 @@ export interface EmailData {
   message: string
   attachPdf: boolean
   attachTerms: boolean
+  attachProposal: boolean
+  customTerms: string
   sendVia: 'email' | 'sms' | 'both'
 }
 
@@ -30,6 +32,8 @@ interface EmailComposeModalProps {
   vehicleDescription?: string
   viewUrl?: string
   type?: 'estimate' | 'invoice' | 'proof' | 'general'
+  estimateId?: string
+  proposalToken?: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -154,6 +158,8 @@ export default function EmailComposeModal({
   vehicleDescription,
   viewUrl,
   type = 'estimate',
+  estimateId,
+  proposalToken,
 }: EmailComposeModalProps) {
   const [to, setTo] = useState(recipientEmail)
   const [cc, setCc] = useState('')
@@ -162,6 +168,10 @@ export default function EmailComposeModal({
   const [message, setMessage] = useState('')
   const [attachPdf, setAttachPdf] = useState(true)
   const [attachTerms, setAttachTerms] = useState(true)
+  const [attachProposal, setAttachProposal] = useState(false)
+  const [termsType, setTermsType] = useState<'standard' | 'custom'>('standard')
+  const [customTerms, setCustomTerms] = useState('')
+  const [polishingTerms, setPolishingTerms] = useState(false)
   const [sendVia, setSendVia] = useState<'email' | 'sms' | 'both'>('email')
   const [sending, setSending] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -238,6 +248,8 @@ export default function EmailComposeModal({
         message,
         attachPdf,
         attachTerms,
+        attachProposal,
+        customTerms: attachTerms && termsType === 'custom' ? customTerms : '',
         sendVia,
       })
     } catch {
@@ -558,82 +570,119 @@ export default function EmailComposeModal({
                 Attachments
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {/* Include PDF */}
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  color: 'var(--text2)',
-                  userSelect: 'none',
-                }}
-              >
-                <span
-                  onClick={() => setAttachPdf(!attachPdf)}
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: 5,
-                    border: `2px solid ${attachPdf ? 'var(--accent)' : 'var(--border)'}`,
-                    background: attachPdf ? 'var(--accent)' : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 200ms',
-                    flexShrink: 0,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {attachPdf && (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M2 5L4.5 7.5L8 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Row: PDF + Proposal PDF */}
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {/* Include PDF */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    onClick={() => setAttachPdf(!attachPdf)}
+                    style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${attachPdf ? 'var(--accent)' : 'var(--border)'}`, background: attachPdf ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 200ms', flexShrink: 0, cursor: 'pointer' }}
+                  >
+                    {attachPdf && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                  </span>
+                  <FileText size={14} style={{ color: 'var(--text3)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }} onClick={() => setAttachPdf(!attachPdf)}>Include PDF</span>
+                  {attachPdf && estimateId && (
+                    <a href={`/api/pdf/estimate/${estimateId}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', padding: '2px 6px', borderRadius: 4, background: 'rgba(79,127,255,0.08)' }}>
+                      <Eye size={11} /> Preview
+                    </a>
                   )}
-                </span>
-                <FileText size={14} style={{ color: 'var(--text3)' }} />
-                Include PDF
-              </label>
+                </div>
 
-              {/* Include Terms */}
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  color: 'var(--text2)',
-                  userSelect: 'none',
-                }}
-              >
-                <span
-                  onClick={() => setAttachTerms(!attachTerms)}
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: 5,
-                    border: `2px solid ${attachTerms ? 'var(--accent)' : 'var(--border)'}`,
-                    background: attachTerms ? 'var(--accent)' : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 200ms',
-                    flexShrink: 0,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {attachTerms && (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M2 5L4.5 7.5L8 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </span>
-                <FileText size={14} style={{ color: 'var(--text3)' }} />
-                Include Terms &amp; Conditions
-              </label>
+                {/* Include Proposal PDF */}
+                {proposalToken && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span
+                      onClick={() => setAttachProposal(!attachProposal)}
+                      style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${attachProposal ? 'var(--purple)' : 'var(--border)'}`, background: attachProposal ? 'var(--purple)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 200ms', flexShrink: 0, cursor: 'pointer' }}
+                    >
+                      {attachProposal && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                    </span>
+                    <FileText size={14} style={{ color: 'var(--purple)' }} />
+                    <span style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }} onClick={() => setAttachProposal(!attachProposal)}>Include Proposal PDF</span>
+                    {attachProposal && (
+                      <a href={`/api/pdf/proposal/${proposalToken}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--purple)', textDecoration: 'none', padding: '2px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.08)' }}>
+                        <Eye size={11} /> Preview
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Terms & Conditions */}
+              <div style={{ border: `1px solid ${attachTerms ? 'var(--border)' : 'var(--border)'}`, borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--surface2)', cursor: 'pointer' }} onClick={() => setAttachTerms(!attachTerms)}>
+                  <span
+                    style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${attachTerms ? 'var(--accent)' : 'var(--border)'}`, background: attachTerms ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 200ms', flexShrink: 0 }}
+                  >
+                    {attachTerms && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                  </span>
+                  <FileText size={14} style={{ color: 'var(--text3)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--text2)', flex: 1, userSelect: 'none' }}>Include Terms &amp; Conditions</span>
+                  {attachTerms && <ChevronDown size={13} style={{ color: 'var(--text3)' }} />}
+                </div>
+
+                {attachTerms && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+                    {/* Standard vs Custom toggle */}
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                      {(['standard', 'custom'] as const).map(t => (
+                        <button key={t} onClick={() => setTermsType(t)} style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em', border: termsType === t ? '2px solid var(--accent)' : '1px solid var(--border)', background: termsType === t ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: termsType === t ? 'var(--accent)' : 'var(--text3)' }}>
+                          {t === 'standard' ? 'Standard T&C' : 'Custom / Add-ons'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {termsType === 'standard' && (
+                      <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>
+                        Standard USA Wrap Co terms will be appended to the email.
+                      </div>
+                    )}
+
+                    {termsType === 'custom' && (
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>
+                          Add any special conditions, concerns, or notes specific to this estimate. AI will ensure it reads professionally before sending.
+                        </div>
+                        <textarea
+                          value={customTerms}
+                          onChange={e => setCustomTerms(e.target.value)}
+                          placeholder="e.g. Price is valid for 30 days. Customer must remove all aftermarket accessories before install. Surface condition noted — additional prep may be required..."
+                          rows={4}
+                          style={{ width: '100%', padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text1)', fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                          <button
+                            onClick={async () => {
+                              if (!customTerms.trim()) return
+                              setPolishingTerms(true)
+                              try {
+                                const res = await fetch('/api/ai/chat', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ messages: [{ role: 'user', content: `Rewrite the following contract/terms note to sound professional and clear for a vehicle wrap customer. Keep it concise and use plain English. Do not add new terms — only clean up the language. Return only the improved text, no commentary:\n\n${customTerms}` }] }),
+                                })
+                                if (res.ok) {
+                                  const data = await res.json()
+                                  const improved = (data.content || '').trim()
+                                  if (improved) setCustomTerms(improved)
+                                }
+                              } catch { /* ignore */ }
+                              setPolishingTerms(false)
+                            }}
+                            disabled={polishingTerms || !customTerms.trim()}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', background: 'rgba(79,127,255,0.1)', color: polishingTerms ? 'var(--text3)' : 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: polishingTerms || !customTerms.trim() ? 'default' : 'pointer', opacity: !customTerms.trim() ? 0.5 : 1 }}
+                          >
+                            <Sparkles size={12} />
+                            {polishingTerms ? 'Polishing...' : 'AI Polish'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

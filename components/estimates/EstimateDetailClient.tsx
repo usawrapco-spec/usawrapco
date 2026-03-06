@@ -440,6 +440,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [lineItemsList, setLineItemsList] = useState<LineItem[]>(initialLineItems)
   const [activeTab, setActiveTab] = useState<TabKey>('items')
   const [saving, setSaving] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saved'>('idle')
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const [showAllInfo, setShowAllInfo] = useState(false)
@@ -601,6 +603,22 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     return expandedSections[itemId]?.[section] ?? false
   }
 
+  // ─── Autosave ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isNew || isDemo) return
+    setAutoSaveStatus('pending')
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        await handleSave()
+        setAutoSaveStatus('saved')
+        setTimeout(() => setAutoSaveStatus('idle'), 2000)
+      } catch { setAutoSaveStatus('idle') }
+    }, 2500)
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, notes, customerNote, leadType, assignedAgent, salesRepIds, installerIds, designerIds, productionMgrIds, quoteDate, installDate, dueDate])
+
   // ─── AI Title Suggest ───────────────────────────────────────────────────────
   async function handleAISuggestTitle() {
     setAiSuggestingTitle(true)
@@ -695,6 +713,14 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
           return
         }
         showToast('Estimate saved')
+        // Save version snapshot to localStorage (keep last 20)
+        try {
+          const storageKey = `estimate_versions_${savedId}`
+          const existing = JSON.parse(localStorage.getItem(storageKey) || '[]')
+          const snapshot = { savedAt: new Date().toISOString(), title, notes, customerNote, discount, taxRate, total, gpm: overallGPM, lineItemCount: lineItemsList.length }
+          const updated = [snapshot, ...existing].slice(0, 20)
+          localStorage.setItem(storageKey, JSON.stringify(updated))
+        } catch { /* ignore */ }
       }
     } catch (err) {
       console.error('Estimate save exception:', err)
@@ -1506,23 +1532,30 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             )}
           </div>
 
-          {/* Save button */}
+          {/* Autosave indicator + Save button */}
           {canWrite && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'var(--green)', border: 'none',
-                borderRadius: 12, padding: '9px 18px', color: '#fff',
-                fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.6 : 1, fontFamily: headingFont, letterSpacing: '0.03em',
-                boxShadow: '0 2px 12px rgba(34,192,122,0.25)', transition: 'all 0.15s',
-              }}
-            >
-              <Save size={14} />
-              {saving ? 'Saving...' : 'Save'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {autoSaveStatus !== 'idle' && (
+                <span style={{ fontSize: 11, color: autoSaveStatus === 'saved' ? 'var(--green)' : 'var(--text3)', fontFamily: headingFont, letterSpacing: '0.03em' }}>
+                  {autoSaveStatus === 'pending' ? '● Autosaving...' : '✓ Saved'}
+                </span>
+              )}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--green)', border: 'none',
+                  borderRadius: 12, padding: '9px 18px', color: '#fff',
+                  fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+                  opacity: saving ? 0.6 : 1, fontFamily: headingFont, letterSpacing: '0.03em',
+                  boxShadow: '0 2px 12px rgba(34,192,122,0.25)', transition: 'all 0.15s',
+                }}
+              >
+                <Save size={14} />
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -2730,7 +2763,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       )}
       {/* Proposal tab removed — now unified into Items & Proposal tab above */}
       {activeTab === 'activity' && (
-        <PlaceholderTab icon={<Activity size={28} />} label="Activity" description="Activity log and change history." />
+        <ActivityTab estimateId={estimateId} est={est} profile={profile} />
       )}
 
             {/* â”€â”€ Convert to Job Modal */}
@@ -2890,6 +2923,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         estimateTotal={total}
         vehicleDescription={est.title}
         type={emailModalType}
+        estimateId={estimateId}
+        proposalToken={proposalPublicToken || undefined}
       />
 
       {/* ── Zone Proposal Config Modal ─────────────────────────────────── */}
@@ -2961,6 +2996,138 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       }}>
         {value}
       </span>
+    </div>
+  )
+}
+
+// ─── Activity Tab ────────────────────────────────────────────────────────────
+
+function ActivityTab({ estimateId, est, profile }: { estimateId: string; est: any; profile: any }) {
+  const supabase = createClient()
+  const [logs, setLogs] = useState<any[]>([])
+  const [versions, setVersions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [reverting, setReverting] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      // Load communication log for this estimate
+      const { data: comms } = await supabase
+        .from('communication_log')
+        .select('*')
+        .eq('related_id', estimateId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setLogs(comms || [])
+
+      // Load version history from localStorage
+      try {
+        const raw = localStorage.getItem(`estimate_versions_${estimateId}`)
+        if (raw) setVersions(JSON.parse(raw))
+      } catch { /* ignore */ }
+
+      setLoading(false)
+    }
+    if (estimateId && !estimateId.startsWith('new-')) load()
+    else setLoading(false)
+  }, [estimateId])
+
+  function fmtTs(ts: string) {
+    const d = new Date(ts)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
+
+  const typeIcon: Record<string, string> = {
+    email: '✉', sms: '💬', call: '📞', note: '📝', status_change: '🔄', sent: '📤',
+  }
+
+  const allItems = [
+    ...logs.map(l => ({ ...l, _kind: 'comm', _ts: l.created_at })),
+    ...versions.map(v => ({ ...v, _kind: 'version', _ts: v.savedAt })),
+  ].sort((a, b) => new Date(b._ts).getTime() - new Date(a._ts).getTime())
+
+  if (loading) return (
+    <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)' }}>Loading history...</div>
+  )
+
+  if (allItems.length === 0) return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 48, textAlign: 'center' }}>
+      <Activity size={28} style={{ color: 'var(--text3)', margin: '0 auto 12px', display: 'block' }} />
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text2)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>No Activity Yet</div>
+      <div style={{ fontSize: 13, color: 'var(--text3)' }}>Sent emails, status changes, and saved versions will appear here.</div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {allItems.map((item, i) => {
+        if (item._kind === 'comm') {
+          return (
+            <div key={item.id || i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <span style={{ fontSize: 18, lineHeight: 1, marginTop: 2 }}>{typeIcon[item.type] || '📋'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
+                      {item.subject || item.type || 'Communication'}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtTs(item._ts)}</span>
+                  </div>
+                  {item.recipient && (
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>To: {item.recipient}</div>
+                  )}
+                  {item.body && (
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4, whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.body.slice(0, 200)}{item.body.length > 200 ? '...' : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        }
+        // Version snapshot
+        return (
+          <div key={item.savedAt || i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>💾</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>
+                    Saved — {item.title || 'Untitled'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtTs(item._ts)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                  Total: ${(item.total || 0).toLocaleString()} · {item.lineItemCount || 0} line item(s) · GPM: {(item.gpm || 0).toFixed(1)}%
+                </div>
+              </div>
+              <button
+                disabled={reverting === item.savedAt}
+                onClick={async () => {
+                  if (!confirm('Revert to this version? Current unsaved changes will be lost.')) return
+                  setReverting(item.savedAt)
+                  try {
+                    await supabase.from('estimates').update({
+                      title: item.title,
+                      notes: item.notes,
+                      customer_note: item.customerNote,
+                      discount: item.discount,
+                      tax_rate: item.taxRate,
+                    }).eq('id', estimateId)
+                    window.location.reload()
+                  } catch { /* ignore */ }
+                  setReverting(null)
+                }}
+                style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text2)', fontSize: 11, fontWeight: 700, cursor: reverting === item.savedAt ? 'default' : 'pointer', opacity: reverting === item.savedAt ? 0.6 : 1, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}
+              >
+                {reverting === item.savedAt ? 'Reverting...' : 'Revert'}
+              </button>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
