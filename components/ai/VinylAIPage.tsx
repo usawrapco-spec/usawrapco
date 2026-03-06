@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
+import Link from 'next/link'
 import {
   Brain, RefreshCw, ChevronDown, ChevronUp, Square, CheckSquare,
   AlertTriangle, AlertCircle, Info, Plus, Trash2, Send, Phone,
-  MessageSquare, Clock, Sparkles, History, Mic, BarChart3,
+  MessageSquare, Clock, Sparkles, History, Mic, BarChart3, ChevronRight,
 } from 'lucide-react'
 
 interface BriefSection {
@@ -19,6 +20,10 @@ interface ActionItem {
   id: string
   text: string
   priority: 'high' | 'medium' | 'low'
+  entity_type?: string
+  entity_ids?: string[]
+  entity_count?: number
+  suggested_actions?: { label: string; type: string }[]
 }
 
 interface Recap {
@@ -251,28 +256,55 @@ function BriefTab({ profile }: { profile: Profile }) {
           <div style={{ padding: '10px 18px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(recap?.action_items || []).map(item => {
               const done = doneItems.has(item.id)
+              const hasEntities = item.entity_type && item.entity_ids && item.entity_ids.length > 0
               return (
-                <button
+                <div
                   key={item.id}
-                  onClick={() => toggleDone(item.id)}
                   style={{
                     display: 'flex', alignItems: 'flex-start', gap: 12,
                     padding: '9px 12px', borderRadius: 8,
                     background: done ? 'rgba(34,192,122,0.05)' : 'rgba(255,255,255,0.02)',
                     border: `1px solid ${done ? 'rgba(34,192,122,0.2)' : 'rgba(255,255,255,0.06)'}`,
-                    cursor: 'pointer', textAlign: 'left', width: '100%',
+                    width: '100%',
                   }}
                 >
-                  {done
-                    ? <CheckSquare size={15} color="#22c07a" style={{ flexShrink: 0, marginTop: 1 }} />
-                    : <Square size={15} color="var(--text3)" style={{ flexShrink: 0, marginTop: 1 }} />
-                  }
-                  <span style={{
-                    flex: 1, fontSize: 13.5, color: done ? 'var(--text3)' : 'var(--text1)',
-                    textDecoration: done ? 'line-through' : 'none',
-                  }}>
-                    {item.text}
-                  </span>
+                  <button
+                    onClick={() => toggleDone(item.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, marginTop: 1 }}
+                  >
+                    {done
+                      ? <CheckSquare size={15} color="#22c07a" />
+                      : <Square size={15} color="var(--text3)" />
+                    }
+                  </button>
+                  {hasEntities && recap?.id ? (
+                    <Link
+                      href={`/action-items/${recap.id}/${item.id}`}
+                      style={{
+                        flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <span style={{
+                        flex: 1, fontSize: 13.5, color: done ? 'var(--text3)' : 'var(--text1)',
+                        textDecoration: done ? 'line-through' : 'none',
+                      }}>
+                        {item.text}
+                      </span>
+                      <ChevronRight size={12} color="var(--text3)" style={{ flexShrink: 0 }} />
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => toggleDone(item.id)}
+                      style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                    >
+                      <span style={{
+                        fontSize: 13.5, color: done ? 'var(--text3)' : 'var(--text1)',
+                        textDecoration: done ? 'line-through' : 'none',
+                      }}>
+                        {item.text}
+                      </span>
+                    </button>
+                  )}
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                     color: priorityColor(item.priority),
@@ -281,7 +313,7 @@ function BriefTab({ profile }: { profile: Profile }) {
                   }}>
                     {item.priority}
                   </span>
-                </button>
+                </div>
               )
             })}
           </div>

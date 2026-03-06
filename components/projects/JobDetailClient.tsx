@@ -94,14 +94,24 @@ export interface JobDetailClientProps {
   initialApprovals: StageApproval[]
 }
 
-// ─── Stage config ──────────────────────────────────────────────────────────────
-const STAGE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  sales_in:    { label: 'Sales In',    color: '#4f7fff', bg: '#4f7fff20' },
-  production:  { label: 'Production',  color: '#f59e0b', bg: '#f59e0b20' },
-  install:     { label: 'Install',     color: '#22d3ee', bg: '#22d3ee20' },
-  prod_review: { label: 'QC Review',   color: '#8b5cf6', bg: '#8b5cf620' },
-  sales_close: { label: 'Sales Close', color: '#22c07a', bg: '#22c07a20' },
-  done:        { label: 'Done',        color: '#22c07a', bg: '#22c07a20' },
+// ─── Stage config (matches Sales Pipeline kanban columns) ─────────────────────
+const KANBAN_STAGES = [
+  { key: 'new_lead',      label: 'New Lead',                  color: '#4f7fff', bg: '#4f7fff20', pipe_stage: 'sales_in'    as PipeStage, status: 'estimate' },
+  { key: 'estimate_sent', label: 'Estimate Sent',             color: '#f59e0b', bg: '#f59e0b20', pipe_stage: 'sales_in'    as PipeStage, status: 'active' },
+  { key: 'follow_up',     label: 'Follow Up',                 color: '#06b6d4', bg: '#06b6d420', pipe_stage: 'sales_in'    as PipeStage, status: 'in_production' },
+  { key: 'won',           label: 'Won — Ready to Hand Off',   color: '#22c07a', bg: '#22c07a20', pipe_stage: 'production'  as PipeStage, status: 'active' },
+  { key: 'handed_off',    label: 'In Production / Install',   color: '#8b5cf6', bg: '#8b5cf620', pipe_stage: 'install'     as PipeStage, status: 'active' },
+  { key: 'closing',       label: 'Closing',                   color: '#a855f7', bg: '#a855f720', pipe_stage: 'sales_close' as PipeStage, status: 'active' },
+] as const
+
+function resolveKanbanStage(p: { pipe_stage: string; status: string }) {
+  if (p.pipe_stage === 'sales_in' && p.status === 'estimate') return KANBAN_STAGES[0]
+  if (p.pipe_stage === 'sales_in' && p.status === 'active')   return KANBAN_STAGES[1]
+  if (p.pipe_stage === 'sales_in')                            return KANBAN_STAGES[2]
+  if (p.pipe_stage === 'production')                          return KANBAN_STAGES[3]
+  if (p.pipe_stage === 'install' || p.pipe_stage === 'prod_review') return KANBAN_STAGES[4]
+  if (p.pipe_stage === 'sales_close')                         return KANBAN_STAGES[5]
+  return KANBAN_STAGES[0]
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
@@ -111,7 +121,15 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   low:    { label: 'Low',    color: '#5a6080' },
 }
 
-const PIPE_STAGES: PipeStage[] = ['sales_in', 'production', 'install', 'prod_review', 'sales_close', 'done']
+// Legacy lookup for connected jobs / approvals display
+const STAGE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  sales_in:    { label: 'New Lead',     color: '#4f7fff', bg: '#4f7fff20' },
+  production:  { label: 'Won',          color: '#22c07a', bg: '#22c07a20' },
+  install:     { label: 'Production',   color: '#8b5cf6', bg: '#8b5cf620' },
+  prod_review: { label: 'QC Review',    color: '#8b5cf6', bg: '#8b5cf620' },
+  sales_close: { label: 'Closing',      color: '#a855f7', bg: '#a855f720' },
+  done:        { label: 'Done',         color: '#22c07a', bg: '#22c07a20' },
+}
 
 type Tab = 'vehicle' | 'chat' | 'sales' | 'design' | 'production' | 'install' | 'concierge'
 
@@ -255,7 +273,7 @@ export default function JobDetailClient({
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [customerSlideOpen, setCustomerSlideOpen] = useState(false)
   const customer = linkedCustomer
-  const stage = STAGE_CONFIG[project.pipe_stage] ?? STAGE_CONFIG.sales_in
+  const stage = resolveKanbanStage(project)
   const priority = PRIORITY_CONFIG[project.priority] ?? PRIORITY_CONFIG.normal
   const fd = (project.form_data ?? {}) as Record<string, any>
   const fin = project.fin_data
@@ -413,6 +431,18 @@ export default function JobDetailClient({
       }
     } else {
       setFieldError(`Failed to update ${field.replace('_', ' ')}`)
+    }
+    setSavingField(null)
+  }
+
+  const updateStage = async (kanbanStage: typeof KANBAN_STAGES[number]) => {
+    setSavingField('pipe_stage')
+    setFieldError(null)
+    const { error } = await supabase.from('projects').update({ pipe_stage: kanbanStage.pipe_stage, status: kanbanStage.status }).eq('id', project.id)
+    if (!error) {
+      setProject(p => ({ ...p, pipe_stage: kanbanStage.pipe_stage, status: kanbanStage.status }))
+    } else {
+      setFieldError('Failed to update stage')
     }
     setSavingField(null)
   }
@@ -740,23 +770,23 @@ export default function JobDetailClient({
                         borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                         minWidth: 160, zIndex: 201,
                       }}>
-                        {PIPE_STAGES.map(s => {
-                          const sc = STAGE_CONFIG[s]
+                        {KANBAN_STAGES.map(s => {
+                          const active = stage.key === s.key
                           return (
                             <button
-                              key={s}
-                              onClick={() => { updateField('pipe_stage', s); setStageSubmenu(false); setMenuOpen(false) }}
+                              key={s.key}
+                              onClick={() => { updateStage(s); setStageSubmenu(false); setMenuOpen(false) }}
                               style={{
                                 width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                                 padding: '9px 12px', border: 'none',
-                                background: project.pipe_stage === s ? 'var(--surface2)' : 'transparent',
-                                color: project.pipe_stage === s ? sc.color : 'var(--text1)',
+                                background: active ? 'var(--surface2)' : 'transparent',
+                                color: active ? s.color : 'var(--text1)',
                                 cursor: 'pointer', fontSize: 13, textAlign: 'left',
                               }}
                             >
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
-                              {sc.label}
-                              {project.pipe_stage === s && <Check size={11} style={{ marginLeft: 'auto' }} />}
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                              {s.label}
+                              {active && <Check size={11} style={{ marginLeft: 'auto' }} />}
                             </button>
                           )
                         })}
@@ -1293,23 +1323,22 @@ export default function JobDetailClient({
                   marginTop: 4, background: 'var(--surface)', border: '1px solid var(--surface2)',
                   borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                 }}>
-                  {PIPE_STAGES.map(s => {
-                    const sc = STAGE_CONFIG[s]
-                    const active = project.pipe_stage === s
+                  {KANBAN_STAGES.map(s => {
+                    const active = stage.key === s.key
                     return (
                       <button
-                        key={s}
-                        onClick={async () => { setStageOpen(false); await updateField('pipe_stage', s) }}
+                        key={s.key}
+                        onClick={async () => { setStageOpen(false); await updateStage(s) }}
                         style={{
                           width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                           padding: '9px 12px', border: 'none',
                           background: active ? 'var(--surface2)' : 'transparent',
-                          color: active ? sc.color : 'var(--text1)',
+                          color: active ? s.color : 'var(--text1)',
                           cursor: 'pointer', fontSize: 13, textAlign: 'left',
                         }}
                       >
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
-                        {sc.label}
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        {s.label}
                         {active && <Check size={12} style={{ marginLeft: 'auto' }} />}
                       </button>
                     )
@@ -1392,7 +1421,7 @@ export default function JobDetailClient({
           project={project} stage={stage} priority={priority}
           installers={installers} agents={agents}
           stageOpen={stageOpen} setStageOpen={setStageOpen}
-          savingField={savingField} updateField={updateField}
+          savingField={savingField} updateField={updateField} updateStage={updateStage}
         />
       </div>
 
@@ -2588,7 +2617,7 @@ function TeamSlot({ label, fieldKey, currentId, currentName, options, avatarColo
 // ─── Mobile Actions ────────────────────────────────────────────────────────────
 interface MobileActionsProps {
   project: Project
-  stage: { label: string; color: string; bg: string }
+  stage: typeof KANBAN_STAGES[number]
   priority: { label: string; color: string }
   installers: Pick<Profile, 'id' | 'name' | 'role'>[]
   agents: Pick<Profile, 'id' | 'name' | 'role'>[]
@@ -2596,9 +2625,10 @@ interface MobileActionsProps {
   setStageOpen: (v: boolean) => void
   savingField: string | null
   updateField: (field: string, value: string | null) => Promise<void>
+  updateStage: (s: typeof KANBAN_STAGES[number]) => Promise<void>
 }
 
-function MobileActions({ project, stage, priority, installers, agents, stageOpen, setStageOpen, savingField, updateField }: MobileActionsProps) {
+function MobileActions({ project, stage, priority, installers, agents, stageOpen, setStageOpen, savingField, updateField, updateStage }: MobileActionsProps) {
   return (
     <>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--surface2)', borderRadius: 12, padding: 16 }}>
@@ -2616,17 +2646,16 @@ function MobileActions({ project, stage, priority, installers, agents, stageOpen
           </button>
           {stageOpen && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 4, background: 'var(--surface)', border: '1px solid var(--surface2)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-              {PIPE_STAGES.map(s => {
-                const sc = STAGE_CONFIG[s]
-                const active = project.pipe_stage === s
+              {KANBAN_STAGES.map(s => {
+                const active = stage.key === s.key
                 return (
                   <button
-                    key={s}
-                    onClick={async () => { setStageOpen(false); await updateField('pipe_stage', s) }}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: 'none', background: active ? 'var(--surface2)' : 'transparent', color: active ? sc.color : 'var(--text1)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
+                    key={s.key}
+                    onClick={async () => { setStageOpen(false); await updateStage(s) }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: 'none', background: active ? 'var(--surface2)' : 'transparent', color: active ? s.color : 'var(--text1)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
                   >
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: sc.color, flexShrink: 0 }} />
-                    {sc.label}
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                    {s.label}
                     {active && <Check size={12} style={{ marginLeft: 'auto' }} />}
                   </button>
                 )

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   Brain, RefreshCw, ChevronDown, ChevronUp, Square, CheckSquare,
   AlertTriangle, AlertCircle, Info, Plus, Trash2, ExternalLink,
-  Clock, Sparkles,
+  Clock, Sparkles, ChevronRight,
 } from 'lucide-react'
 
 interface BriefSection {
@@ -18,6 +18,10 @@ interface ActionItem {
   id: string
   text: string
   priority: 'high' | 'medium' | 'low'
+  entity_type?: string
+  entity_ids?: string[]
+  entity_count?: number
+  suggested_actions?: { label: string; type: string }[]
 }
 
 interface Instruction {
@@ -328,30 +332,55 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
               <div style={{ padding: '8px 14px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {actionItems.map(item => {
                   const done = doneItems.has(item.id)
+                  const hasEntities = item.entity_type && item.entity_ids && item.entity_ids.length > 0
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      onClick={() => toggleDone(item.id)}
                       style={{
                         display: 'flex', alignItems: 'flex-start', gap: 10,
                         padding: '7px 10px', borderRadius: 7,
                         background: done ? 'rgba(34,192,122,0.04)' : 'rgba(255,255,255,0.02)',
                         border: `1px solid ${done ? 'rgba(34,192,122,0.15)' : 'rgba(255,255,255,0.05)'}`,
-                        cursor: 'pointer', textAlign: 'left', width: '100%',
+                        width: '100%',
                       }}
                     >
-                      {done
-                        ? <CheckSquare size={14} color="#22c07a" style={{ flexShrink: 0, marginTop: 1 }} />
-                        : <Square size={14} color="var(--text3)" style={{ flexShrink: 0, marginTop: 1 }} />
-                      }
-                      <div style={{ flex: 1 }}>
-                        <span style={{
-                          fontSize: 12.5, color: done ? 'var(--text3)' : 'var(--text1)',
-                          textDecoration: done ? 'line-through' : 'none',
-                        }}>
-                          {item.text}
-                        </span>
-                      </div>
+                      <button
+                        onClick={() => toggleDone(item.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, marginTop: 1 }}
+                      >
+                        {done
+                          ? <CheckSquare size={14} color="#22c07a" />
+                          : <Square size={14} color="var(--text3)" />
+                        }
+                      </button>
+                      {hasEntities && recapId ? (
+                        <Link
+                          href={`/action-items/${recapId}/${item.id}`}
+                          style={{
+                            flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+                          }}
+                        >
+                          <span style={{
+                            fontSize: 12.5, color: done ? 'var(--text3)' : 'var(--text1)',
+                            textDecoration: done ? 'line-through' : 'none',
+                          }}>
+                            {item.text}
+                          </span>
+                          <ChevronRight size={11} color="var(--text3)" style={{ flexShrink: 0 }} />
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => toggleDone(item.id)}
+                          style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                        >
+                          <span style={{
+                            fontSize: 12.5, color: done ? 'var(--text3)' : 'var(--text1)',
+                            textDecoration: done ? 'line-through' : 'none',
+                          }}>
+                            {item.text}
+                          </span>
+                        </button>
+                      )}
                       <div style={{
                         fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                         color: priorityColor(item.priority),
@@ -360,7 +389,7 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
                       }}>
                         {item.priority}
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
