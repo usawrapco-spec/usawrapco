@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { usePortal } from '@/lib/portal-context'
 import { C, money, fmt } from '@/lib/portal-theme'
 import {
-  CheckCircle2, Loader2, PenTool, X,
+  CheckCircle2, Loader2, PenTool, X, Download, FileText,
 } from 'lucide-react'
 
 interface Props {
@@ -35,6 +35,7 @@ export default function PortalProposalView({
   const [showSignature, setShowSignature] = useState(false)
   const [signed, setSigned] = useState(!!existingSignature)
   const [signerName, setSignerName] = useState(customerName || '')
+  const [downloading, setDownloading] = useState(false)
 
   // Filter line items by selected option
   const visibleItems = selectedOption && options.length > 0
@@ -44,13 +45,61 @@ export default function PortalProposalView({
       })
     : lineItems
 
+  async function handleDownloadPdf() {
+    setDownloading(true)
+    try {
+      const res = await fetch(`/api/pdf/proposal/${estimate.id}`)
+      if (!res.ok) throw new Error('PDF failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `USA-Wrap-Co-Proposal-${estimate.estimate_number}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const subtotal = estimate.subtotal || 0
+  const discountAmt = estimate.discount_amount || (estimate.discount_percent ? subtotal * (estimate.discount_percent / 100) : 0)
+  const taxAmt = estimate.tax_amount || 0
+  const total = estimate.total || 0
+
   return (
     <div style={{ padding: '20px 16px' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)' }}>
-        Proposal
-      </h1>
-      <div style={{ fontSize: 13, color: C.text2, marginBottom: 20 }}>
-        #{estimate.estimate_number} {estimate.title && `- ${estimate.title}`}
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <FileText size={18} style={{ color: C.accent }} />
+            <h1 style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)', margin: 0 }}>
+              Proposal
+            </h1>
+          </div>
+          <div style={{ fontSize: 13, color: C.text2 }}>
+            #{estimate.estimate_number}{estimate.title ? ` — ${estimate.title}` : ''}
+          </div>
+        </div>
+        <button
+          onClick={handleDownloadPdf}
+          disabled={downloading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            background: 'transparent', border: `1px solid ${C.border}`,
+            color: C.text2, cursor: 'pointer', flexShrink: 0,
+            opacity: downloading ? 0.5 : 1,
+          }}
+        >
+          <Download size={14} />
+          {downloading ? 'Generating…' : 'PDF'}
+        </button>
       </div>
 
       {/* Status banner */}
@@ -143,23 +192,34 @@ export default function PortalProposalView({
             </div>
           </div>
         ))}
-        {/* Total */}
-        <div style={{
-          padding: '14px 16px',
-          borderTop: `1px solid ${C.border}`,
-          background: C.surface2,
-          display: 'flex',
-          justifyContent: 'space-between',
-        }}>
-          <span style={{ fontSize: 15, fontWeight: 700 }}>Total</span>
-          <span style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: C.accent,
-            fontFamily: 'var(--font-mono, JetBrains Mono, monospace)',
-          }}>
-            {money(estimate.total)}
-          </span>
+        {/* Totals breakdown */}
+        <div style={{ background: C.surface2, borderTop: `1px solid ${C.border}` }}>
+          {subtotal > 0 && subtotal !== total && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13, color: C.text2 }}>Subtotal</span>
+              <span style={{ fontSize: 13, color: C.text2, fontFamily: 'var(--font-mono, JetBrains Mono, monospace)' }}>{money(subtotal)}</span>
+            </div>
+          )}
+          {discountAmt > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13, color: C.amber }}>Discount</span>
+              <span style={{ fontSize: 13, color: C.amber, fontFamily: 'var(--font-mono, JetBrains Mono, monospace)' }}>-{money(discountAmt)}</span>
+            </div>
+          )}
+          {taxAmt > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13, color: C.text2 }}>
+                Tax{estimate.tax_percent ? ` (${estimate.tax_percent}%)` : ''}
+              </span>
+              <span style={{ fontSize: 13, color: C.text2, fontFamily: 'var(--font-mono, JetBrains Mono, monospace)' }}>{money(taxAmt)}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px' }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Total</span>
+            <span style={{ fontSize: 20, fontWeight: 700, color: C.accent, fontFamily: 'var(--font-mono, JetBrains Mono, monospace)' }}>
+              {money(total)}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -181,11 +241,22 @@ export default function PortalProposalView({
 
       {/* Accept & Sign */}
       {!signed && estimate.status !== 'accepted' && (
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{
+          background: `${C.green}0d`,
+          border: `1px solid ${C.green}30`,
+          borderRadius: 12,
+          padding: 16,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: C.text1, marginBottom: 4 }}>
+            Ready to move forward?
+          </div>
+          <div style={{ fontSize: 13, color: C.text2, marginBottom: 14, lineHeight: 1.5 }}>
+            Sign below to accept this proposal and we&apos;ll be in touch to schedule your installation.
+          </div>
           <button
             onClick={() => setShowSignature(true)}
             style={{
-              flex: 1,
+              width: '100%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -194,14 +265,17 @@ export default function PortalProposalView({
               background: C.green,
               color: '#fff',
               border: 'none',
-              borderRadius: 12,
-              fontWeight: 600,
+              borderRadius: 10,
+              fontWeight: 700,
               fontSize: 15,
               cursor: 'pointer',
+              fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)',
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase',
             }}
           >
             <PenTool size={18} />
-            Accept & Sign
+            Accept &amp; Sign Proposal
           </button>
         </div>
       )}

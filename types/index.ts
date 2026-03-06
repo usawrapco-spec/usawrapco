@@ -438,6 +438,7 @@ export interface Estimate {
   vehicle_model?: string | null
   vehicle_vin?: string | null
   vehicle_color?: string | null
+  service_type?: 'wrap' | 'boat_decking' | null
   sales_rep_id: string | null
   sales_rep_ids?: string[] | null
   installer_ids?: string[] | null

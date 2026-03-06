@@ -13,11 +13,7 @@ import {
   PenTool,
   Shield,
   Clock,
-  Wrench,
   AlertTriangle,
-  CreditCard,
-  Sparkles,
-  XCircle,
 } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -64,6 +60,7 @@ interface EstimateData {
   taxAmount: number
   total: number
   status: string
+  serviceType?: 'wrap' | 'boat_decking'
   proposalConfig?: ProposalConfig | null
 }
 
@@ -75,46 +72,111 @@ const EMPTY_ESTIMATE: EstimateData = {
 
 type Step = 'estimate' | 'terms' | 'signature' | 'done'
 
-const TERMS_CONTENT = [
+// ─── Washington State Vehicle Wrap Service Agreement ─────────────────────────
+const WRAP_TERMS = [
   {
-    title: 'Scope of Work',
-    content:
-      'USA Wrap Co will perform the vehicle wrap and/or paint protection services as described in the attached estimate. All work will be completed at our facility using professional-grade materials and techniques.',
+    title: '1. Client Participation Requirements',
+    content: 'To deliver the best results possible, your active participation is required. You must submit clear photos of your vehicle and any requested measurements at least 1 hour prior to your scheduled design consultation. If required photos, files, or measurements are missing, your consultation will be canceled — we do not issue refunds for missed or canceled consultations, but we are happy to reschedule once materials are received. You must not be driving during your consultation and must be in a quiet location, able to view your screen for 30 minutes uninterrupted. Only one consultation session is included per design package. A $150 re-vectoring fee applies if a proper vector file is not provided — low-resolution images and non-scalable files are not accepted.',
   },
   {
-    title: 'What\'s Included',
-    content:
-      'Custom graphic design based on your approved brief, premium vinyl and laminate materials, professional surface preparation, expert installation by certified technicians, final quality inspection, and a 1-year warranty on installation workmanship.',
+    title: '2. Design Process & Revision Policy',
+    content: 'After intake and consultation, you will receive three initial mockups. We will discuss those and combine elements into a fourth concept for revisions. Initial mockups take approximately 5–12 business days. Your package includes three (3) revision rounds, each submitted as a clearly organized list of up to 10 specific edits (e.g., "Change background to matte black"). Vague feedback will be returned for clarification. If you wish to restart the design after the fourth concept, a new design package must be purchased. Source files are only provided if included in your selected package.',
   },
   {
-    title: 'What\'s Not Included',
-    content:
-      'Paint correction or body repair, dent or scratch removal, repair of pre-existing damage, mechanical or electrical modifications, window tinting (unless specified), and any work not explicitly listed in the estimate.',
+    title: '3. Pricing, Approvals & Printing',
+    content: 'All quotes are approximate estimates based on expected coverage. Final pricing may adjust depending on the finalized design and actual material usage. Once you approve the design for print, no further changes can be made — even if printing has not yet started. Changes after approval are subject to additional fees. If a design is printed and does not fit due to an incorrect template approved by the customer, we can reprint at a discounted rate of 25% of total job cost. It is the customer\'s responsibility to verify template accuracy before final approval.',
   },
   {
-    title: 'Payment Terms',
-    content:
-      'A 50% deposit is required to begin production. The remaining balance is due upon completion, before vehicle release. Accepted payment methods include credit/debit card, ACH transfer, and company check. A 3% convenience fee applies to credit card payments over $2,500.',
+    title: '4. Payment Terms & Deposits',
+    content: 'A 50% deposit is required to begin any artwork, order materials, or schedule installation. If a refund is requested, it will be calculated as the total deposit minus fees incurred. The remaining balance is due at the time of vehicle delivery and prior to customer pickup. If payment is not made within 10 days of job completion, we reserve the right to automatically charge the card on file. By accepting this estimate, you authorize USA Wrap Co to securely store your payment method and charge it for any unpaid balance. A 11% monthly interest charge applies on outstanding balances after 10 days. Customer must still pay full balance due upon pickup even if a return visit is required.',
   },
   {
-    title: 'Cancellation Policy',
-    content:
-      'Full refund if cancelled within 48 hours of acceptance. After 48 hours, the deposit is non-refundable if design work has begun. If materials have been ordered or printed, the customer is responsible for material costs. No refunds after installation has begun.',
+    title: '5. Vehicle Preparation & Cancellations',
+    content: 'Vehicles must be clean and dry upon drop-off. Do not use waxes, gloss enhancers, tire shine, or similar detailing products before your appointment. If the vehicle is excessively dirty or wet, a $100 cleaning fee will apply. Cancellations must be made at least 24 hours before your scheduled drop-off. Late cancellations, late drop-offs, or no-shows are subject to a $250 fee.',
   },
   {
-    title: 'Warranty',
-    content:
-      'USA Wrap Co provides a 1-year warranty on installation workmanship covering lifting, peeling, and bubbling under normal conditions. Material warranty is per manufacturer specifications (typically 3-5 years for premium vinyl). Warranty does not cover damage from accidents, pressure washing, automatic car washes, or improper care.',
+    title: '6. Artwork, Colors & Copyright',
+    content: 'Use of copyrighted or trademarked artwork is prohibited unless written permission has been obtained. USA Wrap Co assumes you have secured all necessary permissions and is not liable for copyright violations. All design work, source files, and working templates remain the property of USA Wrap Co until the project is paid in full. On-screen colors may not match printed output. Color tolerance is within ±3–5%, which is accepted industry standard. All logos must be provided in vector format (.AI, .EPS, or .SVG); a $150 re-vectoring fee applies otherwise. We reserve the right to place a small company logo on completed wraps as a mark of authorship — this may be waived with qualifying packages.',
   },
   {
-    title: 'Liability',
-    content:
-      'USA Wrap Co is not responsible for pre-existing paint damage, clear coat failure, or defects revealed during removal of prior wraps. Customer must disclose any known paint or body issues prior to installation. Vehicle must be free of aftermarket coatings that may affect adhesion.',
+    title: '7. Installation — What to Expect',
+    content: 'A vinyl wrap is not paint. Vehicle wraps are 2D printed panels installed on a 3D surface — minor variations, seams (1" where panels meet), small exposed areas near door handles, gas caps, curves, or moldings are normal and expected. Extreme curves, mirrors, and bumpers may reveal original paint color at tight edges. In some cases, relief cuts or patches are necessary. Vinyl does not adhere to plastic trims, rubber moldings, or chrome. Poor surface paint or failing clear coats will cause adhesion failure — the vehicle owner is responsible for ensuring the surface is wrap-ready. Full wraps typically take 2–5 business days; partials can often be completed in one day. USA Wrap Co reserves the right to take additional time if issues arise during installation. Vehicles must have at least a quarter tank of fuel and be free of personal belongings.',
   },
   {
-    title: 'Vehicle Preparation',
-    content:
-      'Customer is responsible for delivering the vehicle in a clean condition, free of heavy dirt, mud, and debris. A final detail wash will be performed by our team before installation. Vehicle should have at least a quarter tank of fuel and no personal belongings.',
+    title: '8. Dust, Particles & Environment',
+    content: 'During installation, every effort is made to ensure a clean, smooth, and professional finish. Achieving a completely sterile, dust-free environment is not possible — small particles of dirt or debris may occasionally become trapped beneath the vinyl. These imperfections are typically only noticeable upon very close inspection. Our wraps are intended to be viewed from a standard distance of five feet, at which such minor flaws are virtually undetectable. This is a widely accepted industry standard. We strongly recommend a full paint-safe detailing treatment prior to wrap installation for best results.',
+  },
+  {
+    title: '9. Warranty & Materials',
+    content: 'USA Wrap Co provides a 3-year limited warranty on installation workmanship and materials under normal use and proper care. Warranty does not cover: neglect, misuse, improper cleaning (high-pressure washing, abrasive pads, bleach, harsh chemicals), automatic car washes, accidents, pre-existing paint damage, chipping clear coat, or vehicles older than 5 years with prior body work. No warranty is provided on graphics applied to windows or on materials USA Wrap Co did not install. Please wait at least one week before washing after installation.',
+  },
+  {
+    title: '10. Removals',
+    content: 'All removals are quoted separately and billed by the hour. USA Wrap Co is not responsible for damage to paintwork, clear coat, or existing striping during removal. We do not advise application on re-sprayed surfaces or poor/rusted paintwork. No warranty is provided if wrapping over an existing wrap.',
+  },
+  {
+    title: '11. Mobile Installations',
+    content: 'Mobile installation services are available for your convenience; however, the workspace must be completely dry, clean, and properly lit. If these conditions are not met upon arrival, we will reschedule and the daily mobile fee will not be credited. We reserve the right to cancel or reschedule mobile installations in the event of unfavorable weather conditions.',
+  },
+  {
+    title: '12. Boat Wrap Addendum (if applicable)',
+    content: 'Boat wrapping involves unique challenges. Coverage is not guaranteed to conceal every surface. Wrap coverage near edges, seams, or hardware may leave original surfaces partially visible. Vinyl does not adhere to plastic trims or hardware — items will not be removed. Boat wraps carry a 90-day limited warranty on edge adhesion only — this does not cover seams, particles, or aesthetics. Aluminum boats exposed to saltwater may require sanding ($100/hr, 1-hour minimum) with no adhesion warranty provided thereafter. Color change vinyl comes in 60" rolls; printed wraps come in 54" rolls — material limitations apply to hull height.',
+  },
+  {
+    title: '13. Liability',
+    content: 'USA Wrap Co\'s liability is limited to the cost of services rendered. We are not liable for indirect, incidental, or consequential damages. USA Wrap Co is not responsible for pre-existing paint defects, hidden damage, or prior repairs that affect adhesion or appearance. In some cases, simple 12V wiring may need to be disconnected to complete installation — USA Wrap Co is not responsible for any issues arising from reconnecting existing wiring.',
+  },
+  {
+    title: '14. Media Consent',
+    content: 'By accepting this agreement, you grant USA Wrap Co the perpetual, irrevocable right to photograph and record the completed project and use those images or videos for marketing, social media, website, and promotional purposes. You will receive no compensation for this use. You may request removal of identifying information (license plates, etc.) before publication.',
+  },
+  {
+    title: '15. Governing Law & Dispute Resolution',
+    content: 'This agreement is governed by the laws of the State of Washington. Any disputes arising from this agreement shall first be attempted in good faith through written notice. If unresolved within 30 days, disputes shall be resolved by binding arbitration in Pierce County, Washington, in accordance with the American Arbitration Association rules. The prevailing party shall be entitled to reasonable attorney fees and costs. You consent to the recording of telephone calls with our team for quality assurance, in accordance with Washington State law.',
+  },
+]
+
+// ─── Dekwave Boat Decking Service Agreement ───────────────────────────────────
+const BOAT_TERMS = [
+  {
+    title: '1. Scope of Work',
+    content: 'Chance the Wrapper LLC dba Dekwave ("Contractor") will design, fabricate, and install synthetic marine decking material as quoted. Coverage is based on the package selected (½, ¾, or Full). Zones may include foredeck, cockpit, swim step, side decks, and/or flybridge depending on vessel size. A minimum charge of one decking sheet (~30 sq ft) applies to all projects; no job will be performed for less than this minimum.',
+  },
+  {
+    title: '2. Payment Terms & Deposits',
+    content: 'A deposit is required to secure scheduling. Deposits become non-refundable once scanning/design work has begun, regardless of whether installation is completed. The final balance is due within 48 hours of job completion, whether or not the Client has inspected the vessel — the vessel will not be released until payment is received in full. Client agrees their credit/debit card will be securely stored on file. If the final balance is not paid within 10 days of completion, Contractor is authorized to automatically charge the card on file. Failure to pay within this timeframe may result in storage fees and additional collection costs.',
+  },
+  {
+    title: '3. Vessel Preparation & Site Conditions',
+    content: 'The vessel must be completely cleared of all obstacles, equipment, and personal items prior to scanning or installation. If the vessel is not ready: a $500 rescheduling fee will be charged, or a $500 flat rate will apply if Contractor\'s team is required to clear the space. Contractor is not responsible for any damage that occurs during installation, including scratches, scuffs, or incidental impact on existing surfaces, fittings, or equipment. By signing this agreement, the Client waives all rights to pursue legal action against the Contractor for any such damage occurring during the normal course of installation. For mobile appointments, service is subject to weather and site conditions; Contractor reserves the right to reschedule if conditions are unsuitable. Client acknowledges that mobile installs may not always achieve the same results as in-shop installations.',
+  },
+  {
+    title: '4. Warranty',
+    content: 'Contractor provides a 3-year limited warranty covering installation workmanship and material adhesion. Warranty begins at the date of installation and applies only if decking has been properly maintained. Warranty does NOT cover: neglect, misuse, or improper maintenance; bird droppings, fish blood, fuel, oil, or harsh chemicals left uncleaned; improper cleaning methods (high-pressure washing, abrasive pads, bleach, solvents); normal wear such as fading, staining, or cosmetic blemishes; pre-existing gelcoat/paint damage, corrosion, or poor substrate adhesion. For warranty claims, decking must show signs of proper maintenance (regular cleaning with mild soap, fresh water, and a soft brush).',
+  },
+  {
+    title: '5. Installation Terms',
+    content: 'Contractor does not remove hardware (cleats, rails, lights, fittings, etc.). Decking will be cut around these features, and some original surfaces may remain exposed. Trim or edge-sealing methods may be used at Contractor\'s discretion and are permanent once installed. Surface prep (sanding, grinding, or corrosion treatment) may be required for aluminum or salt-exposed decks and is billed at $100/hour (1-hour minimum). Even with prep, salt migration may affect adhesion over time. If additional templating or corrective work is required due to irregular surfaces or inaccurate measurements, pricing may be revised. Cosmetic perfection is not guaranteed — due to marine surfaces, seams, joints, or exposed areas are normal and expected. Contractor guarantees functionality, adhesion, and durability, not flawless appearance.',
+  },
+  {
+    title: '6. Removals',
+    content: 'Removal of decking and adhesives is billed separately at $100/hour (1-hour minimum). Contractor is not responsible for any damage to paint, gelcoat, or underlying surfaces during removal.',
+  },
+  {
+    title: '7. Marine Environment Conditions',
+    content: 'Marine environments are inherently irregular. Minor gaps, seams, and exposure of original surfaces around fittings or edges are normal and expected. Saltwater and aluminum boats may require additional preparation and still carry a risk of reduced adhesion over time. No universal boat templates exist; quotes may be revised if additional templating or adjustments are required.',
+  },
+  {
+    title: '8. Liability',
+    content: 'Contractor is not liable for pre-existing defects, hidden damage, or prior repairs that affect adhesion. Synthetic decking is a cosmetic and protective surface — it is not a structural or gelcoat repair. Adhesion and longevity depend on proper care and environmental conditions. Contractor\'s total liability is limited to the amount paid for the services rendered. To the fullest extent permitted under Washington State law, Client waives any claims for consequential, incidental, or indirect damages arising from this agreement.',
+  },
+  {
+    title: '9. Client Acknowledgments',
+    content: 'By signing, the Client confirms they: understand decking may show seams, texture, or irregularities; accept the 3-year limited warranty applies only if proper care and maintenance are followed; agree that hardware will not be removed and some original surfaces may remain visible; accept responsibility for preparing the vessel or paying fees if Contractor must clear it; understand mobile installs may be rescheduled due to weather or conditions; and authorize Chance the Wrapper LLC dba Dekwave to perform all agreed-upon work and accept all terms of this contract.',
+  },
+  {
+    title: '10. Governing Law & Dispute Resolution',
+    content: 'This agreement is governed by the laws of the State of Washington. Any disputes arising from this agreement shall first be attempted in good faith through written notice. If unresolved within 30 days, disputes shall be resolved by binding arbitration in Pierce County, Washington, in accordance with the American Arbitration Association rules. The prevailing party shall be entitled to reasonable attorney fees and costs. This agreement constitutes the entire agreement between both parties and supersedes all prior proposals, oral or written communications relating to the subject matter herein.',
   },
 ]
 
@@ -709,7 +771,14 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
   )
 
   // ─── STEP 2: Terms & Conditions ────────────────────────────────────────────
-  const renderTerms = () => (
+  const renderTerms = () => {
+    const isBoat = est.serviceType === 'boat_decking'
+    const termsContent = isBoat ? BOAT_TERMS : WRAP_TERMS
+    const agreementTitle = isBoat
+      ? 'DEKWAVE — Boat Decking Service Agreement'
+      : 'USA WRAP CO — Vehicle Wrap Service Agreement'
+
+    return (
     <div style={slideStyle}>
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{
@@ -734,7 +803,7 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
           Terms & Conditions
         </h2>
         <p style={{ fontSize: 13, color: C.text2, margin: 0 }}>
-          Please review the following agreement before continuing
+          Please review the full service agreement before continuing
         </p>
       </div>
 
@@ -760,25 +829,18 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
           letterSpacing: '0.08em',
           marginBottom: 20,
         }}>
-          USA WRAP CO -- Service Agreement
+          {agreementTitle}
         </div>
 
-        {TERMS_CONTENT.map((section, i) => (
-          <div key={i} style={{ marginBottom: i < TERMS_CONTENT.length - 1 ? 24 : 0 }}>
+        {termsContent.map((section, i) => (
+          <div key={i} style={{ marginBottom: i < termsContent.length - 1 ? 24 : 0 }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               marginBottom: 8,
             }}>
-              {i === 0 && <Wrench size={14} style={{ color: C.accent }} />}
-              {i === 1 && <CheckCircle size={14} style={{ color: C.green }} />}
-              {i === 2 && <XCircle size={14} style={{ color: C.red }} />}
-              {i === 3 && <CreditCard size={14} style={{ color: C.amber }} />}
-              {i === 4 && <AlertTriangle size={14} style={{ color: C.amber }} />}
-              {i === 5 && <Shield size={14} style={{ color: C.green }} />}
-              {i === 6 && <AlertTriangle size={14} style={{ color: C.text3 }} />}
-              {i === 7 && <Sparkles size={14} style={{ color: C.accent }} />}
+              <Shield size={14} style={{ color: C.accent, flexShrink: 0 }} />
               <h3 style={{
                 fontSize: 14,
                 fontWeight: 800,
@@ -904,6 +966,7 @@ export default function EstimateViewClient({ token }: EstimateViewClientProps) {
       </div>
     </div>
   )
+  }
 
   // ─── STEP 3: Digital Signature ─────────────────────────────────────────────
   const renderSignature = () => (

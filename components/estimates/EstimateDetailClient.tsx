@@ -470,6 +470,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     est.production_manager_ids?.length ? est.production_manager_ids : est.production_manager_id ? [est.production_manager_id] : []
   )
   const [leadType, setLeadType] = useState<string>((est.form_data?.leadType as string) || 'inbound')
+  const [serviceType, setServiceType] = useState<'wrap' | 'boat_decking'>((est.service_type as 'wrap' | 'boat_decking') || 'wrap')
   const [assignedAgent, setAssignedAgent] = useState<string>((est.form_data?.assignedAgent as string) || '')
   // Vehicle fields — read from new DB columns, fall back to form_data for older estimates
   const [vehicleYear, setVehicleYear] = useState<string>(est.vehicle_year || (est.form_data?.vehicleYear as string) || '')
@@ -630,6 +631,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       const payload = {
         title, notes, customer_note: customerNote, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
+        service_type: serviceType,
         customer_id: linkedCustomer?.id || est.customer_id || null,
         quote_date: quoteDate || null, due_date: dueDate || null,
         vehicle_year: vehicleYear || null,
@@ -1183,6 +1185,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   }
 
   const sc = STATUS_CONFIG[status]
+  const customerSlug = (linkedCustomer?.name || est.customer?.name || '').replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
 
   // Team helper
   const findTeamMember = (id: string | null) => id ? team.find(t => t.id === id) : null
@@ -1852,6 +1855,17 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
               <button key={lt} onClick={() => setLeadType(lt)} style={{ padding: '3px 8px', borderRadius: 5, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
                 {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Service Type */}
+        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 4 }}>Service</div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {([['wrap', 'Wrap'], ['boat_decking', 'Boat']] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setServiceType(key)} style={{ padding: '3px 8px', borderRadius: 5, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: serviceType === key ? '2px solid var(--accent)' : '1px solid var(--border)', background: serviceType === key ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: serviceType === key ? 'var(--accent)' : 'var(--text3)' }}>
+                {label}
               </button>
             ))}
           </div>

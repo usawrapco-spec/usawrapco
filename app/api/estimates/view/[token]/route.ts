@@ -66,6 +66,7 @@ export async function GET(
       taxAmount,
       total,
       status: est.status,
+      serviceType: est.service_type || 'wrap',
       proposalConfig: proposalConfig || null,
     })
   } catch (e: any) {

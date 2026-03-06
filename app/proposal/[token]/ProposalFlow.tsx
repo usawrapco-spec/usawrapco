@@ -7,7 +7,7 @@ import ReviewStep from './steps/ReviewStep'
 import PaymentStep from './steps/PaymentStep'
 import SuccessStep from './steps/SuccessStep'
 import {
-  ChevronRight, Phone, Mail, User, Car, Clock, X, AlertTriangle,
+  ChevronRight, Phone, Mail, User, Car, Clock, X, AlertTriangle, Download,
 } from 'lucide-react'
 
 const C = {
@@ -47,6 +47,28 @@ export default function ProposalFlow({
   const [declining, setDeclining] = useState(false)
   const [declined, setDeclined] = useState(false)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true)
+    try {
+      const res = await fetch(`/api/pdf/proposal/${token}`)
+      if (!res.ok) throw new Error('PDF failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'USA-Wrap-Co-Proposal.pdf'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
 
   const stepIdx = STEP_ORDER.indexOf(step)
   const hasUpsells = upsells.length > 0
@@ -439,6 +461,20 @@ export default function ProposalFlow({
                 }}
               >
                 No thanks, decline this proposal
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                style={{
+                  width: '100%', marginTop: 8, padding: '11px', border: 'none',
+                  borderRadius: 14, background: 'transparent', color: C.text3,
+                  fontSize: 13, fontWeight: 400, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  opacity: downloadingPdf ? 0.5 : 1,
+                }}
+              >
+                <Download size={13} />
+                {downloadingPdf ? 'Downloading…' : 'Download PDF copy'}
               </button>
             </>
           )}
