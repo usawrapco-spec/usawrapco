@@ -1200,7 +1200,7 @@ interface PackageEditorProps {
 
 function PackageEditor({ pkg, collapsed, onToggleCollapse, onChange, onRemove, onAddInclude, onUpdateInclude, onRemoveInclude, onAddLineItem, onUpdateLineItem, onRemoveLineItem }: PackageEditorProps) {
   return (
-    <div style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
+    <div style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, marginBottom: 10 }}>
       {/* Package header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
         <button onClick={onToggleCollapse} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', display: 'flex' }}>
@@ -1259,7 +1259,7 @@ function PackageEditor({ pkg, collapsed, onToggleCollapse, onChange, onRemove, o
             {pkg._custom_line_items.length > 0 && (
               <div style={{
                 border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
-                overflow: 'hidden', marginBottom: 8,
+                marginBottom: 8,
               }}>
                 {pkg._custom_line_items.map((li, liIdx) => (
                   <div key={li._key} style={{

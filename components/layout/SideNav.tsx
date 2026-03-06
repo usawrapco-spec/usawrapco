@@ -119,7 +119,8 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Anchor,
     roles: ['owner', 'admin'],
     items: [
-      { href: '/pnw', label: 'PNW Navigator', icon: Compass },
+      { href: '/dashboard/marine', label: 'Marine Database', icon: Anchor },
+      { href: '/pnw',              label: 'PNW Navigator',   icon: Compass },
     ],
   },
   {

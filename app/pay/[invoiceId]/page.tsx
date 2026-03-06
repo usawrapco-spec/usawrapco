@@ -23,15 +23,10 @@ export default async function PayPage({ params }: { params: { invoiceId: string 
     notFound()
   }
 
-  // Pass the Wisetack merchant URL from env
-  // Set WISETACK_MERCHANT_URL in Vercel env vars after signing up at wisetack.com
-  const wisetackMerchantUrl = process.env.WISETACK_MERCHANT_URL
-
   return (
     <PayPageClient
       invoice={invoice}
       token={params.invoiceId}
-      wisetackMerchantUrl={wisetackMerchantUrl}
     />
   )
 }

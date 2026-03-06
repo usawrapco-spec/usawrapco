@@ -1,57 +1,77 @@
-import LaunchPay from "@/components/financing/LaunchPay";
+import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { redirect, notFound } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 
 interface PageProps { params: { token: string } }
 
-async function getOnboardingData(token: string) {
-  // Replace with real Supabase query:
-  // const { data } = await supabase.from("projects")
-  //   .select("revenue, title, vehicle_desc")
-  //   .eq("checkout->onboard_token", token).single();
-  return { revenue: 4600, title: "Full Vehicle Wrap", vehicle_desc: "2024 Ford Transit", depositAmount: 250 };
-}
-
 export default async function OnboardPage({ params }: PageProps) {
-  const data = await getOnboardingData(params.token);
-  const balance = data.revenue - data.depositAmount;
+  const supabase = getSupabaseAdmin()
+  const { token } = params
 
-  return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 px-5 py-8 text-center">
-        <h1 className="text-2xl font-bold text-white mb-1">Let&apos;s Design Your Wrap</h1>
-        <p className="text-zinc-400 text-sm">{data.vehicle_desc} · {data.title}</p>
-      </div>
+  // Look up customer_intake by token
+  const { data: intake } = await supabase
+    .from('customer_intake')
+    .select('id, project_id, customer_email')
+    .eq('token', token)
+    .single()
 
-      <div className="max-w-lg mx-auto px-5 py-6 space-y-5">
+  if (!intake) notFound()
 
-        {/* LaunchPay hero — prominent at the top of the flow */}
-        <LaunchPay amount={data.revenue} variant="hero" showPrequal context="customer" />
+  // Chain: intake → project → customer → portal_token
+  if (intake.project_id) {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('customer_id')
+      .eq('id', intake.project_id)
+      .single()
 
-        {/* Project summary */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-3">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-medium">Project Summary</p>
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-300">{data.title}</span>
-            <span className="text-white font-bold">${data.revenue.toLocaleString()}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-400">Design deposit (due today)</span>
-            <span className="text-white">${data.depositAmount}</span>
-          </div>
-          <div className="border-t border-zinc-800 pt-3 flex items-center justify-between">
-            <span className="text-zinc-400 text-sm">Balance at install</span>
-            <div className="text-right">
-              <p className="text-white font-semibold">${balance.toLocaleString()}</p>
-              <LaunchPay amount={balance} variant="compact" showPrequal={false} />
-            </div>
-          </div>
-        </div>
+    if (project?.customer_id) {
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id, portal_token')
+        .eq('id', project.customer_id)
+        .single()
 
-        {/* Deposit CTA */}
-        <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl text-base transition-all">
-          Pay $250 Design Deposit
-        </button>
-        <p className="text-zinc-600 text-xs text-center">Secure checkout via Stripe · LaunchPay financing available at final invoice</p>
-      </div>
-    </main>
-  );
+      if (customer?.portal_token) {
+        redirect(`/portal/${customer.portal_token}`)
+      }
+
+      // Generate portal_token if customer exists but has none
+      if (customer && !customer.portal_token) {
+        const newToken = crypto.randomUUID()
+        await supabase
+          .from('customers')
+          .update({ portal_token: newToken })
+          .eq('id', customer.id)
+        redirect(`/portal/${newToken}`)
+      }
+    }
+  }
+
+  // Fallback: try matching by email if no project chain
+  if (intake.customer_email) {
+    const { data: customerByEmail } = await supabase
+      .from('customers')
+      .select('id, portal_token')
+      .eq('email', intake.customer_email)
+      .limit(1)
+      .single()
+
+    if (customerByEmail?.portal_token) {
+      redirect(`/portal/${customerByEmail.portal_token}`)
+    }
+
+    if (customerByEmail && !customerByEmail.portal_token) {
+      const newToken = crypto.randomUUID()
+      await supabase
+        .from('customers')
+        .update({ portal_token: newToken })
+        .eq('id', customerByEmail.id)
+      redirect(`/portal/${newToken}`)
+    }
+  }
+
+  // No customer found — show not found
+  notFound()
 }

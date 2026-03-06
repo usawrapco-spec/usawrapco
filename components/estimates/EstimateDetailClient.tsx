@@ -1357,7 +1357,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 180, zIndex: 9999,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Estimate PDF failed') } }} />
+                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Estimate PDF failed') } }} />
                 <MenuButton icon={<Wrench size={13} />} label="Work Order" onClick={async () => {
                   setPdfMenuOpen(false)
                   try {
@@ -1366,12 +1366,12 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                     const blob = await res.blob()
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement('a')
-                    a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`
+                    a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-WorkOrder-${est.estimate_number || estimateId}.pdf`
                     document.body.appendChild(a); a.click(); document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   } catch { showToast('Work order PDF failed') }
                 }} />
-                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/proposal/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Proposal PDF failed') } }} />
+                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/proposal/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Proposal PDF failed') } }} />
               </div>
             )}
           </div>
@@ -1490,9 +1490,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {/* Export to PDF */}
                 <div style={{ padding: '2px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Export to PDF</div>
-                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="Quote" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `quote-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
-                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="No Total" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}?hide_total=1`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `quote-nototal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
-                <MenuButton icon={<Wrench size={13} style={{ color: 'var(--text2)' }} />} label="Work Order" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch('/api/pdf/workorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: est.estimate_number || estimateId, title: est.title || 'Work Order', customer: est.customer?.name || '', items: lineItemsList.map(li => ({ name: li.name, description: li.description, qty: li.quantity, specs: li.specs })), notes: est.notes || '', vehicleYear, vehicleMake, vehicleModel }) }); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="Quote" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Quote-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="No Total" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}?hide_total=1`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Quote-NoTotal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<Wrench size={13} style={{ color: 'var(--text2)' }} />} label="Work Order" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/workorder?id=${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-WorkOrder-${est.estimate_number || estimateId}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
                 <MenuButton icon={<FileDown size={13} style={{ color: 'var(--amber)' }} />} label="Down Payment Invoice" onClick={() => { setMoreMenuOpen(false); window.open(`/api/pdf/down-payment/${estimateId}`, '_blank') }} />
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {/* Export to XLS */}
@@ -1827,23 +1827,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               />
             </div>
             <div>
-              <label style={fieldLabelStyle}>Proposal</label>
-              <button
-                onClick={() => setProposalMode(prev => !prev)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 14px', borderRadius: 8,
-                  border: 'none',
-                  background: proposalMode ? 'var(--green)' : 'var(--accent)',
-                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-              >
-                {proposalMode ? <CheckCircle2 size={13} /> : <FileText size={13} />}
-                {proposalMode ? 'Proposal On' : 'Build Proposal'}
-              </button>
-            </div>
-            <div>
               <label style={fieldLabelStyle}>Color</label>
               <input
                 value={vehicleColor}
@@ -2077,34 +2060,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 )}
               </div>
 
-              <button
-                onClick={() => setProposalMode(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: proposalMode ? 'rgba(34,192,122,0.1)' : 'rgba(139,92,246,0.08)',
-                  border: `1px solid ${proposalMode ? 'rgba(34,192,122,0.3)' : 'rgba(139,92,246,0.25)'}`,
-                  borderRadius: 8, padding: '7px 14px',
-                  color: proposalMode ? 'var(--green)' : 'var(--purple)',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: headingFont, letterSpacing: '0.03em',
-                }}
-              >
-                {proposalMode ? <><CheckCircle2 size={13} /> Proposal Active</> : <><Package size={13} /> Build Proposal</>}
-              </button>
-
-              <button
-                onClick={handleCreateJob}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
-                  borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  fontFamily: headingFont, letterSpacing: '0.03em',
-                }}
-              >
-                <Briefcase size={13} />
-                Create Job
-              </button>
               {canWrite && (
                 <button
                   onClick={() => addNewLineItem()}

@@ -1,7 +1,6 @@
 'use client'
 // app/pay/[token]/PayPageClient.tsx
-// Mirrors Wrapmate's financing UX — dual "Pay Now" / "Pay Monthly" flow
-// Wisetack primary, QuickSpark + Synchrony as secondary options
+// Dual "Pay Now" / "Pay Monthly" flow — Affirm financing via LaunchPay
 
 import { useState, useEffect } from 'react'
 import {
@@ -50,11 +49,10 @@ const fmtN = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', 
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function PayPageClient({
-  invoice, token, wisetackMerchantUrl
+  invoice, token
 }: {
   invoice: Invoice
   token: string
-  wisetackMerchantUrl?: string
 }) {
   const [payMode, setPayMode] = useState<'choose' | 'card' | 'financing'>('choose')
   const [selectedOption, setSelectedOption] = useState<FinancingOption | null>(null)
@@ -99,14 +97,23 @@ export default function PayPageClient({
     }
   }
 
-  const handleApplyFinancing = () => {
-    const baseUrl = wisetackMerchantUrl || 'https://www.wisetack.com/apply'
-    const params = new URLSearchParams({
-      amount: Math.round(balance).toString(),
-      ...(invoice.customers?.phone ? { phone: invoice.customers.phone.replace(/\D/g, '') } : {}),
-      ref: invoice.invoice_number || token,
-    })
-    window.open(`${baseUrl}?${params}`, '_blank')
+  const handleApplyFinancing = async () => {
+    // Affirm is available as a payment method through Stripe Checkout
+    // Redirect to Stripe Checkout where customer can choose Affirm
+    setPaying(true)
+    try {
+      const res = await fetch('/api/stripe/create-invoice-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_id: invoice.id })
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch (err) {
+      console.error('Financing checkout error:', err)
+    } finally {
+      setPaying(false)
+    }
   }
 
   if (isPaid || successParam) {
@@ -253,7 +260,7 @@ export default function PayPageClient({
               </div>
             </button>
 
-            {/* Pay Monthly — Wisetack */}
+            {/* Pay Monthly — LaunchPay / Affirm */}
             {balance >= 500 && (
               <button
                 onClick={() => setPayMode('financing')}
@@ -342,22 +349,22 @@ export default function PayPageClient({
           </div>
         )}
 
-        {/* ── WISETACK FINANCING FLOW ──────────────────────────────────── */}
+        {/* ── LAUNCHPAY FINANCING FLOW (POWERED BY AFFIRM) ────────────── */}
         {payMode === 'financing' && balance >= 500 && (
           <div className="space-y-3">
-            <button onClick={() => setPayMode('choose')} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors">← Back</button>
+            <button onClick={() => setPayMode('choose')} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors">&larr; Back</button>
 
             <div className="bg-[#08110e] border border-emerald-500/25 rounded-2xl overflow-hidden">
-              {/* Wisetack header */}
+              {/* LaunchPay header */}
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                      <Zap className="w-4 h-4 text-emerald-400" />
+                    <div className="w-9 h-9 rounded-xl bg-[#00C2FF]/20 border border-[#00C2FF]/30 flex items-center justify-center">
+                      <Zap className="w-4 h-4 text-[#00C2FF]" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white">Wisetack Financing</p>
-                      <p className="text-[10px] text-emerald-400/70">Backed by U.S. Bank · Powered by Wisetack</p>
+                      <p className="text-sm font-bold text-white">LaunchPay Financing</p>
+                      <p className="text-[10px] text-[#00C2FF]/70">Powered by Affirm, Inc.</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5">
@@ -441,7 +448,7 @@ export default function PayPageClient({
                   {[
                     { n: '1', text: 'Apply in 60 seconds — soft credit check, no impact to score', color: 'bg-[#6366f1]/20 text-[#818cf8]' },
                     { n: '2', text: 'Get an instant decision and pick the plan that fits your budget', color: 'bg-emerald-500/20 text-emerald-400' },
-                    { n: '3', text: 'USA Wrap Co gets paid immediately. You pay Wisetack monthly.', color: 'bg-amber-500/20 text-amber-400' },
+                    { n: '3', text: 'USA Wrap Co gets paid immediately. You pay Affirm monthly.', color: 'bg-amber-500/20 text-amber-400' },
                   ].map(s => (
                     <div key={s.n} className="flex items-start gap-3">
                       <div className={`w-6 h-6 rounded-full ${s.color} flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5`}>{s.n}</div>
@@ -454,7 +461,7 @@ export default function PayPageClient({
               {/* Disclaimer */}
               <div className="px-5 pb-5">
                 <p className="text-[9px] text-gray-700 leading-relaxed">
-                  *All financing is subject to credit approval. Your terms may vary. Payment options through Wisetack are provided by our lending partners. For example, a {fmt(balance)} purchase could cost {fmt(calcMonthly(balance, 12, 8.9))}/mo for 12 months based on 8.9% APR. Offers range 0–35.9% APR based on creditworthiness. State interest rate caps may apply. No other financing charges or participation fees. See wisetack.com/faqs.
+                  *LaunchPay is a financing service powered by Affirm, Inc. All loans are issued by Affirm&apos;s lending partners. Subject to credit approval. Your terms may vary. For example, a {fmt(balance)} purchase could cost {fmt(calcMonthly(balance, 12, 8.9))}/mo for 12 months based on 8.9% APR. Offers range 0–36% APR based on creditworthiness. See affirm.com/licenses for details.
                 </p>
               </div>
             </div>
@@ -561,7 +568,7 @@ function Footer({ customer }: { customer: any }) {
         <a href="mailto:fleet@usawrapco.com" className="flex items-center gap-1 hover:text-gray-500 transition-colors"><Mail className="w-3 h-3" /> fleet@usawrapco.com</a>
         <a href="tel:+12535550000" className="flex items-center gap-1 hover:text-gray-500 transition-colors"><Phone className="w-3 h-3" /> (253) 555-0000</a>
       </div>
-      <p className="text-[9px] text-gray-800 mt-2">© 2026 USA Wrap Co · Payments secured by Stripe · Financing by Wisetack</p>
+      <p className="text-[9px] text-gray-800 mt-2">&copy; 2026 USA Wrap Co &middot; Payments secured by Stripe &middot; LaunchPay financing powered by Affirm</p>
     </div>
   )
 }
