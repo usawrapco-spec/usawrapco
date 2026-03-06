@@ -22,6 +22,7 @@ export interface Proposal {
   customer_signature: string | null
   public_token: string
   deposit_amount: number
+  deposit_type: 'fixed' | 'percent_50' | 'percent_100'
   created_at: string
   updated_at: string
 }
@@ -45,6 +46,7 @@ export interface ProposalPackage {
   includes: string[]
   photos: string[]
   video_url: string | null
+  video_urls: string[]
   sort_order: number
   created_at: string
 }
@@ -56,6 +58,8 @@ export interface ProposalUpsell {
   description: string | null
   price: number
   photo_url: string | null
+  link_url: string | null
+  video_url: string | null
   badge: string | null
   sort_order: number
 }

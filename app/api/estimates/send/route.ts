@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { estimate_id, to, subject, message, sendVia } = body
+  const { estimate_id, to, subject, message, sendVia, proposal_token } = body
   if (!estimate_id) return Response.json({ error: 'estimate_id required' }, { status: 400 })
 
   const admin = getSupabaseAdmin()
@@ -36,7 +36,9 @@ export async function POST(req: Request) {
     .order('sort_order', { ascending: true })
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
-  const viewUrl = `${appUrl}/estimate/view/${est.id}`
+  const viewUrl = proposal_token
+    ? `${appUrl}/proposal/${proposal_token}`
+    : `${appUrl}/estimate/view/${est.id}`
 
   const recipientEmail = to || (est.customer as any)?.email
   const recipientName = (est.customer as any)?.name || 'Customer'

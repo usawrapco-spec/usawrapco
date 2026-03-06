@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Send, Copy, Eye, Save, Plus, Trash2, GripVertical,
-  CheckCircle2, Clock, Mail, MessageSquare, Loader2,
+  Copy, Eye, Save, Plus, Trash2, GripVertical,
+  CheckCircle2, Clock, Loader2,
   ChevronDown, ChevronRight, Image, Video, X, Sparkles, Package,
-  Calendar, Link2, AlertTriangle, Car, ToggleLeft, ToggleRight,
-  ZoomIn,
+  Link2, AlertTriangle, Car, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -31,6 +30,7 @@ interface ProposalBuilderProps {
   customerPhone: string | null
   lineItems?: EstimateLineItem[]
   onClose?: () => void
+  onProposalReady?: (proposalId: string, publicToken: string) => void
 }
 
 const C = {
@@ -80,7 +80,7 @@ interface LocalPackage {
   custom_line_items: LocalLineItem[]
   includes: string[]
   photos: string[]
-  video_url: string
+  video_urls: string[]
 }
 
 interface LocalUpsell {
@@ -89,12 +89,14 @@ interface LocalUpsell {
   description: string
   price: string
   photo_url: string
+  link_url: string
+  video_url: string
   badge: string
 }
 
 export default function ProposalBuilder({
   estimateId, customerId, customerEmail, customerName, customerPhone,
-  lineItems = [], onClose,
+  lineItems = [], onClose, onProposalReady,
 }: ProposalBuilderProps) {
   const supabase = createClient()
   const router = useRouter()
@@ -110,17 +112,14 @@ export default function ProposalBuilder({
   const [message, setMessage] = useState('')
   const [expirationDate, setExpirationDate] = useState('')
   const [depositAmount, setDepositAmount] = useState(DEFAULT_DEPOSIT.toString())
+  const [depositType, setDepositType] = useState<'fixed' | 'percent_50' | 'percent_100'>('fixed')
 
   // Packages
   const [packages, setPackages] = useState<LocalPackage[]>([])
   const [upsells, setUpsells] = useState<LocalUpsell[]>([])
 
-  // Send modal
-  const [sendModalOpen, setSendModalOpen] = useState(false)
-  const [sendEmail, setSendEmail] = useState(customerEmail || '')
-  const [sendSms, setSendSms] = useState(false)
-  const [sendPhone, setSendPhone] = useState(customerPhone || '')
-  const [sending, setSending] = useState(false)
+  // Temp video URL inputs per package (keyed by _key)
+  const [videoInputs, setVideoInputs] = useState<Record<string, string>>({})
 
   // Survey vehicles (concerns section)
   const [surveyVehicles, setSurveyVehicles] = useState<any[]>([])
@@ -141,12 +140,12 @@ export default function ProposalBuilder({
     _key: crypto.randomUUID(),
     name: '', badge: '', description: '', price: '',
     price_mode: 'auto', line_item_ids: [], custom_line_items: [],
-    includes: [''], photos: [], video_url: '',
+    includes: [''], photos: [], video_urls: [],
   })
 
   const newUps = (): LocalUpsell => ({
     _key: crypto.randomUUID(),
-    name: '', description: '', price: '', photo_url: '', badge: '',
+    name: '', description: '', price: '', photo_url: '', link_url: '', video_url: '', badge: '',
   })
 
   // ─── Init: Create or load proposal ─────────────────────────────────
@@ -166,6 +165,7 @@ export default function ProposalBuilder({
         const pid = json.proposal.id
         setProposalId(pid)
         setPublicToken(json.proposal.public_token)
+        onProposalReady?.(pid, json.proposal.public_token)
 
         // Now load full data
         const fullRes = await fetch(`/api/proposals/${pid}`)
@@ -174,6 +174,7 @@ export default function ProposalBuilder({
           setTitle(full.proposal.title || 'Your Custom Wrap Proposal')
           setMessage(full.proposal.message || '')
           setDepositAmount((full.proposal.deposit_amount ?? DEFAULT_DEPOSIT).toString())
+          setDepositType(full.proposal.deposit_type || 'fixed')
           setStatus(full.proposal.status || 'draft')
           setIncludeInspection(full.proposal.include_inspection !== false)
           setSentAt(full.proposal.sent_at)
@@ -205,7 +206,7 @@ export default function ProposalBuilder({
             })),
             includes: p.includes?.length ? p.includes : [''],
             photos: p.photos || [],
-            video_url: p.video_url || '',
+            video_urls: p.video_urls || (p.video_url ? [p.video_url] : []),
           })))
         } else {
           // Default: 1 section with ALL line items assigned
@@ -225,6 +226,8 @@ export default function ProposalBuilder({
             description: u.description || '',
             price: u.price?.toString() || '',
             photo_url: u.photo_url || '',
+            link_url: u.link_url || '',
+            video_url: u.video_url || '',
             badge: u.badge || '',
           })))
         }
@@ -276,6 +279,7 @@ export default function ProposalBuilder({
           message: message || null,
           expiration_date: expirationDate ? new Date(expirationDate).toISOString() : null,
           deposit_amount: Number(depositAmount) || DEFAULT_DEPOSIT,
+          deposit_type: depositType,
           include_inspection: includeInspection,
           packages: packages.map(p => {
             const hasLinkedItems = p.line_item_ids.length > 0
@@ -293,7 +297,8 @@ export default function ProposalBuilder({
               })),
               includes: p.includes.filter(Boolean),
               photos: p.photos,
-              video_url: p.video_url || null,
+              video_urls: p.video_urls,
+              video_url: p.video_urls[0] || null,
             }
           }),
           upsells: upsells.map(u => ({
@@ -301,6 +306,8 @@ export default function ProposalBuilder({
             description: u.description || null,
             price: Number(u.price) || 0,
             photo_url: u.photo_url || null,
+            link_url: u.link_url || null,
+            video_url: u.video_url || null,
             badge: u.badge || null,
           })),
         }),
@@ -309,32 +316,7 @@ export default function ProposalBuilder({
       console.error('[ProposalBuilder] save error:', err)
     }
     setSaving(false)
-  }, [proposalId, title, message, expirationDate, depositAmount, packages, upsells, includeInspection])
-
-  // ─── Send ──────────────────────────────────────────────────────────
-  const handleSend = async () => {
-    if (!proposalId) return
-    await handleSave()
-    setSending(true)
-    try {
-      const res = await fetch(`/api/proposals/${proposalId}/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: sendEmail || null,
-          send_sms: sendSms,
-          phone: sendPhone || null,
-        }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setStatus('sent')
-        setSentAt(new Date().toISOString())
-        setSendModalOpen(false)
-      }
-    } catch {}
-    setSending(false)
-  }
+  }, [proposalId, title, message, expirationDate, depositAmount, depositType, packages, upsells, includeInspection])
 
   // ─── Copy link ─────────────────────────────────────────────────────
   const copyLink = () => {
@@ -399,31 +381,75 @@ export default function ProposalBuilder({
       description: u.description,
       price: u.price.toString(),
       photo_url: '',
+      link_url: '',
+      video_url: '',
       badge: u.badge || '',
     }))
     setUpsells(prev => [...prev, ...common])
   }
 
-  // ─── Photo upload ──────────────────────────────────────────────────
+  // ─── Photo upload (package) ────────────────────────────────────────
   const uploadPhoto = async (pkgIdx: number) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,video/*'
+    input.multiple = true
+    input.onchange = async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || [])
+      for (const file of files) {
+        const path = `proposal-photos/${proposalId}/${Date.now()}-${file.name}`
+        const { data, error } = await supabase.storage.from('project-files').upload(path, file)
+        if (!error && data) {
+          const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(data.path)
+          if (urlData?.publicUrl) {
+            if (file.type.startsWith('video/')) {
+              setPackages(prev => prev.map((p, i) =>
+                i === pkgIdx ? { ...p, video_urls: [...p.video_urls, urlData.publicUrl] } : p
+              ))
+            } else {
+              setPackages(prev => prev.map((p, i) =>
+                i === pkgIdx ? { ...p, photos: [...p.photos, urlData.publicUrl] } : p
+              ))
+            }
+          }
+        }
+      }
+    }
+    input.click()
+  }
+
+  // ─── Photo upload (upsell) ─────────────────────────────────────────
+  const uploadUpsellPhoto = async (upsIdx: number) => {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
-      const path = `proposal-photos/${proposalId}/${Date.now()}-${file.name}`
+      const path = `proposal-photos/${proposalId}/upsell-${Date.now()}-${file.name}`
       const { data, error } = await supabase.storage.from('project-files').upload(path, file)
       if (!error && data) {
         const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(data.path)
         if (urlData?.publicUrl) {
-          setPackages(prev => prev.map((p, i) =>
-            i === pkgIdx ? { ...p, photos: [...p.photos, urlData.publicUrl] } : p
-          ))
+          updateUps(upsIdx, 'photo_url', urlData.publicUrl)
         }
       }
     }
     input.click()
+  }
+
+  // ─── Add video URL (package) ──────────────────────────────────────
+  const addVideoUrl = (pkgIdx: number, url: string) => {
+    if (!url.trim()) return
+    setPackages(prev => prev.map((p, i) =>
+      i === pkgIdx ? { ...p, video_urls: [...p.video_urls, url.trim()] } : p
+    ))
+  }
+
+  const removeVideoUrl = (pkgIdx: number, vidIdx: number) => {
+    setPackages(prev => prev.map((p, i) =>
+      i === pkgIdx ? { ...p, video_urls: p.video_urls.filter((_, j) => j !== vidIdx) } : p
+    ))
   }
 
   // ─── Render ─────────────────────────────────────────────────────────
@@ -495,9 +521,11 @@ export default function ProposalBuilder({
               <Eye size={14} /> Preview
             </button>
           )}
-          <button onClick={() => setSendModalOpen(true)} style={btnPrimary}>
-            <Send size={14} /> Send Proposal
-          </button>
+          {onClose && (
+            <button onClick={onClose} style={btnSecondary}>
+              <X size={14} /> Close Proposal Builder
+            </button>
+          )}
         </div>
       </div>
 
@@ -545,15 +573,45 @@ export default function ProposalBuilder({
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6, display: 'block' }}>
-              Deposit Amount ($)
+              Deposit Required
             </label>
-            <input
-              type="number"
-              value={depositAmount}
-              onChange={e => setDepositAmount(e.target.value)}
-              style={{ ...inputStyle, fontFamily: monoFont }}
-              placeholder="250"
-            />
+            {/* Preset options */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+              {([
+                { key: 'fixed', label: '$250 Flat', calc: () => '250' },
+                { key: 'percent_50', label: '50% Down', calc: () => String(Math.round(lineItems.reduce((s, li) => s + li.totalPrice, 0) * 0.5)) },
+                { key: 'percent_100', label: '100% Upfront', calc: () => String(Math.round(lineItems.reduce((s, li) => s + li.totalPrice, 0))) },
+              ] as { key: 'fixed' | 'percent_50' | 'percent_100'; label: string; calc: () => string }[]).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => { setDepositType(opt.key); setDepositAmount(opt.calc()) }}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    border: `1px solid ${depositType === opt.key ? C.accent : C.border}`,
+                    background: depositType === opt.key ? 'rgba(79,127,255,0.15)' : C.surface,
+                    color: depositType === opt.key ? C.accent : C.text2,
+                    fontFamily: headingFont, letterSpacing: '0.03em',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: C.text3, fontSize: 13 }}>$</span>
+              <input
+                type="number"
+                value={depositAmount}
+                onChange={e => { setDepositType('fixed'); setDepositAmount(e.target.value) }}
+                style={{ ...inputStyle, fontFamily: monoFont, flex: 1 }}
+                placeholder="250"
+              />
+              {depositType !== 'fixed' && (
+                <span style={{ fontSize: 11, color: C.text2, whiteSpace: 'nowrap' }}>
+                  {depositType === 'percent_50' ? '50%' : '100%'} of total
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -821,48 +879,89 @@ export default function ProposalBuilder({
               </button>
             </div>
 
-            {/* Photos */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {pkg.photos.map((url, photoIdx) => (
-                <div key={photoIdx} style={{ position: 'relative', width: 64, height: 64 }}>
-                  <img src={url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}` }} />
-                  <button
-                    onClick={() => updatePkg(pkgIdx, 'photos', pkg.photos.filter((_, j) => j !== photoIdx))}
-                    style={{
-                      position: 'absolute', top: -6, right: -6, width: 20, height: 20,
-                      background: C.red, border: 'none', borderRadius: '50%', color: '#fff',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, padding: 0,
-                    }}
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ))}
-              {pkg.photos.length < 3 && (
+            {/* Photos & Videos */}
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Media
+              </label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                {pkg.photos.map((url, photoIdx) => (
+                  <div key={photoIdx} style={{ position: 'relative', width: 64, height: 64 }}>
+                    <img src={url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}` }} />
+                    <button
+                      onClick={() => updatePkg(pkgIdx, 'photos', pkg.photos.filter((_, j) => j !== photoIdx))}
+                      style={{
+                        position: 'absolute', top: -6, right: -6, width: 20, height: 20,
+                        background: C.red, border: 'none', borderRadius: '50%', color: '#fff',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, padding: 0,
+                      }}
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                {pkg.video_urls.map((vurl, vidIdx) => (
+                  <div key={vidIdx} style={{ position: 'relative', width: 64, height: 64 }}>
+                    <div style={{
+                      width: 64, height: 64, borderRadius: 6, border: `1px solid ${C.border}`,
+                      background: C.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexDirection: 'column', gap: 2,
+                    }}>
+                      <Video size={20} style={{ color: C.accent }} />
+                      <span style={{ fontSize: 8, color: C.text3 }}>Video</span>
+                    </div>
+                    <button
+                      onClick={() => removeVideoUrl(pkgIdx, vidIdx)}
+                      style={{
+                        position: 'absolute', top: -6, right: -6, width: 20, height: 20,
+                        background: C.red, border: 'none', borderRadius: '50%', color: '#fff',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, padding: 0,
+                      }}
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
                 <button
                   onClick={() => uploadPhoto(pkgIdx)}
                   style={{
                     width: 64, height: 64, background: C.surface,
                     border: `1px dashed ${C.border}`, borderRadius: 6,
                     color: C.text3, cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
+                    alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2,
                   }}
                 >
-                  <Image size={20} />
+                  <Image size={18} />
+                  <span style={{ fontSize: 9 }}>Add</span>
                 </button>
-              )}
-            </div>
-
-            {/* Video URL */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Video size={14} style={{ color: C.text3, flexShrink: 0 }} />
-              <input
-                value={pkg.video_url}
-                onChange={e => updatePkg(pkgIdx, 'video_url', e.target.value)}
-                placeholder="YouTube or Vimeo URL"
-                style={{ ...inputStyle, flex: 1 }}
-              />
+              </div>
+              {/* Video URL input */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Video size={13} style={{ color: C.text3, flexShrink: 0 }} />
+                <input
+                  value={videoInputs[pkg._key] || ''}
+                  onChange={e => setVideoInputs(prev => ({ ...prev, [pkg._key]: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      addVideoUrl(pkgIdx, videoInputs[pkg._key] || '')
+                      setVideoInputs(prev => ({ ...prev, [pkg._key]: '' }))
+                    }
+                  }}
+                  placeholder="YouTube or Vimeo URL — press Enter to add"
+                  style={{ ...inputStyle, flex: 1, fontSize: 12 }}
+                />
+                <button
+                  onClick={() => {
+                    addVideoUrl(pkgIdx, videoInputs[pkg._key] || '')
+                    setVideoInputs(prev => ({ ...prev, [pkg._key]: '' }))
+                  }}
+                  style={{ ...btnSecondary, padding: '7px 10px', fontSize: 12 }}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -900,43 +999,82 @@ export default function ProposalBuilder({
           <div key={ups._key} style={{
             background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 10,
             padding: 14, marginBottom: 10,
-            display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 10, alignItems: 'center',
           }}>
-            <input
-              value={ups.name}
-              onChange={e => updateUps(upsIdx, 'name', e.target.value)}
-              placeholder="Upsell name..."
-              style={inputStyle}
-            />
-            <input
-              type="number"
-              value={ups.price}
-              onChange={e => updateUps(upsIdx, 'price', e.target.value)}
-              placeholder="Price"
-              style={{ ...inputStyle, fontFamily: monoFont }}
-            />
-            <select
-              value={ups.badge}
-              onChange={e => updateUps(upsIdx, 'badge', e.target.value)}
-              style={{ ...inputStyle, width: 140, cursor: 'pointer' }}
-            >
-              {BADGE_OPTIONS.map(b => (
-                <option key={b.value} value={b.value}>{b.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setUpsells(prev => prev.filter((_, i) => i !== upsIdx))}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.red, padding: 6 }}
-            >
-              <Trash2 size={16} />
-            </button>
+            {/* Row 1: name, price, badge, delete */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 140px auto', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <input
+                value={ups.name}
+                onChange={e => updateUps(upsIdx, 'name', e.target.value)}
+                placeholder="Upsell name..."
+                style={inputStyle}
+              />
+              <input
+                type="number"
+                value={ups.price}
+                onChange={e => updateUps(upsIdx, 'price', e.target.value)}
+                placeholder="Price"
+                style={{ ...inputStyle, fontFamily: monoFont }}
+              />
+              <select
+                value={ups.badge}
+                onChange={e => updateUps(upsIdx, 'badge', e.target.value)}
+                style={{ ...inputStyle, cursor: 'pointer' }}
+              >
+                {BADGE_OPTIONS.map(b => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setUpsells(prev => prev.filter((_, i) => i !== upsIdx))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.red, padding: 6 }}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            {/* Row 2: description */}
             <textarea
               value={ups.description}
               onChange={e => updateUps(upsIdx, 'description', e.target.value)}
               placeholder="Brief description..."
-              rows={1}
-              style={{ ...inputStyle, gridColumn: '1 / -1', resize: 'vertical' }}
+              rows={2}
+              style={{ ...inputStyle, resize: 'vertical', marginBottom: 8 }}
             />
+            {/* Row 3: photo + link + video */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: 8, alignItems: 'center' }}>
+              {/* Photo */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {ups.photo_url ? (
+                  <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
+                    <img src={ups.photo_url} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.border}` }} />
+                    <button
+                      onClick={() => updateUps(upsIdx, 'photo_url', '')}
+                      style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, background: C.red, border: 'none', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                    >
+                      <X size={9} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => uploadUpsellPhoto(upsIdx)}
+                    style={{ width: 48, height: 48, background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.text3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  >
+                    <Image size={16} />
+                  </button>
+                )}
+              </div>
+              <input
+                value={ups.link_url}
+                onChange={e => updateUps(upsIdx, 'link_url', e.target.value)}
+                placeholder="Link URL (optional)"
+                style={{ ...inputStyle, fontSize: 12 }}
+              />
+              <input
+                value={ups.video_url}
+                onChange={e => updateUps(upsIdx, 'video_url', e.target.value)}
+                placeholder="Video URL (optional)"
+                style={{ ...inputStyle, fontSize: 12 }}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -1186,12 +1324,15 @@ export default function ProposalBuilder({
           )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {publicToken && (
+            <button onClick={copyLink} style={btnSecondary}>
+              {linkCopied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+              {linkCopied ? 'Copied!' : 'Copy Link'}
+            </button>
+          )}
           <button onClick={handleSave} disabled={saving} style={btnSecondary}>
             {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
             {saving ? 'Saving...' : 'Save Draft'}
-          </button>
-          <button onClick={() => { handleSave().then(() => setSendModalOpen(true)) }} style={btnPrimary}>
-            <Send size={14} /> Send to Customer
           </button>
         </div>
       </div>
@@ -1260,75 +1401,6 @@ export default function ProposalBuilder({
         </div>
       )}
 
-      {/* ── Send Modal ────────────────────────────────────────── */}
-      {sendModalOpen && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-          onClick={(e) => { if (e.target === e.currentTarget) setSendModalOpen(false) }}
-        >
-          <div style={{
-            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
-            padding: 28, width: 440, maxWidth: '90vw',
-          }}>
-            <div style={{
-              fontSize: 18, fontWeight: 800, fontFamily: headingFont, marginBottom: 20,
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <Send size={18} style={{ color: C.accent }} />
-              Send Proposal
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 6, display: 'block' }}>
-                Customer Email
-              </label>
-              <input
-                value={sendEmail}
-                onChange={e => setSendEmail(e.target.value)}
-                style={inputStyle}
-                placeholder="customer@email.com"
-              />
-            </div>
-
-            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                onClick={() => setSendSms(!sendSms)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: sendSms ? C.accent : C.text3 }}
-              >
-                <MessageSquare size={18} />
-              </button>
-              <span style={{ fontSize: 13, color: C.text2 }}>Also send SMS</span>
-              {sendSms && (
-                <input
-                  value={sendPhone}
-                  onChange={e => setSendPhone(e.target.value)}
-                  style={{ ...inputStyle, flex: 1 }}
-                  placeholder="(555) 555-5555"
-                />
-              )}
-            </div>
-
-            <div style={{
-              background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8,
-              padding: 12, marginBottom: 20, fontSize: 12, color: C.text3,
-              wordBreak: 'break-all',
-            }}>
-              <Link2 size={12} style={{ marginRight: 6, verticalAlign: -2 }} />
-              {proposalUrl}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setSendModalOpen(false)} style={btnSecondary}>Cancel</button>
-              <button onClick={handleSend} disabled={sending} style={btnPrimary}>
-                {sending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
-                {sending ? 'Sending...' : 'Confirm Send'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>

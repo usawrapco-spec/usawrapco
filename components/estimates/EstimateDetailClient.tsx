@@ -12,7 +12,7 @@ import {
   TrendingUp, Calculator, Settings,
   Package, Image, Link2, UserPlus, Ruler, Phone, Globe,
   FoldVertical, UnfoldVertical,
-  GripVertical, Upload, Camera, ExternalLink, Eye,
+  GripVertical, Upload, Camera, ExternalLink, Eye, X,
 } from 'lucide-react'
 import type { Profile, Estimate, LineItem, LineItemSpecs, EstimateStatus } from '@/types'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
@@ -443,6 +443,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const [showAllInfo, setShowAllInfo] = useState(false)
   const [proposalMode, setProposalMode] = useState(false)
+  const [proposalPublicToken, setProposalPublicToken] = useState<string | null>(null)
   // proposalOptions removed — line item assignment now lives in proposal_packages
   const [zoneProposalOpen, setZoneProposalOpen] = useState(false)
   const [pendingProposalZones, setPendingProposalZones] = useState<ZoneProposalItem[]>([])
@@ -1300,26 +1301,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             )}
           </div>
 
-          {/* Send as Proposal */}
-          {savedId && (
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/estimate/view/${savedId}`
-                navigator.clipboard.writeText(url).then(() => showToast('Proposal link copied!')).catch(() => {})
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'rgba(34,192,122,0.12)', border: '1px solid rgba(34,192,122,0.35)',
-                borderRadius: 8, padding: '8px 14px', color: 'var(--green)',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                fontFamily: headingFont, letterSpacing: '0.03em',
-              }}
-            >
-              <Link2 size={14} />
-              Send Proposal
-            </button>
-          )}
-
           {/* Customer Portal */}
           <button
             onClick={() => {
@@ -1342,19 +1323,35 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
           {/* Status-based action button */}
           {status === 'draft' && (
-            <button
-              onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'var(--accent)', border: 'none',
-                borderRadius: 8, padding: '8px 14px', color: '#fff',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                fontFamily: headingFont, letterSpacing: '0.03em',
-              }}
-            >
-              <Send size={14} />
-              Send Quote
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button
+                onClick={() => { setEmailModalType('estimate'); setEmailModalOpen(true) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: proposalMode ? 'var(--purple)' : 'var(--accent)', border: 'none',
+                  borderRadius: proposalMode ? '8px 0 0 8px' : 8, padding: '8px 14px', color: '#fff',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: headingFont, letterSpacing: '0.03em',
+                }}
+              >
+                <Send size={14} />
+                {proposalMode ? 'Send Proposal' : 'Send Quote'}
+              </button>
+              {proposalMode && (
+                <button
+                  onClick={() => setProposalMode(false)}
+                  title="Proposal mode on — click to switch back to regular estimate"
+                  style={{
+                    display: 'flex', alignItems: 'center', padding: '8px 10px',
+                    background: 'rgba(139,92,246,0.3)', border: 'none',
+                    borderRadius: '0 8px 8px 0', color: '#fff',
+                    fontSize: 11, cursor: 'pointer',
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           )}
           {status === 'sent' && (
             <button
@@ -1710,7 +1707,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             <div>
               <label style={fieldLabelStyle}>Proposal</label>
               <button
-                onClick={() => setProposalMode(true)}
+                onClick={() => setProposalMode(prev => !prev)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '6px 14px', borderRadius: 8,
@@ -1721,7 +1718,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 }}
               >
                 {proposalMode ? <CheckCircle2 size={13} /> : <FileText size={13} />}
-                {proposalMode ? 'Proposal Active' : 'Create Proposal'}
+                {proposalMode ? 'Proposal On' : 'Build Proposal'}
               </button>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
@@ -1829,6 +1826,22 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               Items
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {/* Build Proposal toggle */}
+              <button
+                onClick={() => setProposalMode(prev => !prev)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: proposalMode ? 'rgba(34,192,122,0.1)' : 'rgba(79,127,255,0.08)',
+                  border: `1px solid ${proposalMode ? 'rgba(34,192,122,0.3)' : 'rgba(79,127,255,0.25)'}`,
+                  borderRadius: 8, padding: '7px 12px',
+                  color: proposalMode ? 'var(--green)' : 'var(--accent)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: headingFont, letterSpacing: '0.03em',
+                }}
+              >
+                <Package size={12} />
+                {proposalMode ? 'Proposal On' : 'Build Proposal'}
+              </button>
               {/* Templates dropdown */}
               <div ref={templateMenuRef} style={{ position: 'relative' }}>
                 <button
@@ -2085,6 +2098,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 productType: li.product_type || 'custom',
               }))}
               onClose={() => setProposalMode(false)}
+              onProposalReady={(_, token) => setProposalPublicToken(token)}
             />
           )}
 
@@ -2280,10 +2294,10 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   Send Estimate
                 </button>
                 <button
-                  onClick={() => setProposalMode(true)}
+                  onClick={() => setProposalMode(prev => !prev)}
                   style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: proposalMode ? 'var(--green)' : 'var(--purple)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  {proposalMode ? <><CheckCircle2 size={14} /> Proposal Active</> : <><Package size={14} /> Build Proposal</>}
+                  {proposalMode ? <><CheckCircle2 size={14} /> Proposal On</> : <><Package size={14} /> Build Proposal</>}
                 </button>
               </div>
 
@@ -2847,6 +2861,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   subject: data.subject,
                   message: data.message,
                   sendVia: data.sendVia,
+                  proposal_token: proposalMode && proposalPublicToken ? proposalPublicToken : undefined,
                 }),
               })
               const result = await res.json()
