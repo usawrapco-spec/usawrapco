@@ -97,7 +97,7 @@ function DownPaymentPDF({ salesOrder, customer }: {
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
-        React.createElement(Image, { style: s.logo, src: getPdfLogoDarkSrc() }),
+        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
         React.createElement(View, { style: s.headerRight },
           React.createElement(Text, { style: s.headerTitle }, 'DOWN PAYMENT INVOICE'),
           React.createElement(Text, { style: s.headerSubtitle }, 'Deposit Required'),

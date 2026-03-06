@@ -100,7 +100,7 @@ function Header({ type, number, date, validUntil }: {
 }) {
   return React.createElement(View, null,
     React.createElement(View, { style: s.headerBand },
-      React.createElement(Image, { style: s.logo, src: getPdfLogoDarkSrc() }),
+      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
       React.createElement(View, { style: s.headerRight },
         React.createElement(Text, { style: s.headerTitle }, type),
         React.createElement(Text, { style: s.headerMetaBold }, number),
