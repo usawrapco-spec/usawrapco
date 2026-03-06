@@ -44,18 +44,18 @@ export default function TeamMultiSelect({ label, members, selectedIds, onChange,
 
   return (
     <div ref={ref} style={{ marginBottom: 10, position: 'relative' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4, fontWeight: 600 }}>{label}</div>
       <div
         onClick={() => canWrite && setOpen(!open)}
         style={{
           display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center',
           padding: '4px 8px', minHeight: 32, borderRadius: 8,
-          border: '1px solid var(--border)', background: 'var(--bg-secondary)',
+          border: '1px solid rgba(255,255,255,0.08)', background: 'var(--surface2)',
           cursor: canWrite ? 'pointer' : 'default',
         }}
       >
         {selected.length === 0 && (
-          <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>None assigned</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>None assigned</span>
         )}
         {selected.map(m => (
           <span key={m.id} style={{
@@ -71,14 +71,14 @@ export default function TeamMultiSelect({ label, members, selectedIds, onChange,
             )}
           </span>
         ))}
-        {canWrite && <ChevronDown size={12} style={{ marginLeft: 'auto', color: 'var(--text-tertiary)' }} />}
+        {canWrite && <ChevronDown size={12} style={{ marginLeft: 'auto', color: 'var(--text3)' }} />}
       </div>
 
       {open && available.length > 0 && (
         <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'var(--bg-primary)', border: '1px solid var(--border)',
-          borderRadius: 8, marginTop: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+          background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 8, marginTop: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           maxHeight: 180, overflowY: 'auto',
         }}>
           {available.map(m => (
@@ -88,14 +88,14 @@ export default function TeamMultiSelect({ label, members, selectedIds, onChange,
               style={{
                 padding: '8px 12px', fontSize: 12, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8,
-                borderBottom: '1px solid var(--border)',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <User size={12} style={{ color: accentColor }} />
               <span>{m.name}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>{m.role}</span>
+              <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 'auto' }}>{m.role}</span>
             </div>
           ))}
         </div>
