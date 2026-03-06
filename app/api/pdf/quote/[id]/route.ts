@@ -304,7 +304,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Quote-${soNum}.pdf"`,
+        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Quote-${soNum}${customer?.name ? `-${customer.name.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')}` : ''}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })

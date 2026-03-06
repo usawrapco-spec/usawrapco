@@ -585,11 +585,13 @@ export async function GET(
           )
 
           const safeTitle = (pkg.name || 'Package').replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')
+          const custName = (estimate.customer?.name || estimate.customer?.contact_name || '').replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')
+          const custPart = custName ? `-${custName}` : ''
 
           return new NextResponse(new Uint8Array(buffer), {
             headers: {
               'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="USA-Wrap-Co-${safeTitle}-${estNumber}.pdf"`,
+              'Content-Disposition': `attachment; filename="USA-Wrap-Co-${safeTitle}${custPart}-${estNumber}.pdf"`,
               'Cache-Control': 'no-store',
             },
           })
@@ -649,10 +651,13 @@ export async function GET(
       React.createElement(ProposalPDF, { estimate, lineItems: items || [] }) as any
     )
 
+    const custName = (estimate.customer?.name || estimate.customer?.contact_name || '').replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')
+    const custPart = custName ? `-${custName}` : ''
+
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Proposal-${estNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Proposal${custPart}-${estNumber}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })
