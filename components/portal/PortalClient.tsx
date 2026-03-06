@@ -436,30 +436,96 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
             {/* HOME */}
             {view === 'home' && (
               <>
-                <div style={{ background: `linear-gradient(135deg, ${colors.accent}15, ${colors.purple}10)`, border: `1px solid ${colors.border}`, borderRadius: 18, padding: '28px 24px', marginBottom: 20 }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif", marginBottom: 4 }}>Welcome back, {displayName}</div>
-                  <div style={{ fontSize: 14, color: colors.text2 }}>{activeProjects.length > 0 ? `You have ${activeProjects.length} active project${activeProjects.length > 1 ? 's' : ''}` : 'Track your wrap projects and manage everything here.'}</div>
+                {/* ── Hero ── */}
+                <div style={{
+                  background: `linear-gradient(135deg, #0d1929 0%, #0f1824 60%, #12101f 100%)`,
+                  border: `1px solid rgba(79,127,255,0.2)`,
+                  borderRadius: 20, padding: '28px 24px', marginBottom: 16, position: 'relative', overflow: 'hidden',
+                }}>
+                  {/* glow orbs */}
+                  <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle, ${colors.accent}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', bottom: -30, left: -20, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${colors.purple}12 0%, transparent 70%)`, pointerEvents: 'none' }} />
+
+                  <div style={{ fontSize: 12, fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ShieldCheck size={13} /> USA WRAP CO — Client Portal
+                  </div>
+                  <div style={{ fontSize: 32, fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1.1, marginBottom: 6 }}>
+                    Welcome back,<br /><span style={{ color: colors.accent }}>{displayName}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: colors.text2, marginBottom: 20 }}>
+                    {activeProjects.length > 0
+                      ? `${activeProjects.length} active project${activeProjects.length !== 1 ? 's' : ''} in progress`
+                      : 'Your wrap headquarters — projects, designs & more.'}
+                  </div>
+
+                  {/* Stats row */}
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {[
+                      { label: 'Jobs', value: projects.length, color: colors.accent },
+                      { label: 'Active', value: activeProjects.length, color: colors.green },
+                      { label: 'Invoices', value: openInvoices.length, color: openInvoices.length > 0 ? colors.amber : colors.text3 },
+                      { label: 'Proofs', value: pendingProofs.length, color: pendingProofs.length > 0 ? colors.purple : colors.text3 },
+                    ].map(stat => (
+                      <div key={stat.label} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: stat.color, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{stat.value}</div>
+                        <div style={{ fontSize: 9, color: colors.text3, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>{stat.label}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
+                {/* ── Action banners ── */}
+                {pendingProofs.length > 0 && (
+                  <button onClick={() => setView('design')} style={{ width: '100%', background: `linear-gradient(135deg, ${colors.amber}12, ${colors.amber}06)`, border: `1px solid ${colors.amber}35`, borderRadius: 14, padding: '14px 18px', cursor: 'pointer', color: colors.text1, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${colors.amber}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Palette size={20} style={{ color: colors.amber }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{pendingProofs.length} Design Proof{pendingProofs.length > 1 ? 's' : ''} Need Review</div>
+                      <div style={{ fontSize: 12, color: colors.text2, marginTop: 2 }}>Your designer is waiting — tap to approve</div>
+                    </div>
+                    <ChevronRight size={18} style={{ color: colors.amber, flexShrink: 0 }} />
+                  </button>
+                )}
+                {openInvoices.length > 0 && (
+                  <button onClick={() => setView('invoices')} style={{ width: '100%', background: `linear-gradient(135deg, ${colors.green}10, ${colors.green}05)`, border: `1px solid ${colors.green}30`, borderRadius: 14, padding: '14px 18px', cursor: 'pointer', color: colors.text1, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${colors.green}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Receipt size={20} style={{ color: colors.green }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>Balance Due — {money(openInvoices.reduce((s, i) => s + (i.balance_due || 0), 0))}</div>
+                      <div style={{ fontSize: 12, color: colors.text2, marginTop: 2 }}>{openInvoices.length} open invoice{openInvoices.length > 1 ? 's' : ''} — tap to pay</div>
+                    </div>
+                    <ChevronRight size={18} style={{ color: colors.green, flexShrink: 0 }} />
+                  </button>
+                )}
+
+                {/* ── Active projects ── */}
                 {activeProjects.length > 0 && (
-                  <div style={{ marginBottom: 24 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: colors.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Active Projects</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: colors.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Active Projects</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {activeProjects.slice(0, 3).map(p => {
                         const sc = stageColors[p.pipe_stage] || stageColors.estimate
                         const pct = progress(p.pipe_stage)
                         return (
-                          <button key={p.id} onClick={() => { setSelectedJobId(p.id); setView('job-detail') }} style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 14, padding: 16, cursor: 'pointer', textAlign: 'left', width: '100%', color: colors.text1, display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 10, background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Car size={20} style={{ color: sc.text }} /></div>
+                          <button key={p.id} onClick={() => { setSelectedJobId(p.id); setView('job-detail') }} style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderLeft: `3px solid ${sc.text}`, borderRadius: 12, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', width: '100%', color: colors.text1, display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Car size={18} style={{ color: sc.text }} />
+                            </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                              {p.vehicle_desc && <div style={{ fontSize: 12, color: colors.text2, marginBottom: 6 }}>{p.vehicle_desc}</div>}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={{ flex: 1, height: 4, background: colors.surface2, borderRadius: 2, overflow: 'hidden' }}><div style={{ width: `${pct}%`, height: '100%', background: sc.text, borderRadius: 2 }} /></div>
-                                <span style={{ fontSize: 10, fontWeight: 800, color: sc.text, fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>{sc.label}</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.title}</div>
+                                <span style={{ fontSize: 9, fontWeight: 800, color: sc.text, background: sc.bg, padding: '2px 7px', borderRadius: 5, marginLeft: 8, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{sc.label}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ flex: 1, height: 3, background: colors.surface2, borderRadius: 2, overflow: 'hidden' }}>
+                                  <div style={{ width: `${pct}%`, height: '100%', background: sc.text, borderRadius: 2, transition: 'width 0.5s ease' }} />
+                                </div>
+                                <span style={{ fontSize: 10, color: colors.text3, fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>{Math.round(pct)}%</span>
                               </div>
                             </div>
-                            <ChevronRight size={18} style={{ color: colors.text3, flexShrink: 0 }} />
+                            <ChevronRight size={16} style={{ color: colors.text3, flexShrink: 0 }} />
                           </button>
                         )
                       })}
@@ -467,39 +533,28 @@ export default function PortalClient({ userId, userEmail, userName }: PortalClie
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 24 }}>
+                {/* ── Quick navigation grid ── */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: colors.text3, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Quick Access</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 8 }}>
                   {([
-                    { key: 'jobs' as PortalView, label: 'My Jobs', icon: FolderKanban, count: projects.length, color: colors.accent },
-                    { key: 'design' as PortalView, label: 'Design Studio', icon: Palette, count: pendingProofs.length, color: colors.purple },
-                    { key: 'invoices' as PortalView, label: 'Invoices', icon: Receipt, count: openInvoices.length, color: colors.green },
-                    { key: 'referrals' as PortalView, label: 'Referrals', icon: Gift, count: 0, color: colors.cyan },
-                    { key: 'loyalty' as PortalView, label: 'Loyalty', icon: Star, count: 0, color: colors.amber },
-                    { key: 'messages' as PortalView, label: 'Messages', icon: MessageSquare, count: messages.length, color: colors.purple },
+                    { key: 'jobs' as PortalView, label: 'My Jobs', icon: FolderKanban, sub: projects.length > 0 ? `${projects.length} project${projects.length !== 1 ? 's' : ''}` : 'No jobs yet', color: colors.accent, gradient: `linear-gradient(135deg, ${colors.accent}15, ${colors.accent}06)` },
+                    { key: 'design' as PortalView, label: 'Design Studio', icon: Palette, sub: pendingProofs.length > 0 ? `${pendingProofs.length} awaiting review` : 'No pending proofs', color: colors.purple, gradient: `linear-gradient(135deg, ${colors.purple}15, ${colors.purple}06)` },
+                    { key: 'invoices' as PortalView, label: 'Invoices', icon: Receipt, sub: openInvoices.length > 0 ? `${openInvoices.length} open` : 'All paid', color: colors.green, gradient: `linear-gradient(135deg, ${colors.green}12, ${colors.green}05)` },
+                    { key: 'messages' as PortalView, label: 'Messages', icon: MessageSquare, sub: messages.length > 0 ? `${messages.length} message${messages.length !== 1 ? 's' : ''}` : 'No messages', color: colors.cyan, gradient: `linear-gradient(135deg, ${colors.cyan}12, ${colors.cyan}05)` },
+                    { key: 'loyalty' as PortalView, label: 'Loyalty', icon: Star, sub: 'Earn rewards', color: colors.amber, gradient: `linear-gradient(135deg, ${colors.amber}12, ${colors.amber}05)` },
+                    { key: 'referrals' as PortalView, label: 'Referrals', icon: Gift, sub: 'Earn $100/referral', color: colors.cyan, gradient: `linear-gradient(135deg, ${colors.cyan}12, ${colors.cyan}05)` },
                   ]).map(link => (
-                    <button key={link.key} onClick={() => setView(link.key)} style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 14, padding: '18px 16px', cursor: 'pointer', textAlign: 'left', color: colors.text1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: `${link.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><link.icon size={18} style={{ color: link.color }} /></div>
+                    <button key={link.key} onClick={() => setView(link.key)} style={{ background: link.gradient, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: '16px 14px', cursor: 'pointer', textAlign: 'left', color: colors.text1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${link.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <link.icon size={20} style={{ color: link.color }} strokeWidth={1.8} />
+                      </div>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{link.label}</div>
-                        {link.count > 0 && <div style={{ fontSize: 11, color: colors.text3, fontFamily: "'JetBrains Mono', monospace" }}>{link.count} {link.count === 1 ? 'item' : 'items'}</div>}
+                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3 }}>{link.label}</div>
+                        <div style={{ fontSize: 11, color: colors.text3 }}>{link.sub}</div>
                       </div>
                     </button>
                   ))}
                 </div>
-
-                {pendingProofs.length > 0 && (
-                  <button onClick={() => setView('design')} style={{ width: '100%', background: `${colors.amber}10`, border: `1px solid ${colors.amber}30`, borderRadius: 14, padding: '16px 18px', cursor: 'pointer', color: colors.text1, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-                    <Palette size={22} style={{ color: colors.amber, flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700 }}>{pendingProofs.length} design proof{pendingProofs.length > 1 ? 's' : ''} awaiting your review</div><div style={{ fontSize: 12, color: colors.text2, marginTop: 2 }}>Tap to review and approve</div></div>
-                    <ChevronRight size={18} style={{ color: colors.amber, flexShrink: 0 }} />
-                  </button>
-                )}
-                {openInvoices.length > 0 && (
-                  <button onClick={() => setView('invoices')} style={{ width: '100%', background: `${colors.green}08`, border: `1px solid ${colors.green}25`, borderRadius: 14, padding: '16px 18px', cursor: 'pointer', color: colors.text1, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <Receipt size={22} style={{ color: colors.green, flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700 }}>{openInvoices.length} open invoice{openInvoices.length > 1 ? 's' : ''}</div><div style={{ fontSize: 12, color: colors.text2, marginTop: 2 }}>Total due: {money(openInvoices.reduce((s, i) => s + (i.balance_due || 0), 0))}</div></div>
-                    <ChevronRight size={18} style={{ color: colors.green, flexShrink: 0 }} />
-                  </button>
-                )}
               </>
             )}
 
