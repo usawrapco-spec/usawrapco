@@ -9,7 +9,7 @@ import { registerPdfFonts } from '@/lib/pdf/fonts'
 registerPdfFonts()
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import {
-  BRAND, PDF_COLORS, PDF_TERMS,
+  BRAND, PDF_COLORS,
   formatCurrency, formatDate, addDays,
 } from '@/lib/pdf/brand'
 import { getPdfLogoSrc, getPdfLogoDarkSrc } from '@/lib/pdf/logo'
@@ -287,10 +287,10 @@ function NextStepsSection({ estimate }: { estimate: any }) {
 }
 
 function TermsSection() {
-  const termsText = PDF_TERMS.join('  •  ')
   return React.createElement(View, { style: { marginTop: 4 } },
-    React.createElement(Text, { style: s.termsTitle }, 'Terms & Conditions'),
-    React.createElement(Text, { style: s.termText }, termsText),
+    React.createElement(Text, { style: s.termText },
+      'This estimate is valid for 30 days. A 50% deposit is required to schedule. Full terms & conditions will be provided at signing.'
+    ),
   )
 }
 
