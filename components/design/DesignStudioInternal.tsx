@@ -1,5 +1,6 @@
 'use client'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   MousePointer2, Move, PenLine, Type, Square, Circle, Minus,
   Pencil, Pipette, Upload, X, Loader2, Download, Sparkles,
@@ -12,7 +13,8 @@ import {
   AlignEndVertical, Grid3X3, Magnet, Save, FileDown, FolderOpen,
   Settings, ChevronUp, Triangle, Hexagon, Star, Eraser,
   LayoutGrid, Car, Shirt, Wand2, Bold, Italic, Underline,
-  Ruler, SlidersHorizontal, Hash,
+  Ruler, SlidersHorizontal, Hash, Search, FolderClosed,
+  FileImage, ChevronLeft, PanelLeftOpen, PanelLeftClose,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -213,6 +215,14 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
   // Tab hidden panels
   const [panelsHidden, setPanelsHidden] = useState(false)
 
+  // File browser panel
+  const [showFileBrowser, setShowFileBrowser] = useState(false)
+  const [fileBrowserTab, setFileBrowserTab] = useState<'all' | 'photos' | 'job' | 'customers'>('all')
+  const [fileBrowserSearch, setFileBrowserSearch] = useState('')
+  const [fileBrowserFiles, setFileBrowserFiles] = useState<{ id: string; name: string; url: string; file_type: string | null; created_at: string; project_id: string | null }[]>([])
+  const [fileBrowserLoading, setFileBrowserLoading] = useState(false)
+  const [draggedFileUrl, setDraggedFileUrl] = useState<string | null>(null)
+
   useEffect(() => { setIsMounted(true) }, [])
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
@@ -322,7 +332,7 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
           const now = Date.now()
           if (now - lastMoveTs < 50) return
           lastMoveTs = now
-          const ptr = fc.getPointer(opt.e)
+          const ptr = fc.getScenePoint(opt.e)
           setCursorPos({ x: Math.round(ptr.x), y: Math.round(ptr.y) })
         })
 
@@ -378,8 +388,7 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
           if (!c || !fabricRef.current) return
           const nw = Math.max(c.clientWidth, 600)
           const nh = Math.max(c.clientHeight, 400)
-          fabricRef.current.setWidth(nw)
-          fabricRef.current.setHeight(nh)
+          fabricRef.current.setDimensions({ width: nw, height: nh })
           fabricRef.current.renderAll()
           setCanvasW(nw)
           setCanvasH(nh)
@@ -411,35 +420,33 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
 
   // ── Undo / Redo ───────────────────────────────────────────────────────────
 
-  const undo = useCallback(() => {
+  const undo = useCallback(async () => {
     const fc = fabricRef.current
     if (!fc || undoStackRef.current.length <= 1) return
     const current = undoStackRef.current.pop()!
     redoStackRef.current.push(current)
     const prev = undoStackRef.current[undoStackRef.current.length - 1]
     isLoadingRef.current = true
-    fc.loadFromJSON(JSON.parse(prev), () => {
-      fc.renderAll()
-      isLoadingRef.current = false
-      syncLayers()
-      setUndoCount(undoStackRef.current.length)
-      setRedoCount(redoStackRef.current.length)
-    })
+    await fc.loadFromJSON(JSON.parse(prev))
+    fc.renderAll()
+    isLoadingRef.current = false
+    syncLayers()
+    setUndoCount(undoStackRef.current.length)
+    setRedoCount(redoStackRef.current.length)
   }, [syncLayers])
 
-  const redo = useCallback(() => {
+  const redo = useCallback(async () => {
     const fc = fabricRef.current
     if (!fc || redoStackRef.current.length === 0) return
     const next = redoStackRef.current.pop()!
     undoStackRef.current.push(next)
     isLoadingRef.current = true
-    fc.loadFromJSON(JSON.parse(next), () => {
-      fc.renderAll()
-      isLoadingRef.current = false
-      syncLayers()
-      setUndoCount(undoStackRef.current.length)
-      setRedoCount(redoStackRef.current.length)
-    })
+    await fc.loadFromJSON(JSON.parse(next))
+    fc.renderAll()
+    isLoadingRef.current = false
+    syncLayers()
+    setUndoCount(undoStackRef.current.length)
+    setRedoCount(redoStackRef.current.length)
   }, [syncLayers])
 
   // ── Object operations ─────────────────────────────────────────────────────
@@ -458,17 +465,16 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
     fc.renderAll()
   }, [])
 
-  const duplicateSelected = useCallback(() => {
+  const duplicateSelected = useCallback(async () => {
     const fc = fabricRef.current
     if (!fc) return
     const active = fc.getActiveObject()
     if (!active) return
-    active.clone((cloned: any) => {
-      cloned.set({ left: (active.left || 0) + 20, top: (active.top || 0) + 20 })
-      fc.add(cloned)
-      fc.setActiveObject(cloned)
-      fc.renderAll()
-    })
+    const cloned = await active.clone()
+    cloned.set({ left: (active.left || 0) + 20, top: (active.top || 0) + 20 })
+    fc.add(cloned)
+    fc.setActiveObject(cloned)
+    fc.renderAll()
   }, [])
 
   const copyToClipboard = useCallback(() => {
@@ -478,17 +484,16 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
     if (active) (window as any).__studioClip = active
   }, [])
 
-  const pasteFromClipboard = useCallback(() => {
+  const pasteFromClipboard = useCallback(async () => {
     const fc = fabricRef.current
     if (!fc) return
     const clip = (window as any).__studioClip
     if (!clip) return
-    clip.clone((cloned: any) => {
-      cloned.set({ left: (clip.left || 0) + 20, top: (clip.top || 0) + 20 })
-      fc.add(cloned)
-      fc.setActiveObject(cloned)
-      fc.renderAll()
-    })
+    const cloned = await clip.clone()
+    cloned.set({ left: (clip.left || 0) + 20, top: (clip.top || 0) + 20 })
+    fc.add(cloned)
+    fc.setActiveObject(cloned)
+    fc.renderAll()
   }, [])
 
   const cutSelected = useCallback(() => {
@@ -707,7 +712,7 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
       if (opt.target) return
       if (opt.e.button !== 0) return
 
-      const ptr = fc.getPointer(opt.e)
+      const ptr = fc.getScenePoint(opt.e)
       const x = ptr.x
       const y = ptr.y
 
@@ -914,6 +919,71 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
     const url = URL.createObjectURL(f)
     await addImage(url)
   }, [addImage])
+
+  // ── Clipboard paste handler (paste images from clipboard) ──────────────────
+
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const fc = fabricRef.current
+      if (!fc) return
+
+      // Check for image data in clipboard
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const blob = item.getAsFile()
+          if (!blob) continue
+          const url = URL.createObjectURL(blob)
+          await addImage(url)
+          return
+        }
+      }
+
+      // Check for pasted image URLs (plain text)
+      const text = e.clipboardData?.getData('text/plain')
+      if (text && /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg|bmp)/i.test(text.trim())) {
+        e.preventDefault()
+        await addImage(text.trim())
+      }
+    }
+
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [addImage])
+
+  // ── File browser: fetch files from gallery API ────────────────────────────
+
+  const fetchFileBrowserFiles = useCallback(async () => {
+    setFileBrowserLoading(true)
+    try {
+      const params = new URLSearchParams({
+        orgId,
+        mode: fileBrowserTab === 'job' ? 'job' : fileBrowserTab === 'customers' ? 'customers' : 'all',
+        filter: fileBrowserTab === 'photos' ? 'photos' : 'all',
+        ...(fileBrowserSearch ? { search: fileBrowserSearch } : {}),
+      })
+      const res = await fetch(`/api/gallery?${params}`)
+      if (res.ok) {
+        const { files: data } = await res.json()
+        setFileBrowserFiles(data || [])
+      }
+    } catch { /* ignore */ }
+    setFileBrowserLoading(false)
+  }, [orgId, fileBrowserTab, fileBrowserSearch])
+
+  // Fetch when browser opens or tab/search changes
+  useEffect(() => {
+    if (!showFileBrowser) return
+    const timer = setTimeout(fetchFileBrowserFiles, fileBrowserSearch ? 300 : 0)
+    return () => clearTimeout(timer)
+  }, [showFileBrowser, fetchFileBrowserFiles, fileBrowserSearch])
+
+  const isImageFile = (file: { name: string; file_type: string | null }) => {
+    return file.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name || '')
+  }
 
   // ── Brand / Vehicle / AI operations (preserved from original) ──────────────
 
@@ -1430,8 +1500,179 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
           </div>
         )}
 
+        {/* ── FILE BROWSER PANEL (expandable second column) ── */}
+        {!panelsHidden && showFileBrowser && (
+          <div style={{ width: 280, flexShrink: 0, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FolderClosed size={13} style={{ color: ACCENT }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: TEXT1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Files</span>
+              </div>
+              <button onClick={() => setShowFileBrowser(false)}
+                style={{ background: 'transparent', border: 'none', color: TEXT3, cursor: 'pointer', padding: 2 }}>
+                <X size={13} />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div style={{ padding: '6px 8px', borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: BG2, borderRadius: 4, padding: '4px 8px', border: `1px solid ${BORDER}` }}>
+                <Search size={11} style={{ color: TEXT3, flexShrink: 0 }} />
+                <input
+                  placeholder="Search files..."
+                  value={fileBrowserSearch}
+                  onChange={e => setFileBrowserSearch(e.target.value)}
+                  style={{ flex: 1, background: 'transparent', border: 'none', color: TEXT1, fontSize: 11, outline: 'none' }}
+                />
+                {fileBrowserSearch && (
+                  <button onClick={() => setFileBrowserSearch('')} style={{ background: 'transparent', border: 'none', color: TEXT3, cursor: 'pointer', padding: 0 }}>
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+              {([
+                { id: 'all' as const, label: 'All' },
+                { id: 'photos' as const, label: 'Photos' },
+                { id: 'job' as const, label: 'Job' },
+                { id: 'customers' as const, label: 'Customer' },
+              ]).map(tab => (
+                <button key={tab.id}
+                  onClick={() => setFileBrowserTab(tab.id)}
+                  style={{ flex: 1, padding: '5px 2px', border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: fileBrowserTab === tab.id ? ACCENT : 'transparent', color: fileBrowserTab === tab.id ? '#fff' : TEXT3 }}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* File grid */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
+              {fileBrowserLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+                  <Loader2 size={18} style={{ color: TEXT3, animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : fileBrowserFiles.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: TEXT3, fontSize: 11 }}>
+                  {fileBrowserSearch ? 'No files match your search' : 'No files found'}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  {fileBrowserFiles.map(file => (
+                    <div
+                      key={file.id}
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.setData('text/plain', file.url)
+                        e.dataTransfer.setData('application/x-studio-file', JSON.stringify({ url: file.url, name: file.name }))
+                        setDraggedFileUrl(file.url)
+                      }}
+                      onDragEnd={() => setDraggedFileUrl(null)}
+                      onDoubleClick={() => { if (isImageFile(file)) addImage(file.url) }}
+                      title={`${file.name}\nDouble-click or drag to canvas`}
+                      style={{
+                        borderRadius: 4, overflow: 'hidden', border: `1px solid ${BORDER}`,
+                        cursor: 'grab', position: 'relative', background: BG2,
+                        transition: 'border-color 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = ACCENT)}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = BORDER)}
+                    >
+                      {isImageFile(file) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          loading="lazy"
+                          style={{ width: '100%', height: 80, objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+                        />
+                      ) : (
+                        <div style={{ width: '100%', height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FileImage size={24} style={{ color: TEXT3 }} />
+                        </div>
+                      )}
+                      <div style={{ padding: '4px 5px', fontSize: 9, color: TEXT2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {file.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Upload button at bottom */}
+            <div style={{ padding: '8px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{ width: '100%', padding: '6px', borderRadius: 4, border: `1px dashed ${BORDER}`, background: 'transparent', color: TEXT2, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontWeight: 600 }}>
+                <Upload size={11} /> Upload Image
+              </button>
+              <div style={{ marginTop: 4, fontSize: 9, color: TEXT3, textAlign: 'center' }}>
+                Drag files to canvas or double-click to add
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── File browser toggle button (thin bar between panels and canvas) ── */}
+        {!panelsHidden && (
+          <div style={{ width: 20, flexShrink: 0, background: BG2, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            onClick={() => setShowFileBrowser(prev => !prev)}
+            title={showFileBrowser ? 'Hide file browser' : 'Show file browser — drag files to canvas'}>
+            <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 9, color: showFileBrowser ? ACCENT : TEXT3, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', userSelect: 'none' }}>
+              FILES
+            </div>
+            {showFileBrowser ? <ChevronLeft size={10} style={{ color: ACCENT, marginTop: 4 }} /> : <ChevronRight size={10} style={{ color: TEXT3, marginTop: 4 }} />}
+          </div>
+        )}
+
         {/* ── CANVAS AREA ── */}
-        <div ref={canvasContainerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#1a1a2e' }}>
+        <div ref={canvasContainerRef}
+          style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#1a1a2e' }}
+          onDragOver={e => {
+            e.preventDefault()
+            e.stopPropagation()
+            e.dataTransfer.dropEffect = 'copy'
+            // Show drop indicator
+            const el = e.currentTarget
+            el.style.outline = `2px solid ${ACCENT}`
+            el.style.outlineOffset = '-2px'
+          }}
+          onDragLeave={e => {
+            e.currentTarget.style.outline = 'none'
+          }}
+          onDrop={async e => {
+            e.preventDefault()
+            e.stopPropagation()
+            e.currentTarget.style.outline = 'none'
+
+            // 1. Check for studio file data (dragged from file browser)
+            const studioData = e.dataTransfer.getData('application/x-studio-file')
+            if (studioData) {
+              try {
+                const { url } = JSON.parse(studioData)
+                if (url) { await addImage(url); return }
+              } catch { /* fall through */ }
+            }
+
+            // 2. Check for URL text (dragged image URL)
+            const textData = e.dataTransfer.getData('text/plain')
+            if (textData && /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg|bmp)/i.test(textData.trim())) {
+              await addImage(textData.trim())
+              return
+            }
+
+            // 3. Check for dropped files from OS
+            const file = e.dataTransfer.files[0]
+            if (file?.type.startsWith('image/')) {
+              const url = URL.createObjectURL(file)
+              await addImage(url)
+            }
+          }}
+        >
           {/* Grid overlay */}
           {showGrid && (
             <div style={{
@@ -1466,17 +1707,18 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
 
           <canvas ref={canvasElRef} style={{ display: 'block', marginLeft: showRulers && !panelsHidden ? 20 : 0, marginTop: showRulers && !panelsHidden ? 20 : 0 }} />
 
-          {/* Drag and drop overlay */}
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}
-            onDragOver={e => { e.preventDefault() }}
-            onDrop={async e => {
-              e.preventDefault()
-              const file = e.dataTransfer.files[0]
-              if (file?.type.startsWith('image/')) {
-                const url = URL.createObjectURL(file)
-                await addImage(url)
-              }
-            }} />
+          {/* Drop zone visual feedback */}
+          {draggedFileUrl && (
+            <div style={{
+              position: 'absolute', inset: 20, border: `3px dashed ${ACCENT}`, borderRadius: 12,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: `${ACCENT}10`, pointerEvents: 'none', zIndex: 10,
+            }}>
+              <div style={{ padding: '12px 24px', background: `${BG}dd`, borderRadius: 8, color: ACCENT, fontSize: 13, fontWeight: 700 }}>
+                Drop to add to canvas
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── RIGHT PANEL ── */}

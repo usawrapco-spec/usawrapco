@@ -50,7 +50,7 @@ const JOBS_ITEMS: DropdownItem[] = [
 
 const PRODUCTION_ITEMS: DropdownItem[] = [
   { href: '/production',                  label: 'Production Board',  icon: Factory,   description: 'Production overview' },
-  { href: '/design',                      label: 'Design Studio',     icon: Palette,   description: 'Design workspace' },
+  { href: '/design-studio',               label: 'Design Studio',     icon: Palette,   description: 'Design workspace' },
   { href: '/mockup',                      label: 'Mockup Tool',       icon: Wand2,     description: 'Vehicle mockups' },
   { href: '/media',                       label: 'Media Library',     icon: ImageIcon, description: 'Files & assets' },
   { href: '/production/print-schedule',   label: 'QC',                icon: CheckSquare, description: 'Quality control' },
@@ -58,7 +58,7 @@ const PRODUCTION_ITEMS: DropdownItem[] = [
   { href: '/install/schedule',            label: 'Install Schedule',  icon: CalendarDays, description: 'Install calendar' },
 ]
 
-const PRODUCTION_PATHS = ['/production', '/design', '/mockup', '/media', '/install/schedule']
+const PRODUCTION_PATHS = ['/production', '/design', '/design-studio', '/mockup', '/media', '/install/schedule']
 
 const SALES_ACTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
   { id: 'new_estimate',       label: 'New Estimate',            icon: FileText, description: 'Create a new quote' },

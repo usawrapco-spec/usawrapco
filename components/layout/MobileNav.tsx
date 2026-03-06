@@ -136,7 +136,7 @@ const MORE_SECTIONS: MoreSection[] = [
   {
     label: 'Design',
     items: [
-      { href: '/design',        label: 'Design Studio',   icon: Palette },
+      { href: '/design-studio',  label: 'Design Studio',   icon: Palette },
       { href: '/mockup',        label: 'Mockup Tool',     icon: Wand2 },
       { href: '/configurator',  label: '3D Configurator', icon: Box },
       { href: '/media',         label: 'Media Library',   icon: ImageIcon },

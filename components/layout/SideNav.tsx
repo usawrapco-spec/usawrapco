@@ -18,6 +18,7 @@ import {
   Globe, LayoutGrid, Compass,
   Wand2, LayoutTemplate, Car,
   Anchor, Bot, Sparkles, Store,
+  ExternalLink, CreditCard, Banknote, Database,
 } from 'lucide-react'
 
 interface NavItem {
@@ -26,6 +27,7 @@ interface NavItem {
   icon: React.ElementType
   roles?: UserRole[]
   badge?: string
+  external?: boolean
 }
 
 interface NavSection {
@@ -63,6 +65,17 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    id: 'quick_links',
+    label: 'QUICK LINKS',
+    icon: ExternalLink,
+    roles: ['owner', 'admin'],
+    items: [
+      { href: 'https://dashboard.stripe.com',      label: 'Stripe Dashboard',   icon: CreditCard,  external: true },
+      { href: 'https://businesshub.affirm.com',    label: 'Affirm Portal',      icon: Banknote,    external: true },
+      { href: 'https://supabase.com/dashboard/project/uqfqkvslxoucxmxxrobt', label: 'Supabase',  icon: Database, external: true },
+    ],
+  },
+  {
     id: 'operations',
     label: 'OPERATIONS',
     icon: CalendarDays,
@@ -92,10 +105,10 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Palette,
     roles: ['owner', 'admin', 'designer', 'sales_agent'],
     items: [
-      { href: '/design',              label: 'Design Studio',    icon: LayoutGrid,    roles: ['owner', 'admin', 'designer'] },
+      { href: '/design-studio',       label: 'Design Studio',    icon: Sparkles,      roles: ['owner', 'admin', 'designer'] },
+      { href: '/design',              label: 'Design Manager',   icon: LayoutGrid,    roles: ['owner', 'admin', 'designer'] },
       { href: '/design/intakes',      label: 'Design Intake',    icon: FileInput,     badge: 'intakes' },
       { href: '/mockup-generator',    label: 'Wrap Lead Capture', icon: Wand2 },
-      { href: '/design-studio',       label: 'Design Studio',     icon: Sparkles, roles: ['owner', 'admin', 'designer'] },
     ],
   },
   {
@@ -318,30 +331,26 @@ export function SideNav({
 
                 {(isOpen || !isExpanded) && sectionItems.map(item => {
                   const IIcon = item.icon
-                  const active = isActiveRoute(pathname, item.href)
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onMobileClose}
-                      title={!isExpanded ? item.label : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center', height: 34,
-                        padding: isExpanded ? '0 10px 0 26px' : '0 0 0 16px',
-                        gap: 10, textDecoration: 'none',
-                        borderRadius: isExpanded ? '0 6px 6px 0' : 0,
-                        marginRight: isExpanded ? 8 : 0,
-                        background: active ? (ACC + '18') : 'transparent',
-                        borderLeft: active ? ('2px solid ' + ACC) : '2px solid transparent',
-                        transition: 'background 0.12s',
-                      }}
-                    >
+                  const active = !item.external && isActiveRoute(pathname, item.href)
+                  const linkStyle = {
+                    display: 'flex', alignItems: 'center', height: 34,
+                    padding: isExpanded ? '0 10px 0 26px' : '0 0 0 16px',
+                    gap: 10, textDecoration: 'none',
+                    borderRadius: isExpanded ? '0 6px 6px 0' : 0,
+                    marginRight: isExpanded ? 8 : 0,
+                    background: active ? (ACC + '18') : 'transparent',
+                    borderLeft: active ? ('2px solid ' + ACC) : '2px solid transparent',
+                    transition: 'background 0.12s',
+                  }
+                  const linkContent = (
+                    <>
                       <IIcon size={15} color={active ? ACC : 'var(--text2)'} style={{ flexShrink: 0 }} />
                       {isExpanded && (
                         <>
                           <span style={{ fontSize: 13, color: active ? 'var(--text1)' : 'var(--text2)', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', flex: 1 }}>
                             {item.label}
                           </span>
+                          {item.external && <ExternalLink size={11} color="var(--text3)" style={{ flexShrink: 0 }} />}
                           {item.badge && badges[item.badge] > 0 && (
                             <span style={{ background: '#f25a5a', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700, lineHeight: '16px', flexShrink: 0 }}>
                               {badges[item.badge]}
@@ -349,6 +358,28 @@ export function SideNav({
                           )}
                         </>
                       )}
+                    </>
+                  )
+                  return item.external ? (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={!isExpanded ? item.label : undefined}
+                      style={linkStyle}
+                    >
+                      {linkContent}
+                    </a>
+                  ) : (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onMobileClose}
+                      title={!isExpanded ? item.label : undefined}
+                      style={linkStyle}
+                    >
+                      {linkContent}
                     </Link>
                   )
                 })}
