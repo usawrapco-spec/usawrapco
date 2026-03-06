@@ -254,6 +254,8 @@ export async function GET(
 
     const customer = salesOrder.customer || {}
     const invNum = `DP-${String(salesOrder.so_number || salesOrder.estimate_number || '').padStart(4, '0')}`
+    const safeName = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    const customerSlug = safeName(customer.name || '')
 
     const buffer = await renderToBuffer(
       React.createElement(DownPaymentPDF, { salesOrder, customer }) as any
@@ -262,7 +264,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Deposit-Invoice-${invNum}.pdf"`,
+        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Deposit-Invoice-${invNum}${customerSlug ? `-${customerSlug}` : ''}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })

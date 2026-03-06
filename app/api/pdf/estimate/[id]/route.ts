@@ -350,6 +350,8 @@ export async function GET(
 
     const lineItems = items || []
     const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
+    const safeName = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    const customerSlug = safeName((estimate.customer as any)?.name || '')
 
     const buffer = await renderToBuffer(
       React.createElement(EstimatePDF, { estimate, lineItems }) as any
@@ -358,7 +360,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Estimate-${estNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Estimate-${estNumber}${customerSlug ? `-${customerSlug}` : ''}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })
