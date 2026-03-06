@@ -375,8 +375,6 @@ export async function GET(
       .order('created_at', { ascending: true })
 
     const invNumber = `INV-${String(invoice.invoice_number || '').padStart(4, '0')}`
-    const safeName = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-    const customerSlug = safeName((invoice.customer as any)?.name || '')
 
     const buffer = await renderToBuffer(
       React.createElement(InvoicePDF, {
@@ -389,7 +387,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Invoice-${invNumber}${customerSlug ? `-${customerSlug}` : ''}.pdf"`,
+        'Content-Disposition': `attachment; filename="USA-Wrap-Co-Invoice-${invNumber}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })
