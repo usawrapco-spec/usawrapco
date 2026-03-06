@@ -5,7 +5,8 @@ import Link from 'next/link'
 import {
   Brain, RefreshCw, ChevronDown, ChevronUp, Square, CheckSquare,
   AlertTriangle, AlertCircle, Info, Plus, Trash2, ExternalLink,
-  Clock, Sparkles, ChevronRight,
+  Clock, Sparkles, ChevronRight, MessageSquare, Send, Loader2,
+  PenTool, Eye, EyeOff, Check, X, Edit3,
 } from 'lucide-react'
 
 interface BriefSection {
@@ -68,6 +69,21 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
   const [instructions, setInstructions] = useState<Instruction[]>([])
   const [trainInput, setTrainInput] = useState('')
   const [trainLoading, setTrainLoading] = useState(false)
+  // Training redesign state
+  const [showTrainInput, setShowTrainInput] = useState(false)
+  const [reviewStep, setReviewStep] = useState<'idle' | 'reviewing' | 'improved' | 'questions' | 'answering'>('idle')
+  const [reviewResult, setReviewResult] = useState<any>(null)
+  const [reviewAnswers, setReviewAnswers] = useState('')
+  const [editedImproved, setEditedImproved] = useState('')
+  const [showInstructions, setShowInstructions] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingText, setEditingText] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // Inline chat state
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
 
   // Load done items from localStorage
   useEffect(() => {
@@ -137,17 +153,77 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
     loadInstructions()
   }, [loadRecap, loadInstructions])
 
-  async function saveInstruction() {
+  async function reviewInstruction() {
     if (!trainInput.trim()) return
     setTrainLoading(true)
+    setReviewStep('reviewing')
     try {
-      const res = await fetch('/api/ai/train', {
+      const res = await fetch('/api/ai/train-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instruction: trainInput }),
       })
       if (res.ok) {
+        const data = await res.json()
+        setReviewResult(data)
+        if (data.type === 'improved') {
+          setEditedImproved(data.improved || trainInput)
+          setReviewStep('improved')
+        } else if (data.type === 'question') {
+          setReviewStep('questions')
+          setReviewAnswers('')
+        }
+      } else {
+        setReviewStep('idle')
+      }
+    } catch {
+      setReviewStep('idle')
+    } finally {
+      setTrainLoading(false)
+    }
+  }
+
+  async function submitAnswersForReview() {
+    if (!reviewAnswers.trim()) return
+    setTrainLoading(true)
+    setReviewStep('reviewing')
+    try {
+      const res = await fetch('/api/ai/train-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction: trainInput, answers: reviewAnswers }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setReviewResult(data)
+        setEditedImproved(data.improved || trainInput)
+        setReviewStep('improved')
+      } else {
+        setReviewStep('idle')
+      }
+    } catch {
+      setReviewStep('idle')
+    } finally {
+      setTrainLoading(false)
+    }
+  }
+
+  async function confirmSaveInstruction() {
+    const finalText = editedImproved.trim() || trainInput.trim()
+    if (!finalText) return
+    setTrainLoading(true)
+    try {
+      const res = await fetch('/api/ai/train', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction: finalText }),
+      })
+      if (res.ok) {
         setTrainInput('')
+        setReviewStep('idle')
+        setReviewResult(null)
+        setEditedImproved('')
+        setShowTrainInput(false)
         await loadInstructions()
       }
     } finally {
@@ -155,11 +231,63 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
     }
   }
 
+  function cancelTraining() {
+    setShowTrainInput(false)
+    setTrainInput('')
+    setReviewStep('idle')
+    setReviewResult(null)
+    setEditedImproved('')
+    setReviewAnswers('')
+  }
+
   async function deleteInstruction(id: string) {
     try {
       await fetch(`/api/ai/train/${id}`, { method: 'DELETE' })
+      setConfirmDeleteId(null)
       await loadInstructions()
     } catch {}
+  }
+
+  async function updateInstruction(id: string, newValue: string) {
+    if (!newValue.trim()) return
+    try {
+      await fetch(`/api/ai/train/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction: newValue }),
+      })
+      setEditingId(null)
+      await loadInstructions()
+    } catch {}
+  }
+
+  async function sendChatMessage(msg?: string) {
+    const text = msg || chatInput.trim()
+    if (!text || chatLoading) return
+    setChatInput('')
+    const userMsg = { role: 'user', content: text }
+    setChatMessages(prev => [...prev, userMsg])
+    setChatLoading(true)
+    try {
+      const res = await fetch('/api/ai/vinyl-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: chatMessages,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong.' }])
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Connection error. Please try again.' }])
+    } finally {
+      setChatLoading(false)
+    }
   }
 
   const pendingCount = actionItems.filter(a => !doneItems.has(a.id)).length
@@ -397,57 +525,408 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
           </div>
         )}
 
+        {/* Inline V.I.N.Y.L. Chat */}
+        <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
+          <button
+            onClick={() => setChatOpen(p => !p)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px', background: 'rgba(139,92,246,0.06)', border: 'none', cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MessageSquare size={14} color="#8b5cf6" />
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Ask V.I.N.Y.L.
+              </span>
+            </div>
+            {chatOpen ? <ChevronUp size={13} color="var(--text3)" /> : <ChevronDown size={13} color="var(--text3)" />}
+          </button>
+          {chatOpen && (
+            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Messages */}
+              {chatMessages.length > 0 && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                  maxHeight: 300, overflowY: 'auto', padding: '4px 0',
+                }}>
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} style={{
+                      alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      maxWidth: '85%',
+                      padding: '8px 12px', borderRadius: 10,
+                      background: msg.role === 'user' ? 'rgba(79,127,255,0.15)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${msg.role === 'user' ? 'rgba(79,127,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                      fontSize: 13, color: 'var(--text1)', lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                    }}>
+                      {msg.content}
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text3)' }}>
+                      <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                      V.I.N.Y.L. is thinking...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quick prompts */}
+              {chatMessages.length === 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {['What should I focus on today?', 'Summarize my pipeline', 'Draft a follow-up for overdue estimates'].map(q => (
+                    <button
+                      key={q}
+                      onClick={() => sendChatMessage(q)}
+                      disabled={chatLoading}
+                      style={{
+                        padding: '5px 10px', borderRadius: 6,
+                        border: '1px solid rgba(139,92,246,0.2)',
+                        background: 'rgba(139,92,246,0.06)',
+                        color: '#8b5cf6', fontSize: 11, cursor: 'pointer',
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Input */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                  placeholder="Ask anything about your business..."
+                  disabled={chatLoading}
+                  style={{
+                    flex: 1, background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7,
+                    padding: '8px 12px', color: 'var(--text1)', fontSize: 12, outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={() => sendChatMessage()}
+                  disabled={chatLoading || !chatInput.trim()}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 34, height: 34, borderRadius: 7,
+                    background: chatInput.trim() ? '#8b5cf6' : 'rgba(255,255,255,0.05)',
+                    border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  <Send size={13} color={chatInput.trim() ? '#fff' : 'var(--text3)'} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Train V.I.N.Y.L. */}
         <div style={{
           borderTop: '1px solid rgba(255,255,255,0.06)',
           paddingTop: 12, marginTop: 4,
         }}>
-          <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            Train V.I.N.Y.L.
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PenTool size={13} color="var(--text3)" />
+              <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                Train V.I.N.Y.L.
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {instructions.length > 0 && (
+                <button
+                  onClick={() => setShowInstructions(p => !p)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '3px 8px', borderRadius: 5,
+                    border: '1px solid rgba(139,92,246,0.2)',
+                    background: showInstructions ? 'rgba(139,92,246,0.1)' : 'transparent',
+                    color: '#8b5cf6', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  {showInstructions ? <EyeOff size={10} /> : <Eye size={10} />}
+                  {instructions.length} saved
+                </button>
+              )}
+              {!showTrainInput && (
+                <button
+                  onClick={() => setShowTrainInput(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '4px 10px', borderRadius: 6,
+                    background: 'rgba(79,127,255,0.15)',
+                    border: '1px solid rgba(79,127,255,0.3)',
+                    color: '#4f7fff', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={11} />
+                  Add Feedback
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <input
-              value={trainInput}
-              onChange={e => setTrainInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && saveInstruction()}
-              placeholder={`e.g. "Always alert me when a customer hasn't been contacted in 3 days"`}
-              style={{
-                flex: 1, background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7,
-                padding: '7px 12px', color: 'var(--text1)', fontSize: 12, outline: 'none',
-              }}
-            />
-            <button
-              onClick={saveInstruction}
-              disabled={trainLoading || !trainInput.trim()}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '7px 14px', borderRadius: 7,
-                background: trainInput.trim() ? 'rgba(79,127,255,0.2)' : 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(79,127,255,0.3)',
-                color: '#4f7fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              <Plus size={12} />
-              Save
-            </button>
-          </div>
-          {instructions.length > 0 && (
+
+          {/* Two-step add flow */}
+          {showTrainInput && (
+            <div style={{
+              padding: '12px 14px', borderRadius: 10,
+              background: 'var(--surface, #13151c)',
+              border: '1px solid rgba(79,127,255,0.15)',
+              marginBottom: 10,
+            }}>
+              {reviewStep === 'idle' && (
+                <>
+                  <textarea
+                    value={trainInput}
+                    onChange={e => setTrainInput(e.target.value)}
+                    placeholder='e.g. "Always alert me when a customer hasn&apos;t been contacted in 3 days"'
+                    rows={3}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7,
+                      padding: '8px 12px', color: 'var(--text1)', fontSize: 12,
+                      outline: 'none', resize: 'vertical', lineHeight: 1.5,
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+                    <button
+                      onClick={cancelTraining}
+                      style={{
+                        padding: '5px 12px', borderRadius: 6,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'transparent', color: 'var(--text3)',
+                        fontSize: 11, cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={reviewInstruction}
+                      disabled={!trainInput.trim() || trainLoading}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '5px 14px', borderRadius: 6,
+                        background: trainInput.trim() ? '#4f7fff' : 'rgba(255,255,255,0.05)',
+                        border: 'none', color: '#fff',
+                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      <Sparkles size={11} />
+                      Review
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {reviewStep === 'reviewing' && (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text3)', fontSize: 12 }}>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', display: 'block', margin: '0 auto 8px' }} />
+                  V.I.N.Y.L. is reviewing your instruction...
+                </div>
+              )}
+
+              {reviewStep === 'improved' && reviewResult && (
+                <>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    Original
+                  </div>
+                  <div style={{
+                    padding: '8px 12px', borderRadius: 7, marginBottom: 10,
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                    fontSize: 12, color: 'var(--text3)', lineHeight: 1.5,
+                  }}>
+                    {trainInput}
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#22c07a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    Improved
+                  </div>
+                  <textarea
+                    value={editedImproved}
+                    onChange={e => setEditedImproved(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: '100%', background: 'rgba(34,192,122,0.04)',
+                      border: '1px solid rgba(34,192,122,0.2)', borderRadius: 7,
+                      padding: '8px 12px', color: 'var(--text1)', fontSize: 12,
+                      outline: 'none', resize: 'vertical', lineHeight: 1.5,
+                    }}
+                  />
+                  {reviewResult.explanation && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, fontStyle: 'italic', lineHeight: 1.4 }}>
+                      {reviewResult.explanation}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 10 }}>
+                    <button
+                      onClick={cancelTraining}
+                      style={{
+                        padding: '5px 12px', borderRadius: 6,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'transparent', color: 'var(--text3)',
+                        fontSize: 11, cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => { setEditedImproved(trainInput); }}
+                      style={{
+                        padding: '5px 12px', borderRadius: 6,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'transparent', color: 'var(--text2)',
+                        fontSize: 11, cursor: 'pointer',
+                      }}
+                    >
+                      Use Original
+                    </button>
+                    <button
+                      onClick={confirmSaveInstruction}
+                      disabled={trainLoading}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '5px 14px', borderRadius: 6,
+                        background: '#22c07a', border: 'none', color: '#fff',
+                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      <Check size={11} />
+                      Confirm & Save
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {reviewStep === 'questions' && reviewResult && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', marginBottom: 8 }}>
+                    V.I.N.Y.L. needs a bit more info:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                    {(reviewResult.questions || []).map((q: string, i: number) => (
+                      <div key={i} style={{
+                        padding: '8px 12px', borderRadius: 7,
+                        background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)',
+                        fontSize: 12, color: 'var(--text1)', lineHeight: 1.4,
+                      }}>
+                        {q}
+                      </div>
+                    ))}
+                  </div>
+                  <textarea
+                    value={reviewAnswers}
+                    onChange={e => setReviewAnswers(e.target.value)}
+                    placeholder="Type your answers here..."
+                    rows={2}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7,
+                      padding: '8px 12px', color: 'var(--text1)', fontSize: 12,
+                      outline: 'none', resize: 'vertical', lineHeight: 1.5,
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+                    <button
+                      onClick={cancelTraining}
+                      style={{
+                        padding: '5px 12px', borderRadius: 6,
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'transparent', color: 'var(--text3)',
+                        fontSize: 11, cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={submitAnswersForReview}
+                      disabled={!reviewAnswers.trim() || trainLoading}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '5px 14px', borderRadius: 6,
+                        background: reviewAnswers.trim() ? '#f59e0b' : 'rgba(255,255,255,0.05)',
+                        border: 'none', color: '#fff',
+                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      <Send size={11} />
+                      Submit & Review
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Collapsible instruction list */}
+          {showInstructions && instructions.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {instructions.map(inst => (
                 <div key={inst.id} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
-                  padding: '6px 10px', borderRadius: 6,
+                  padding: '8px 10px', borderRadius: 7,
                   background: 'rgba(139,92,246,0.06)',
-                  border: '1px solid rgba(139,92,246,0.15)',
+                  border: `1px solid ${editingId === inst.id ? 'rgba(79,127,255,0.3)' : 'rgba(139,92,246,0.15)'}`,
                 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1, lineHeight: 1.4 }}>{inst.value}</span>
-                  <button
-                    onClick={() => deleteInstruction(inst.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text3)', flexShrink: 0 }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                  {editingId === inst.id ? (
+                    <input
+                      autoFocus
+                      value={editingText}
+                      onChange={e => setEditingText(e.target.value)}
+                      onBlur={() => { updateInstruction(inst.id, editingText) }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') updateInstruction(inst.id, editingText)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      style={{
+                        flex: 1, background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 5,
+                        padding: '4px 8px', color: 'var(--text1)', fontSize: 12, outline: 'none',
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onClick={() => { setEditingId(inst.id); setEditingText(inst.value) }}
+                      style={{ fontSize: 12, color: 'var(--text2)', flex: 1, lineHeight: 1.4, cursor: 'text' }}
+                    >
+                      {inst.value}
+                    </span>
+                  )}
+                  <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    {editingId !== inst.id && (
+                      <button
+                        onClick={() => { setEditingId(inst.id); setEditingText(inst.value) }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text3)' }}
+                      >
+                        <Edit3 size={10} />
+                      </button>
+                    )}
+                    {confirmDeleteId === inst.id ? (
+                      <div style={{ display: 'flex', gap: 2 }}>
+                        <button
+                          onClick={() => deleteInstruction(inst.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#f25a5a' }}
+                        >
+                          <Check size={10} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text3)' }}
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(inst.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text3)' }}
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
