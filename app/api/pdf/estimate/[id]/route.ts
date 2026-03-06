@@ -58,7 +58,7 @@ const s = StyleSheet.create({
   colDesc: { width: '35%', paddingLeft: 6, position: 'relative' },
   colCoverage: { width: '20%' },
   colMaterial: { width: '15%' },
-  colHrs: { width: '8%', textAlign: 'center' },
+  colDays: { width: '8%', textAlign: 'center' },
   colUnit: { width: '12%', textAlign: 'right' },
   colTotal: { width: '10%', textAlign: 'right' },
   // Totals — compact right-aligned
@@ -184,7 +184,7 @@ function LineItemsTable({ lineItems }: { lineItems: any[] }) {
       React.createElement(Text, { style: [s.tableHeaderCell, s.colDesc as any] }, 'Description'),
       React.createElement(Text, { style: [s.tableHeaderCell, s.colCoverage as any] }, 'Coverage / Details'),
       React.createElement(Text, { style: [s.tableHeaderCell, s.colMaterial as any] }, 'Material'),
-      React.createElement(Text, { style: [s.tableHeaderCell, s.colHrs as any] }, 'Hrs'),
+      React.createElement(Text, { style: [s.tableHeaderCell, s.colDays as any] }, 'Days'),
       React.createElement(Text, { style: [s.tableHeaderCell, s.colUnit as any] }, 'Unit Price'),
       React.createElement(Text, { style: [s.tableHeaderCell, s.colTotal as any] }, 'Total'),
     ),
@@ -210,10 +210,13 @@ function LineItemsTable({ lineItems }: { lineItems: any[] }) {
             specs.vinylType || specs.material || '—'
           ),
         ),
-        React.createElement(View, { style: s.colHrs },
-          React.createElement(Text, { style: s.tableCell },
-            specs.laborHours || specs.estimatedHours ? String(specs.laborHours || specs.estimatedHours) : '—'
-          ),
+        React.createElement(View, { style: s.colDays },
+          React.createElement(Text, { style: s.tableCell }, (() => {
+            const hrs = Number(specs.laborHours || specs.estimatedHours || 0)
+            if (!hrs) return '—'
+            const days = Math.ceil(hrs / 9 * 2) / 2  // round up to nearest 0.5
+            return days === Math.floor(days) ? `${days}d` : `${days}d`
+          })()),
         ),
         React.createElement(View, { style: s.colUnit },
           React.createElement(Text, { style: s.tableCell }, formatCurrency(item.unit_price || 0)),
@@ -266,13 +269,45 @@ function TotalsBlock({ estimate }: { estimate: any }) {
   )
 }
 
-function NextStepsSection({ estimate }: { estimate: any }) {
+function addBusinessDays(from: Date, days: number): Date {
+  const d = new Date(from)
+  let added = 0
+  while (added < days) {
+    d.setDate(d.getDate() + 1)
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6) added++
+  }
+  return d
+}
+
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function NextStepsSection({ estimate, lineItems }: { estimate: any; lineItems: any[] }) {
   const deposit = (estimate.total || 0) * 0.5
+
+  // Calculate total install days from labor hours (9hr days, round up to nearest 0.5)
+  const totalHrs = lineItems.reduce((sum, item) => {
+    const hrs = Number((item.specs || {}).laborHours || (item.specs || {}).estimatedHours || 0)
+    return sum + hrs
+  }, 0)
+  const installDays = totalHrs > 0 ? Math.ceil(totalHrs / 9 * 2) / 2 : null
+
+  // Suggested dates: earliest start = today + 5 business days lead time
+  const today = new Date()
+  const earliestStart = addBusinessDays(today, 5)
+  const earliestEnd = installDays ? addBusinessDays(new Date(earliestStart), Math.ceil(installDays)) : null
+
+  const scheduleText = installDays
+    ? `Est. install: ${installDays === 1 ? '1 day' : `${installDays} days`}  |  Available as early as ${fmtDate(earliestStart)}${earliestEnd && earliestEnd.getTime() !== earliestStart.getTime() ? ` – ${fmtDate(earliestEnd)}` : ''}`
+    : `Available as early as ${fmtDate(earliestStart)}`
+
   return React.createElement(View, { style: s.nextStepsRow },
     React.createElement(View, { style: [s.card, s.cardGreen] as any },
       React.createElement(Text, { style: s.cardTitle }, 'Schedule With This Design'),
+      React.createElement(Text, { style: s.cardText }, scheduleText),
       React.createElement(Text, { style: s.cardText }, '50% deposit secures your install date'),
-      React.createElement(Text, { style: s.cardText }, 'Fast turnaround — as little as 5 business days'),
       React.createElement(Text, { style: s.cardPrice }, formatCurrency(deposit)),
       React.createElement(Text, { style: s.cardLink }, 'Pay Online: usawrapco.com/pay'),
     ),
@@ -311,6 +346,9 @@ function EstimatePDF({ estimate, lineItems }: { estimate: any; lineItems: any[] 
         React.createElement(BillingSection, { estimate }),
         React.createElement(VehicleCard, { estimate }),
         React.createElement(LineItemsTable, { lineItems }),
+        React.createElement(TotalsBlock, { estimate }),
+        React.createElement(View, { style: s.divider }),
+        React.createElement(NextStepsSection, { estimate, lineItems }),
         React.createElement(TermsSection, null),
       ),
       React.createElement(View, { fixed: true, style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
