@@ -99,9 +99,11 @@ export default function JobChat({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, activeChannel]);
 
-  // Auto-scroll
+  // Auto-scroll — only when messages exist, block: 'nearest' prevents page from scrolling
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [messages]);
 
   // ── Core insert ───────────────────────────────────────────────
