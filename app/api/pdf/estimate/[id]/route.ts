@@ -34,7 +34,7 @@ Font.register({
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white },
+  page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 50 },
   // Header band
   headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 20 },
   logo: { width: 140, height: 45, objectFit: 'contain' },
@@ -211,9 +211,9 @@ function VehicleCard({ estimate }: { estimate: any }) {
 }
 
 function LineItemsTable({ lineItems }: { lineItems: any[] }) {
-  return React.createElement(View, { style: { marginBottom: 16 } },
+  return React.createElement(View, { style: { marginBottom: 16 }, wrap: true },
     // Table header
-    React.createElement(View, { style: s.tableHeader },
+    React.createElement(View, { style: s.tableHeader, fixed: true },
       React.createElement(Text, { style: [s.tableHeaderCell, s.colDesc as any] }, 'Description'),
       React.createElement(Text, { style: [s.tableHeaderCell, s.colCoverage as any] }, 'Coverage / Details'),
       React.createElement(Text, { style: [s.tableHeaderCell, s.colMaterial as any] }, 'Material'),
@@ -227,6 +227,7 @@ function LineItemsTable({ lineItems }: { lineItems: any[] }) {
       const vehicle = [specs.vehicleYear, specs.vehicleMake, specs.vehicleModel].filter(Boolean).join(' ')
       return React.createElement(View, {
         key: item.id || i,
+        wrap: false,
         style: [s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}] as any,
       },
         React.createElement(View, { style: s.colDesc },

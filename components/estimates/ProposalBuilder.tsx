@@ -15,12 +15,22 @@ import {
   BADGE_OPTIONS, COMMON_UPSELLS, PROPOSAL_STATUS_CONFIG, DEFAULT_DEPOSIT,
 } from '@/lib/proposals'
 
+interface EstimateLineItem {
+  id: string
+  name: string
+  description: string | null
+  totalPrice: number
+  productType: string
+}
+
 interface ProposalBuilderProps {
   estimateId: string
   customerId: string | null
   customerEmail: string | null
   customerName: string | null
   customerPhone: string | null
+  lineItems?: EstimateLineItem[]
+  onClose?: () => void
 }
 
 const C = {
@@ -52,12 +62,22 @@ const btnSecondary: React.CSSProperties = {
   color: C.text2,
 }
 
+interface LocalLineItem {
+  _key: string
+  name: string
+  description: string
+  price: string
+}
+
 interface LocalPackage {
   _key: string
   name: string
   badge: string
   description: string
   price: string
+  price_mode: 'auto' | 'manual'
+  line_item_ids: string[]
+  custom_line_items: LocalLineItem[]
   includes: string[]
   photos: string[]
   video_url: string
@@ -74,6 +94,7 @@ interface LocalUpsell {
 
 export default function ProposalBuilder({
   estimateId, customerId, customerEmail, customerName, customerPhone,
+  lineItems = [], onClose,
 }: ProposalBuilderProps) {
   const supabase = createClient()
   const router = useRouter()
@@ -119,6 +140,7 @@ export default function ProposalBuilder({
   const newPkg = (): LocalPackage => ({
     _key: crypto.randomUUID(),
     name: '', badge: '', description: '', price: '',
+    price_mode: 'auto', line_item_ids: [], custom_line_items: [],
     includes: [''], photos: [], video_url: '',
   })
 
@@ -173,16 +195,26 @@ export default function ProposalBuilder({
             badge: p.badge || '',
             description: p.description || '',
             price: p.price?.toString() || '',
+            price_mode: p.price_mode || 'manual',
+            line_item_ids: p.line_item_ids || [],
+            custom_line_items: (p.custom_line_items || []).map((li: any) => ({
+              _key: crypto.randomUUID(),
+              name: li.name || '',
+              description: li.description || '',
+              price: li.price?.toString() || '0',
+            })),
             includes: p.includes?.length ? p.includes : [''],
             photos: p.photos || [],
             video_url: p.video_url || '',
           })))
         } else {
-          setPackages([
-            { ...newPkg(), name: 'Good' },
-            { ...newPkg(), name: 'Better', badge: 'Most Popular' },
-            { ...newPkg(), name: 'Best', badge: 'Premium' },
-          ])
+          // Default: 1 section with ALL line items assigned
+          setPackages([{
+            ...newPkg(),
+            name: 'Section 1',
+            line_item_ids: lineItems.map(li => li.id),
+            custom_line_items: [],
+          }])
         }
 
         // Upsells
@@ -245,15 +277,25 @@ export default function ProposalBuilder({
           expiration_date: expirationDate ? new Date(expirationDate).toISOString() : null,
           deposit_amount: Number(depositAmount) || DEFAULT_DEPOSIT,
           include_inspection: includeInspection,
-          packages: packages.map(p => ({
-            name: p.name || 'Untitled Package',
-            badge: p.badge || null,
-            description: p.description || null,
-            price: Number(p.price) || 0,
-            includes: p.includes.filter(Boolean),
-            photos: p.photos,
-            video_url: p.video_url || null,
-          })),
+          packages: packages.map(p => {
+            const hasLinkedItems = p.line_item_ids.length > 0
+            const hasCustomItems = p.custom_line_items.length > 0
+            const customTotal = p.custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0)
+            return {
+              name: p.name || 'Untitled Section',
+              badge: p.badge || null,
+              description: p.description || null,
+              price: hasLinkedItems || hasCustomItems ? customTotal : (Number(p.price) || 0),
+              price_mode: hasLinkedItems || hasCustomItems ? 'auto' : 'manual',
+              line_item_ids: p.line_item_ids,
+              custom_line_items: p.custom_line_items.map(li => ({
+                name: li.name, description: li.description || null, price: Number(li.price) || 0,
+              })),
+              includes: p.includes.filter(Boolean),
+              photos: p.photos,
+              video_url: p.video_url || null,
+            }
+          }),
           upsells: upsells.map(u => ({
             name: u.name || 'Untitled Upsell',
             description: u.description || null,
@@ -267,7 +309,7 @@ export default function ProposalBuilder({
       console.error('[ProposalBuilder] save error:', err)
     }
     setSaving(false)
-  }, [proposalId, title, message, expirationDate, depositAmount, packages, upsells])
+  }, [proposalId, title, message, expirationDate, depositAmount, packages, upsells, includeInspection])
 
   // ─── Send ──────────────────────────────────────────────────────────
   const handleSend = async () => {
@@ -323,6 +365,25 @@ export default function ProposalBuilder({
   const removeInclude = (pkgIdx: number, inclIdx: number) => {
     setPackages(prev => prev.map((p, i) =>
       i === pkgIdx ? { ...p, includes: p.includes.filter((_, j) => j !== inclIdx) } : p
+    ))
+  }
+
+  // ─── Custom line item helpers ─────────────────────────────────────
+  const addCustomLineItem = (pkgIdx: number) => {
+    setPackages(prev => prev.map((p, i) =>
+      i === pkgIdx ? { ...p, custom_line_items: [...p.custom_line_items, { _key: crypto.randomUUID(), name: '', description: '', price: '' }] } : p
+    ))
+  }
+
+  const updateCustomLineItem = (pkgIdx: number, liIdx: number, field: keyof LocalLineItem, value: string) => {
+    setPackages(prev => prev.map((p, i) =>
+      i === pkgIdx ? { ...p, custom_line_items: p.custom_line_items.map((li, j) => j === liIdx ? { ...li, [field]: value } : li) } : p
+    ))
+  }
+
+  const removeCustomLineItem = (pkgIdx: number, liIdx: number) => {
+    setPackages(prev => prev.map((p, i) =>
+      i === pkgIdx ? { ...p, custom_line_items: p.custom_line_items.filter((_, j) => j !== liIdx) } : p
     ))
   }
 
@@ -497,7 +558,7 @@ export default function ProposalBuilder({
         </div>
       </div>
 
-      {/* ── Packages ─────────────────────────────────────────── */}
+      {/* ── Sections (Packages) ──────────────────────────────── */}
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
         padding: 20, marginBottom: 20,
@@ -511,10 +572,10 @@ export default function ProposalBuilder({
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <Package size={16} style={{ color: C.accent }} />
-            Packages ({packages.length}/4)
+            Sections ({packages.length}/4)
           </div>
           <button
-            onClick={() => packages.length < 4 && setPackages(prev => [...prev, newPkg()])}
+            onClick={() => packages.length < 4 && setPackages(prev => [...prev, { ...newPkg(), name: `Section ${prev.length + 1}` }])}
             disabled={packages.length >= 4}
             style={{
               ...btnSecondary,
@@ -522,7 +583,7 @@ export default function ProposalBuilder({
               cursor: packages.length >= 4 ? 'not-allowed' : 'pointer',
             }}
           >
-            <Plus size={14} /> Add Package
+            <Plus size={14} /> Add Section
           </button>
         </div>
 
@@ -537,7 +598,7 @@ export default function ProposalBuilder({
               <input
                 value={pkg.name}
                 onChange={e => updatePkg(pkgIdx, 'name', e.target.value)}
-                placeholder="Good / Better / Best or custom"
+                placeholder="Section name..."
                 style={{ ...inputStyle, fontWeight: 700, flex: 1 }}
               />
               <select
@@ -568,22 +629,167 @@ export default function ProposalBuilder({
             <textarea
               value={pkg.description}
               onChange={e => updatePkg(pkgIdx, 'description', e.target.value)}
-              placeholder="Package description..."
+              placeholder="Section description..."
               rows={2}
               style={{ ...inputStyle, resize: 'vertical', marginBottom: 12 }}
             />
 
-            {/* Price */}
+            {/* Line Items */}
+            {lineItems.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                {/* Assigned line items as rows */}
+                {pkg.line_item_ids.length > 0 && (
+                  <div style={{
+                    border: `1px solid ${C.border}`, borderRadius: 8,
+                    overflow: 'hidden', marginBottom: 8,
+                  }}>
+                    {pkg.line_item_ids.map(id => {
+                      const li = lineItems.find(l => l.id === id)
+                      if (!li) return null
+                      return (
+                        <div key={id} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '8px 12px',
+                          borderBottom: `1px solid ${C.border}`,
+                          background: C.surface,
+                        }}>
+                          <span style={{ flex: 1, fontSize: 13, color: C.text1 }}>
+                            {li.name || 'Untitled'}
+                          </span>
+                          <span style={{ fontFamily: monoFont, fontSize: 13, fontWeight: 600, color: C.text1, whiteSpace: 'nowrap' }}>
+                            ${li.totalPrice.toLocaleString()}
+                          </span>
+                          <button
+                            onClick={() => updatePkg(pkgIdx, 'line_item_ids', pkg.line_item_ids.filter(i => i !== id))}
+                            style={{ background: 'none', border: 'none', color: C.text3, cursor: 'pointer', padding: 2, display: 'flex' }}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                    {/* Linked items subtotal */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px', background: 'rgba(34,192,122,0.06)',
+                    }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.green, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {pkg.custom_line_items.length > 0 ? 'Linked Items Subtotal' : 'Section Total'}
+                      </span>
+                      <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: C.green }}>
+                        ${lineItems.filter(li => pkg.line_item_ids.includes(li.id)).reduce((s, li) => s + li.totalPrice, 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add line item dropdown */}
+                {(() => {
+                  const allAssigned = new Set(packages.flatMap(p => p.line_item_ids))
+                  const available = lineItems.filter(li => !allAssigned.has(li.id))
+                  if (available.length === 0) return null
+                  return (
+                    <select
+                      value=""
+                      onChange={e => {
+                        if (!e.target.value) return
+                        updatePkg(pkgIdx, 'line_item_ids', [...pkg.line_item_ids, e.target.value])
+                      }}
+                      style={{
+                        ...inputStyle, fontSize: 12, color: C.text3,
+                        cursor: 'pointer', width: 'auto',
+                      }}
+                    >
+                      <option value="">+ Add line item...</option>
+                      {available.map(li => (
+                        <option key={li.id} value={li.id}>
+                          {li.name || 'Untitled'} — ${li.totalPrice.toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                  )
+                })()}
+              </div>
+            )}
+
+            {/* Custom Line Items */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 4, display: 'block' }}>Price ($)</label>
-              <input
-                type="number"
-                value={pkg.price}
-                onChange={e => updatePkg(pkgIdx, 'price', e.target.value)}
-                placeholder="0.00"
-                style={{ ...inputStyle, fontFamily: monoFont, width: 200 }}
-              />
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Line Items
+              </label>
+              {pkg.custom_line_items.length > 0 && (
+                <div style={{
+                  border: `1px solid ${C.border}`, borderRadius: 8,
+                  overflow: 'hidden', marginBottom: 8,
+                }}>
+                  {pkg.custom_line_items.map((li, liIdx) => (
+                    <div key={li._key} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 12px',
+                      borderBottom: `1px solid ${C.border}`,
+                      background: C.surface,
+                    }}>
+                      <input
+                        value={li.name}
+                        onChange={e => updateCustomLineItem(pkgIdx, liIdx, 'name', e.target.value)}
+                        placeholder="Item name..."
+                        style={{ ...inputStyle, flex: 1, padding: '6px 10px', fontSize: 13 }}
+                      />
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <span style={{ position: 'absolute', left: 10, color: C.text3, fontSize: 13, pointerEvents: 'none' }}>$</span>
+                        <input
+                          type="number"
+                          value={li.price}
+                          onChange={e => updateCustomLineItem(pkgIdx, liIdx, 'price', e.target.value)}
+                          placeholder="0.00"
+                          style={{ ...inputStyle, width: 110, padding: '6px 10px 6px 22px', fontSize: 13, fontFamily: monoFont, textAlign: 'right' }}
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeCustomLineItem(pkgIdx, liIdx)}
+                        style={{ background: 'none', border: 'none', color: C.text3, cursor: 'pointer', padding: 2, display: 'flex' }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {/* Custom line items total */}
+                  {pkg.custom_line_items.length > 0 && (
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px', background: 'rgba(79,127,255,0.06)',
+                    }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {pkg.line_item_ids.length > 0 ? 'Custom Items Subtotal' : 'Section Total'}
+                      </span>
+                      <span style={{ fontFamily: monoFont, fontSize: 14, fontWeight: 800, color: C.accent }}>
+                        ${pkg.custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => addCustomLineItem(pkgIdx)}
+                style={{ ...btnSecondary, padding: '6px 12px', fontSize: 12 }}
+              >
+                <Plus size={12} /> Add Line Item
+              </button>
             </div>
+
+            {/* Manual price — only when no line items at all */}
+            {lineItems.length === 0 && pkg.custom_line_items.length === 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 4, display: 'block' }}>Price ($)</label>
+                <input
+                  type="number"
+                  value={pkg.price}
+                  onChange={e => updatePkg(pkgIdx, 'price', e.target.value)}
+                  placeholder="0.00"
+                  style={{ ...inputStyle, fontFamily: monoFont, width: 200 }}
+                />
+              </div>
+            )}
 
             {/* What's Included */}
             <div style={{ marginBottom: 12 }}>

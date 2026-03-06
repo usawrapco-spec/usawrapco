@@ -43,6 +43,45 @@ export function calculateInstallPay(wrapSqft: number): InstallCalcResult {
   return { pay, hours, tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
 }
 
+// ─── Scaled Install Cost (for manual/custom sqft — base hours scale proportionally) ──
+// Base hours scale with sqft relative to 250 sqft (typical full wrap), capped at 11.5.
+// This prevents absurd install costs for small custom sqft values (e.g. 10 sqft).
+export const INSTALL_REFERENCE_SQFT = 250
+
+export function calculateInstallPayScaled(wrapSqft: number): InstallCalcResult {
+  if (wrapSqft <= 0) return { pay: 0, hours: 0, tierLabel: '--', hourlyRate: INSTALL_HOURLY_RATE }
+  const scaledBase = INSTALL_BASE_HOURS * Math.min(1, wrapSqft / INSTALL_REFERENCE_SQFT)
+  const hours = Math.round((scaledBase + INSTALL_HOURS_PER_SQFT * wrapSqft) * 10) / 10
+  const rawPay = hours * INSTALL_HOURLY_RATE
+  const pay = Math.round(rawPay / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO
+
+  let tierLabel = 'Custom'
+  if (wrapSqft < 150) tierLabel = 'XS'
+  else if (wrapSqft < 200) tierLabel = 'S'
+  else if (wrapSqft < 250) tierLabel = 'M'
+  else if (wrapSqft < 300) tierLabel = 'L'
+  else if (wrapSqft < 400) tierLabel = 'XL'
+  else if (wrapSqft < 500) tierLabel = 'XXL'
+  else if (wrapSqft < 600) tierLabel = '3XL'
+  else tierLabel = '4XL'
+
+  return { pay, hours, tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
+}
+
+export function calculateMarineInstallPayScaled(sqft: number): InstallCalcResult {
+  const full = calculateInstallPayScaled(sqft)
+  const hours = Math.round((full.hours / 2) * 10) / 10
+  const pay = Math.round((hours * INSTALL_HOURLY_RATE) / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO
+  return { pay, hours, tierLabel: full.tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
+}
+
+export function calculateDeckingInstallPayScaled(sqft: number): InstallCalcResult {
+  const full = calculateInstallPayScaled(sqft)
+  const hours = Math.round((full.hours * DECKING_INSTALL_HOURS_FACTOR) * 10) / 10
+  const pay = Math.round((hours * INSTALL_HOURLY_RATE) / INSTALL_PAY_ROUND_TO) * INSTALL_PAY_ROUND_TO
+  return { pay, hours, tierLabel: full.tierLabel, hourlyRate: INSTALL_HOURLY_RATE }
+}
+
 // ─── Marine Install Cost (half hours & pay of commercial) ─────────────────
 export function calculateMarineInstallPay(boatSqft: number): InstallCalcResult {
   const full = calculateInstallPay(boatSqft)

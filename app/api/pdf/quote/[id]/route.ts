@@ -188,7 +188,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       React.createElement(View, { style: s.divider }),
 
       // Line items table — Shopvox format
-      React.createElement(View, { style: s.tableHeader },
+      React.createElement(View, { style: s.tableHeader, fixed: true },
         React.createElement(Text, { style: [s.th, s.colNum as any] }, '#'),
         React.createElement(Text, { style: [s.th, s.colItem as any] }, 'ITEM'),
         React.createElement(Text, { style: [s.th, s.colQty as any] }, 'QTY'),
@@ -202,6 +202,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       ...lineItems.map((item, i) =>
         React.createElement(View, {
           key: item.id || i,
+          wrap: false,
           style: [s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}] as any,
         },
           React.createElement(Text, { style: [s.tc, s.colNum as any] }, String(i + 1)),
@@ -222,7 +223,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       ),
 
       // Totals — right aligned
-      React.createElement(View, { style: s.totalsBlock },
+      React.createElement(View, { style: s.totalsBlock, wrap: false },
         React.createElement(View, { style: s.totalsRow },
           React.createElement(Text, { style: s.totalsLabel }, 'Subtotal'),
           React.createElement(Text, { style: s.totalsValue }, formatCurrency(subtotal)),
@@ -249,7 +250,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       ),
 
       // Terms block
-      React.createElement(View, { style: s.termsBox },
+      React.createElement(View, { style: s.termsBox, wrap: false },
         React.createElement(Text, { style: s.termsTitle }, 'Terms & Conditions'),
         React.createElement(Text, { style: s.termsText },
           'This handcrafted quote is based on the specific information you have given us and is valid for 30 days. When you approve this quote you are agreeing to pay 100% of the quoted price. We require a 50% deposit to begin work on your project. Final payment is due on delivery.'
@@ -257,7 +258,7 @@ function QuotePDF({ salesOrder, lineItems, customer }: {
       ),
 
       // Signature
-      React.createElement(View, { style: s.sigSection },
+      React.createElement(View, { style: s.sigSection, wrap: false },
         React.createElement(View, { style: s.sigRow },
           React.createElement(View, { style: s.sigBlock },
             React.createElement(View, { style: { ...s.sigLine, marginTop: 24 } }),

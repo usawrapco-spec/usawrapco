@@ -197,6 +197,9 @@ export function ProjectDetail({ profile, project: initial, teammates }: ProjectD
     if (custId) {
       supabase.from('customers').select('portal_token').eq('id', custId).single()
         .then(({ data }) => { if (data?.portal_token) setPortalToken(data.portal_token) })
+    } else if ((initial as any).portal_token) {
+      // No customer linked — fall back to project portal_token
+      setPortalToken((initial as any).portal_token)
     }
   }, [project.id])
 

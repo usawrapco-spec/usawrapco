@@ -678,21 +678,53 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                     <Link2 size={13} style={{ color: 'var(--cyan)' }} /> Send to Customer Portal
                   </button>
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                  <a
-                    href={`/api/pdf/quote/${orderId}`}
-                    download={`quote-SO${so.so_number}.pdf`}
-                    onClick={() => setShowActions(false)}
+                  <button
+                    onClick={async () => {
+                      setShowActions(false)
+                      try {
+                        const res = await fetch('/api/pdf/salesorder', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            ref: `SO-${so.so_number}`,
+                            title: so.title || 'Sales Order',
+                            customer: linkedCustomer?.name || so.customer?.name || '',
+                            customer_phone: linkedCustomer?.phone || '',
+                            customer_email: linkedCustomer?.email || so.customer?.email || '',
+                            items: lineItemsList.map(li => ({
+                              name: li.name, description: li.description,
+                              qty: li.quantity, unit_price: li.unit_price,
+                              total: li.total_price,
+                              specs: li.specs,
+                            })),
+                            subtotal: so.subtotal, discount: so.discount_amount || so.discount || 0,
+                            tax_rate: so.tax_percent || so.tax_rate || 0,
+                            tax_amount: so.tax_amount || 0, total: so.total,
+                            date: so.so_date || so.created_at,
+                            status: so.status,
+                            notes: so.notes || '',
+                          }),
+                        })
+                        if (!res.ok) throw new Error('PDF failed')
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url; a.download = `salesorder-SO${so.so_number}.pdf`
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                        URL.revokeObjectURL(url)
+                      } catch { showToastMsg('Sales Order PDF failed') }
+                    }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                       padding: '8px 12px', border: 'none', background: 'none',
                       color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textDecoration: 'none',
+                      textAlign: 'left',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
-                    <Download size={13} style={{ color: 'var(--accent)' }} /> Download Quote PDF
-                  </a>
+                    <Download size={13} style={{ color: 'var(--accent)' }} /> Download Sales Order PDF
+                  </button>
                   <a
                     href={`/api/pdf/down-payment/${orderId}`}
                     download={`down-payment-SO${so.so_number}.pdf`}

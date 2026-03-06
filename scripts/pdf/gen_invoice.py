@@ -183,8 +183,21 @@ def gen_invoice(c, inv):
     c.drawRightString(W-28, y+4, "AMOUNT")
     y -= 14
 
+    FOOTER_Y = 40  # minimum y before we need a new page
     for idx, item in enumerate(inv.get('line_items', [])):
         RH = 26
+        if y - RH < FOOTER_Y:
+            footer(c)
+            c.showPage()
+            bg(c)
+            y = H - 30
+            # Reprint table header on new page
+            c.setFillColor(NAVY); c.rect(LX, y, TW, 14, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont('PopB', 7)
+            c.drawString(LX+9, y+4, "DESCRIPTION")
+            c.drawString(LX+340, y+4, "QTY")
+            c.drawRightString(W-28, y+4, "AMOUNT")
+            y -= 14
         c.setFillColor(WHITE if idx%2==0 else ROWALT)
         c.rect(LX, y-RH, TW, RH, fill=1, stroke=0)
         c.setFillColor(STEEL if idx%2==0 else STEELL)
@@ -203,6 +216,13 @@ def gen_invoice(c, inv):
     TW2 = 218; TX = W-22-TW2; IW = TX-LX-8
 
     PH_H = 88
+    # Check if remaining content fits; if not, start new page
+    remaining_content_h = PH_H + 10 + 26 + 10 + (44 if inv.get('notes') else 0)
+    if y - remaining_content_h < FOOTER_Y:
+        footer(c)
+        c.showPage()
+        bg(c)
+        y = H - 30
     card(c, LX, y-PH_H, IW, PH_H, fill=WHITE, stroke=RULE)
     c.setFillColor(NAVY); c.rect(LX, y-PH_H, 3, PH_H, fill=1, stroke=0)
     c.setFillColor(DKGRAY); c.setFont('PopB', 7); c.drawString(LX+9, y-9, "PAYMENT HISTORY")

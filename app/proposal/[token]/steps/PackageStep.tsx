@@ -112,6 +112,24 @@ export default function PackageStep({
                   </div>
                 )}
 
+                {/* Custom Line Items */}
+                {pkg.custom_line_items?.length > 0 && (
+                  <div style={{ marginBottom: 12, borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                    {pkg.custom_line_items.map((li: any, i: number) => (
+                      <div key={i} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '8px 12px', borderBottom: i < pkg.custom_line_items.length - 1 ? `1px solid ${C.border}` : 'none',
+                        background: 'rgba(255,255,255,0.02)',
+                      }}>
+                        <span style={{ fontSize: 13, color: C.text2 }}>{li.name || 'Item'}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: C.text1, fontFamily: 'JetBrains Mono, monospace' }}>
+                          ${Number(li.price || 0).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Price */}
                 <div style={{
                   fontSize: 32, fontWeight: 900, color: C.accent,

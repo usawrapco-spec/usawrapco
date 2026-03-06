@@ -26,6 +26,12 @@ export interface Proposal {
   updated_at: string
 }
 
+export interface ProposalLineItem {
+  name: string
+  description?: string
+  price: number
+}
+
 export interface ProposalPackage {
   id: string
   proposal_id: string
@@ -35,6 +41,7 @@ export interface ProposalPackage {
   price: number
   price_mode: 'auto' | 'manual'
   line_item_ids: string[]
+  custom_line_items: ProposalLineItem[]
   includes: string[]
   photos: string[]
   video_url: string | null

@@ -34,7 +34,7 @@ Font.register({
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 60 },
+  page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 46 },
   // Header band
   headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 20 },
   logo: { width: 140, height: 45, objectFit: 'contain' },
@@ -44,26 +44,26 @@ const s = StyleSheet.create({
   headerNumber: { fontSize: 12, fontWeight: 600, color: '#94a3b8', marginTop: 4 },
   accentLine: { height: 3, backgroundColor: PDF_COLORS.accent },
   // Body
-  body: { padding: '24px 36px' },
+  body: { padding: '16px 36px' },
   // Billing
-  billingRow: { flexDirection: 'row', marginBottom: 20 },
+  billingRow: { flexDirection: 'row', marginBottom: 12 },
   billingCol: { flex: 1 },
   sectionLabel: { fontSize: 8, fontWeight: 700, color: PDF_COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 },
   billName: { fontSize: 14, fontWeight: 700, marginBottom: 2 },
   billText: { fontSize: 10, color: PDF_COLORS.textSecondary, marginBottom: 1 },
   billEmail: { fontSize: 10, color: PDF_COLORS.accent, marginBottom: 1 },
-  divider: { borderBottomWidth: 1, borderBottomColor: PDF_COLORS.border, marginVertical: 16 },
+  divider: { borderBottomWidth: 1, borderBottomColor: PDF_COLORS.border, marginVertical: 10 },
   // Invoice details row
-  detailRow: { flexDirection: 'row', marginBottom: 20, backgroundColor: PDF_COLORS.lightGray, borderRadius: 6, padding: 14 },
+  detailRow: { flexDirection: 'row', marginBottom: 14, backgroundColor: PDF_COLORS.lightGray, borderRadius: 6, padding: 10 },
   detailCol: { flex: 1 },
   detailLabel: { fontSize: 7.5, fontWeight: 700, color: PDF_COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 3 },
   detailValue: { fontSize: 11, fontWeight: 600 },
   // Line item
-  lineItemBox: { backgroundColor: PDF_COLORS.lightGray, borderRadius: 8, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: PDF_COLORS.accent },
+  lineItemBox: { backgroundColor: PDF_COLORS.lightGray, borderRadius: 8, padding: 12, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: PDF_COLORS.accent },
   lineItemTitle: { fontSize: 13, fontWeight: 700, marginBottom: 4 },
   lineItemDesc: { fontSize: 10, color: PDF_COLORS.textSecondary, marginBottom: 8, lineHeight: 1.5 },
   // Amount
-  amountBox: { alignItems: 'flex-end', marginTop: 8, marginBottom: 20 },
+  amountBox: { alignItems: 'flex-end', marginTop: 4, marginBottom: 12 },
   amountRow: { flexDirection: 'row', width: 280, justifyContent: 'space-between', marginBottom: 4 },
   amountLabel: { fontSize: 11, color: PDF_COLORS.textSecondary },
   amountValue: { fontSize: 11, fontWeight: 600 },
@@ -71,15 +71,15 @@ const s = StyleSheet.create({
   amountTotalLabel: { fontSize: 16, fontWeight: 700 },
   amountTotalValue: { fontSize: 16, fontWeight: 700, color: PDF_COLORS.accent },
   // Balance note
-  balanceNote: { marginTop: 16, padding: 14, backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 6, borderLeftWidth: 3, borderLeftColor: PDF_COLORS.amber },
+  balanceNote: { marginTop: 10, padding: 10, backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 6, borderLeftWidth: 3, borderLeftColor: PDF_COLORS.amber },
   balanceTitle: { fontSize: 10, fontWeight: 700, color: PDF_COLORS.amber, marginBottom: 4 },
   balanceText: { fontSize: 10, color: PDF_COLORS.textSecondary, lineHeight: 1.5 },
   // Payment methods
-  paymentBox: { marginTop: 16, padding: 14, backgroundColor: PDF_COLORS.lightGray, borderRadius: 6 },
+  paymentBox: { marginTop: 10, padding: 10, backgroundColor: PDF_COLORS.lightGray, borderRadius: 6 },
   paymentTitle: { fontSize: 10, fontWeight: 700, marginBottom: 6 },
   paymentText: { fontSize: 9, color: PDF_COLORS.textSecondary, marginBottom: 2, lineHeight: 1.5 },
   // Signature
-  sigSection: { marginTop: 28 },
+  sigSection: { marginTop: 16 },
   sigRow: { flexDirection: 'row', marginTop: 20 },
   sigBlock: { flex: 1, marginRight: 20 },
   sigLine: { borderBottomWidth: 1, borderBottomColor: PDF_COLORS.textPrimary, marginBottom: 4 },

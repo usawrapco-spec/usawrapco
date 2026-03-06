@@ -11,10 +11,18 @@ import {
 import { PROPOSAL_STATUS_CONFIG, BADGE_OPTIONS, COMMON_UPSELLS, type Proposal, type ProposalPackage, type ProposalUpsell } from '@/lib/proposals'
 import { createClient } from '@/lib/supabase/client'
 
+interface LocalLineItem {
+  _key: string
+  name: string
+  description: string
+  price: string
+}
+
 interface LocalPackage extends Partial<ProposalPackage> {
   _key: string
   includes: string[]
   photos: string[]
+  _custom_line_items: LocalLineItem[]
 }
 
 interface LocalUpsell extends Partial<ProposalUpsell> {
@@ -39,7 +47,12 @@ let _keyCounter = 0
 function newKey() { return `k${++_keyCounter}` }
 
 function toLocal(pkgs: ProposalPackage[]): LocalPackage[] {
-  return pkgs.map(p => ({ ...p, _key: newKey(), includes: p.includes || [], photos: p.photos || [] }))
+  return pkgs.map(p => ({
+    ...p, _key: newKey(), includes: p.includes || [], photos: p.photos || [],
+    _custom_line_items: (p.custom_line_items || []).map((li: any) => ({
+      _key: newKey(), name: li.name || '', description: li.description || '', price: String(li.price || 0),
+    })),
+  }))
 }
 
 function toLocalUpsells(ups: ProposalUpsell[]): LocalUpsell[] {
@@ -132,6 +145,7 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
     setPackages(prev => [...prev, {
       _key: newKey(), name: 'New Package', description: '', price: 0,
       includes: [], photos: [], badge: '', sort_order: prev.length,
+      _custom_line_items: [],
     }])
   }
 
@@ -164,6 +178,25 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
       if (p._key !== key) return p
       return { ...p, includes: p.includes.filter((_, i) => i !== idx) }
     }))
+  }
+
+  // ── Custom line item helpers
+  function addCustomLineItem(key: string) {
+    setPackages(prev => prev.map(p =>
+      p._key === key ? { ...p, _custom_line_items: [...p._custom_line_items, { _key: newKey(), name: '', description: '', price: '' }] } : p
+    ))
+  }
+
+  function updateCustomLineItem(key: string, liIdx: number, field: keyof LocalLineItem, value: string) {
+    setPackages(prev => prev.map(p =>
+      p._key === key ? { ...p, _custom_line_items: p._custom_line_items.map((li, j) => j === liIdx ? { ...li, [field]: value } : li) } : p
+    ))
+  }
+
+  function removeCustomLineItem(key: string, liIdx: number) {
+    setPackages(prev => prev.map(p =>
+      p._key === key ? { ...p, _custom_line_items: p._custom_line_items.filter((_, j) => j !== liIdx) } : p
+    ))
   }
 
   // ── Upsell helpers
@@ -200,16 +233,25 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
         expiration_date: expDate ? new Date(expDate).toISOString() : null,
         deposit_amount: Number(depositAmount) || 250,
         customer_id: customer?.id || null,
-        packages: packages.map((p, i) => ({
-          name: p.name || '',
-          badge: p.badge || null,
-          description: p.description || null,
-          price: Number(p.price) || 0,
-          includes: p.includes.filter(Boolean),
-          photos: p.photos || [],
-          video_url: (p as any).video_url || null,
-          sort_order: i,
-        })),
+        packages: packages.map((p, i) => {
+          const customItems = p._custom_line_items || []
+          const hasCustom = customItems.length > 0
+          const customTotal = customItems.reduce((s, li) => s + (Number(li.price) || 0), 0)
+          return {
+            name: p.name || '',
+            badge: p.badge || null,
+            description: p.description || null,
+            price: hasCustom ? customTotal : (Number(p.price) || 0),
+            price_mode: hasCustom ? 'auto' : 'manual',
+            custom_line_items: customItems.map(li => ({
+              name: li.name, description: li.description || null, price: Number(li.price) || 0,
+            })),
+            includes: p.includes.filter(Boolean),
+            photos: p.photos || [],
+            video_url: (p as any).video_url || null,
+            sort_order: i,
+          }
+        }),
         upsells: upsells.map((u, i) => ({
           name: u.name || '',
           description: u.description || null,
@@ -256,8 +298,13 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
   // ── Preview calculations
   const previewPkg = packages.find(p => p._key === previewPkgId)
   const previewUpsells = upsells.filter(u => previewUpsellKeys.includes(u._key))
+  const previewPkgPrice = previewPkg
+    ? (previewPkg._custom_line_items.length > 0
+        ? previewPkg._custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0)
+        : Number(previewPkg.price || 0))
+    : 0
   const previewTotal =
-    (Number(previewPkg?.price) || 0) +
+    previewPkgPrice +
     previewUpsells.reduce((s, u) => s + (Number(u.price) || 0), 0)
 
   function copyLink() {
@@ -461,6 +508,9 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
               onAddInclude={() => addInclude(pkg._key)}
               onUpdateInclude={(i, v) => updateInclude(pkg._key, i, v)}
               onRemoveInclude={(i) => removeInclude(pkg._key, i)}
+              onAddLineItem={() => addCustomLineItem(pkg._key)}
+              onUpdateLineItem={(i, f, v) => updateCustomLineItem(pkg._key, i, f, v)}
+              onRemoveLineItem={(i) => removeCustomLineItem(pkg._key, i)}
             />
           ))}
 
@@ -597,6 +647,17 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
                             )}
                           </div>
                           {pkg.description && <div style={{ fontSize: 13, color: '#a0a0a0', marginLeft: 26, marginBottom: 6 }}>{pkg.description}</div>}
+                          {/* Line items in preview */}
+                          {pkg._custom_line_items.length > 0 && (
+                            <div style={{ marginLeft: 26, marginBottom: 6 }}>
+                              {pkg._custom_line_items.map((li, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#999', marginBottom: 2 }}>
+                                  <span>{li.name || 'Item'}</span>
+                                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>${Number(li.price || 0).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {pkg.includes.length > 0 && (
                             <ul style={{ margin: '6px 0 0 26px', padding: 0, listStyle: 'none' }}>
                               {pkg.includes.filter(Boolean).map((inc, i) => (
@@ -608,7 +669,10 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
                           )}
                         </div>
                         <div style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
-                          ${Number(pkg.price || 0).toLocaleString()}
+                          ${(pkg._custom_line_items.length > 0
+                            ? pkg._custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0)
+                            : Number(pkg.price || 0)
+                          ).toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -671,7 +735,7 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
                 {previewPkg && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#a0a0a0', marginBottom: 4 }}>
                     <span>{previewPkg.name}</span>
-                    <span>${Number(previewPkg.price || 0).toLocaleString()}</span>
+                    <span>${previewPkgPrice.toLocaleString()}</span>
                   </div>
                 )}
                 {previewUpsells.map(u => (
@@ -869,9 +933,12 @@ interface PackageEditorProps {
   onAddInclude: () => void
   onUpdateInclude: (i: number, v: string) => void
   onRemoveInclude: (i: number) => void
+  onAddLineItem: () => void
+  onUpdateLineItem: (i: number, f: keyof LocalLineItem, v: string) => void
+  onRemoveLineItem: (i: number) => void
 }
 
-function PackageEditor({ pkg, collapsed, onToggleCollapse, onChange, onRemove, onAddInclude, onUpdateInclude, onRemoveInclude }: PackageEditorProps) {
+function PackageEditor({ pkg, collapsed, onToggleCollapse, onChange, onRemove, onAddInclude, onUpdateInclude, onRemoveInclude, onAddLineItem, onUpdateLineItem, onRemoveLineItem }: PackageEditorProps) {
   return (
     <div style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
       {/* Package header row */}
@@ -886,14 +953,20 @@ function PackageEditor({ pkg, collapsed, onToggleCollapse, onChange, onRemove, o
           style={{ ...inputStyle, flex: 1, padding: '5px 10px', fontSize: 13, fontWeight: 600 }}
           onClick={e => e.stopPropagation()}
         />
-        <input
-          type="number"
-          value={pkg.price || ''}
-          onChange={e => onChange('price', e.target.value)}
-          placeholder="Price"
-          style={{ ...inputStyle, width: 90, padding: '5px 10px', fontSize: 13, textAlign: 'right' }}
-          onClick={e => e.stopPropagation()}
-        />
+        {pkg._custom_line_items.length > 0 ? (
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', padding: '5px 10px' }}>
+            ${pkg._custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0).toLocaleString()}
+          </span>
+        ) : (
+          <input
+            type="number"
+            value={pkg.price || ''}
+            onChange={e => onChange('price', e.target.value)}
+            placeholder="Price"
+            style={{ ...inputStyle, width: 90, padding: '5px 10px', fontSize: 13, textAlign: 'right' }}
+            onClick={e => e.stopPropagation()}
+          />
+        )}
         <button onClick={onRemove} style={{ ...iconBtnStyle, color: 'var(--red)' }}>
           <Trash2 size={13} />
         </button>
@@ -918,6 +991,58 @@ function PackageEditor({ pkg, collapsed, onToggleCollapse, onChange, onRemove, o
                 {BADGE_OPTIONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Line Items */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Line Items</div>
+            {pkg._custom_line_items.length > 0 && (
+              <div style={{
+                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
+                overflow: 'hidden', marginBottom: 8,
+              }}>
+                {pkg._custom_line_items.map((li, liIdx) => (
+                  <div key={li._key} style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 10px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    background: 'var(--bg)',
+                  }}>
+                    <input
+                      value={li.name}
+                      onChange={e => onUpdateLineItem(liIdx, 'name', e.target.value)}
+                      placeholder="Item name..."
+                      style={{ ...inputStyle, flex: 1, padding: '5px 8px', fontSize: 12 }}
+                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <span style={{ position: 'absolute', left: 8, color: 'var(--text3)', fontSize: 12, pointerEvents: 'none' }}>$</span>
+                      <input
+                        type="number"
+                        value={li.price}
+                        onChange={e => onUpdateLineItem(liIdx, 'price', e.target.value)}
+                        placeholder="0"
+                        style={{ ...inputStyle, width: 90, padding: '5px 8px 5px 20px', fontSize: 12, textAlign: 'right' }}
+                      />
+                    </div>
+                    <button onClick={() => onRemoveLineItem(liIdx)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 2, display: 'flex' }}>
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '6px 10px', background: 'rgba(79,127,255,0.08)',
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>Total</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
+                    ${pkg._custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+            <button onClick={onAddLineItem} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              + Add line item
+            </button>
           </div>
 
           {/* What's included */}

@@ -226,8 +226,23 @@ def line_items_table(c, so, y):
         c.drawString(cx, y-ROW_H+4, hdr)
     y -= ROW_H
 
+    FOOTER_Y = 40
     line_items = so.get('line_items', [])
     for i, item in enumerate(line_items):
+        if y - ROW_H < FOOTER_Y:
+            c.showPage(); bg(c)
+            y = H - 30
+            # Reprint table header
+            c.setFillColor(NAVY); c.rect(LX, y-ROW_H, TW, ROW_H, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont('PopB', 6.5)
+            for cx, hdr in [
+                (COL['desc']+2, 'DESCRIPTION'), (COL['revenue'], 'REVENUE'),
+                (COL['material'], 'MATERIAL'), (COL['labor'], 'LABOR'),
+                (COL['design'], 'DESIGN'), (COL['cogs'], 'TOTAL COGS'),
+                (COL['gp'], 'GROSS PROFIT'), (COL['gpm'], 'GPM %'),
+            ]:
+                c.drawString(cx, y-ROW_H+4, hdr)
+            y -= ROW_H
         row_fill = ROWALT if i % 2 == 0 else WHITE
         c.setFillColor(row_fill); c.rect(LX, y-ROW_H, TW, ROW_H, fill=1, stroke=0)
         hline(c, LX, y-ROW_H, TW, col=LTGRAY)
@@ -496,6 +511,15 @@ def footer(c, so):
 
 
 # ── MAIN GENERATOR ────────────────────────────────────────────────────────────
+def _page_break_if_needed(c, so, y, min_space=120):
+    """Start a new page if remaining space is less than min_space."""
+    if y < min_space:
+        footer(c, so)
+        c.showPage()
+        bg(c)
+        y = H - 30
+    return y
+
 def gen_salesorder(c, so):
     bg(c)
     BAND = 62; META = 14
@@ -503,10 +527,15 @@ def gen_salesorder(c, so):
 
     y = H - BAND - META - 8
     y = job_details(c, so, y)
+    y = _page_break_if_needed(c, so, y)
     y = line_items_table(c, so, y)
+    y = _page_break_if_needed(c, so, y)
     y = financials(c, so, y)
+    y = _page_break_if_needed(c, so, y)
     y = install_section(c, so, y)
+    y = _page_break_if_needed(c, so, y, 80)
     y = notes_section(c, so, y)
+    y = _page_break_if_needed(c, so, y, 80)
     y = signoff(c, so, y)
     footer(c, so)
 

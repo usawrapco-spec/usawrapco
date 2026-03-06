@@ -87,6 +87,8 @@ interface Props {
 
 export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreateProposal }: Props) {
   const [product, setProduct]           = useState<DekwaveKey>((specs.dekwaveProduct as DekwaveKey) || '6mm')
+  const [sqftMode, setSqftMode]        = useState<'sections' | 'total'>((specs.sqftMode as 'sections' | 'total') || 'sections')
+  const [manualTotalSqft, setManualTotalSqft] = useState<number>((specs.manualTotalSqft as number) || 0)
   const [sections, setSections]         = useState<DeckSection[]>(() => {
     const saved = specs.deckSections as DeckSection[] | undefined
     const isInches = specs.dimensionUnit === 'inches'
@@ -131,7 +133,8 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
   const [confirmReplace, setConfirmReplace] = useState(false)
 
   const padCost      = DEKWAVE_PRODUCTS.find(p => p.key === product)?.padCost ?? PAD_COST
-  const totalSqft    = useMemo(() => sections.reduce((s, sec) => s + sectionSqft(sec), 0), [sections])
+  const sectionsSqft = useMemo(() => sections.reduce((s, sec) => s + sectionSqft(sec), 0), [sections])
+  const totalSqft    = sqftMode === 'total' ? manualTotalSqft : sectionsSqft
   const padCount     = Math.ceil(totalSqft / PAD_SQFT)
 
   // Clamp laser pad count
@@ -191,7 +194,8 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
       name: 'DEKWAVE ' + product.toUpperCase() + ' Decking \u2014 ' + Math.round(totalSqft) + ' sqft',
       unit_price: effectiveSalePrice,
       specs: {
-        dekwaveProduct: product, deckSections: sections, laserActive, laserPadCount,
+        dekwaveProduct: product, sqftMode, manualTotalSqft,
+        deckSections: sections, laserActive, laserPadCount,
         laserPerPadCost: LASER_PER_PAD, scanCost, hardwareCost, discountPct,
         pricingMode, pricePerPad,
         installOverride, installerPay: effectiveInstallPay,
@@ -203,7 +207,7 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
       },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, sections, laserActive, laserPadCount, scanCost, hardwareCost, discountPct,
+  }, [product, sqftMode, manualTotalSqft, sections, laserActive, laserPadCount, scanCost, hardwareCost, discountPct,
       salePrice, pricePerPad, pricingMode, totalSqft, installOverride, installerPay,
       deckingInstall.pay, boatCategory, boatTypeId])
 
@@ -319,8 +323,14 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
       {/* 3. Deck Sections */}
       <div style={{ marginBottom: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <div style={secLabel}>Deck Sections</div>
-          {canWrite && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={secLabel}>Deck Sections</div>
+            <div style={{ display: 'flex', gap: 3 }}>
+              <button onClick={() => canWrite && setSqftMode('sections')} style={pillBtnCompact(sqftMode === 'sections', 'var(--cyan)')}>By Section</button>
+              <button onClick={() => canWrite && setSqftMode('total')} style={pillBtnCompact(sqftMode === 'total', 'var(--accent)')}>Total Sqft</button>
+            </div>
+          </div>
+          {canWrite && sqftMode === 'sections' && (
             <button onClick={addSection} style={{
               display: 'flex', alignItems: 'center', gap: 3, padding: '2px 8px',
               borderRadius: 5, fontSize: 9, fontWeight: 800, cursor: 'pointer',
@@ -333,58 +343,79 @@ export default function BoatDeckingCalc({ specs, onChange, canWrite, onCreatePro
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 58px 58px 82px 44px 20px', gap: 3, padding: '0 2px', marginBottom: 3 }}>
-          {['Section Name', 'Len (in)', 'Wid (in)', 'Shape', 'Sqft', ''].map(h => (
-            <div key={h} style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif' }}>{h}</div>
-          ))}
-        </div>
+        {sqftMode === 'total' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--surface)', borderRadius: 6 }}>
+            <label style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+              Total Sqft
+            </label>
+            <input type="number" value={manualTotalSqft || ''} onChange={e => setManualTotalSqft(Number(e.target.value))}
+              placeholder="0" style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 13, padding: '5px 8px', maxWidth: 120 }}
+              disabled={!canWrite} min={0} step={1} />
+            {padCount > 0 && (
+              <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text2)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                &rarr; {padCount} pads needed
+              </span>
+            )}
+            <span style={{ marginLeft: 'auto', ...mono, fontSize: 13, fontWeight: 800, color: totalSqft > 0 ? 'var(--cyan)' : 'var(--text3)' }}>
+              {fmtN(totalSqft, 1)} sqft
+            </span>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 58px 58px 82px 44px 20px', gap: 3, padding: '0 2px', marginBottom: 3 }}>
+              {['Section Name', 'Len (in)', 'Wid (in)', 'Shape', 'Sqft', ''].map(h => (
+                <div key={h} style={{ fontSize: 8, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Barlow Condensed, sans-serif' }}>{h}</div>
+              ))}
+            </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {sections.map(sec => {
-            const sqft     = sectionSqft(sec)
-            const isManual = sec.shape === 'manual'
-            return (
-              <div key={sec.id} style={{ display: 'grid', gridTemplateColumns: '1fr 58px 58px 82px 44px 20px', gap: 3, alignItems: 'center' }}>
-                <input value={sec.name} onChange={e => updateSection(sec.id, 'name', e.target.value)}
-                  placeholder="Section name" style={{ ...calcInputCompact, fontSize: 11, padding: '4px 7px' }} disabled={!canWrite} />
-                {isManual ? (
-                  <input type="number" value={sec.manualSqft || ''} onChange={e => updateSection(sec.id, 'manualSqft', Number(e.target.value))}
-                    style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px', gridColumn: '2 / 4' }}
-                    disabled={!canWrite} min={0} step={0.5} placeholder="sqft" />
-                ) : (
-                  <>
-                    <input type="number" value={sec.length || ''} onChange={e => updateSection(sec.id, 'length', Number(e.target.value))}
-                      style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px' }} disabled={!canWrite} min={0} step={1} />
-                    <input type="number" value={sec.width || ''} onChange={e => updateSection(sec.id, 'width', Number(e.target.value))}
-                      style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px' }} disabled={!canWrite} min={0} step={1} />
-                  </>
-                )}
-                <select value={sec.shape} onChange={e => updateSection(sec.id, 'shape', e.target.value as ShapeType)}
-                  style={{ ...calcInputCompact, fontSize: 10, padding: '4px 4px', appearance: 'none', WebkitAppearance: 'none' }} disabled={!canWrite}>
-                  <option value="rectangle">Rectangle</option>
-                  <option value="triangle">Triangle</option>
-                  <option value="manual">Manual</option>
-                </select>
-                <div style={{ ...mono, fontSize: 11, fontWeight: 700, color: sqft > 0 ? 'var(--cyan)' : 'var(--text3)', textAlign: 'right' }}>{fmtN(sqft, 1)}</div>
-                {canWrite && sections.length > 1 ? (
-                  <button onClick={() => removeSection(sec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 2, display: 'flex', alignItems: 'center' }}>
-                    <Trash2 size={11} />
-                  </button>
-                ) : <div />}
-              </div>
-            )
-          })}
-        </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {sections.map(sec => {
+                const sqft     = sectionSqft(sec)
+                const isManual = sec.shape === 'manual'
+                return (
+                  <div key={sec.id} style={{ display: 'grid', gridTemplateColumns: '1fr 58px 58px 82px 44px 20px', gap: 3, alignItems: 'center' }}>
+                    <input value={sec.name} onChange={e => updateSection(sec.id, 'name', e.target.value)}
+                      placeholder="Section name" style={{ ...calcInputCompact, fontSize: 11, padding: '4px 7px' }} disabled={!canWrite} />
+                    {isManual ? (
+                      <input type="number" value={sec.manualSqft || ''} onChange={e => updateSection(sec.id, 'manualSqft', Number(e.target.value))}
+                        style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px', gridColumn: '2 / 4' }}
+                        disabled={!canWrite} min={0} step={0.5} placeholder="sqft" />
+                    ) : (
+                      <>
+                        <input type="number" value={sec.length || ''} onChange={e => updateSection(sec.id, 'length', Number(e.target.value))}
+                          style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px' }} disabled={!canWrite} min={0} step={1} />
+                        <input type="number" value={sec.width || ''} onChange={e => updateSection(sec.id, 'width', Number(e.target.value))}
+                          style={{ ...calcInputCompact, ...mono, textAlign: 'right', fontSize: 11, padding: '4px 5px' }} disabled={!canWrite} min={0} step={1} />
+                      </>
+                    )}
+                    <select value={sec.shape} onChange={e => updateSection(sec.id, 'shape', e.target.value as ShapeType)}
+                      style={{ ...calcInputCompact, fontSize: 10, padding: '4px 4px', appearance: 'none', WebkitAppearance: 'none' }} disabled={!canWrite}>
+                      <option value="rectangle">Rectangle</option>
+                      <option value="triangle">Triangle</option>
+                      <option value="manual">Manual</option>
+                    </select>
+                    <div style={{ ...mono, fontSize: 11, fontWeight: 700, color: sqft > 0 ? 'var(--cyan)' : 'var(--text3)', textAlign: 'right' }}>{fmtN(sqft, 1)}</div>
+                    {canWrite && sections.length > 1 ? (
+                      <button onClick={() => removeSection(sec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 2, display: 'flex', alignItems: 'center' }}>
+                        <Trash2 size={11} />
+                      </button>
+                    ) : <div />}
+                  </div>
+                )
+              })}
+            </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, padding: '4px 8px', background: 'var(--surface)', borderRadius: 6 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Total Net Sqft
-            {padCount > 0 && <span style={{ color: 'var(--text2)', marginLeft: 8 }}>&rarr; {padCount} pads needed</span>}
-          </span>
-          <span style={{ ...mono, fontSize: 13, fontWeight: 800, color: totalSqft > 0 ? 'var(--cyan)' : 'var(--text3)' }}>
-            {fmtN(totalSqft, 1)} sqft
-          </span>
-        </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, padding: '4px 8px', background: 'var(--surface)', borderRadius: 6 }}>
+              <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Total Net Sqft
+                {padCount > 0 && <span style={{ color: 'var(--text2)', marginLeft: 8 }}>&rarr; {padCount} pads needed</span>}
+              </span>
+              <span style={{ ...mono, fontSize: 13, fontWeight: 800, color: totalSqft > 0 ? 'var(--cyan)' : 'var(--text3)' }}>
+                {fmtN(totalSqft, 1)} sqft
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <div style={hr} />

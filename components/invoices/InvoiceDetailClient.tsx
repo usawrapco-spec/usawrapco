@@ -1053,12 +1053,18 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
 
             {/* ── ACTION BUTTON ────────────────────────── */}
             {canWrite && status !== 'void' && (
-              <div style={{ padding: '14px 16px' }}>
+              <div style={{ padding: '10px 16px', display: 'flex', gap: 8 }}>
                 <button
                   onClick={handleSendInvoice}
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  <Send size={14} /> Send Invoice
+                  <Send size={13} /> Send
+                </button>
+                <button
+                  onClick={handleExportPdf}
+                  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  <Download size={13} /> PDF
                 </button>
               </div>
             )}
@@ -1097,7 +1103,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
           )}
 
           {/* Online Payment Link */}
-          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && (
+          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && total > 0 && (
             <div className="card">
               <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Link2 size={13} style={{ color: 'var(--accent)' }} /> Online Payment Link
@@ -1107,7 +1113,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
           )}
 
           {/* Financing */}
-          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && (
+          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && total > 0 && (
             <div className="card">
               <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Calendar size={13} style={{ color: 'var(--accent)' }} /> Financing (Wisetack)
@@ -1123,40 +1129,6 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                 customerEmail={inv.customer?.email || null}
                 currentFinancingStatus={financingStatus as any}
               />
-            </div>
-          )}
-
-          {/* Status actions */}
-          {canWrite && (
-            <div className="card">
-              <div className="section-label">Actions</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {status === 'draft' && (
-                  <button onClick={handleSendInvoice} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
-                    <Send size={13} style={{ color: 'var(--accent)' }} /> Send Invoice
-                  </button>
-                )}
-                {status !== 'sent' && status !== 'void' && status !== 'paid' && (
-                  <button onClick={() => handleStatusChange('sent')} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
-                    <Send size={13} style={{ color: 'var(--accent)' }} /> Mark as Sent
-                  </button>
-                )}
-                {status !== 'paid' && status !== 'void' && (
-                  <button onClick={() => handleStatusChange('paid')} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
-                    <CheckCircle2 size={13} style={{ color: 'var(--green)' }} /> Mark as Paid
-                  </button>
-                )}
-                {status !== 'void' && (
-                  <button onClick={() => handleStatusChange('void')} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}>
-                    <Ban size={13} style={{ color: 'var(--text3)' }} /> Void Invoice
-                  </button>
-                )}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
-                  <button onClick={handleExportPdf} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', width: '100%' }}>
-                    <Download size={13} style={{ color: 'var(--accent)' }} /> Export PDF
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 

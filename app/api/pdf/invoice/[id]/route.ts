@@ -31,7 +31,7 @@ Font.register({
 })
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white },
+  page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 50 },
   headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 20 },
   logo: { width: 140, height: 45, objectFit: 'contain' },
   headerRight: { alignItems: 'flex-end' },
@@ -214,8 +214,8 @@ function InvoicePDF({ invoice, lineItems, payments }: {
         React.createElement(View, { style: s.divider }),
 
         // Line items table
-        React.createElement(View, { style: { marginBottom: 12 } },
-          React.createElement(View, { style: s.tableHeader },
+        React.createElement(View, { style: { marginBottom: 12 }, wrap: true },
+          React.createElement(View, { style: s.tableHeader, fixed: true },
             React.createElement(Text, { style: [s.tableHeaderCell, s.colDesc as any] }, 'Description'),
             React.createElement(Text, { style: [s.tableHeaderCell, s.colCoverage as any] }, 'Details'),
             React.createElement(Text, { style: [s.tableHeaderCell, s.colQty as any] }, 'Qty'),
@@ -225,6 +225,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
           ...lineItems.map((item, i) =>
             React.createElement(View, {
               key: i,
+              wrap: false,
               style: [s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}] as any,
             },
               React.createElement(View, { style: s.colDesc },
@@ -251,7 +252,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
         ),
 
         // Totals
-        React.createElement(View, { style: s.totalsBlock },
+        React.createElement(View, { style: s.totalsBlock, wrap: false },
           React.createElement(View, { style: s.totalsRow },
             React.createElement(Text, { style: s.totalsLabel }, 'Subtotal'),
             React.createElement(Text, { style: s.totalsValue }, formatCurrency(subtotal)),
@@ -303,7 +304,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
         ),
 
         // Payment options
-        React.createElement(View, { style: s.payOptionsBox },
+        React.createElement(View, { style: s.payOptionsBox, wrap: false },
           React.createElement(Text, { style: s.payOptTitle }, 'Payment Options'),
           React.createElement(View, { style: s.payOptRow },
             React.createElement(Text, { style: s.payOptLabel }, 'Pay Online:'),
@@ -333,7 +334,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
       ),
 
       // Footer
-      React.createElement(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
+      React.createElement(View, { fixed: true, style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
         React.createElement(View, { style: s.footer },
           React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
           React.createElement(Text, { style: s.footerTagline }, BRAND.tagline),

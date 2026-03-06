@@ -89,6 +89,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             computedPrice = (items || []).reduce((sum: number, li: any) => sum + (li.total_price || 0), 0)
           }
 
+          // Add custom line items total to price
+          const customLineItems = p.custom_line_items || []
+          const customTotal = customLineItems.reduce((sum: number, li: any) => sum + (Number(li.price) || 0), 0)
+          computedPrice += customTotal
+
           return {
             proposal_id: params.id,
             name: p.name || `Package ${i + 1}`,
@@ -97,6 +102,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             price: computedPrice,
             price_mode: priceMode,
             line_item_ids: lineItemIds,
+            custom_line_items: customLineItems,
             includes: p.includes || [],
             photos: p.photos || [],
             video_url: p.video_url || null,
