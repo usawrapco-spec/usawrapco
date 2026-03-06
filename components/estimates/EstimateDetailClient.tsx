@@ -2077,8 +2077,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 )}
               </div>
 
-<<<<<<< Updated upstream
-=======
               <button
                 onClick={() => setProposalMode(true)}
                 style={{
@@ -2107,7 +2105,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 <Briefcase size={13} />
                 Create Job
               </button>
->>>>>>> Stashed changes
               {canWrite && (
                 <button
                   onClick={() => addNewLineItem()}
@@ -2365,29 +2362,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
               totalGPM={0}
             />
-<<<<<<< Updated upstream
-            {!showCustomerNote && (
-              <button
-                onClick={() => setShowCustomerNote(true)}
-                style={{
-                  background: 'transparent', border: 'none', color: 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
-                }}
-              >
-                + Add Customer Note
-              </button>
-            )}
-            {showCustomerNote && (
-              <>
-                <label style={fieldLabelStyle}>Customer Note</label>
-                <textarea
-                  value={customerNote}
-                  onChange={e => setCustomerNote(e.target.value)}
-                  disabled={!canWrite}
-                  placeholder="Note visible to customer on the estimate..."
-                  rows={4}
-                  style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 80 }}
-=======
 
             {/* Right: Unified Financial Panel */}
             <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
@@ -2535,10 +2509,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   customerId={est.customer_id}
                   currentDocId={estimateId}
                   currentDocType="estimate"
->>>>>>> Stashed changes
                 />
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       )}
