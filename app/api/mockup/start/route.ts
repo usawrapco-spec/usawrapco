@@ -151,6 +151,7 @@ export async function POST(req: NextRequest) {
     force_style,            // 'a' | 'b' | 'c' | undefined
     provider = 'openai' as ImageProvider,
     customer_id,
+    inspiration_urls = [] as string[],
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
 
   const mockupId = randomUUID()
 
-  await admin.from('mockup_results').insert({
+  const { error: insertError } = await admin.from('mockup_results').insert({
     id: mockupId,
     org_id: orgId,
     project_id: project_id || null,
@@ -181,13 +182,21 @@ export async function POST(req: NextRequest) {
     industry,
     style_notes,
     font_choice,
+    wrap_coverage: wrap_coverage || 'full',
+    inspiration_urls: body.inspiration_urls || null,
     input_prompt: JSON.stringify({
       brand_colors, company_name, industry, style_notes,
       vehicle_make, vehicle_model, vehicle_year, vehicle_body_type,
       wrap_coverage, vehicle_sqft, output_type, sign_type,
       phone, website, tagline,
+      inspiration_urls: body.inspiration_urls || [],
     }),
   })
+
+  if (insertError) {
+    console.error('Failed to insert mockup_results:', insertError)
+    return NextResponse.json({ error: `Failed to create mockup record: ${insertError.message}` }, { status: 500 })
+  }
 
   try {
     // ── Step 1: Quick Claude brand analysis ──────────────────────────────────
@@ -197,9 +206,16 @@ export async function POST(req: NextRequest) {
     try {
       const content: Anthropic.MessageParam['content'] = []
       if (logo_url) content.push({ type: 'image', source: { type: 'url', url: logo_url } })
+      // Include inspiration images in brand analysis
+      if (inspiration_urls && inspiration_urls.length > 0) {
+        for (const inspoUrl of inspiration_urls.slice(0, 3)) {
+          if (inspoUrl) content.push({ type: 'image', source: { type: 'url', url: inspoUrl } })
+        }
+      }
+      const inspoNote = inspiration_urls?.length ? ' The user has provided reference/inspiration images — incorporate their visual style, color usage, and layout patterns into your design direction.' : ''
       content.push({
         type: 'text',
-        text: `You're a vehicle wrap designer. In 1-2 sentences, describe the ideal design direction for this brand. Company: ${company_name || 'Business'}. Industry: ${industry || 'General'}. Colors: ${brand_colors.join(', ')}. Style: ${style_notes || 'Professional'}.`,
+        text: `You're a vehicle wrap designer. In 1-2 sentences, describe the ideal design direction for this brand.${inspoNote} Company: ${company_name || 'Business'}. Industry: ${industry || 'General'}. Colors: ${brand_colors.join(', ')}. Style: ${style_notes || 'Professional'}.`,
       })
       const msg = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',

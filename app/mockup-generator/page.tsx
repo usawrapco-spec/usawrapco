@@ -92,10 +92,11 @@ const BRAND_COLORS_PRESET = [
 ]
 
 const COVERAGE_OPTIONS = [
-  { id: 'full',          label: 'Full Wrap',    desc: '100% coverage' },
-  { id: 'three_quarter', label: '3/4 Wrap',     desc: 'Sides + roof + hood' },
-  { id: 'half',          label: 'Half Wrap',    desc: 'Lower half + doors' },
-  { id: 'partial',       label: 'Partial',      desc: 'Custom sections' },
+  { id: 'full',          label: 'Full Wrap',      desc: '100% coverage',          pct: 1.0  },
+  { id: 'three_quarter', label: '3/4 Wrap',       desc: 'Sides + roof + hood',    pct: 0.75 },
+  { id: 'half',          label: 'Half Wrap',      desc: 'Lower half + doors',     pct: 0.60 },
+  { id: 'quarter',       label: 'Quarter Wrap',   desc: 'Key branding areas',     pct: 0.30 },
+  { id: 'spot',          label: 'Spot Graphics',  desc: 'Logo + contact decals',  pct: 0.15 },
 ]
 
 const SIGN_TYPES = [
@@ -250,6 +251,12 @@ export default function MockupGeneratorPage() {
   const [approveError, setApproveError] = useState<string | null>(null)
   const [printUrl, setPrintUrl] = useState<string | null>(null)
   const [zoomed, setZoomed] = useState(false)
+
+  // Inspiration images
+  const [inspirationFiles, setInspirationFiles] = useState<File[]>([])
+  const [inspirationPreviews, setInspirationPreviews] = useState<string[]>([])
+  const [inspirationUrls, setInspirationUrls] = useState<string[]>([])
+  const inspirationRef = useRef<HTMLInputElement>(null)
 
   // Booking step
   const [bookingType, setBookingType] = useState<'zoom' | 'inshop' | null>(null)
@@ -416,6 +423,43 @@ export default function MockupGeneratorPage() {
     } catch { return null }
   }
 
+  // ── Inspiration image upload ─────────────────────────────────────────────────
+  const handleInspirationUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const newFiles = [...inspirationFiles, ...files].slice(0, 5)
+    setInspirationFiles(newFiles)
+    // Generate previews
+    const previews: string[] = []
+    for (const f of newFiles) {
+      previews.push(URL.createObjectURL(f))
+    }
+    setInspirationPreviews(previews)
+  }, [inspirationFiles])
+
+  async function uploadInspirationImages(): Promise<string[]> {
+    if (!inspirationFiles.length) return []
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const urls: string[] = []
+      for (const file of inspirationFiles) {
+        const ext = file.name.split('.').pop() || 'png'
+        const path = `inspiration/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const ab = await file.arrayBuffer()
+        const { error } = await supabase.storage.from('project-files').upload(path, new Uint8Array(ab), {
+          contentType: file.type, upsert: true,
+        })
+        if (!error) {
+          const { data } = supabase.storage.from('project-files').getPublicUrl(path)
+          urls.push(data.publicUrl)
+        }
+      }
+      setInspirationUrls(urls)
+      return urls
+    } catch { return [] }
+  }
+
   // ── Website scrape ─────────────────────────────────────────────────────────
   async function handleScrape() {
     if (!websiteScrapeUrl.trim()) return
@@ -484,6 +528,7 @@ export default function MockupGeneratorPage() {
 
     try {
       const logoUrl = await getLogoUrl()
+      const inspoUrls = await uploadInspirationImages()
       const res = await fetch('/api/mockup/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -505,6 +550,7 @@ export default function MockupGeneratorPage() {
           brand_colors: brandColors,
           industry,
           style_notes: styleChoice,
+          inspiration_urls: inspoUrls,
         }),
       })
       const data = await res.json()
@@ -1188,24 +1234,66 @@ export default function MockupGeneratorPage() {
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Wrap Coverage
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                  {COVERAGE_OPTIONS.map(c => (
-                    <div
-                      key={c.id}
-                      onClick={() => setCoverage(c.id)}
-                      style={{
-                        padding: '14px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
-                        border: coverage === c.id ? '2px solid var(--accent)' : '1px solid var(--border)',
-                        background: coverage === c.id ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
-                      }}
-                    >
-                      <div style={{ fontSize: 14, fontWeight: 700, color: coverage === c.id ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{c.label}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{c.desc}</div>
-                    </div>
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                  {COVERAGE_OPTIONS.map(c => {
+                    const coveragePrice = estimatedPrice ? Math.round((estimatedPrice * c.pct) / 100) * 100 : null
+                    return (
+                      <div
+                        key={c.id}
+                        onClick={() => setCoverage(c.id)}
+                        style={{
+                          padding: '14px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
+                          border: coverage === c.id ? '2px solid var(--accent)' : '1px solid var(--border)',
+                          background: coverage === c.id ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 700, color: coverage === c.id ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{c.label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{c.desc}</div>
+                        {coveragePrice && (
+                          <div style={{ fontSize: 15, fontWeight: 800, color: coverage === c.id ? 'var(--accent)' : 'var(--green)', marginTop: 4 }}>
+                            ~${coveragePrice.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
+
+            {/* Inspiration images */}
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Inspiration / Reference Images (optional)
+              </label>
+              <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 10 }}>
+                Upload photos of wraps you like — the AI will use them as design inspiration.
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                {inspirationPreviews.map((url, i) => (
+                  <div key={i} style={{ position: 'relative', width: 90, height: 90, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Inspiration ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button onClick={() => {
+                      setInspirationFiles(f => f.filter((_, idx) => idx !== i))
+                      setInspirationPreviews(p => p.filter((_, idx) => idx !== i))
+                    }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11 }}>
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                {inspirationFiles.length < 5 && (
+                  <div
+                    onClick={() => inspirationRef.current?.click()}
+                    style={{ width: 90, height: 90, border: '2px dashed var(--border)', borderRadius: 8, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'var(--surface2)' }}
+                  >
+                    <ImageIcon size={18} style={{ color: 'var(--text3)' }} />
+                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>Add</span>
+                  </div>
+                )}
+              </div>
+              <input ref={inspirationRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleInspirationUpload} />
+            </div>
           </div>
 
           {/* Generation progress */}
@@ -1260,9 +1348,36 @@ export default function MockupGeneratorPage() {
       {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Choose Your Design Direction</h2>
-          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>
-            6 concepts generated. Pick the direction you like and tell us what to keep or change.
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 16 }}>
+            {Object.values(concepts).filter(Boolean).length} concepts generated. Pick the direction you like and tell us what to keep or change.
           </p>
+
+          {/* Ballpark pricing summary */}
+          {estimatedPrice && outputType === 'wrap' && (
+            <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+              {COVERAGE_OPTIONS.map(c => {
+                const price = Math.round((estimatedPrice * c.pct) / 100) * 100
+                const isActive = coverage === c.id
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => setCoverage(c.id)}
+                    style={{
+                      flex: '1 1 auto', minWidth: 120, padding: '12px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
+                      border: isActive ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      background: isActive ? 'rgba(79,127,255,0.1)' : 'var(--surface2)',
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text2)', marginBottom: 2 }}>{c.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: isActive ? 'var(--accent)' : 'var(--green)' }}>~${price.toLocaleString()}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
+                      {selectedYear} {selectedMake} {selectedModel}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {Object.values(concepts).some(Boolean) ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 28 }}>
