@@ -6,10 +6,7 @@ export function getPdfLogoSrc(): string {
 }
 
 import path from 'path'
-import fs from 'fs'
 
 export function getPdfLogoDarkSrc(): string {
-  const filePath = path.join(process.cwd(), 'public', 'logo-pdf-dark.svg')
-  const content = fs.readFileSync(filePath)
-  return `data:image/svg+xml;base64,${content.toString('base64')}`
+  return path.join(process.cwd(), 'public', 'logo-pdf-dark.svg')
 }
