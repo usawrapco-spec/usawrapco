@@ -42,6 +42,7 @@ export default function AddAffiliateModal({ type, onClose, onCreated }: AddAffil
       phone: form.phone.trim() || null,
       type,
       status: 'active',
+      code,
       unique_code: code,
       unique_link: `/ref/${code}`,
       commission_structure: { type: 'percent_gp', rate: type === 'dealer' ? 10 : 7 },
