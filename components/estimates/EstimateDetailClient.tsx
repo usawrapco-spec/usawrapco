@@ -1382,7 +1382,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   } catch { showToast('Work order PDF failed') }
                 }} />
                 <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/proposal/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `USA-Wrap-Co-Proposal-EST-${est.estimate_number}${customerSlug ? `-${customerSlug}` : ''}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Proposal PDF failed') } }} />
-                <MenuButton icon={<DollarSign size={13} />} label="Quick Print" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
           </div>

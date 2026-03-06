@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Save, Send, ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp,
   CheckCircle, X, Check, Copy, ExternalLink, User, Calendar,
-  DollarSign, AlignLeft, Star,
+  DollarSign, AlignLeft, Star, LayoutTemplate, Loader2,
 } from 'lucide-react'
 import { PROPOSAL_STATUS_CONFIG, BADGE_OPTIONS, COMMON_UPSELLS, type Proposal, type ProposalPackage, type ProposalUpsell } from '@/lib/proposals'
 import { createClient } from '@/lib/supabase/client'
@@ -102,6 +102,16 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
 
   // ── Collapsed packages
   const [collapsedPkgs, setCollapsedPkgs] = useState<Record<string, boolean>>({})
+
+  // ── Templates
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [templateTab, setTemplateTab] = useState<'load' | 'save'>('load')
+  const [templates, setTemplates] = useState<any[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [templateSaveName, setTemplateSaveName] = useState('')
+  const [templateSaveDesc, setTemplateSaveDesc] = useState('')
+  const [templateSaving, setTemplateSaving] = useState(false)
+  const [templateSavedOk, setTemplateSavedOk] = useState(false)
 
   const proposalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://app.usawrapco.com'}/proposal/${proposal.public_token}`
   const status = proposal.status
@@ -218,6 +228,88 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
 
   function updateUpsell(key: string, field: string, value: unknown) {
     setUpsells(prev => prev.map(u => u._key === key ? { ...u, [field]: value } : u))
+  }
+
+  // ── Templates
+  async function openTemplateModal() {
+    setShowTemplateModal(true)
+    setTemplateTab('load')
+    setTemplatesLoading(true)
+    try {
+      const { data } = await supabase
+        .from('proposal_templates')
+        .select('id, name, description, use_count, packages, upsells, message, closing_message, terms_conditions, deposit_amount')
+        .order('use_count', { ascending: false })
+      setTemplates(data || [])
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }
+
+  function applyTemplate(tpl: any) {
+    if (tpl.message) setMessage(tpl.message)
+    if (tpl.closing_message) setClosingMessage(tpl.closing_message)
+    if (tpl.terms_conditions) setTerms(tpl.terms_conditions)
+    if (tpl.deposit_amount) setDepositAmount(String(tpl.deposit_amount))
+    if (Array.isArray(tpl.packages) && tpl.packages.length > 0) {
+      setPackages(tpl.packages.map((p: any) => ({
+        ...p,
+        _key: newKey(),
+        includes: p.includes || [],
+        photos: p.photos || [],
+        _custom_line_items: (p.custom_line_items || []).map((li: any) => ({
+          _key: newKey(), name: li.name || '', description: li.description || '', price: String(li.price || 0),
+        })),
+      })))
+    }
+    if (Array.isArray(tpl.upsells) && tpl.upsells.length > 0) {
+      setUpsells(tpl.upsells.map((u: any) => ({ ...u, _key: newKey() })))
+    }
+    // Bump use count
+    supabase.from('proposal_templates').update({ use_count: (tpl.use_count || 0) + 1 }).eq('id', tpl.id).then(() => {})
+    setShowTemplateModal(false)
+  }
+
+  async function saveAsTemplate() {
+    if (!templateSaveName.trim()) return
+    setTemplateSaving(true)
+    try {
+      const pkgsToSave = packages.map((p, i) => ({
+        name: p.name || '',
+        badge: p.badge || null,
+        description: p.description || null,
+        price: p._custom_line_items.length > 0
+          ? p._custom_line_items.reduce((s, li) => s + (Number(li.price) || 0), 0)
+          : (Number(p.price) || 0),
+        price_mode: p._custom_line_items.length > 0 ? 'auto' : 'manual',
+        custom_line_items: p._custom_line_items.map(li => ({ name: li.name, description: li.description || null, price: Number(li.price) || 0 })),
+        includes: p.includes.filter(Boolean),
+        photos: p.photos || [],
+        sort_order: i,
+      }))
+      const upsellsToSave = upsells.map((u, i) => ({
+        name: u.name || '', description: u.description || null,
+        price: Number(u.price) || 0, badge: u.badge || null, sort_order: i,
+      }))
+      const { error } = await supabase.from('proposal_templates').insert({
+        name: templateSaveName.trim(),
+        description: templateSaveDesc.trim() || null,
+        message: message || null,
+        closing_message: closingMessage || null,
+        terms_conditions: terms || null,
+        deposit_amount: Number(depositAmount) || 250,
+        packages: pkgsToSave,
+        upsells: upsellsToSave,
+      })
+      if (!error) {
+        setTemplateSavedOk(true)
+        setTemplateSaveName('')
+        setTemplateSaveDesc('')
+        setTimeout(() => { setTemplateSavedOk(false); setShowTemplateModal(false) }, 1800)
+      }
+    } finally {
+      setTemplateSaving(false)
+    }
   }
 
   // ── Save
@@ -365,6 +457,18 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
           </span>
         )}
         {saveError && <span style={{ fontSize: 11, color: 'var(--red)' }}>{saveError}</span>}
+
+        <button
+          onClick={openTemplateModal}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
+            background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 7, color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}
+          title="Load or save proposal template"
+        >
+          <LayoutTemplate size={14} /> Templates
+        </button>
 
         <button
           onClick={save}
@@ -792,6 +896,162 @@ export default function ProposalBuilder({ proposal, packages: initPkgs, upsells:
           </div>
         </div>
       </div>
+
+      {/* ── Template Modal ── */}
+      {showTemplateModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowTemplateModal(false) }}
+        >
+          <div style={{
+            background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 14, width: '100%', maxWidth: 520, overflow: 'hidden',
+            display: 'flex', flexDirection: 'column', maxHeight: '80vh',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <LayoutTemplate size={16} color="var(--accent)" />
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Proposal Templates</h3>
+              </div>
+              <button onClick={() => setShowTemplateModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              {(['load', 'save'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setTemplateTab(tab)}
+                  style={{
+                    flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
+                    background: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+                    color: templateTab === tab ? 'var(--accent)' : 'var(--text3)',
+                    borderBottom: templateTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
+                  }}
+                >
+                  {tab === 'load' ? 'Load Template' : 'Save as Template'}
+                </button>
+              ))}
+            </div>
+
+            {/* Body */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+
+              {/* Load tab */}
+              {templateTab === 'load' && (
+                <div style={{ padding: '16px 24px' }}>
+                  {templatesLoading ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text3)' }}>
+                      <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} />
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                      <LayoutTemplate size={32} color="var(--text3)" strokeWidth={1} style={{ marginBottom: 10, opacity: 0.4 }} />
+                      <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 6 }}>No templates saved yet</div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>Build out a proposal you like, then save it as a template for reuse</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {templates.map(tpl => (
+                        <div
+                          key={tpl.id}
+                          style={{
+                            background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.07)',
+                            borderRadius: 10, padding: '14px 16px',
+                            display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+                          }}
+                          onClick={() => applyTemplate(tpl)}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}
+                        >
+                          <div style={{
+                            width: 38, height: 38, borderRadius: 8,
+                            background: 'rgba(79,127,255,0.12)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <LayoutTemplate size={18} color="var(--accent)" strokeWidth={1.6} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text1)' }}>{tpl.name}</div>
+                            {tpl.description && <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{tpl.description}</div>}
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                              {(tpl.packages || []).length} package{(tpl.packages || []).length !== 1 ? 's' : ''}
+                              {(tpl.upsells || []).length > 0 && ` · ${(tpl.upsells || []).length} add-on${(tpl.upsells || []).length !== 1 ? 's' : ''}`}
+                              {tpl.use_count > 0 && ` · Used ${tpl.use_count}×`}
+                            </div>
+                          </div>
+                          <Check size={16} color="var(--accent)" style={{ flexShrink: 0, opacity: 0.5 }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Save tab */}
+              {templateTab === 'save' && (
+                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6, display: 'block' }}>Template Name *</label>
+                    <input
+                      value={templateSaveName}
+                      onChange={e => setTemplateSaveName(e.target.value)}
+                      placeholder="e.g. Full Wrap + Ceramic Package"
+                      style={{
+                        width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8, padding: '10px 12px', color: 'var(--text1)', fontSize: 13,
+                        fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6, display: 'block' }}>Description (optional)</label>
+                    <input
+                      value={templateSaveDesc}
+                      onChange={e => setTemplateSaveDesc(e.target.value)}
+                      placeholder="Short description of what this template is for"
+                      style={{
+                        width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8, padding: '10px 12px', color: 'var(--text1)', fontSize: 13,
+                        fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div style={{
+                    background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.15)',
+                    borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text2)',
+                  }}>
+                    Saves: {packages.length} package{packages.length !== 1 ? 's' : ''}, {upsells.length} add-on{upsells.length !== 1 ? 's' : ''}, intro message, terms &amp; deposit amount
+                  </div>
+                  <button
+                    onClick={saveAsTemplate}
+                    disabled={!templateSaveName.trim() || templateSaving || templateSavedOk}
+                    style={{
+                      padding: '11px', borderRadius: 9, border: 'none',
+                      background: templateSavedOk ? 'var(--green)' : 'var(--accent)',
+                      color: '#fff', fontSize: 13, fontWeight: 700,
+                      cursor: templateSaveName.trim() && !templateSaving ? 'pointer' : 'default',
+                      opacity: (!templateSaveName.trim() && !templateSavedOk) ? 0.5 : 1,
+                      fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}
+                  >
+                    {templateSavedOk ? (
+                      <><CheckCircle size={15} /> Saved!</>
+                    ) : templateSaving ? (
+                      <><Loader2 size={15} className="animate-spin" /> Saving…</>
+                    ) : (
+                      <><Save size={15} /> Save Template</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Send Modal ── */}
       {showSend && (
