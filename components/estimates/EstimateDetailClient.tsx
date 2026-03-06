@@ -2232,6 +2232,49 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               }))}
               onClose={() => setProposalMode(false)}
               onProposalReady={(_, token) => setProposalPublicToken(token)}
+              onAddLineItem={async () => {
+                const newItem: LineItem = {
+                  id: crypto.randomUUID(),
+                  parent_type: 'estimate', parent_id: estimateId,
+                  product_type: 'wrap', name: '', description: null,
+                  quantity: 1, unit_price: 0, unit_discount: 0, total_price: 0,
+                  sort_order: lineItemsList.length, cogs: 0,
+                  specs: {}, is_rolled_up: false, rolled_up_into: null,
+                  created_at: new Date().toISOString(),
+                }
+                setLineItemsList(prev => [...prev, newItem])
+                setExpandedSections(prev => ({ ...prev, [newItem.id]: { gpm: true } }))
+                await handleLineItemSave(newItem)
+                return newItem.id
+              }}
+              renderLineItemCard={(id) => {
+                const li = lineItemsList.find(x => x.id === id)
+                if (!li) return null
+                return (
+                  <LineItemCard
+                    key={li.id}
+                    item={li}
+                    index={lineItemsList.findIndex(x => x.id === id)}
+                    canWrite={canWrite}
+                    onChange={(updated) => setLineItemsList(prev => prev.map(x => x.id === li.id ? updated : x))}
+                    onBlurSave={(updated) => handleLineItemSave(updated)}
+                    onCopy={() => {
+                      const copy: LineItem = { ...li, id: crypto.randomUUID(), name: li.name ? `${li.name} (Copy)` : 'Copy' }
+                      setLineItemsList(prev => [...prev, copy])
+                      handleLineItemSave(copy)
+                    }}
+                    onRemove={() => setLineItemsList(prev => prev.filter(x => x.id !== li.id))}
+                    expandedSections={expandedSections[li.id] || {}}
+                    onToggleSection={(section) => toggleSection(li.id, section)}
+                    leadType={leadType}
+                    team={team}
+                    products={products}
+                    allItems={lineItemsList}
+                    onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
+                    orgId={profile.org_id}
+                  />
+                )
+              }}
             />
           )}
 

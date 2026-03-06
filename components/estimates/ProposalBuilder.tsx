@@ -31,6 +31,8 @@ interface ProposalBuilderProps {
   lineItems?: EstimateLineItem[]
   onClose?: () => void
   onProposalReady?: (proposalId: string, publicToken: string) => void
+  onAddLineItem?: () => Promise<string | null>
+  renderLineItemCard?: (id: string) => React.ReactNode
 }
 
 const C = {
@@ -96,7 +98,7 @@ interface LocalUpsell {
 
 export default function ProposalBuilder({
   estimateId, customerId, customerEmail, customerName, customerPhone,
-  lineItems = [], onClose, onProposalReady,
+  lineItems = [], onClose, onProposalReady, onAddLineItem, renderLineItemCard,
 }: ProposalBuilderProps) {
   const supabase = createClient()
   const router = useRouter()
@@ -351,7 +353,18 @@ export default function ProposalBuilder({
   }
 
   // ─── Custom line item helpers ─────────────────────────────────────
-  const addCustomLineItem = (pkgIdx: number) => {
+  const addCustomLineItem = async (pkgIdx: number) => {
+    // If parent provides a real line item creator, use that and link it
+    if (onAddLineItem) {
+      const newId = await onAddLineItem()
+      if (newId) {
+        setPackages(prev => prev.map((p, i) =>
+          i === pkgIdx ? { ...p, line_item_ids: [...p.line_item_ids, newId] } : p
+        ))
+        return
+      }
+    }
+    // Fallback: local simple item
     setPackages(prev => prev.map((p, i) =>
       i === pkgIdx ? { ...p, custom_line_items: [...p.custom_line_items, { _key: crypto.randomUUID(), name: '', description: '', price: '' }] } : p
     ))
@@ -704,6 +717,22 @@ export default function ProposalBuilder({
                     {pkg.line_item_ids.map(id => {
                       const li = lineItems.find(l => l.id === id)
                       if (!li) return null
+                      // If parent provides full card renderer, use it
+                      if (renderLineItemCard) {
+                        return (
+                          <div key={id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                            <div style={{ padding: '4px 8px', display: 'flex', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => updatePkg(pkgIdx, 'line_item_ids', pkg.line_item_ids.filter(i => i !== id))}
+                                style={{ background: 'none', border: 'none', color: C.text3, cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}
+                              >
+                                <X size={10} /> Remove from section
+                              </button>
+                            </div>
+                            {renderLineItemCard(id)}
+                          </div>
+                        )
+                      }
                       return (
                         <div key={id} style={{
                           display: 'flex', alignItems: 'center', gap: 8,
