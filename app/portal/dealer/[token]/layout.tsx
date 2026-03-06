@@ -1,39 +1,41 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
-import DealerHome from '@/components/portal/DealerHome'
+import DealerPortalShell from '@/components/portal/DealerPortalShell'
 import type { DealerCtx } from '@/components/portal/DealerPortalShell'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DealerPortalPage({ params }: { params: { token: string } }) {
+export default async function DealerPortalLayout({
+  params,
+  children,
+}: {
+  params: { token: string }
+  children: React.ReactNode
+}) {
   const supabase = getSupabaseAdmin()
+  const { token } = params
 
   const { data: dealer } = await supabase
     .from('dealers')
     .select(`
-      id, name, company_name, portal_token, commission_pct,
+      id, name, company_name, email, portal_token, commission_pct,
+      sales_rep_id,
       profiles:sales_rep_id ( name )
     `)
-    .eq('portal_token', params.token)
+    .eq('portal_token', token)
     .eq('active', true)
     .single()
 
   if (!dealer) notFound()
 
-  const [referralsRes, unreadRes] = await Promise.all([
-    supabase
-      .from('dealer_referrals')
-      .select('id, customer_name, vehicle_desc, status, commission_amount, commission_pct, created_at, project_id')
-      .eq('dealer_id', dealer.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('dealer_messages')
-      .select('channel')
-      .eq('dealer_id', dealer.id)
-      .eq('read_dealer', false),
-  ])
+  // Unread message counts per channel
+  const { data: unreadRows } = await supabase
+    .from('dealer_messages')
+    .select('channel')
+    .eq('dealer_id', dealer.id)
+    .eq('read_dealer', false)
 
-  const unread = (unreadRes.data || []).reduce(
+  const unread = (unreadRows || []).reduce(
     (acc, r) => {
       if (r.channel === 'dealer_shop') acc.dealer_shop++
       else if (r.channel === 'group') acc.group++
@@ -47,7 +49,7 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     id: dealer.id,
     name: dealer.name,
     company_name: dealer.company_name,
-    email: null,
+    email: dealer.email,
     token: dealer.portal_token,
     sales_rep_name: (dealer.profiles as any)?.name ?? null,
     commission_pct: dealer.commission_pct ?? 2.5,
@@ -56,5 +58,5 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     unread_group: unread.group,
   }
 
-  return <DealerHome ctx={ctx} referrals={referralsRes.data || []} />
+  return <DealerPortalShell ctx={ctx}>{children}</DealerPortalShell>
 }
