@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/service'
+import { redirect } from 'next/navigation'
 import PortalShell from '@/components/portal/PortalShell'
 import type { PortalContextValue } from '@/lib/portal-context'
 
@@ -15,11 +16,45 @@ export default async function PortalTokenLayout({
   const supabase = getSupabaseAdmin()
 
   // ── Try customer portal_token first ────────────────────────────────────────
-  const { data: customer } = await supabase
+  let customer: any = null
+  const { data: custByToken } = await supabase
     .from('customers')
     .select('id, name, email, phone, portal_token, company_name, org_id')
     .eq('portal_token', token)
     .single()
+
+  if (custByToken) {
+    customer = custByToken
+  } else {
+    // ── Try project portal_token → redirect to customer portal ──────────────
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, customer_id')
+      .eq('portal_token', token)
+      .single()
+
+    if (project?.customer_id) {
+      const { data: projCustomer } = await supabase
+        .from('customers')
+        .select('id, name, email, phone, portal_token, company_name, org_id')
+        .eq('id', project.customer_id)
+        .single()
+
+      if (projCustomer?.portal_token) {
+        // Redirect to the customer's portal so they get the full experience
+        redirect(`/portal/${projCustomer.portal_token}`)
+      }
+      // If customer exists but has no portal_token, generate one
+      if (projCustomer && !projCustomer.portal_token) {
+        const newToken = crypto.randomUUID()
+        await supabase
+          .from('customers')
+          .update({ portal_token: newToken })
+          .eq('id', projCustomer.id)
+        redirect(`/portal/${newToken}`)
+      }
+    }
+  }
 
   if (customer) {
     // Fetch customer's projects
