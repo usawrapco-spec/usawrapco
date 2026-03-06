@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, ChevronRight } from 'lucide-react'
 
 interface Props {
   entity: any
