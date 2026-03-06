@@ -1969,6 +1969,22 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               Items
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {/* Build Proposal toggle */}
+              <button
+                onClick={() => setProposalMode(prev => !prev)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: proposalMode ? 'rgba(34,192,122,0.1)' : 'rgba(79,127,255,0.08)',
+                  border: `1px solid ${proposalMode ? 'rgba(34,192,122,0.3)' : 'rgba(79,127,255,0.25)'}`,
+                  borderRadius: 8, padding: '7px 12px',
+                  color: proposalMode ? 'var(--green)' : 'var(--accent)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: headingFont, letterSpacing: '0.03em',
+                }}
+              >
+                <Package size={12} />
+                {proposalMode ? 'Proposal On' : 'Build Proposal'}
+              </button>
               {/* Templates dropdown */}
               <div ref={templateMenuRef} style={{ position: 'relative' }}>
                 <button
