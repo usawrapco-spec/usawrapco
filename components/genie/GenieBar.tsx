@@ -39,7 +39,7 @@ const INSIGHTS = [
 
 const QUICK_ACTIONS = [
   { label: 'Draft follow-up email', icon: Mail, prompt: 'Draft a follow-up email for a customer who hasn\'t responded in a week.' },
-  { label: 'Create task', icon: ListTodo, prompt: 'Help me create a new task for my current priority jobs.' },
+  { label: "What's my priority?", icon: ListTodo, prompt: 'Based on my role and department, what should I focus on right now? Give me a numbered action list.' },
   { label: 'Suggest price', icon: DollarSign, prompt: 'What would be a good price for a standard full wrap on a box truck?' },
   { label: 'Summarize this job', icon: Zap, prompt: 'Summarize the current job I\'m looking at -- status, financials, next steps.' },
 ]

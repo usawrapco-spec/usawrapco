@@ -17,6 +17,20 @@ import { createClient } from '@/lib/supabase/client'
 import RelatedDocsPanel from '@/components/shared/RelatedDocsPanel'
 import CustomerSearchModal, { type CustomerRow } from '@/components/shared/CustomerSearchModal'
 
+function SoMenuItem({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+      padding: '7px 12px', border: 'none', background: 'none',
+      color: danger ? 'var(--red)' : 'var(--text1)', fontSize: 13, cursor: 'pointer',
+      borderRadius: 6, textAlign: 'left', fontFamily: 'inherit',
+    }}
+    onMouseEnter={e => (e.currentTarget.style.background = danger ? 'rgba(242,90,90,0.08)' : 'var(--surface)')}
+    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >{icon}{label}</button>
+  )
+}
+
 // ─── Demo data ──────────────────────────────────────────────────────────────────
 const DEMO_SO = {
   id: 'demo-so-1', org_id: '', so_number: '2001', title: 'Ford F-150 Full Wrap',
@@ -546,6 +560,77 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
     ? { label: 'Invoiced', color: 'var(--green)', bg: 'rgba(34,192,122,0.15)' }
     : { label: 'Not Invoiced', color: 'var(--text3)', bg: 'rgba(90,96,128,0.10)' }
 
+  async function handleCreateCopy() {
+    try {
+      const supabase = createClient()
+      const { data: newSO } = await supabase
+        .from('sales_orders')
+        .insert({
+          org_id: so.org_id,
+          title: `${so.title} (Copy)`,
+          customer_id: so.customer_id,
+          estimate_id: null,
+          status: 'new',
+          subtotal: so.subtotal,
+          total: so.total,
+          tax_percent: so.tax_percent || so.tax_rate || 0,
+          notes: so.notes,
+        })
+        .select()
+        .single()
+      if (newSO) {
+        // Copy line items
+        const items = lineItemsList.map(li => ({
+          ...li,
+          id: crypto.randomUUID(),
+          org_id: so.org_id,
+          sales_order_id: newSO.id,
+          estimate_id: null,
+        }))
+        if (items.length) await supabase.from('line_items').insert(items)
+        router.push(`/sales-orders/${newSO.id}`)
+      }
+    } catch { showToastMsg('Failed to copy order') }
+  }
+
+  async function downloadSoPdf(variant?: 'workorder' | 'invoice') {
+    try {
+      const payload = {
+        ref: `SO-${so.so_number}`,
+        title: so.title || 'Sales Order',
+        customer: linkedCustomer?.name || so.customer?.name || '',
+        customer_phone: linkedCustomer?.phone || '',
+        customer_email: linkedCustomer?.email || so.customer?.email || '',
+        items: lineItemsList.map(li => ({
+          name: li.name, description: li.description,
+          qty: li.quantity, unit_price: li.unit_price,
+          total: li.total_price, specs: li.specs,
+        })),
+        subtotal: so.subtotal, discount: so.discount_amount || so.discount || 0,
+        tax_rate: so.tax_percent || so.tax_rate || 0,
+        tax_amount: so.tax_amount || 0, total: so.total,
+        date: so.so_date || so.created_at,
+        status: so.status, notes: so.notes || '',
+        vehicleYear, vehicleMake, vehicleModel,
+      }
+      const endpoint = variant === 'workorder' ? '/api/pdf/workorder'
+        : variant === 'invoice' ? '/api/pdf/invoice'
+        : '/api/pdf/salesorder'
+      const res = await fetch(endpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error('PDF failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const suffix = variant === 'workorder' ? 'workorder' : variant === 'invoice' ? 'invoice' : 'salesorder'
+      a.href = url; a.download = `${suffix}-SO${so.so_number}.pdf`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch { showToastMsg('PDF download failed') }
+  }
+
   // Portal link handler
   async function handleCopyPortalLink() {
     const token = (so as any).portal_token || orderId
@@ -622,152 +707,30 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
                 <div style={{
                   position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 9999,
                   background: 'var(--surface2)', border: '1px solid var(--border)',
-                  borderRadius: 10, padding: 4, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                  borderRadius: 10, padding: 4, minWidth: 220, boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                 }}>
-                  <button
-                    onClick={() => { handleCreateJob('per_item'); setShowActions(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Package size={13} style={{ color: 'var(--accent)' }} /> Create Job Per Line Item
-                  </button>
-                  <button
-                    onClick={() => { handleConvertToInvoice(); setShowActions(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <FileText size={13} style={{ color: 'var(--green)' }} /> To Invoice
-                  </button>
+                  {/* Record Payment */}
+                  <SoMenuItem icon={<DollarSign size={13} style={{ color: 'var(--green)' }} />} label="Record Payment" onClick={() => { setActiveTab('payment_schedule'); setShowActions(false) }} />
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                  <button
-                    onClick={() => { setActiveTab('payment_schedule'); setShowActions(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <DollarSign size={13} style={{ color: 'var(--green)' }} /> Payment Schedule
-                  </button>
-                  <button
-                    onClick={() => { handleCopyPortalLink(); setShowActions(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Link2 size={13} style={{ color: 'var(--cyan)' }} /> Send to Customer Portal
-                  </button>
+                  {/* Convert */}
+                  <div style={{ padding: '4px 12px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convert</div>
+                  <SoMenuItem icon={<FileText size={13} style={{ color: 'var(--green)' }} />} label="To Invoice" onClick={() => { handleConvertToInvoice(); setShowActions(false) }} />
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                  <button
-                    onClick={async () => {
-                      setShowActions(false)
-                      try {
-                        const res = await fetch('/api/pdf/salesorder', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            ref: `SO-${so.so_number}`,
-                            title: so.title || 'Sales Order',
-                            customer: linkedCustomer?.name || so.customer?.name || '',
-                            customer_phone: linkedCustomer?.phone || '',
-                            customer_email: linkedCustomer?.email || so.customer?.email || '',
-                            items: lineItemsList.map(li => ({
-                              name: li.name, description: li.description,
-                              qty: li.quantity, unit_price: li.unit_price,
-                              total: li.total_price,
-                              specs: li.specs,
-                            })),
-                            subtotal: so.subtotal, discount: so.discount_amount || so.discount || 0,
-                            tax_rate: so.tax_percent || so.tax_rate || 0,
-                            tax_amount: so.tax_amount || 0, total: so.total,
-                            date: so.so_date || so.created_at,
-                            status: so.status,
-                            notes: so.notes || '',
-                          }),
-                        })
-                        if (!res.ok) throw new Error('PDF failed')
-                        const blob = await res.blob()
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url; a.download = `salesorder-SO${so.so_number}.pdf`
-                        document.body.appendChild(a); a.click(); document.body.removeChild(a)
-                        URL.revokeObjectURL(url)
-                      } catch { showToastMsg('Sales Order PDF failed') }
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Download size={13} style={{ color: 'var(--accent)' }} /> Download Sales Order PDF
-                  </button>
-                  <a
-                    href={`/api/pdf/down-payment/${orderId}`}
-                    download={`down-payment-SO${so.so_number}.pdf`}
-                    onClick={() => setShowActions(false)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textDecoration: 'none',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <CreditCard size={13} style={{ color: 'var(--amber)' }} /> Down Payment Invoice
-                  </a>
-                  <button
-                    onClick={() => { showToastMsg('Email sent to customer'); setShowActions(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '8px 12px', border: 'none', background: 'none',
-                      color: 'var(--text1)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <Mail size={13} style={{ color: 'var(--purple)' }} /> Email Down Payment Invoice
-                  </button>
+                  <SoMenuItem icon={<Copy size={13} style={{ color: 'var(--cyan)' }} />} label="Create Copy" onClick={() => { handleCreateCopy(); setShowActions(false) }} />
+                  <SoMenuItem icon={<Package size={13} style={{ color: 'var(--accent)' }} />} label="Print Box Labels" onClick={() => { window.print(); setShowActions(false) }} />
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                  {/* Export to PDF */}
+                  <div style={{ padding: '4px 12px 2px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Export to PDF</div>
+                  <SoMenuItem icon={<Download size={13} style={{ color: 'var(--text2)' }} />} label="Partial Packing Slip" onClick={async () => { setShowActions(false); await downloadSoPdf() }} />
+                  <SoMenuItem icon={<Download size={13} style={{ color: 'var(--text2)' }} />} label="Packing Slip" onClick={async () => { setShowActions(false); await downloadSoPdf() }} />
+                  <SoMenuItem icon={<Download size={13} style={{ color: 'var(--accent)' }} />} label="Sales Order" onClick={async () => { setShowActions(false); await downloadSoPdf() }} />
+                  <SoMenuItem icon={<Download size={13} style={{ color: 'var(--text2)' }} />} label="Work Order" onClick={async () => { setShowActions(false); await downloadSoPdf('workorder') }} />
+                  <SoMenuItem icon={<CreditCard size={13} style={{ color: 'var(--amber)' }} />} label="Down Payment Invoice" onClick={() => { setShowActions(false); window.open(`/api/pdf/down-payment/${orderId}`, '_blank') }} />
+                  <SoMenuItem icon={<FileText size={13} style={{ color: 'var(--green)' }} />} label="Invoice" onClick={async () => { setShowActions(false); await downloadSoPdf('invoice') }} />
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                  {/* Void */}
                   {status !== 'void' && (
-                    <button
-                      onClick={() => { handleStatusChange('void'); setShowActions(false) }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                        padding: '8px 12px', border: 'none', background: 'none',
-                        color: 'var(--red)', fontSize: 13, cursor: 'pointer', borderRadius: 6,
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                    >
-                      <XCircle size={13} /> Void Order
-                    </button>
+                    <SoMenuItem icon={<XCircle size={13} style={{ color: 'var(--red)' }} />} label="Void" onClick={() => { handleStatusChange('void'); setShowActions(false) }} danger />
                   )}
                 </div>
               )}

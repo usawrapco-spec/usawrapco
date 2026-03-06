@@ -64,50 +64,73 @@ export default function RelatedDocsPanel({ projectId, customerId, currentDocId, 
     const fetchAll = async () => {
       const pid = projectId
       const cid = customerId
-
       const promises: Promise<void>[] = []
 
-      if (pid) {
-        if (currentDocType !== 'estimate') {
-          promises.push((async () => {
-            const { data } = await supabase.from('estimates').select('id, estimate_number, status, total, created_at').eq('project_id', pid)
-            setEstimates((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
-              id: d.id, label: `EST-${d.estimate_number || d.id.slice(0, 6)}`,
-              status: d.status || 'draft', amount: d.total, date: d.created_at, href: `/estimates/${d.id}`,
-            })))
-          })())
-        }
-        if (currentDocType !== 'sales_order') {
-          promises.push((async () => {
-            const { data } = await supabase.from('sales_orders').select('id, so_number, status, total, created_at, est:estimate_id!inner(project_id)').eq('est.project_id', pid)
-            setSalesOrders((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
-              id: d.id, label: `SO-${d.so_number || d.id.slice(0, 6)}`,
-              status: d.status || 'new', amount: d.total, date: d.created_at, href: `/sales-orders/${d.id}`,
-            })))
-          })())
-        }
-        if (currentDocType !== 'invoice') {
-          promises.push((async () => {
-            const { data } = await supabase.from('invoices').select('id, invoice_number, status, total, created_at').eq('project_id', pid)
-            setInvoices((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
-              id: d.id, label: `INV-${d.invoice_number || d.id.slice(0, 6)}`,
-              status: d.status || 'draft', amount: d.total, date: d.created_at, href: `/invoices/${d.id}`,
-            })))
-          })())
-        }
-        if (currentDocId) {
-          promises.push((async () => {
-            const { data } = await supabase.from('payments').select('id, amount, payment_date, method')
-              .eq('invoice_id', currentDocId).order('payment_date', { ascending: false })
-            setPayments((data || []).map((p: any) => ({
-              id: p.id, label: `${p.method || 'Payment'}`, status: 'paid',
-              amount: p.amount, date: p.payment_date,
-              href: currentDocType === 'invoice' ? '#payments' : '#',
-            })))
-          })())
-        }
+      // Fetch estimates — by project_id if available, else by customer_id
+      if (currentDocType !== 'estimate') {
+        promises.push((async () => {
+          const q = pid
+            ? supabase.from('estimates').select('id, estimate_number, status, total, created_at').eq('project_id', pid)
+            : cid
+            ? supabase.from('estimates').select('id, estimate_number, status, total, created_at').eq('customer_id', cid).order('created_at', { ascending: false }).limit(10)
+            : null
+          if (!q) return
+          const { data } = await q
+          setEstimates((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
+            id: d.id, label: `EST-${d.estimate_number || d.id.slice(0, 6)}`,
+            status: d.status || 'draft', amount: d.total, date: d.created_at, href: `/estimates/${d.id}`,
+          })))
+        })())
       }
 
+      // Fetch sales orders — by project via estimate if pid, else by customer_id
+      if (currentDocType !== 'sales_order') {
+        promises.push((async () => {
+          const q = cid
+            ? supabase.from('sales_orders').select('id, so_number, status, total, created_at').eq('customer_id', cid).order('created_at', { ascending: false }).limit(10)
+            : pid
+            ? supabase.from('sales_orders').select('id, so_number, status, total, created_at, est:estimate_id!inner(project_id)').eq('est.project_id', pid)
+            : null
+          if (!q) return
+          const { data } = await q
+          setSalesOrders((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
+            id: d.id, label: `SO-${d.so_number || d.id.slice(0, 6)}`,
+            status: d.status || 'new', amount: d.total, date: d.created_at, href: `/sales-orders/${d.id}`,
+          })))
+        })())
+      }
+
+      // Fetch invoices — by project_id if available, else by customer_id
+      if (currentDocType !== 'invoice') {
+        promises.push((async () => {
+          const q = pid
+            ? supabase.from('invoices').select('id, invoice_number, status, total, created_at').eq('project_id', pid)
+            : cid
+            ? supabase.from('invoices').select('id, invoice_number, status, total, created_at').eq('customer_id', cid).order('created_at', { ascending: false }).limit(10)
+            : null
+          if (!q) return
+          const { data } = await q
+          setInvoices((data || []).filter((d: any) => d.id !== currentDocId).map((d: any) => ({
+            id: d.id, label: `INV-${d.invoice_number || d.id.slice(0, 6)}`,
+            status: d.status || 'draft', amount: d.total, date: d.created_at, href: `/invoices/${d.id}`,
+          })))
+        })())
+      }
+
+      // Fetch payments for current doc
+      if (currentDocId) {
+        promises.push((async () => {
+          const { data } = await supabase.from('payments').select('id, amount, payment_date, method')
+            .eq('invoice_id', currentDocId).order('payment_date', { ascending: false })
+          setPayments((data || []).map((p: any) => ({
+            id: p.id, label: `${p.method || 'Payment'}`, status: 'paid',
+            amount: p.amount, date: p.payment_date,
+            href: currentDocType === 'invoice' ? '#payments' : '#',
+          })))
+        })())
+      }
+
+      // Other jobs for same customer
       if (cid) {
         promises.push((async () => {
           const { data } = await supabase.from('projects')

@@ -279,6 +279,7 @@ export interface SendBack {
 export type TaskStatus = 'open' | 'in_progress' | 'done' | 'dismissed'
 export type TaskPriority = 'urgent' | 'high' | 'normal' | 'low'
 export type TaskType = 'manual' | 'auto' | 'ai_suggested' | 'reminder'
+export type TaskDepartment = 'sales' | 'design' | 'production' | 'install' | 'admin' | 'general'
 
 export interface Task {
   id: string
@@ -289,6 +290,7 @@ export interface Task {
   title: string
   description: string | null
   type: TaskType
+  department: TaskDepartment
   status: TaskStatus
   priority: TaskPriority
   due_at: string | null

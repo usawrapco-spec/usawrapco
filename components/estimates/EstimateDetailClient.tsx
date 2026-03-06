@@ -1404,14 +1404,37 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 230, zIndex: 9999,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
+                {/* Convert */}
+                <div style={{ padding: '2px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Convert</div>
                 {canWrite && (status === 'draft' || status === 'sent' || status === 'accepted') && (
-                  <MenuButton icon={<ArrowRight size={13} style={{ color: 'var(--green)' }} />} label="Convert to Sales Order" onClick={handleConvertToSO} />
+                  <MenuButton icon={<ArrowRight size={13} style={{ color: 'var(--green)' }} />} label="To Sales Order" onClick={handleConvertToSO} />
                 )}
-                <MenuButton icon={<FileText size={13} style={{ color: 'var(--accent)' }} />} label="Convert to Invoice" onClick={handleConvertToInvoice} />
+                <MenuButton icon={<FileText size={13} style={{ color: 'var(--accent)' }} />} label="To Invoice" onClick={handleConvertToInvoice} />
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                <MenuButton icon={<Copy size={13} style={{ color: 'var(--cyan)' }} />} label="Duplicate for New Customer" onClick={handleDuplicate} />
-                <MenuButton icon={<Copy size={13} style={{ color: 'var(--text2)' }} />} label="Create Copy" onClick={handleCreateCopy} />
-                <MenuButton icon={<Layers size={13} style={{ color: 'var(--purple)' }} />} label="Save as Template" onClick={handleSaveAsTemplate} />
+                <MenuButton icon={<Copy size={13} style={{ color: 'var(--cyan)' }} />} label="Create Copy" onClick={handleCreateCopy} />
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                {/* Export to PDF */}
+                <div style={{ padding: '2px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Export to PDF</div>
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="Quote" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `quote-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="No Total" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}?hide_total=1`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `quote-nototal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<Wrench size={13} style={{ color: 'var(--text2)' }} />} label="Work Order" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch('/api/pdf/workorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: est.estimate_number || estimateId, title: est.title || 'Work Order', customer: est.customer?.name || '', items: lineItemsList.map(li => ({ name: li.name, description: li.description, qty: li.quantity, specs: li.specs })), notes: est.notes || '', vehicleYear, vehicleMake, vehicleModel }) }); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--amber)' }} />} label="Down Payment Invoice" onClick={() => { setMoreMenuOpen(false); window.open(`/api/pdf/down-payment/${estimateId}`, '_blank') }} />
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                {/* Export to XLS */}
+                <div style={{ padding: '2px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Export to XLS</div>
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--green)' }} />} label="Quote" onClick={() => {
+                  setMoreMenuOpen(false)
+                  const rows = [
+                    ['#', 'Item', 'Description', 'Qty', 'Unit Price', 'Total'],
+                    ...lineItemsList.map((li, i) => [i + 1, li.name, li.description || '', li.quantity, li.unit_price, li.total_price]),
+                    [], ['', '', '', '', 'Total', est.total || lineItemsList.reduce((s, li) => s + li.total_price, 0)],
+                  ]
+                  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a'); a.href = url; a.download = `quote-${est.estimate_number}.csv`
+                  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+                }} />
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {canWrite && status !== 'void' && (
                   <MenuButton icon={<Ban size={13} style={{ color: 'var(--amber)' }} />} label="Void" onClick={() => handleStatusChange('void')} />
@@ -1721,20 +1744,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 {proposalMode ? 'Proposal On' : 'Build Proposal'}
               </button>
             </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={fieldLabelStyle}>Vehicle</label>
-              <SharedVehicleSelector
-                defaultYear={vehicleYear}
-                defaultMake={vehicleMake}
-                defaultModel={vehicleModel}
-                disabled={!canWrite}
-                onVehicleSelect={result => {
-                  setVehicleYear(result.year)
-                  setVehicleMake(result.make)
-                  setVehicleModel(result.model)
-                }}
-              />
-            </div>
             <div>
               <label style={fieldLabelStyle}>Color</label>
               <input
@@ -2008,6 +2017,20 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                           setLineItemsList(prev => prev.map(x => x.id === li.id ? updated : x))
                         }}
                         onBlurSave={(updated) => handleLineItemSave(updated)}
+                        onCopy={() => {
+                          const copy: LineItem = {
+                            ...li,
+                            id: crypto.randomUUID(),
+                            name: li.name ? `${li.name} (Copy)` : 'Copy',
+                          }
+                          setLineItemsList(prev => {
+                            const idx2 = prev.findIndex(x => x.id === li.id)
+                            const next = [...prev]
+                            next.splice(idx2 + 1, 0, copy)
+                            return next
+                          })
+                          handleLineItemSave(copy)
+                        }}
                         onRemove={() => {
                           // When removing a parent, unroll its children first
                           setLineItemsList(prev => {
@@ -3335,13 +3358,13 @@ function buildAutoDescription(item: LineItem): string {
 }
 
 function LineItemCard({
-  item, index, canWrite, onChange, onBlurSave, onRemove,
+  item, index, canWrite, onChange, onBlurSave, onRemove, onCopy,
   expandedSections, onToggleSection, leadType, team,
   products, allItems, onOpenAreaCalc, orgId,
   onRollUp, onUnroll, rolledUpChildrenTotal, onCreateProposal,
 }: {
   item: LineItem; index: number; canWrite: boolean
-  onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void
+  onChange: (item: LineItem) => void; onBlurSave: (item: LineItem) => void; onRemove: () => void; onCopy: () => void
   expandedSections: Record<string, boolean>; onToggleSection: (section: string) => void
   leadType: string; team: Pick<Profile, 'id' | 'name' | 'role'>[]
   products: { id: string; name: string; category: string; calculator_type: string; default_price: number; default_hours: number; description: string }[]
@@ -3360,6 +3383,17 @@ function LineItemCard({
   const [showDescription, setShowDescription] = useState(true)
   const [isCardExpanded, setIsCardExpanded] = useState(false)
   const [showPhotoInspection, setShowPhotoInspection] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [menuOpen])
 
   function updateField<K extends keyof LineItem>(key: K, value: LineItem[K]) {
     const updated = { ...latestRef.current, [key]: value }
@@ -3563,7 +3597,7 @@ function LineItemCard({
           )}
         </div>
         {/* Action buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+        <div ref={menuRef} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, position: 'relative' }} onClick={e => e.stopPropagation()}>
           {canWrite && isRolledUp && onUnroll && (
             <button
               onClick={onUnroll}
@@ -3590,20 +3624,58 @@ function LineItemCard({
               <FoldVertical size={11} />
             </button>
           )}
-          {canWrite && (
-            <button
-              onClick={onRemove}
-              title="Delete"
-              style={{
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text3)', padding: 3, display: 'flex', alignItems: 'center',
-                transition: 'color 0.15s',
+          <button
+            onClick={() => setMenuOpen(p => !p)}
+            title="Options"
+            style={{
+              background: menuOpen ? 'rgba(255,255,255,0.08)' : 'transparent',
+              border: 'none', cursor: 'pointer',
+              color: 'var(--text3)', padding: '3px 5px', borderRadius: 5,
+              display: 'flex', alignItems: 'center',
+              transition: 'background 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+            onMouseLeave={e => { if (!menuOpen) { e.currentTarget.style.color = 'var(--text3)'; e.currentTarget.style.background = 'transparent' } }}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+          {menuOpen && (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, zIndex: 100,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              minWidth: 160, padding: '4px 0', marginTop: 4,
+            }}>
+              {[
+                { label: 'Edit Line Item', action: () => { setIsCardExpanded(p => !p); setMenuOpen(false) } },
+                { label: 'Create Job', action: () => { router.push(`/projects/new?from_estimate_item=${item.id}`); setMenuOpen(false) } },
+                { label: 'Copy Line Item', action: () => { onCopy(); setMenuOpen(false) } },
+              ].map(opt => (
+                <button key={opt.label} onClick={opt.action} style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '8px 14px', background: 'none', border: 'none',
+                  fontSize: 13, color: 'var(--text1)', cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <button onClick={() => { onRemove(); setMenuOpen(false) }} style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '8px 14px', background: 'none', border: 'none',
+                fontSize: 13, color: 'var(--red)', cursor: 'pointer',
+                fontFamily: 'inherit',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text3)')}
-            >
-              <Trash2 size={13} />
-            </button>
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(242,90,90,0.08)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                Delete Line Item
+              </button>
+            </div>
           )}
         </div>
       </div>

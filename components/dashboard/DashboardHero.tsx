@@ -9,7 +9,6 @@ import {
   FileText, Users, Package, ChevronRight, ArrowUpRight,
   Activity, Target, BarChart3, MapPin, AlertTriangle, CloudRain, Zap, Cloud, Sun, Truck,
 } from 'lucide-react'
-import AIBriefing from '@/components/dashboard/AIBriefing'
 import GoalsTracker from '@/components/dashboard/GoalsTracker'
 
 interface DashboardAppointment {
@@ -489,9 +488,6 @@ export default function DashboardHero({ profile, projects, canSeeFinancials, tod
           ))}
         </div>
       </div>
-
-      {/* AI Briefing */}
-      <AIBriefing orgId={profile.org_id} profileId={profile.id} projects={projects} />
 
       {/* Hero Revenue */}
       <div style={{
