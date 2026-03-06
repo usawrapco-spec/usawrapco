@@ -65,17 +65,6 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: 'quick_links',
-    label: 'QUICK LINKS',
-    icon: ExternalLink,
-    roles: ['owner', 'admin'],
-    items: [
-      { href: 'https://dashboard.stripe.com',      label: 'Stripe Dashboard',   icon: CreditCard,  external: true },
-      { href: 'https://businesshub.affirm.com',    label: 'Affirm Portal',      icon: Banknote,    external: true },
-      { href: 'https://supabase.com/dashboard/project/uqfqkvslxoucxmxxrobt', label: 'Supabase',  icon: Database, external: true },
-    ],
-  },
-  {
     id: 'operations',
     label: 'OPERATIONS',
     icon: CalendarDays,
