@@ -12,7 +12,7 @@ import {
   BRAND, PDF_COLORS, PDF_TERMS,
   formatCurrency, formatDate, addDays,
 } from '@/lib/pdf/brand'
-import { getPdfLogoSrc } from '@/lib/pdf/logo'
+import { getPdfLogoSrc, getPdfLogoDarkSrc } from '@/lib/pdf/logo'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
@@ -23,8 +23,8 @@ export const runtime = 'nodejs'
 const s = StyleSheet.create({
   page: { fontFamily: 'Inter', fontSize: 9, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 36 },
   // Header band — compact
-  headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 14 },
-  logo: { width: 110, height: 36, objectFit: 'contain' },
+  headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 16 },
+  logo: { width: 72, height: 72, objectFit: 'contain' },
   headerRight: { alignItems: 'flex-end' },
   headerTitle: { fontFamily: 'BarlowCondensed', fontSize: 22, fontWeight: 700, color: PDF_COLORS.white, letterSpacing: 3 },
   headerMeta: { color: '#94a3b8', fontSize: 8, marginTop: 1 },
@@ -100,7 +100,7 @@ function Header({ type, number, date, validUntil }: {
 }) {
   return React.createElement(View, null,
     React.createElement(View, { style: s.headerBand },
-      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
+      React.createElement(Image, { style: s.logo, src: getPdfLogoDarkSrc() }),
       React.createElement(View, { style: s.headerRight },
         React.createElement(Text, { style: s.headerTitle }, type),
         React.createElement(Text, { style: s.headerMetaBold }, number),

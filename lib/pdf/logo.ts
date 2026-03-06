@@ -4,3 +4,12 @@ const LOGO_BASE64 = `iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAMAAADDpiTIAAAAIGNIUk0AAHo
 export function getPdfLogoSrc(): string {
   return `data:image/png;base64,${LOGO_BASE64}`
 }
+
+import path from 'path'
+import fs from 'fs'
+
+export function getPdfLogoDarkSrc(): string {
+  const filePath = path.join(process.cwd(), 'public', 'logo-pdf-dark.svg')
+  const content = fs.readFileSync(filePath)
+  return `data:image/svg+xml;base64,${content.toString('base64')}`
+}

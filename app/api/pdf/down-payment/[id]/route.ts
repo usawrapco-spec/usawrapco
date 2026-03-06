@@ -11,7 +11,7 @@ import {
   BRAND, PDF_COLORS,
   formatCurrency, formatDate,
 } from '@/lib/pdf/brand'
-import { getPdfLogoSrc } from '@/lib/pdf/logo'
+import { getPdfLogoSrc, getPdfLogoDarkSrc } from '@/lib/pdf/logo'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
@@ -23,8 +23,8 @@ export const runtime = 'nodejs'
 const s = StyleSheet.create({
   page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 46 },
   // Header band
-  headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 20 },
-  logo: { width: 140, height: 45, objectFit: 'contain' },
+  headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 18 },
+  logo: { width: 84, height: 84, objectFit: 'contain' },
   headerRight: { alignItems: 'flex-end' },
   headerTitle: { fontFamily: 'BarlowCondensed', fontSize: 22, fontWeight: 700, color: PDF_COLORS.white, letterSpacing: 2 },
   headerSubtitle: { fontFamily: 'BarlowCondensed', fontSize: 14, fontWeight: 400, color: PDF_COLORS.amber, marginTop: 2 },
@@ -97,7 +97,7 @@ function DownPaymentPDF({ salesOrder, customer }: {
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
-        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
+        React.createElement(Image, { style: s.logo, src: getPdfLogoDarkSrc() }),
         React.createElement(View, { style: s.headerRight },
           React.createElement(Text, { style: s.headerTitle }, 'DOWN PAYMENT INVOICE'),
           React.createElement(Text, { style: s.headerSubtitle }, 'Deposit Required'),

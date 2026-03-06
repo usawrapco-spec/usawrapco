@@ -11,7 +11,7 @@ import {
   BRAND, PDF_COLORS, PDF_TERMS,
   formatCurrency, formatDate,
 } from '@/lib/pdf/brand'
-import { getPdfLogoSrc } from '@/lib/pdf/logo'
+import { getPdfLogoSrc, getPdfLogoDarkSrc } from '@/lib/pdf/logo'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
@@ -20,8 +20,8 @@ export const runtime = 'nodejs'
 
 const s = StyleSheet.create({
   page: { fontFamily: 'Inter', fontSize: 10, color: PDF_COLORS.textPrimary, backgroundColor: PDF_COLORS.white, paddingBottom: 50 },
-  headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 20 },
-  logo: { width: 140, height: 45, objectFit: 'contain' },
+  headerBand: { backgroundColor: PDF_COLORS.dark, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 36, paddingVertical: 18 },
+  logo: { width: 84, height: 84, objectFit: 'contain' },
   headerRight: { alignItems: 'flex-end' },
   headerTitle: { fontFamily: 'BarlowCondensed', fontSize: 26, fontWeight: 700, color: PDF_COLORS.white, letterSpacing: 3 },
   headerMeta: { color: '#94a3b8', fontSize: 10, marginTop: 2 },
@@ -170,7 +170,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
-        React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
+        React.createElement(Image, { style: s.logo, src: getPdfLogoDarkSrc() }),
         React.createElement(View, { style: s.headerRight },
           React.createElement(Text, { style: s.headerTitle }, 'INVOICE'),
           React.createElement(Text, { style: s.headerMetaBold }, invNumber),
