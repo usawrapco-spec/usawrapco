@@ -1859,17 +1859,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             ))}
           </div>
         </div>
-        {/* Service Type */}
-        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 4 }}>Service</div>
-          <div style={{ display: 'flex', gap: 3 }}>
-            {([['wrap', 'Wrap'], ['boat_decking', 'Boat']] as const).map(([key, label]) => (
-              <button key={key} onClick={() => setServiceType(key)} style={{ padding: '3px 8px', borderRadius: 5, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: serviceType === key ? '2px solid var(--accent)' : '1px solid var(--border)', background: serviceType === key ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: serviceType === key ? 'var(--accent)' : 'var(--text3)' }}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
         {/* Agent */}
         <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 4 }}>Agent</div>
