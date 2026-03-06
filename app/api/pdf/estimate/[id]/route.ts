@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
 
 import {
-  Document, Page, Text, View, StyleSheet, Font, Image, renderToBuffer,
+  Document, Page, Text, View, StyleSheet, Image, renderToBuffer,
 } from '@react-pdf/renderer'
+import { registerPdfFonts } from '@/lib/pdf/fonts'
+
+registerPdfFonts()
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import {
   BRAND, PDF_COLORS, PDF_TERMS,
@@ -14,23 +17,7 @@ import { getPdfLogoSrc } from '@/lib/pdf/logo'
 export const maxDuration = 60
 export const runtime = 'nodejs'
 
-// ── Fonts ─────────────────────────────────────────────────────────────────────
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf', fontWeight: 600 },
-    { src: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf', fontWeight: 700 },
-  ],
-})
 
-Font.register({
-  family: 'BarlowCondensed',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/barlowcondensed/v13/HTx3L3I-JCGChYJ8VI-L6OO_au7B2xY.ttf', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B46r2_3E.ttf', fontWeight: 700 },
-  ],
-})
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
