@@ -440,6 +440,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [lineItemsList, setLineItemsList] = useState<LineItem[]>(initialLineItems)
   const [activeTab, setActiveTab] = useState<TabKey>('items')
   const [saving, setSaving] = useState(false)
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saved'>('idle')
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -605,7 +606,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   // ─── Autosave ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (isNew || isDemo) return
+    if (isNew || isDemo || !autoSaveEnabled) return
     setAutoSaveStatus('pending')
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
@@ -649,7 +650,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       const payload = {
         title, notes, customer_note: customerNote, discount, tax_rate: taxRate,
         subtotal, tax_amount: taxAmount, total, status,
-        service_type: serviceType,
         customer_id: linkedCustomer?.id || est.customer_id || null,
         quote_date: quoteDate || null, due_date: dueDate || null,
         vehicle_year: vehicleYear || null,
@@ -1376,7 +1376,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                     const blob = await res.blob()
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement('a')
-                    a.href = url; a.download = `USA-Wrap-Co-WorkOrder-${est.estimate_number || estimateId}${customerSlug ? `-${customerSlug}` : ''}.pdf`
+                    a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`
                     document.body.appendChild(a); a.click(); document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   } catch { showToast('Work order PDF failed') }
@@ -1531,12 +1531,29 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             )}
           </div>
 
-          {/* Autosave indicator + Save button */}
+          {/* Autosave toggle + indicator + Save button */}
           {canWrite && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {autoSaveStatus !== 'idle' && (
+              {/* Autosave toggle */}
+              <button
+                onClick={() => { setAutoSaveEnabled(p => !p); setAutoSaveStatus('idle') }}
+                title={autoSaveEnabled ? 'Autosave on — click to disable' : 'Autosave off — click to enable'}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: autoSaveEnabled ? 'rgba(34,192,122,0.1)' : 'rgba(90,96,128,0.1)',
+                  border: `1px solid ${autoSaveEnabled ? 'rgba(34,192,122,0.3)' : 'var(--border)'}`,
+                  borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
+                  color: autoSaveEnabled ? 'var(--green)' : 'var(--text3)',
+                  fontSize: 11, fontWeight: 700, fontFamily: headingFont, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', transition: 'all 0.15s',
+                }}
+              >
+                {autoSaveEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                Auto
+              </button>
+              {autoSaveEnabled && autoSaveStatus !== 'idle' && (
                 <span style={{ fontSize: 11, color: autoSaveStatus === 'saved' ? 'var(--green)' : 'var(--text3)', fontFamily: headingFont, letterSpacing: '0.03em' }}>
-                  {autoSaveStatus === 'pending' ? '● Autosaving...' : '✓ Saved'}
+                  {autoSaveStatus === 'pending' ? '● Saving...' : '✓ Saved'}
                 </span>
               )}
               <button
