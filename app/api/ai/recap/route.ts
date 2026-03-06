@@ -286,19 +286,21 @@ Generate a concise owner brief as JSON. Focus on what actually matters. If a dat
       recapText = rawText
     }
 
-    // Save to DB
+    // Save to DB (upsert on unique constraint: org_id, recap_date, type)
     const today = new Date().toISOString().split('T')[0]
     const cachedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString()
     const { data: saved, error: insertError } = await admin
       .from('ai_recaps')
-      .insert({
+      .upsert({
         org_id: orgId,
         recap_date: today,
+        type: 'daily',
         recap_text: recapText,
         sections,
         action_items: actionItems,
         cached_until: cachedUntil,
-      })
+        generated_at: new Date().toISOString(),
+      }, { onConflict: 'org_id,recap_date,type' })
       .select()
       .single()
 
