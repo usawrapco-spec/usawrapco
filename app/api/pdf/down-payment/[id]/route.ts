@@ -220,18 +220,40 @@ export async function GET(
   try {
     const admin = getSupabaseAdmin()
 
-    const { data: salesOrder, error } = await admin
+    // Try sales_orders first, then fall back to estimates
+    let salesOrder: any = null
+    const { data: soData } = await admin
       .from('sales_orders')
       .select('*, customer:customer_id(id, name, email, phone, business_name, address)')
       .eq('id', params.id)
       .single()
 
-    if (error || !salesOrder) {
-      return NextResponse.json({ error: 'Sales order not found' }, { status: 404 })
+    if (soData) {
+      salesOrder = soData
+    } else {
+      const { data: estData } = await admin
+        .from('estimates')
+        .select('*, customer:customer_id(id, name, email, phone, business_name, address)')
+        .eq('id', params.id)
+        .single()
+      if (estData) {
+        // Normalize estimate shape to match what DownPaymentPDF expects
+        salesOrder = {
+          ...estData,
+          so_number: estData.estimate_number,
+          so_date: estData.quote_date || estData.created_at,
+          title: estData.title,
+          total: estData.total,
+        }
+      }
+    }
+
+    if (!salesOrder) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
     }
 
     const customer = salesOrder.customer || {}
-    const invNum = `DP-${String(salesOrder.so_number || '').padStart(4, '0')}`
+    const invNum = `DP-${String(salesOrder.so_number || salesOrder.estimate_number || '').padStart(4, '0')}`
 
     const buffer = await renderToBuffer(
       React.createElement(DownPaymentPDF, { salesOrder, customer }) as any

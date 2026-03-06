@@ -426,6 +426,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   // ─── State ──────────────────────────────────────────────────────────────────
   const [title, setTitle] = useState(est.title)
+  const [aiSuggestingTitle, setAiSuggestingTitle] = useState(false)
   const [status, setStatus] = useState<EstimateStatus>(est.status)
   const [notes, setNotes] = useState(est.notes || '')
   const [showNotes, setShowNotes] = useState(!!est.notes)
@@ -597,6 +598,27 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   function isSectionOpen(itemId: string, section: string): boolean {
     return expandedSections[itemId]?.[section] ?? false
+  }
+
+  // ─── AI Title Suggest ───────────────────────────────────────────────────────
+  async function handleAISuggestTitle() {
+    setAiSuggestingTitle(true)
+    try {
+      const itemNames = lineItemsList.map(li => li.name || li.description || li.product_type).filter(Boolean).join(', ')
+      const vehicle = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(' ')
+      const prompt = `Generate a short job title (5-8 words max) for a vehicle wrap estimate. Vehicle: ${vehicle || 'unknown vehicle'}. Services: ${itemNames || 'wrap services'}. Customer: ${est.customer?.name || ''}. Reply with only the title text, no quotes or punctuation at the end.`
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const suggested = (data.content || '').trim().replace(/^["']|["']$/g, '')
+        if (suggested) setTitle(suggested)
+      }
+    } catch { /* ignore */ }
+    setAiSuggestingTitle(false)
   }
 
   // ─── Save handlers ─────────────────────────────────────────────────────────
@@ -1243,6 +1265,41 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               <span style={{ color: 'var(--text3)', fontWeight: 600 }}>QT</span>{' '}
               <span style={{ ...monoStyle }}>#{est.estimate_number}</span>
             </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              <input
+                value={title || ''}
+                onChange={e => setTitle(e.target.value)}
+                disabled={!canWrite}
+                placeholder="Untitled — click to name this estimate"
+                style={{
+                  background: 'transparent', border: 'none',
+                  borderBottom: `1px solid ${title ? 'rgba(255,255,255,0.08)' : 'var(--border)'}`,
+                  color: title ? 'var(--text1)' : 'var(--text3)',
+                  fontSize: 15, fontWeight: 600, padding: '2px 4px', outline: 'none',
+                  minWidth: 220, maxWidth: 420, fontFamily: headingFont, letterSpacing: '0.02em',
+                  cursor: canWrite ? 'text' : 'default', transition: 'border-color 0.15s',
+                }}
+                onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text1)' }}
+                onBlur={e => { e.currentTarget.style.borderBottomColor = title ? 'rgba(255,255,255,0.08)' : 'var(--border)' }}
+              />
+              {canWrite && (
+                <button
+                  onClick={handleAISuggestTitle}
+                  disabled={aiSuggestingTitle}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: 'rgba(79,127,255,0.08)', border: '1px solid rgba(79,127,255,0.2)',
+                    borderRadius: 6, padding: '3px 9px', color: aiSuggestingTitle ? 'var(--text3)' : 'var(--accent)',
+                    fontSize: 10, fontWeight: 700, cursor: aiSuggestingTitle ? 'default' : 'pointer',
+                    fontFamily: headingFont, letterSpacing: '0.05em', textTransform: 'uppercase',
+                    opacity: aiSuggestingTitle ? 0.6 : 1,
+                  }}
+                >
+                  <TrendingUp size={10} />
+                  {aiSuggestingTitle ? 'Thinking…' : 'AI Name'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1770,11 +1827,75 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* FINANCIAL SUMMARY BAR                                            */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      <div style={{ ...cardStyle, marginBottom: 0, borderRadius: '12px 12px 0 0', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
+        {/* GPM */}
+        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 2 }}>GPM</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, lineHeight: 1, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : subtotal > 0 ? 'var(--red)' : 'var(--text3)' }}>{fmtPercent(overallGPM)}</div>
+        </div>
+        {/* Gross Profit */}
+        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 2 }}>Gross Profit</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</div>
+        </div>
+        {/* Total */}
+        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 2 }}>Total</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</div>
+        </div>
+        {/* Lead Type */}
+        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 4 }}>Lead Type</div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
+              <button key={lt} onClick={() => setLeadType(lt)} style={{ padding: '3px 8px', borderRadius: 5, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
+                {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Agent */}
+        <div style={{ paddingRight: 20, marginRight: 20, borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont, marginBottom: 4 }}>Agent</div>
+          <select
+            value={assignedAgent}
+            onChange={e => setAssignedAgent(e.target.value)}
+            style={{ padding: '4px 8px', borderRadius: 6, fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text1)', fontFamily: headingFont, cursor: 'pointer', outline: 'none', minWidth: 130 }}
+          >
+            <option value="">— Select Agent —</option>
+            {team.filter(a => ['sales_agent', 'admin', 'owner'].includes(a.role)).map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </div>
+        {/* Actions */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={handleSendEstimate}
+            style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+          >
+            Send Estimate
+          </button>
+          {canWrite && (
+            <button
+              onClick={handleCreateJob}
+              style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+            >
+              Convert to Job
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
       {/* TABS                                                             */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       <div style={{
         display: 'flex', gap: 0, borderBottom: '2px solid var(--border)',
-        marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderTop: 'none',
+        borderRadius: '0 0 0 0', marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch',
       }}>
         {([
           { key: 'items' as TabKey, label: 'Items & Proposal', count: lineItemsList.length },
@@ -1821,8 +1942,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       {/* ══════════════════════════════════════════════════════════════════ */}
 
       {activeTab === 'items' && (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div>
           {/* Items header */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -1835,22 +1955,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               Items
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {/* Build Proposal toggle */}
-              <button
-                onClick={() => setProposalMode(prev => !prev)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: proposalMode ? 'rgba(34,192,122,0.1)' : 'rgba(79,127,255,0.08)',
-                  border: `1px solid ${proposalMode ? 'rgba(34,192,122,0.3)' : 'rgba(79,127,255,0.25)'}`,
-                  borderRadius: 8, padding: '7px 12px',
-                  color: proposalMode ? 'var(--green)' : 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  fontFamily: headingFont, letterSpacing: '0.03em',
-                }}
-              >
-                <Package size={12} />
-                {proposalMode ? 'Proposal On' : 'Build Proposal'}
-              </button>
               {/* Templates dropdown */}
               <div ref={templateMenuRef} style={{ position: 'relative' }}>
                 <button
@@ -1915,19 +2019,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 )}
               </div>
 
-              <button
-                onClick={handleCreateJob}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
-                  borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  fontFamily: headingFont, letterSpacing: '0.03em',
-                }}
-              >
-                <Briefcase size={13} />
-                Create Job
-              </button>
               {canWrite && (
                 <button
                   onClick={() => addNewLineItem()}
@@ -2125,44 +2216,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             />
           )}
 
-          {/* ── Bottom Summary ───────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_340px]" style={{
-            gap: 20,
-            marginTop: 24, alignItems: 'flex-start',
-          }}>
-            {/* Left: Customer Note */}
-            <div>
-              {!showCustomerNote && (
-                <button
-                  onClick={() => setShowCustomerNote(true)}
-                  style={{
-                    background: 'transparent', border: 'none', color: 'var(--accent)',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
-                  }}
-                >
-                  + Add Customer Note
-                </button>
-              )}
-              {showCustomerNote && (
-                <>
-                  <label style={fieldLabelStyle}>Customer Note</label>
-                  <textarea
-                    value={customerNote}
-                    onChange={e => setCustomerNote(e.target.value)}
-                    disabled={!canWrite}
-                    placeholder="Note visible to customer on the estimate..."
-                    rows={4}
-                    style={{
-                      ...fieldInputStyle,
-                      resize: 'vertical',
-                      minHeight: 80,
-                    }}
-                  />
-                </>
-              )}
-            </div>
-
-            {/* Proposal Slide-Over (preview & send) */}
+          {/* ── Bottom ───────────────────────────────────────────────── */}
+          <div style={{ marginTop: 24 }}>
             <ProposalSlideOver
               open={proposalSlideOpen}
               onClose={() => setProposalSlideOpen(false)}
@@ -2178,163 +2233,30 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
               totalGPM={0}
             />
-
-            {/* Right: Unified Financial Panel */}
-            <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
-
-              {/* ── REVENUE ─────────────────────────────── */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Revenue</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
-                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
-                </div>
-              </div>
-
-              {/* ── COSTS ───────────────────────────────── */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Costs</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {cogsBreakdown.material > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
-                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
-                    </div>
-                  )}
-                  {cogsBreakdown.labor > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
-                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
-                    </div>
-                  )}
-                  {cogsBreakdown.design > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
-                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
-                    </div>
-                  )}
-                  {cogsBreakdown.misc > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
-                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
-                    </div>
-                  )}
-                  <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── PROFIT ──────────────────────────────── */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Profit</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{fmtPercent(overallGPM)}</span>
-                  </div>
-                  {overallGPM < 65 && subtotal > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
-                      <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── LEAD TYPE & AGENT ──────────────────── */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
-                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-                  {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
-                    <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
-                      {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Agent</div>
-                <select
-                  value={assignedAgent}
-                  onChange={e => setAssignedAgent(e.target.value)}
-                  style={{
-                    width: '100%', padding: '6px 8px', borderRadius: 6, fontSize: 12,
-                    background: 'var(--bg)', border: '1px solid var(--border)',
-                    color: 'var(--text1)', fontFamily: headingFont, cursor: 'pointer',
-                    outline: 'none',
-                  }}
-                >
-                  <option value="">— Select Agent —</option>
-                  {team.filter(a => ['sales_agent', 'admin', 'owner'].includes(a.role)).map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* ── TOTALS ──────────────────────────────── */}
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
-                      <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--red)', fontWeight: 600 }}>{fmtCurrency(-discount)}</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
-                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
-                    <span style={{ fontFamily: monoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── ACTION BUTTONS ───────────────────────── */}
-              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {canWrite && (
-                  <button
-                    onClick={handleCreateJob}
-                    style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
-                  >
-                    Convert to Job
-                  </button>
-                )}
-                <button
-                  onClick={handleSendEstimate}
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
-                >
-                  Send Estimate
-                </button>
-                <button
-                  onClick={() => setProposalMode(prev => !prev)}
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: proposalMode ? 'var(--green)' : 'var(--purple)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                  {proposalMode ? <><CheckCircle2 size={14} /> Proposal On</> : <><Package size={14} /> Build Proposal</>}
-                </button>
-              </div>
-
-              {/* Related Documents */}
-              <div style={{ padding: '0 16px 16px' }}>
-                <RelatedDocsPanel
-                  projectId={(est as any).project_id}
-                  customerId={est.customer_id}
-                  currentDocId={estimateId}
-                  currentDocType="estimate"
+            {!showCustomerNote && (
+              <button
+                onClick={() => setShowCustomerNote(true)}
+                style={{
+                  background: 'transparent', border: 'none', color: 'var(--accent)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
+                }}
+              >
+                + Add Customer Note
+              </button>
+            )}
+            {showCustomerNote && (
+              <>
+                <label style={fieldLabelStyle}>Customer Note</label>
+                <textarea
+                  value={customerNote}
+                  onChange={e => setCustomerNote(e.target.value)}
+                  disabled={!canWrite}
+                  placeholder="Note visible to customer on the estimate..."
+                  rows={4}
+                  style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 80 }}
                 />
-              </div>
-            </div>
-          </div>
+              </>
+            )}
           </div>
         </div>
       )}

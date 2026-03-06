@@ -101,6 +101,16 @@ const s = StyleSheet.create({
   termText: { fontSize: 8, color: PDF_COLORS.textSecondary, flex: 1, lineHeight: 1.5 },
 })
 
+function getProductCategory(productType: string): string {
+  const t = (productType || '').toLowerCase()
+  if (t.includes('ppf') || t.includes('paint_protection')) return 'PPF'
+  if (t.includes('decking') || t.includes('deck')) return 'Decking'
+  if (t.includes('marine') || t.includes('boat')) return 'Marine'
+  if (t.includes('commercial') || t.includes('fleet') || t.includes('box_truck') || t.includes('trailer')) return 'Commercial'
+  if (t.includes('wall') || t.includes('signage') || t.includes('sign')) return 'Signage'
+  return 'Vehicle Wrap'
+}
+
 function StatusBanner({ invoice }: { invoice: any }) {
   const status = invoice.status
   const balanceDue = invoice.balance_due || 0
@@ -218,6 +228,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
             },
               React.createElement(View, { style: s.colDesc },
                 React.createElement(View, { style: s.accentBar }),
+                React.createElement(Text, { style: { fontSize: 7, color: PDF_COLORS.accent, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 } }, getProductCategory(item.product_type)),
                 React.createElement(Text, { style: s.tableCellBold }, item.name || 'Item'),
                 item.description && React.createElement(Text, { style: s.tableCellGray }, item.description),
               ),
