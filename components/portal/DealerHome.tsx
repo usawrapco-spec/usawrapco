@@ -35,6 +35,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 
 export default function DealerHome({ ctx, referrals }: Props) {
   const base = `/portal/dealer/${ctx.token}`
+  const features = ctx.portal_features
 
   const totalRevenue = referrals.reduce((s, r) => {
     if (r.commission_amount) return s + r.commission_amount
@@ -149,7 +150,7 @@ export default function DealerHome({ ctx, referrals }: Props) {
       )}
 
       {/* ── MESSAGES ──────────────────────────────────────────────────────── */}
-      <Link href={`${base}/messages`} style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 24 }}>
+      {features.messaging && <Link href={`${base}/messages`} style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 24 }}>
         <div style={{
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 14, padding: '16px 18px',
@@ -175,15 +176,17 @@ export default function DealerHome({ ctx, referrals }: Props) {
             <ChevronRight size={18} color={C.text3} />
           </div>
         </div>
-      </Link>
+      </Link>}
 
       {/* ── FEATURED APPS ─────────────────────────────────────────────────── */}
+      {(features.mockup_generator || features.pnw_navigator || features.fleet_manager) && (
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.5 }}>
           Featured Apps
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
+          {features.mockup_generator && (
           <Link href={`${base}/mockup`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
               background: 'linear-gradient(135deg, rgba(34,192,122,0.10) 0%, rgba(79,127,255,0.06) 100%)',
@@ -199,7 +202,9 @@ export default function DealerHome({ ctx, referrals }: Props) {
               <ChevronRight size={16} color={C.text3} />
             </div>
           </Link>
+          )}
 
+          {features.pnw_navigator && (
           <Link href={`${base}/explorer`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
               background: 'linear-gradient(135deg, rgba(34,211,238,0.10) 0%, rgba(79,127,255,0.06) 100%)',
@@ -215,7 +220,9 @@ export default function DealerHome({ ctx, referrals }: Props) {
               <ChevronRight size={16} color={C.text3} />
             </div>
           </Link>
+          )}
 
+          {features.fleet_manager && (
           <Link href={`${base}/fleet`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
               background: 'linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(79,127,255,0.06) 100%)',
@@ -231,9 +238,11 @@ export default function DealerHome({ ctx, referrals }: Props) {
               <ChevronRight size={16} color={C.text3} />
             </div>
           </Link>
+          )}
 
         </div>
       </section>
+      )}
 
       {/* Empty state */}
       {referrals.length === 0 && (

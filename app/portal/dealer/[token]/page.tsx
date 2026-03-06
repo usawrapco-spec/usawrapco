@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import DealerHome from '@/components/portal/DealerHome'
 import type { DealerCtx } from '@/components/portal/DealerPortalShell'
+import { DEFAULT_PORTAL_FEATURES } from '@/components/portal/DealerPortalShell'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export default async function DealerPortalPage({ params }: { params: { token: st
   const { data: dealer } = await supabase
     .from('dealers')
     .select(`
-      id, name, company_name, portal_token, commission_pct,
+      id, name, company_name, portal_token, commission_pct, portal_features,
       profiles:sales_rep_id ( name )
     `)
     .eq('portal_token', params.token)
@@ -54,6 +55,7 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     unread_shop: unread.dealer_shop,
     unread_customer: unread.customer_shop,
     unread_group: unread.group,
+    portal_features: { ...DEFAULT_PORTAL_FEATURES, ...((dealer as any).portal_features || {}) },
   }
 
   return <DealerHome ctx={ctx} referrals={referralsRes.data || []} />

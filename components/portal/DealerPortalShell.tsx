@@ -9,6 +9,22 @@ import {
 } from 'lucide-react'
 import { C } from '@/lib/portal-theme'
 
+export interface PortalFeatures {
+  pnw_navigator: boolean
+  fleet_manager: boolean
+  mockup_generator: boolean
+  messaging: boolean
+  earnings: boolean
+}
+
+export const DEFAULT_PORTAL_FEATURES: PortalFeatures = {
+  pnw_navigator: true,
+  fleet_manager: true,
+  mockup_generator: true,
+  messaging: true,
+  earnings: true,
+}
+
 export interface DealerCtx {
   id: string
   name: string
@@ -20,15 +36,19 @@ export interface DealerCtx {
   unread_shop: number
   unread_customer: number
   unread_group: number
+  portal_features: PortalFeatures
 }
 
-const BASE_NAV = [
-  { key: 'home',     label: 'Home',     icon: Home,          href: '' },
-  { key: 'jobs',     label: 'Jobs',     icon: Briefcase,     href: '/jobs' },
-  { key: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' },
-  { key: 'mockup',   label: 'Mockup',   icon: Wand2,         href: '/mockup' },
-  { key: 'more',     label: 'More',     icon: Menu,          href: '#more' },
-] as const
+function getBaseNav(features: PortalFeatures) {
+  const items: { key: string; label: string; icon: any; href: string }[] = [
+    { key: 'home',     label: 'Home',     icon: Home,      href: '' },
+    { key: 'jobs',     label: 'Jobs',     icon: Briefcase, href: '/jobs' },
+  ]
+  if (features.messaging) items.push({ key: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' })
+  if (features.mockup_generator) items.push({ key: 'mockup', label: 'Mockup', icon: Wand2, href: '/mockup' })
+  items.push({ key: 'more', label: 'More', icon: Menu, href: '#more' })
+  return items
+}
 
 export default function DealerPortalShell({
   ctx,
@@ -41,8 +61,10 @@ export default function DealerPortalShell({
   const router = useRouter()
   const base = `/portal/dealer/${ctx.token}`
   const [moreOpen, setMoreOpen] = useState(false)
+  const features = ctx.portal_features
 
   const totalUnread = ctx.unread_shop + ctx.unread_customer + ctx.unread_group
+  const navItems = getBaseNav(features)
 
   function isActive(href: string) {
     if (!pathname) return false
@@ -52,10 +74,10 @@ export default function DealerPortalShell({
   }
 
   const moreItems = [
-    { label: 'PNW Navigator', icon: Compass, href: `${base}/explorer` },
-    { label: 'Fleet Manager',  icon: Map,     href: `${base}/fleet` },
-    { label: 'Earnings',       icon: TrendingUp, href: `${base}/earnings` },
-    { label: 'My Profile',     icon: User,    href: `${base}/profile` },
+    ...(features.pnw_navigator ? [{ label: 'PNW Navigator', icon: Compass, href: `${base}/explorer` }] : []),
+    ...(features.fleet_manager ? [{ label: 'Fleet Manager', icon: Map, href: `${base}/fleet` }] : []),
+    ...(features.earnings ? [{ label: 'Earnings', icon: TrendingUp, href: `${base}/earnings` }] : []),
+    { label: 'My Profile', icon: User, href: `${base}/profile` },
   ]
 
   return (
@@ -117,7 +139,7 @@ export default function DealerPortalShell({
         display: 'flex', justifyContent: 'space-around', alignItems: 'center',
         padding: '8px 0 env(safe-area-inset-bottom, 8px)', zIndex: 50,
       }}>
-        {BASE_NAV.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(item.href)
           const isMore = item.key === 'more'
           const Icon = item.icon
