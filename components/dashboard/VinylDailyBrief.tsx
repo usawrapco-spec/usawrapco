@@ -100,7 +100,7 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || errData.details || `API error ${res.status}`)
+        throw new Error(errData.details || errData.error || `API error ${res.status}`)
       }
       const data = await res.json()
       setSections(data.sections || [])

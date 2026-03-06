@@ -207,8 +207,15 @@ Generate a concise owner brief as JSON. Focus on what actually matters. If a dat
 
     if (!res.ok) {
       const errText = await res.text()
-      console.error('[ai/recap] Anthropic error:', errText)
-      return NextResponse.json({ error: 'AI request failed' }, { status: 500 })
+      console.error('[ai/recap] Anthropic error:', res.status, errText)
+      let detail = 'AI request failed'
+      try {
+        const errJson = JSON.parse(errText)
+        detail = errJson?.error?.message || errText
+      } catch {
+        detail = errText || `Anthropic API returned ${res.status}`
+      }
+      return NextResponse.json({ error: 'AI request failed', details: detail }, { status: 500 })
     }
 
     const aiData = await res.json()

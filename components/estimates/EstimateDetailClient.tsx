@@ -1221,7 +1221,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="anim-fade-up" style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <div className="anim-fade-up">
       {/* Print styles + print-only logo header */}
       <style>{`
         @media print {
@@ -1361,18 +1361,8 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 <MenuButton icon={<Wrench size={13} />} label="Work Order" onClick={async () => {
                   setPdfMenuOpen(false)
                   try {
-                    const res = await fetch('/api/pdf/workorder', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        ref: est.estimate_number || estimateId,
-                        title: est.title || 'Work Order',
-                        customer: est.customer?.name || '',
-                        items: lineItemsList.map(li => ({ name: li.name, description: li.description, qty: li.quantity, specs: li.specs })),
-                        notes: est.notes || '',
-                        vehicleYear, vehicleMake, vehicleModel,
-                      }),
-                    })
+                    const res = await fetch(`/api/pdf/workorder?id=${estimateId}`)
+                    if (!res.ok) throw new Error('PDF failed')
                     const blob = await res.blob()
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement('a')
@@ -2087,6 +2077,37 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 )}
               </div>
 
+<<<<<<< Updated upstream
+=======
+              <button
+                onClick={() => setProposalMode(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: proposalMode ? 'rgba(34,192,122,0.1)' : 'rgba(139,92,246,0.08)',
+                  border: `1px solid ${proposalMode ? 'rgba(34,192,122,0.3)' : 'rgba(139,92,246,0.25)'}`,
+                  borderRadius: 8, padding: '7px 14px',
+                  color: proposalMode ? 'var(--green)' : 'var(--purple)',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: headingFont, letterSpacing: '0.03em',
+                }}
+              >
+                {proposalMode ? <><CheckCircle2 size={13} /> Proposal Active</> : <><Package size={13} /> Build Proposal</>}
+              </button>
+
+              <button
+                onClick={handleCreateJob}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.25)',
+                  borderRadius: 8, padding: '7px 14px', color: 'var(--accent)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: headingFont, letterSpacing: '0.03em',
+                }}
+              >
+                <Briefcase size={13} />
+                Create Job
+              </button>
+>>>>>>> Stashed changes
               {canWrite && (
                 <button
                   onClick={() => addNewLineItem()}
@@ -2344,6 +2365,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
               totalGPM={0}
             />
+<<<<<<< Updated upstream
             {!showCustomerNote && (
               <button
                 onClick={() => setShowCustomerNote(true)}
@@ -2365,6 +2387,155 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   placeholder="Note visible to customer on the estimate..."
                   rows={4}
                   style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 80 }}
+=======
+
+            {/* Right: Unified Financial Panel */}
+            <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
+
+              {/* ── REVENUE ─────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Revenue</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
+                </div>
+              </div>
+
+              {/* ── COSTS ───────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Costs</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {cogsBreakdown.material > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.labor > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.design > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.misc > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
+                    </div>
+                  )}
+                  <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── PROFIT ──────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Profit</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{fmtPercent(overallGPM)}</span>
+                  </div>
+                  {overallGPM < 65 && subtotal > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
+                      <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── LEAD TYPE & AGENT ──────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                  {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
+                    <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
+                      {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Agent</div>
+                <select
+                  value={assignedAgent}
+                  onChange={e => setAssignedAgent(e.target.value)}
+                  style={{
+                    width: '100%', padding: '6px 8px', borderRadius: 6, fontSize: 12,
+                    background: 'var(--bg)', border: '1px solid var(--border)',
+                    color: 'var(--text1)', fontFamily: headingFont, cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">— Select Agent —</option>
+                  {team.filter(a => ['sales_agent', 'admin', 'owner'].includes(a.role)).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── TOTALS ──────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
+                      <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--red)', fontWeight: 600 }}>{fmtCurrency(-discount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── ACTION BUTTONS ───────────────────────── */}
+              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {canWrite && (
+                  <button
+                    onClick={handleCreateJob}
+                    style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                  >
+                    Convert to Job
+                  </button>
+                )}
+                <button
+                  onClick={handleSendEstimate}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                >
+                  Send Estimate
+                </button>
+              </div>
+
+              {/* Related Documents */}
+              <div style={{ padding: '0 16px 16px' }}>
+                <RelatedDocsPanel
+                  projectId={(est as any).project_id}
+                  customerId={est.customer_id}
+                  currentDocId={estimateId}
+                  currentDocType="estimate"
+>>>>>>> Stashed changes
                 />
               </>
             )}

@@ -869,6 +869,30 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         )}
       </div>
 
+      {/* ── ROI Strip ──────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0,
+        background: 'var(--card-bg, var(--surface))', border: '1px solid var(--card-border, var(--border))',
+        borderRadius: 12, marginBottom: 16, overflow: 'hidden',
+      }}>
+        <div style={{ padding: '12px 16px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 4 }}>Revenue</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</div>
+        </div>
+        <div style={{ padding: '12px 16px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 4 }}>Total COGS</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</div>
+        </div>
+        <div style={{ padding: '12px 16px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 4 }}>Gross Profit</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</div>
+        </div>
+        <div style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 4 }}>GPM</div>
+          <div style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{overallGPM.toFixed(1)}%</div>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'flex-start' }}>
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
