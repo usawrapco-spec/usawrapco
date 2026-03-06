@@ -443,9 +443,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const [showAllInfo, setShowAllInfo] = useState(false)
   const [proposalMode, setProposalMode] = useState(false)
-  const [proposalOptions, setProposalOptions] = useState<{ label: string; itemIds: string[] }[]>(
-    (est.form_data?.proposalOptions as { label: string; itemIds: string[] }[]) || []
-  )
+  // proposalOptions removed — line item assignment now lives in proposal_packages
   const [zoneProposalOpen, setZoneProposalOpen] = useState(false)
   const [pendingProposalZones, setPendingProposalZones] = useState<ZoneProposalItem[]>([])
   const [pendingBundleConfig, setPendingBundleConfig] = useState<BundleConfig | null>(null)
@@ -623,7 +621,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
         production_manager_id: productionMgrIds[0] || null,
         production_manager_ids: productionMgrIds,
         project_manager_id: null,
-        form_data: { ...est.form_data, leadType, assignedAgent: assignedAgent || undefined, installDate: installDate || undefined, proposalOptions: proposalMode ? proposalOptions : undefined, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
+        form_data: { ...est.form_data, leadType, assignedAgent: assignedAgent || undefined, installDate: installDate || undefined, vehicleYear: vehicleYear || undefined, vehicleMake: vehicleMake || undefined, vehicleModel: vehicleModel || undefined },
       }
       if (!savedId) {
         // First save — create estimate in DB
@@ -1099,20 +1097,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
     setExpandedSections(prev => ({ ...prev, [newItem.id]: { gpm: true } }))
   }
 
-  // ─── Proposal mode helpers ──────────────────────────────────────────────────
-  function addProposalOption() {
-    const letter = String.fromCharCode(65 + proposalOptions.length)
-    setProposalOptions(prev => [...prev, { label: `Option ${letter}`, itemIds: [] }])
-  }
-
-  function toggleItemInOption(optionIdx: number, itemId: string) {
-    setProposalOptions(prev => prev.map((opt, i) => {
-      if (i !== optionIdx) return opt
-      const has = opt.itemIds.includes(itemId)
-      return { ...opt, itemIds: has ? opt.itemIds.filter(id => id !== itemId) : [...opt.itemIds, itemId] }
-    }))
-  }
-
   function handleCreateProposalFromCalc(zones: ZoneProposalItem[], config: BundleConfig) {
     setPendingProposalZones(zones)
     setPendingBundleConfig(config)
@@ -1286,7 +1270,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 180, zIndex: 9999,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={() => { setPdfMenuOpen(false); const a = document.createElement('a'); a.href = `/api/pdf/estimate/${estimateId}`; a.download = `estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a) }} />
+                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Estimate PDF failed') } }} />
                 <MenuButton icon={<Wrench size={13} />} label="Work Order" onClick={async () => {
                   setPdfMenuOpen(false)
                   try {
@@ -1310,7 +1294,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                     URL.revokeObjectURL(url)
                   } catch { showToast('Work order PDF failed') }
                 }} />
-                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={() => { setPdfMenuOpen(false); const a = document.createElement('a'); a.href = `/api/pdf/proposal/${estimateId}`; a.download = `proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a) }} />
+                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/proposal/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Proposal PDF failed') } }} />
                 <MenuButton icon={<DollarSign size={13} />} label="Quick Print" onClick={() => { setPdfMenuOpen(false); window.print() }} />
               </div>
             )}
@@ -1724,20 +1708,20 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               />
             </div>
             <div>
-              <label style={fieldLabelStyle}>Proposal Mode</label>
+              <label style={fieldLabelStyle}>Proposal</label>
               <button
-                onClick={() => setProposalMode(!proposalMode)}
+                onClick={() => setProposalMode(true)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'transparent', border: 'none', color: proposalMode ? 'var(--green)' : 'var(--text3)',
-                  fontSize: 13, cursor: 'pointer', padding: '4px 0',
+                  padding: '6px 14px', borderRadius: 8,
+                  border: 'none',
+                  background: proposalMode ? 'var(--green)' : 'var(--accent)',
+                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
                 }}
               >
-                {proposalMode
-                  ? <ToggleRight size={20} style={{ color: 'var(--green)' }} />
-                  : <ToggleLeft size={20} style={{ color: 'var(--text3)' }} />
-                }
-                {proposalMode ? 'Enabled' : 'Disabled'}
+                {proposalMode ? <CheckCircle2 size={13} /> : <FileText size={13} />}
+                {proposalMode ? 'Proposal Active' : 'Create Proposal'}
               </button>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
@@ -1974,202 +1958,134 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
             </div>
           )}
 
-          {/* Proposal mode options */}
-          {proposalMode && (
-            <div style={{
-              ...cardStyle, marginBottom: 16, padding: 16,
-              background: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.2)',
-            }}>
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12,
-              }}>
+          {/* Old proposal options removed — now unified into ProposalBuilder */}
+
+          {/* Line items — hidden when proposal mode is active (proposal builder replaces them) */}
+          {!proposalMode && (
+            <>
+              {lineItemsList.length === 0 ? (
                 <div style={{
-                  fontSize: 12, fontWeight: 700, color: 'var(--purple)',
-                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.05em',
+                  ...cardStyle, padding: 48, textAlign: 'center',
                 }}>
-                  <Layers size={13} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6 }} />
-                  Proposal Options
+                  <ClipboardList size={32} style={{ color: 'var(--text3)', margin: '0 auto 12px', display: 'block' }} />
+                  <div style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 4 }}>No line items yet</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                    Click &quot;Add New Line Item&quot; to start building this estimate.
+                  </div>
                 </div>
-                <button
-                  onClick={addProposalOption}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    background: 'transparent', border: '1px solid rgba(139,92,246,0.3)',
-                    borderRadius: 6, padding: '4px 10px', color: 'var(--purple)',
-                    fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  }}
-                >
-                  <Plus size={11} /> Add Option
-                </button>
-              </div>
-              {proposalOptions.length === 0 && (
-                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: 12 }}>
-                  No options yet. Add options and assign line items to each.
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {lineItemsList.map((li, idx) => {
+                    // Compute rolled-up children total for parent items
+                    const childrenTotal = lineItemsList
+                      .filter(child => {
+                        const isChild = child.is_rolled_up || (child.specs as Record<string, unknown>)?.rolledUp
+                        const parentId = child.rolled_up_into || (child.specs as Record<string, unknown>)?.parentItemId
+                        return isChild && parentId === li.id
+                      })
+                      .reduce((sum, child) => sum + child.total_price, 0)
+
+                    return (
+                      <LineItemCard
+                        key={li.id}
+                        item={li}
+                        index={idx}
+                        canWrite={canWrite}
+                        onChange={(updated) => {
+                          setLineItemsList(prev => prev.map(x => x.id === li.id ? updated : x))
+                        }}
+                        onBlurSave={(updated) => handleLineItemSave(updated)}
+                        onRemove={() => {
+                          // When removing a parent, unroll its children first
+                          setLineItemsList(prev => {
+                            const children = prev.filter(child => {
+                              const parentId = child.rolled_up_into || (child.specs as Record<string, unknown>)?.parentItemId
+                              return parentId === li.id
+                            })
+                            let updated = prev.filter(x => x.id !== li.id)
+                            if (children.length > 0) {
+                              updated = updated.map(x => {
+                                const parentId = x.rolled_up_into || (x.specs as Record<string, unknown>)?.parentItemId
+                                if (parentId === li.id) {
+                                  return {
+                                    ...x,
+                                    is_rolled_up: false,
+                                    rolled_up_into: null,
+                                    specs: { ...x.specs, rolledUp: false, parentItemId: null },
+                                  }
+                                }
+                                return x
+                              })
+                            }
+                            return updated
+                          })
+                        }}
+                        expandedSections={expandedSections[li.id] || {}}
+                        onToggleSection={(section) => toggleSection(li.id, section)}
+                        leadType={leadType}
+                        team={team}
+                        products={products}
+                        allItems={lineItemsList}
+                        onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
+                        orgId={profile.org_id}
+                        rolledUpChildrenTotal={childrenTotal}
+                        onRollUp={() => {
+                          // Find the nearest non-rolled-up item above this one
+                          let parentItem: LineItem | null = null
+                          for (let i = idx - 1; i >= 0; i--) {
+                            const candidate = lineItemsList[i]
+                            const candidateRolledUp = candidate.is_rolled_up || (candidate.specs as Record<string, unknown>)?.rolledUp
+                            if (!candidateRolledUp) {
+                              parentItem = candidate
+                              break
+                            }
+                          }
+                          if (!parentItem) return
+                          const updatedItem: LineItem = {
+                            ...li,
+                            is_rolled_up: true,
+                            rolled_up_into: parentItem.id,
+                            specs: { ...li.specs, rolledUp: true, parentItemId: parentItem.id },
+                          }
+                          setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
+                          handleLineItemSave(updatedItem)
+                        }}
+                        onUnroll={() => {
+                          const updatedItem: LineItem = {
+                            ...li,
+                            is_rolled_up: false,
+                            rolled_up_into: null,
+                            specs: { ...li.specs, rolledUp: false, parentItemId: null },
+                          }
+                          setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
+                          handleLineItemSave(updatedItem)
+                        }}
+                        onCreateProposal={handleCreateProposalFromCalc}
+                      />
+                    )
+                  })}
                 </div>
               )}
-              {proposalOptions.map((opt, oi) => (
-                <div key={oi} style={{
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: 12, marginBottom: 8,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{
-                      ...monoStyle, fontSize: 13, fontWeight: 800, color: 'var(--purple)',
-                      background: 'rgba(139,92,246,0.15)', padding: '2px 8px', borderRadius: 4,
-                    }}>
-                      {String.fromCharCode(65 + oi)}
-                    </span>
-                    <input
-                      value={opt.label}
-                      onChange={e => setProposalOptions(prev => prev.map((p, i) => i === oi ? { ...p, label: e.target.value } : p))}
-                      style={{ ...fieldInputStyle, fontSize: 13, fontWeight: 600, flex: 1 }}
-                      disabled={!canWrite}
-                    />
-                    <button
-                      onClick={() => setProposalOptions(prev => prev.filter((_, i) => i !== oi))}
-                      style={{
-                        background: 'transparent', border: 'none',
-                        color: 'var(--red)', cursor: 'pointer', padding: 4,
-                      }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {lineItemsList.map(li => {
-                      const included = opt.itemIds.includes(li.id)
-                      return (
-                        <button
-                          key={li.id}
-                          onClick={() => toggleItemInOption(oi, li.id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            padding: '4px 10px', borderRadius: 6,
-                            border: included ? '1px solid var(--accent)' : '1px solid var(--border)',
-                            background: included ? 'rgba(79,127,255,0.12)' : 'transparent',
-                            color: included ? 'var(--accent)' : 'var(--text3)',
-                            fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                          }}
-                        >
-                          {included ? <CheckCircle2 size={11} /> : <CircleDot size={11} />}
-                          {li.name || 'Untitled'}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {opt.itemIds.length > 0 && (
-                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text2)', ...monoStyle }}>
-                      Option total: {fmtCurrency(lineItemsList.filter(li => opt.itemIds.includes(li.id)).reduce((s, li) => s + li.total_price, 0))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            </>
           )}
 
-          {/* Line items */}
-          {lineItemsList.length === 0 ? (
-            <div style={{
-              ...cardStyle, padding: 48, textAlign: 'center',
-            }}>
-              <ClipboardList size={32} style={{ color: 'var(--text3)', margin: '0 auto 12px', display: 'block' }} />
-              <div style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 4 }}>No line items yet</div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                Click &quot;Add New Line Item&quot; to start building this estimate.
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {lineItemsList.map((li, idx) => {
-                // Compute rolled-up children total for parent items
-                const childrenTotal = lineItemsList
-                  .filter(child => {
-                    const isChild = child.is_rolled_up || (child.specs as Record<string, unknown>)?.rolledUp
-                    const parentId = child.rolled_up_into || (child.specs as Record<string, unknown>)?.parentItemId
-                    return isChild && parentId === li.id
-                  })
-                  .reduce((sum, child) => sum + child.total_price, 0)
-
-                return (
-                  <LineItemCard
-                    key={li.id}
-                    item={li}
-                    index={idx}
-                    canWrite={canWrite}
-                    onChange={(updated) => {
-                      setLineItemsList(prev => prev.map(x => x.id === li.id ? updated : x))
-                    }}
-                    onBlurSave={(updated) => handleLineItemSave(updated)}
-                    onRemove={() => {
-                      // When removing a parent, unroll its children first
-                      setLineItemsList(prev => {
-                        const children = prev.filter(child => {
-                          const parentId = child.rolled_up_into || (child.specs as Record<string, unknown>)?.parentItemId
-                          return parentId === li.id
-                        })
-                        let updated = prev.filter(x => x.id !== li.id)
-                        if (children.length > 0) {
-                          updated = updated.map(x => {
-                            const parentId = x.rolled_up_into || (x.specs as Record<string, unknown>)?.parentItemId
-                            if (parentId === li.id) {
-                              return {
-                                ...x,
-                                is_rolled_up: false,
-                                rolled_up_into: null,
-                                specs: { ...x.specs, rolledUp: false, parentItemId: null },
-                              }
-                            }
-                            return x
-                          })
-                        }
-                        return updated
-                      })
-                    }}
-                    expandedSections={expandedSections[li.id] || {}}
-                    onToggleSection={(section) => toggleSection(li.id, section)}
-                    leadType={leadType}
-                    team={team}
-                    products={products}
-                    allItems={lineItemsList}
-                    onOpenAreaCalc={() => { setAreaCalcItemId(li.id); setAreaCalcOpen(true) }}
-                    orgId={profile.org_id}
-                    rolledUpChildrenTotal={childrenTotal}
-                    onRollUp={() => {
-                      // Find the nearest non-rolled-up item above this one
-                      let parentItem: LineItem | null = null
-                      for (let i = idx - 1; i >= 0; i--) {
-                        const candidate = lineItemsList[i]
-                        const candidateRolledUp = candidate.is_rolled_up || (candidate.specs as Record<string, unknown>)?.rolledUp
-                        if (!candidateRolledUp) {
-                          parentItem = candidate
-                          break
-                        }
-                      }
-                      if (!parentItem) return
-                      const updatedItem: LineItem = {
-                        ...li,
-                        is_rolled_up: true,
-                        rolled_up_into: parentItem.id,
-                        specs: { ...li.specs, rolledUp: true, parentItemId: parentItem.id },
-                      }
-                      setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
-                      handleLineItemSave(updatedItem)
-                    }}
-                    onUnroll={() => {
-                      const updatedItem: LineItem = {
-                        ...li,
-                        is_rolled_up: false,
-                        rolled_up_into: null,
-                        specs: { ...li.specs, rolledUp: false, parentItemId: null },
-                      }
-                      setLineItemsList(prev => prev.map(x => x.id === li.id ? updatedItem : x))
-                      handleLineItemSave(updatedItem)
-                    }}
-                    onCreateProposal={handleCreateProposalFromCalc}
-                  />
-                )
-              })}
-            </div>
+          {/* ── PROPOSAL BUILDER (replaces line items when proposal mode is active) ── */}
+          {proposalMode && (
+            <ProposalBuilder
+              estimateId={estimateId}
+              customerId={est.customer_id}
+              customerEmail={est.customer?.email || null}
+              customerName={est.customer?.name || null}
+              customerPhone={null}
+              lineItems={lineItemsList.map(li => ({
+                id: li.id,
+                name: li.name || li.description || li.product_type || 'Item',
+                description: li.description || null,
+                totalPrice: li.total_price || 0,
+                productType: li.product_type || 'custom',
+              }))}
+              onClose={() => setProposalMode(false)}
+            />
           )}
 
           {/* ── Bottom Summary ───────────────────────────────────────────── */}
@@ -2207,36 +2123,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   />
                 </>
               )}
-            </div>
-
-            {/* ── PROPOSAL BUILDER (unified with items) ── */}
-            <div style={{ ...cardStyle, marginTop: 16 }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont }}>
-                  Proposal Builder
-                </div>
-                <button
-                  onClick={() => setProposalSlideOpen(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '6px 14px', borderRadius: 8,
-                    border: 'none', background: 'var(--accent)',
-                    color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
-                  }}
-                >
-                  <Eye size={12} /> Preview & Send
-                </button>
-              </div>
-              <div style={{ padding: '0' }}>
-                <ProposalBuilder
-                  estimateId={estimateId}
-                  customerId={est.customer_id}
-                  customerEmail={est.customer?.email || null}
-                  customerName={est.customer?.name || null}
-                  customerPhone={null}
-                />
-              </div>
             </div>
 
             {/* Proposal Slide-Over (preview & send) */}
@@ -2394,10 +2280,10 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                   Send Estimate
                 </button>
                 <button
-                  onClick={() => setProposalSlideOpen(true)}
-                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  onClick={() => setProposalMode(true)}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: proposalMode ? 'var(--green)' : 'var(--purple)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                  <FileText size={14} /> Build Proposal
+                  {proposalMode ? <><CheckCircle2 size={14} /> Proposal Active</> : <><Package size={14} /> Build Proposal</>}
                 </button>
               </div>
 

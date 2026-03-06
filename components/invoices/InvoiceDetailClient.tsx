@@ -480,13 +480,22 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     showToast('Notes saved')
   }
 
-  function handleExportPdf() {
-    const a = document.createElement('a')
-    a.href = `/api/pdf/invoice/${invoiceId}`
-    a.download = `invoice-${inv.invoice_number}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+  async function handleExportPdf() {
+    try {
+      const res = await fetch(`/api/pdf/invoice/${invoiceId}`)
+      if (!res.ok) throw new Error('PDF failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoice-${inv.invoice_number}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      showToast('Invoice PDF failed')
+    }
   }
 
   function handleSendInvoice() {
