@@ -20,6 +20,7 @@ export default async function DealerPortalLayout({
     .from('dealers')
     .select(`
       id, name, company_name, email, portal_token, commission_pct, portal_features,
+      logo_url, brand_color, tagline, primary_app,
       sales_rep_id,
       profiles:sales_rep_id ( name )
     `)
@@ -58,6 +59,10 @@ export default async function DealerPortalLayout({
     unread_customer: unread.customer_shop,
     unread_group: unread.group,
     portal_features: { ...DEFAULT_PORTAL_FEATURES, ...(dealer.portal_features || {}) },
+    logo_url: dealer.logo_url ?? null,
+    brand_color: dealer.brand_color ?? null,
+    tagline: dealer.tagline ?? null,
+    primary_app: dealer.primary_app ?? null,
   }
 
   return <DealerPortalShell ctx={ctx}>{children}</DealerPortalShell>

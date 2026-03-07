@@ -13,6 +13,7 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     .from('dealers')
     .select(`
       id, name, company_name, portal_token, commission_pct, portal_features,
+      logo_url, brand_color, tagline, primary_app,
       profiles:sales_rep_id ( name )
     `)
     .eq('portal_token', params.token)
@@ -56,6 +57,10 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     unread_customer: unread.customer_shop,
     unread_group: unread.group,
     portal_features: { ...DEFAULT_PORTAL_FEATURES, ...((dealer as any).portal_features || {}) },
+    logo_url: (dealer as any).logo_url ?? null,
+    brand_color: (dealer as any).brand_color ?? null,
+    tagline: (dealer as any).tagline ?? null,
+    primary_app: (dealer as any).primary_app ?? null,
   }
 
   return <DealerHome ctx={ctx} referrals={referralsRes.data || []} />
