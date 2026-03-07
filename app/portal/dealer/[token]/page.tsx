@@ -45,22 +45,23 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     { dealer_shop: 0, group: 0, customer_shop: 0 }
   )
 
+  const d = dealer as any
   const ctx: DealerCtx = {
-    id: dealer.id,
-    name: dealer.name,
-    company_name: dealer.company_name,
+    id: d.id,
+    name: d.name,
+    company_name: d.company_name,
     email: null,
-    token: dealer.portal_token,
-    sales_rep_name: (dealer.profiles as any)?.name ?? null,
-    commission_pct: dealer.commission_pct ?? 2.5,
+    token: d.portal_token,
+    sales_rep_name: d.profiles?.name ?? null,
+    commission_pct: d.commission_pct ?? 2.5,
     unread_shop: unread.dealer_shop,
     unread_customer: unread.customer_shop,
     unread_group: unread.group,
-    portal_features: { ...DEFAULT_PORTAL_FEATURES, ...((dealer as any).portal_features || {}) },
-    logo_url: (dealer as any).logo_url ?? null,
-    brand_color: (dealer as any).brand_color ?? null,
-    tagline: (dealer as any).tagline ?? null,
-    primary_app: (dealer as any).primary_app ?? null,
+    portal_features: { ...DEFAULT_PORTAL_FEATURES, ...(d.portal_features || {}) },
+    logo_url: d.logo_url ?? null,
+    brand_color: d.brand_color ?? null,
+    tagline: d.tagline ?? null,
+    primary_app: d.primary_app ?? null,
   }
 
   return <DealerHome ctx={ctx} referrals={referralsRes.data || []} />
