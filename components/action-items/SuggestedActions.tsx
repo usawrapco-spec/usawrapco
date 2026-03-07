@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import {
   Sparkles, Send, RefreshCw, CheckCircle2, ListTodo, PenTool,
-  ArrowUpRight, X, Loader2,
+  ArrowUpRight, X, Loader2, Eye,
 } from 'lucide-react'
 
 interface Suggestion {
@@ -30,12 +30,37 @@ interface Props {
   onRefresh: () => void
 }
 
+function isViewSuggestion(suggestion: Suggestion): boolean {
+  const label = suggestion.label.toLowerCase()
+  return (
+    suggestion.type === 'view' ||
+    suggestion.type === 'review' ||
+    suggestion.type === 'navigate' ||
+    label.includes('review') ||
+    label.includes('compare') ||
+    label.includes('side by side') ||
+    label.includes('open') ||
+    label.includes('check')
+  )
+}
+
+function getEntityLink(entityType: string, entityId: string): string | null {
+  switch (entityType) {
+    case 'estimate': return `/estimates/${entityId}`
+    case 'invoice': return `/invoices/${entityId}`
+    case 'project': return `/projects/${entityId}`
+    case 'customer': return `/customers/${entityId}`
+    default: return null
+  }
+}
+
 function typeIcon(type: string) {
   switch (type) {
     case 'send_message': return Send
     case 'update_status': return ArrowUpRight
     case 'create_task': return ListTodo
     case 'ai_draft': return PenTool
+    case 'view': case 'review': case 'navigate': return Eye
     default: return Sparkles
   }
 }
@@ -46,6 +71,7 @@ function typeColor(type: string) {
     case 'update_status': return '#22c07a'
     case 'create_task': return '#f59e0b'
     case 'ai_draft': return '#8b5cf6'
+    case 'view': case 'review': case 'navigate': return '#4f7fff'
     default: return '#4f7fff'
   }
 }
@@ -243,6 +269,36 @@ export default function SuggestedActions({
                         setExpandedDraft(suggestion.label)
                         return
                       }
+                      // For view/review suggestions, open entity pages directly
+                      if (isViewSuggestion(suggestion)) {
+                        const entityIds = actionItem.entity_ids || []
+                        const links = entityIds
+                          .map((id: string) => getEntityLink(entityType, id))
+                          .filter(Boolean)
+                        if (links.length > 0) {
+                          links.forEach((link: string) => window.open(link, '_blank'))
+                          // Log the action
+                          fetch('/api/ai/action-execute', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              type: 'log_view',
+                              payload: {},
+                              recapId,
+                              itemId,
+                              entityType,
+                              entityIds,
+                              suggestionLabel: suggestion.label,
+                            }),
+                          }).catch(() => {})
+                          onExecuted(suggestion.label)
+                          setResults(prev => ({
+                            ...prev,
+                            [suggestion.label]: `Opened ${links.length} ${entityType}${links.length > 1 ? 's' : ''}`,
+                          }))
+                          return
+                        }
+                      }
                       setConfirmDelete(suggestion.label)
                     }}
                     disabled={isExecuting}
@@ -254,7 +310,7 @@ export default function SuggestedActions({
                       opacity: isExecuting ? 0.6 : 1,
                     }}
                   >
-                    {isExecuting ? 'Running...' : 'Do It'}
+                    {isExecuting ? 'Running...' : (isViewSuggestion(suggestion) ? 'Open' : 'Do It')}
                   </button>
                   <button
                     onClick={() => dismissSuggestion(suggestion)}
