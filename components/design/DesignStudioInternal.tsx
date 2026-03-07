@@ -22,7 +22,7 @@ import {
 type ToolId = 'select' | 'directSelect' | 'pen' | 'text' | 'rect' | 'ellipse'
   | 'line' | 'brush' | 'eraser' | 'eyedropper' | 'hand' | 'zoom' | 'polygon' | 'star' | 'triangle' | 'image'
 type ProductMode = 'vehicle' | 'sign' | 'apparel'
-type RightTab = 'properties' | 'layers' | 'color' | 'swatches'
+type RightTab = 'properties' | 'layers' | 'color' | 'swatches' | 'filters'
 
 interface LayerItem {
   id: string
@@ -203,6 +203,12 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
   const [showGrid, setShowGrid] = useState(false)
   const [snapToGrid, setSnapToGrid] = useState(false)
 
+  // Layer editing
+  const [editingLayerId, setEditingLayerId] = useState<string | null>(null)
+  const [editingLayerName, setEditingLayerName] = useState('')
+  const [dragLayerIdx, setDragLayerIdx] = useState<number | null>(null)
+  const [dragOverLayerIdx, setDragOverLayerIdx] = useState<number | null>(null)
+
   // Canvas cursor position
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [objectCount, setObjectCount] = useState(0)
@@ -242,13 +248,15 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
     const fc = fabricRef.current
     if (!fc) return
     const objs = fc.getObjects()
-    const items: LayerItem[] = objs.map((o: any, i: number) => ({
-      id: o.id || `obj-${i}`,
+    const items: LayerItem[] = objs.map((o: any, i: number) => {
+      if (!o.id) o.id = `obj-${Date.now()}-${i}`
+      return {
+      id: o.id,
       name: o.name || o.type || `Object ${i + 1}`,
       visible: o.visible !== false,
       locked: !o.selectable,
       type: o.type || 'unknown',
-    })).reverse()
+    }}).reverse()
     setLayers(items)
     setObjectCount(objs.length)
   }, [])
@@ -274,6 +282,15 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
       text: obj.text,
       scaleX: obj.scaleX || 1,
       scaleY: obj.scaleY || 1,
+      shadow: obj.shadow ? {
+        color: (obj.shadow as any).color || 'rgba(0,0,0,0.5)',
+        blur: (obj.shadow as any).blur || 0,
+        offsetX: (obj.shadow as any).offsetX || 0,
+        offsetY: (obj.shadow as any).offsetY || 0,
+      } : null,
+      hasClipPath: !!obj.clipPath,
+      isImage: obj.type === 'image',
+      filters: obj.type === 'image' ? (obj.filters || []).map((f: any) => ({ type: f?.type, value: f?.brightness ?? f?.contrast ?? f?.saturation ?? f?.blur ?? 1 })) : [],
     })
   }, [])
 
@@ -559,6 +576,135 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
       fc.renderAll()
     }
   }, [])
+
+  // ── Clipping Mask ─────────────────────────────────────────────────────
+  const applyClipMask = useCallback(async () => {
+    const fc = fabricRef.current; if (!fc) return
+    const active = fc.getActiveObject() as any
+    if (!active || active.type !== 'activeSelection') return
+    const objects = active.getObjects()
+    if (objects.length !== 2) return
+    // Top object becomes clip path for bottom object
+    const topObj = objects[1]
+    const bottomObj = objects[0]
+    const clipShape = await topObj.clone()
+    clipShape.set({ absolutePositioned: true })
+    fc.remove(topObj)
+    fc.discardActiveObject()
+    bottomObj.set({ clipPath: clipShape })
+    fc.setActiveObject(bottomObj)
+    fc.renderAll()
+    syncLayers()
+    pushUndo()
+  }, [syncLayers, pushUndo])
+
+  const removeClipMask = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return
+    const active = fc.getActiveObject()
+    if (!active) return
+    active.set({ clipPath: undefined })
+    fc.renderAll()
+    pushUndo()
+  }, [pushUndo])
+
+  // ── Shadow ──────────────────────────────────────────────────────────────
+  const applyShadow = useCallback(async (shadowProps: { color?: string; blur?: number; offsetX?: number; offsetY?: number }) => {
+    const fc = fabricRef.current; if (!fc) return
+    const active = fc.getActiveObject()
+    if (!active) return
+    const fabric = await import('fabric')
+    const current = active.shadow as any
+    const opts = {
+      color: shadowProps.color ?? (current?.color || 'rgba(0,0,0,0.5)'),
+      blur: shadowProps.blur ?? (current?.blur || 10),
+      offsetX: shadowProps.offsetX ?? (current?.offsetX || 5),
+      offsetY: shadowProps.offsetY ?? (current?.offsetY || 5),
+    }
+    active.set({ shadow: new (fabric as any).Shadow(opts) })
+    fc.renderAll()
+    updateSelectionProps(active)
+  }, [updateSelectionProps])
+
+  const removeShadow = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return
+    const active = fc.getActiveObject()
+    if (!active) return
+    active.set({ shadow: null })
+    fc.renderAll()
+    updateSelectionProps(active)
+  }, [updateSelectionProps])
+
+  // ── Image Filters ───────────────────────────────────────────────────────
+  const applyImageFilter = useCallback(async (filterType: string, value: number) => {
+    const fc = fabricRef.current; if (!fc) return
+    const active = fc.getActiveObject() as any
+    if (!active || (active.type !== 'image')) return
+    const fabric = await import('fabric')
+    const filters = fabric.filters || (fabric as any).Image?.filters || (fabric as any)
+    if (!active.filters) active.filters = []
+
+    // Remove existing filter of same type
+    active.filters = active.filters.filter((f: any) => f?.type !== filterType)
+
+    if (value !== 0) {
+      let filter: any = null
+      switch (filterType) {
+        case 'Brightness': filter = new filters.Brightness({ brightness: value }); break
+        case 'Contrast': filter = new filters.Contrast({ contrast: value }); break
+        case 'Saturation': filter = new filters.Saturation({ saturation: value }); break
+        case 'Blur': filter = new filters.Blur({ blur: value }); break
+        case 'Grayscale': if (value > 0) filter = new filters.Grayscale(); break
+        case 'Sepia': if (value > 0) filter = new filters.Sepia(); break
+        case 'Invert': if (value > 0) filter = new filters.Invert(); break
+      }
+      if (filter) active.filters.push(filter)
+    }
+
+    active.applyFilters()
+    fc.renderAll()
+    updateSelectionProps(active)
+  }, [updateSelectionProps])
+
+  const clearAllFilters = useCallback(() => {
+    const fc = fabricRef.current; if (!fc) return
+    const active = fc.getActiveObject() as any
+    if (!active || active.type !== 'image') return
+    active.filters = []
+    active.applyFilters()
+    fc.renderAll()
+    updateSelectionProps(active)
+  }, [updateSelectionProps])
+
+  // ── Layer reorder via drag ─────────────────────────────────────────────
+  const handleLayerDrop = useCallback((fromIdx: number, toIdx: number) => {
+    const fc = fabricRef.current; if (!fc) return
+    if (fromIdx === toIdx) return
+    const objs = fc.getObjects()
+    // Layers are displayed reversed, so convert
+    const fromObjIdx = objs.length - 1 - fromIdx
+    const toObjIdx = objs.length - 1 - toIdx
+    const obj = objs[fromObjIdx]
+    if (!obj) return
+    fc.remove(obj)
+    // Re-insert at the target position
+    const newObjs = fc.getObjects()
+    const insertAt = Math.min(Math.max(toObjIdx, 0), newObjs.length)
+    fc.insertAt(insertAt, obj)
+    fc.renderAll()
+    syncLayers()
+    pushUndo()
+  }, [syncLayers, pushUndo])
+
+  // ── Layer rename ───────────────────────────────────────────────────────
+  const commitLayerRename = useCallback((layerId: string, newName: string) => {
+    const fc = fabricRef.current; if (!fc) return
+    const obj = fc.getObjects().find((o: any) => (o.id || '') === layerId)
+    if (obj && newName.trim()) {
+      obj.set('name', newName.trim())
+      syncLayers()
+    }
+    setEditingLayerId(null)
+  }, [syncLayers])
 
   const flipH = useCallback(() => {
     const fc = fabricRef.current; if (!fc) return
@@ -1167,6 +1313,12 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
       { label: 'divider', divider: true },
       { label: 'Flip Horizontal', action: flipH },
       { label: 'Flip Vertical', action: flipV },
+      { label: 'divider', divider: true },
+      { label: 'Create Clipping Mask', action: applyClipMask, shortcut: '' },
+      { label: 'Remove Clipping Mask', action: removeClipMask, shortcut: '' },
+      { label: 'divider', divider: true },
+      { label: 'Add Shadow', action: () => applyShadow({}), shortcut: '' },
+      { label: 'Remove Shadow', action: removeShadow, shortcut: '' },
     ],
     View: [
       { label: 'Zoom In', action: zoomIn, shortcut: 'Ctrl+=' },
@@ -1183,6 +1335,7 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
     Window: [
       { label: 'Properties', action: () => { setShowRightPanel(true); setRightTab('properties') } },
       { label: 'Layers', action: () => { setShowRightPanel(true); setRightTab('layers') } },
+      { label: 'Filters', action: () => { setShowRightPanel(true); setRightTab('filters') } },
       { label: 'Color', action: () => { setShowRightPanel(true); setRightTab('color') } },
       { label: 'Swatches', action: () => { setShowRightPanel(true); setRightTab('swatches') } },
       { label: 'divider', divider: true },
@@ -1729,6 +1882,7 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
               {([
                 { id: 'properties' as const, label: 'Properties' },
                 { id: 'layers' as const, label: 'Layers' },
+                { id: 'filters' as const, label: 'Filters' },
                 { id: 'color' as const, label: 'Color' },
                 { id: 'swatches' as const, label: 'Swatches' },
               ]).map(tab => (
@@ -1792,6 +1946,45 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
                       <input type="number" value={selectionProps.strokeWidth} min={0} onChange={e => updateProp('strokeWidth', e.target.value)} style={propInput} />
                     </div>
 
+                    {/* Shadow */}
+                    <div style={sectionTitle}>Shadow</div>
+                    {selectionProps.shadow ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                          <div>
+                            <span style={propLabel}>X</span>
+                            <input type="number" value={selectionProps.shadow.offsetX} onChange={e => applyShadow({ offsetX: Number(e.target.value) })} style={propInput} />
+                          </div>
+                          <div>
+                            <span style={propLabel}>Y</span>
+                            <input type="number" value={selectionProps.shadow.offsetY} onChange={e => applyShadow({ offsetY: Number(e.target.value) })} style={propInput} />
+                          </div>
+                        </div>
+                        <div>
+                          <span style={propLabel}>Blur</span>
+                          <input type="range" min={0} max={50} value={selectionProps.shadow.blur} onChange={e => applyShadow({ blur: Number(e.target.value) })} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <span style={propLabel}>Color</span>
+                          <input type="color" value={selectionProps.shadow.color?.startsWith('rgba') ? '#000000' : (selectionProps.shadow.color || '#000000')} onChange={e => applyShadow({ color: e.target.value })} style={{ width: '100%', height: 22, cursor: 'pointer', borderRadius: 3, border: `1px solid ${BORDER}` }} />
+                        </div>
+                        <button onClick={removeShadow} style={{ padding: '3px 8px', borderRadius: 3, border: `1px solid ${BORDER}`, background: 'transparent', color: RED, cursor: 'pointer', fontSize: 10 }}>Remove Shadow</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => applyShadow({})} style={{ padding: '4px 8px', borderRadius: 3, border: `1px solid ${BORDER}`, background: 'transparent', color: TEXT2, cursor: 'pointer', fontSize: 10, width: '100%' }}>+ Add Shadow</button>
+                    )}
+
+                    {/* Clipping Mask */}
+                    {selectionProps.hasClipPath && (
+                      <>
+                        <div style={sectionTitle}>Clipping Mask</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color: GREEN }}>Mask Applied</span>
+                          <button onClick={removeClipMask} style={{ padding: '3px 8px', borderRadius: 3, border: `1px solid ${BORDER}`, background: 'transparent', color: RED, cursor: 'pointer', fontSize: 10 }}>Remove</button>
+                        </div>
+                      </>
+                    )}
+
                     {/* Text props */}
                     {(selectionProps.type === 'i-text' || selectionProps.type === 'text') && (
                       <>
@@ -1836,13 +2029,23 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
                   ) : (
                     layers.map((layer, idx) => (
                       <div key={layer.id} className="studio-layer"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 6px', borderRadius: 4, cursor: 'pointer', background: 'transparent', marginBottom: 1 }}
+                        draggable
+                        onDragStart={() => setDragLayerIdx(idx)}
+                        onDragOver={e => { e.preventDefault(); setDragOverLayerIdx(idx) }}
+                        onDragEnd={() => { setDragLayerIdx(null); setDragOverLayerIdx(null) }}
+                        onDrop={e => { e.preventDefault(); if (dragLayerIdx !== null) handleLayerDrop(dragLayerIdx, idx); setDragLayerIdx(null); setDragOverLayerIdx(null) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 4, padding: '5px 6px', borderRadius: 4, cursor: 'grab', marginBottom: 1,
+                          background: dragOverLayerIdx === idx ? `${ACCENT}22` : 'transparent',
+                          borderTop: dragOverLayerIdx === idx ? `2px solid ${ACCENT}` : '2px solid transparent',
+                        }}
                         onClick={() => {
                           const fc = fabricRef.current; if (!fc) return
                           const objs = fc.getObjects()
                           const objIdx = objs.length - 1 - idx
                           if (objs[objIdx]) { fc.setActiveObject(objs[objIdx]); fc.renderAll() }
                         }}>
+                        <GripVertical size={10} style={{ color: TEXT3, flexShrink: 0, cursor: 'grab' }} />
                         <button onClick={e => {
                           e.stopPropagation()
                           const fc = fabricRef.current; if (!fc) return
@@ -1865,14 +2068,81 @@ export default function DesignStudioInternal({ orgId }: DesignStudioInternalProp
                         }} style={{ background: 'transparent', border: 'none', color: layer.locked ? RED : TEXT3, cursor: 'pointer', padding: 0 }}>
                           {layer.locked ? <Lock size={11} /> : <Unlock size={11} />}
                         </button>
-                        <span style={{ fontSize: 10, color: TEXT1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {layer.name}
-                        </span>
-                        <span style={{ fontSize: 9, color: TEXT3, textTransform: 'capitalize' }}>{layer.type}</span>
+                        {editingLayerId === layer.id ? (
+                          <input
+                            autoFocus
+                            value={editingLayerName}
+                            onChange={e => setEditingLayerName(e.target.value)}
+                            onBlur={() => commitLayerRename(layer.id, editingLayerName)}
+                            onKeyDown={e => { if (e.key === 'Enter') commitLayerRename(layer.id, editingLayerName); if (e.key === 'Escape') setEditingLayerId(null) }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ ...propInput, flex: 1, fontSize: 10, padding: '1px 4px' }}
+                          />
+                        ) : (
+                          <span
+                            onDoubleClick={e => { e.stopPropagation(); setEditingLayerId(layer.id); setEditingLayerName(layer.name) }}
+                            style={{ fontSize: 10, color: TEXT1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {layer.name}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 9, color: TEXT3, textTransform: 'capitalize', flexShrink: 0 }}>{layer.type}</span>
                       </div>
                     ))
                   )}
                 </div>
+              )}
+
+              {/* ── Filters Panel ── */}
+              {rightTab === 'filters' && (
+                selectionProps?.isImage ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={sectionTitle}>Image Filters</div>
+                    {[
+                      { type: 'Brightness', label: 'Brightness', min: -1, max: 1, step: 0.05, def: 0 },
+                      { type: 'Contrast', label: 'Contrast', min: -1, max: 1, step: 0.05, def: 0 },
+                      { type: 'Saturation', label: 'Saturation', min: -1, max: 1, step: 0.05, def: 0 },
+                      { type: 'Blur', label: 'Blur', min: 0, max: 1, step: 0.02, def: 0 },
+                    ].map(f => {
+                      const current = selectionProps.filters?.find((fi: any) => fi.type === f.type)
+                      const val = current?.value ?? f.def
+                      return (
+                        <div key={f.type}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 10, color: TEXT2, fontWeight: 600 }}>{f.label}</span>
+                            <span style={{ fontSize: 9, color: TEXT3, fontFamily: 'JetBrains Mono, monospace' }}>{typeof val === 'number' ? val.toFixed(2) : '0.00'}</span>
+                          </div>
+                          <input type="range" min={f.min} max={f.max} step={f.step} value={val}
+                            onChange={e => applyImageFilter(f.type, Number(e.target.value))} style={{ width: '100%' }} />
+                        </div>
+                      )
+                    })}
+
+                    <div style={sectionTitle}>Effects</div>
+                    {[
+                      { type: 'Grayscale', label: 'Grayscale' },
+                      { type: 'Sepia', label: 'Sepia' },
+                      { type: 'Invert', label: 'Invert' },
+                    ].map(f => {
+                      const isActive = selectionProps.filters?.some((fi: any) => fi.type === f.type)
+                      return (
+                        <button key={f.type} onClick={() => applyImageFilter(f.type, isActive ? 0 : 1)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '5px 8px', borderRadius: 4, border: `1px solid ${isActive ? ACCENT : BORDER}`, background: isActive ? `${ACCENT}22` : 'transparent', color: isActive ? ACCENT : TEXT2, cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
+                          <span>{f.label}</span>
+                          {isActive && <Check size={11} />}
+                        </button>
+                      )
+                    })}
+
+                    <button onClick={clearAllFilters}
+                      style={{ marginTop: 8, width: '100%', padding: '5px', borderRadius: 4, border: `1px solid ${BORDER}`, background: 'transparent', color: RED, cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
+                      Clear All Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ padding: 16, textAlign: 'center', color: TEXT3, fontSize: 11 }}>
+                    Select an image to apply filters
+                  </div>
+                )
               )}
 
               {/* ── Color Panel ── */}
