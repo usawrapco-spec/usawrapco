@@ -105,6 +105,7 @@ export default function ProposalBuilder({
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [proposalId, setProposalId] = useState<string | null>(null)
   const [publicToken, setPublicToken] = useState<string | null>(null)
   const [status, setStatus] = useState<ProposalStatus>('draft')
@@ -272,8 +273,9 @@ export default function ProposalBuilder({
   const handleSave = useCallback(async () => {
     if (!proposalId) return
     setSaving(true)
+    setSaveResult(null)
     try {
-      await fetch(`/api/proposals/${proposalId}`, {
+      const res = await fetch(`/api/proposals/${proposalId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -314,8 +316,18 @@ export default function ProposalBuilder({
           })),
         }),
       })
-    } catch (err) {
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Save failed' }))
+        console.error('[ProposalBuilder] save error:', errData)
+        setSaveResult({ ok: false, msg: errData.error || 'Save failed' })
+      } else {
+        setSaveResult({ ok: true, msg: 'Proposal saved' })
+        setTimeout(() => setSaveResult(null), 3000)
+      }
+    } catch (err: any) {
       console.error('[ProposalBuilder] save error:', err)
+      setSaveResult({ ok: false, msg: err.message || 'Network error' })
     }
     setSaving(false)
   }, [proposalId, title, message, expirationDate, depositAmount, depositType, packages, upsells, includeInspection])
@@ -1364,6 +1376,18 @@ export default function ProposalBuilder({
             {saving ? 'Saving...' : 'Save Draft'}
           </button>
         </div>
+        {saveResult && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            background: saveResult.ok ? 'rgba(34,192,122,0.1)' : 'rgba(242,90,90,0.1)',
+            border: `1px solid ${saveResult.ok ? 'rgba(34,192,122,0.25)' : 'rgba(242,90,90,0.25)'}`,
+            color: saveResult.ok ? C.green : C.red,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {saveResult.ok ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
+            {saveResult.msg}
+          </div>
+        )}
       </div>
 
       {/* ── Activity Feed ─────────────────────────────────────── */}
