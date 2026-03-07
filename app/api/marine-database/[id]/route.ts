@@ -33,7 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     'make', 'model', 'year', 'boat_class', 'overall_length_ft', 'beam_ft', 'draft_ft',
     'dry_weight_lbs', 'fuel_capacity_gal', 'water_capacity_gal', 'num_levels',
     'deck_components', 'estimated_value_min', 'estimated_value_max', 'fun_facts',
-    'schematic_svg', 'manual_url', 'manual_summary', 'ai_generated', 'source_urls',
+    'schematic_svg', 'manual_url', 'manual_summary', 'custom_documents', 'ai_generated', 'source_urls',
   ]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates: any = {}

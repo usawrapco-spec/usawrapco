@@ -92,7 +92,7 @@ export default function DealerHome({ ctx, referrals }: Props) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.text1 }}>Refer a New Customer</div>
             <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>
-              Build a mockup, get an instant estimate, earn {ctx.commission_pct}% commission
+              Build a mockup{ctx.share_estimates ? ', get an instant estimate,' : ''} and earn commission
             </div>
           </div>
           <ChevronRight size={20} color={C.green} />
@@ -307,7 +307,7 @@ export default function DealerHome({ ctx, referrals }: Props) {
         <div style={{ textAlign: 'center', padding: '32px 20px', color: C.text3 }}>
           <TrendingUp size={32} strokeWidth={1} style={{ marginBottom: 10, opacity: 0.3 }} />
           <div style={{ fontSize: 14, color: C.text2, marginBottom: 6 }}>No referrals yet</div>
-          <div style={{ fontSize: 12 }}>Refer your first customer and start earning {ctx.commission_pct}% commission</div>
+          <div style={{ fontSize: 12 }}>Refer your first customer and start earning commission</div>
         </div>
       )}
     </div>

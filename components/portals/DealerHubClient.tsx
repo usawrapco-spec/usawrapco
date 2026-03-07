@@ -27,6 +27,32 @@ interface PortalFeatures {
   earnings: boolean
 }
 
+interface CommissionRule {
+  type: 'percentage' | 'flat'
+  value: number
+}
+
+interface CommissionRules {
+  default_pct: number
+  job_types: Record<string, CommissionRule>
+}
+
+const DEFAULT_COMMISSION_RULES: CommissionRules = {
+  default_pct: 2.5,
+  job_types: {},
+}
+
+const JOB_TYPE_OPTIONS = [
+  { key: 'full_wrap', label: 'Full Wrap' },
+  { key: 'partial_wrap', label: 'Partial Wrap' },
+  { key: 'ppf', label: 'PPF' },
+  { key: 'tint', label: 'Window Tint' },
+  { key: 'lettering', label: 'Lettering' },
+  { key: 'commercial', label: 'Commercial' },
+  { key: 'fleet', label: 'Fleet' },
+  { key: 'design_only', label: 'Design Only' },
+]
+
 const DEFAULT_FEATURES: PortalFeatures = {
   pnw_navigator: true,
   fleet_manager: true,
@@ -68,6 +94,9 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
   const [editCommission, setEditCommission] = useState('2.5')
   const [editActive, setEditActive] = useState(true)
   const [editFeatures, setEditFeatures] = useState<PortalFeatures>(DEFAULT_FEATURES)
+  const [editCommissionRules, setEditCommissionRules] = useState<CommissionRules>(DEFAULT_COMMISSION_RULES)
+  const [editShareEstimates, setEditShareEstimates] = useState(false)
+  const [addJobType, setAddJobType] = useState('')
 
   const selected = useMemo(() => dealers.find(d => d.id === selectedId) ?? null, [dealers, selectedId])
 
@@ -81,6 +110,9 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
     setEditCommission(String(d.commission_pct ?? 2.5))
     setEditActive(d.active !== false)
     setEditFeatures({ ...DEFAULT_FEATURES, ...(d.portal_features || {}) })
+    setEditCommissionRules({ ...DEFAULT_COMMISSION_RULES, ...(d.commission_rules || {}) })
+    setEditShareEstimates(d.share_estimates ?? false)
+    setAddJobType('')
     setSaveMsg('')
   }
 
@@ -103,6 +135,10 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
     setSaving(true)
     setSaveMsg('')
     const supabase = createClient()
+    const updatedRules = {
+      ...editCommissionRules,
+      default_pct: parseFloat(editCommission) || 2.5,
+    }
     const { error } = await supabase.from('dealers').update({
       name: editName.trim(),
       company_name: editCompany.trim() || null,
@@ -111,6 +147,8 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
       commission_pct: parseFloat(editCommission) || 2.5,
       active: editActive,
       portal_features: editFeatures,
+      commission_rules: updatedRules,
+      share_estimates: editShareEstimates,
     }).eq('id', selected.id)
 
     if (error) {
@@ -126,6 +164,8 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
         commission_pct: parseFloat(editCommission) || 2.5,
         active: editActive,
         portal_features: editFeatures,
+        commission_rules: updatedRules,
+        share_estimates: editShareEstimates,
       } : d))
       setTimeout(() => setSaveMsg(''), 2000)
     }
@@ -297,16 +337,19 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
                   </div>
                 </div>
 
-                {/* Commission + Status */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+                {/* Default Commission + Status */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Commission %</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Default Commission % (of GPM)</div>
                     <input
                       style={{ ...inp, fontFamily: 'JetBrains Mono', fontWeight: 700 }}
                       type="number" step="0.5" min="0" max="50"
                       value={editCommission}
                       onChange={e => setEditCommission(e.target.value)}
                     />
+                    <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>
+                      Calculated as % of Gross Profit Margin, shown to dealer as flat dollar amount
+                    </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Status</div>
@@ -322,6 +365,144 @@ export default function DealerHubClient({ profile, dealers: initial, referralCou
                       {editActive ? 'Active' : 'Inactive'} — tap to toggle
                     </button>
                   </div>
+                </div>
+
+                {/* Per Job-Type Commission Rules */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                    Commission Rates by Job Type
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 10 }}>
+                    Override default rate per job type. Percentage rates are calculated on GPM and converted to a flat dollar amount for the dealer.
+                  </div>
+
+                  {/* Existing rules */}
+                  {Object.entries(editCommissionRules.job_types || {}).map(([jobType, rule]) => {
+                    const label = JOB_TYPE_OPTIONS.find(j => j.key === jobType)?.label || jobType
+                    return (
+                      <div key={jobType} style={{
+                        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
+                        padding: '8px 12px', background: 'var(--surface2)',
+                        border: '1px solid var(--border)', borderRadius: 8,
+                      }}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{label}</span>
+                        <select
+                          value={rule.type}
+                          onChange={e => {
+                            const updated = { ...editCommissionRules }
+                            updated.job_types = { ...updated.job_types }
+                            updated.job_types[jobType] = { ...rule, type: e.target.value as 'percentage' | 'flat' }
+                            setEditCommissionRules(updated)
+                          }}
+                          style={{
+                            padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)',
+                            borderRadius: 6, color: 'var(--text1)', fontSize: 12,
+                          }}
+                        >
+                          <option value="percentage">% of GPM</option>
+                          <option value="flat">Flat $</option>
+                        </select>
+                        <input
+                          type="number"
+                          step={rule.type === 'percentage' ? '0.5' : '5'}
+                          min="0"
+                          value={rule.value}
+                          onChange={e => {
+                            const updated = { ...editCommissionRules }
+                            updated.job_types = { ...updated.job_types }
+                            updated.job_types[jobType] = { ...rule, value: parseFloat(e.target.value) || 0 }
+                            setEditCommissionRules(updated)
+                          }}
+                          style={{
+                            width: 70, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)',
+                            borderRadius: 6, color: 'var(--text1)', fontSize: 12,
+                            fontFamily: 'JetBrains Mono', fontWeight: 700, textAlign: 'right',
+                          }}
+                        />
+                        <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 20 }}>
+                          {rule.type === 'percentage' ? '%' : '$'}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const updated = { ...editCommissionRules }
+                            updated.job_types = { ...updated.job_types }
+                            delete updated.job_types[jobType]
+                            setEditCommissionRules(updated)
+                          }}
+                          style={{
+                            padding: '2px 6px', background: 'none', border: '1px solid var(--border)',
+                            borderRadius: 4, color: 'var(--red)', fontSize: 11, cursor: 'pointer',
+                          }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )
+                  })}
+
+                  {/* Add new job type rule */}
+                  {(() => {
+                    const usedTypes = Object.keys(editCommissionRules.job_types || {})
+                    const available = JOB_TYPE_OPTIONS.filter(j => !usedTypes.includes(j.key))
+                    if (available.length === 0) return null
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                        <select
+                          value={addJobType}
+                          onChange={e => setAddJobType(e.target.value)}
+                          style={{
+                            flex: 1, padding: '6px 10px', background: 'var(--surface2)', border: '1px solid var(--border)',
+                            borderRadius: 6, color: 'var(--text1)', fontSize: 12,
+                          }}
+                        >
+                          <option value="">Add job type...</option>
+                          {available.map(j => <option key={j.key} value={j.key}>{j.label}</option>)}
+                        </select>
+                        <button
+                          disabled={!addJobType}
+                          onClick={() => {
+                            if (!addJobType) return
+                            const updated = { ...editCommissionRules }
+                            updated.job_types = { ...updated.job_types }
+                            updated.job_types[addJobType] = { type: 'percentage', value: parseFloat(editCommission) || 2.5 }
+                            setEditCommissionRules(updated)
+                            setAddJobType('')
+                          }}
+                          style={{
+                            padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+                            background: addJobType ? 'var(--accent)' : 'var(--surface2)',
+                            color: addJobType ? '#fff' : 'var(--text3)',
+                            border: 'none', cursor: addJobType ? 'pointer' : 'default',
+                          }}
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    )
+                  })()}
+                </div>
+
+                {/* Share Estimates Toggle */}
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                    background: editShareEstimates ? 'rgba(34,192,122,.06)' : 'var(--surface2)',
+                    border: `1px solid ${editShareEstimates ? 'rgba(34,192,122,.2)' : 'var(--border)'}`,
+                    borderRadius: 10, cursor: 'pointer', transition: 'all .15s',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={editShareEstimates}
+                      onChange={() => setEditShareEstimates(!editShareEstimates)}
+                      style={{ width: 16, height: 16, accentColor: 'var(--green)', cursor: 'pointer' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>Share Estimates with Dealer</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                        When enabled, dealers can view customer estimates for their referrals
+                      </div>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Portal Link */}
@@ -482,7 +663,7 @@ function DealerPortalPreview({ dealer, features }: { dealer: any; features: Port
               fontSize: 10, fontWeight: 700, color: green,
               fontFamily: 'JetBrains Mono, monospace',
             }}>
-              {dealer.commission_pct ?? 2.5}% comm
+              Partner
             </div>
           </div>
         </div>
@@ -517,7 +698,7 @@ function DealerPortalPreview({ dealer, features }: { dealer: any; features: Port
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: text1 }}>Refer a New Customer</div>
-              <div style={{ fontSize: 9, color: text2 }}>Build a mockup, earn {dealer.commission_pct ?? 2.5}% commission</div>
+              <div style={{ fontSize: 9, color: text2 }}>Build a mockup and earn commission</div>
             </div>
           </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Anchor, Plus, Sparkles, ChevronDown, ChevronUp, X, FileText, Trash2, ExternalLink } from 'lucide-react'
+import { Search, Anchor, Plus, Sparkles, ChevronDown, ChevronUp, X, FileText, Trash2, ExternalLink, Upload } from 'lucide-react'
 import { QUICK_ADD_PARTS } from '@/lib/estimator/boatDeckingDb'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -29,6 +29,7 @@ interface MarineVessel {
   schematic_svg: string | null
   manual_url: string | null
   manual_summary: string | null
+  custom_documents: { name: string; url: string; storage_path: string; uploaded_at: string }[]
   ai_generated: boolean
   source_urls: string[]
   created_at: string
@@ -42,7 +43,7 @@ interface Props {
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
 
-const PAGE_SIZE = 50
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
 
 const BOAT_CLASS_LABELS: Record<string, string> = {
   bowrider: 'Bowrider', center_console: 'Center Console', pontoon: 'Pontoon',
@@ -104,6 +105,7 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
   const [selectedMake, setSelectedMake] = useState('')
   const [selectedClass, setSelectedClass] = useState('')
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(50)
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -118,6 +120,7 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPreview, setAiPreview] = useState<MarineVessel | null>(null)
   const [aiManualLoading, setAiManualLoading] = useState(false)
+  const [uploadingDocFor, setUploadingDocFor] = useState<string | null>(null)
 
   /* ── Fetch ────────────────────────────────────────────────────────────── */
 
@@ -129,7 +132,7 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
       .select('*')
       .order('make')
       .order('model')
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+      .range(page * pageSize, (page + 1) * pageSize - 1)
 
     if (selectedMake) query = query.eq('make', selectedMake)
     if (selectedClass) query = query.eq('boat_class', selectedClass)
@@ -139,7 +142,7 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
       setLoading(false)
       if (data) setVessels(data)
     })
-  }, [search, selectedMake, selectedClass, page])
+  }, [search, selectedMake, selectedClass, page, pageSize])
 
   useEffect(() => { fetchVessels() }, [fetchVessels])
 
@@ -211,6 +214,35 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
       setAiPreview(prev => prev ? { ...prev, manual_url: result.manual_url, manual_summary: result.manual_summary } : null)
     } catch { /* ignore */ }
     finally { setAiManualLoading(false) }
+  }
+
+  /* ── Document Upload / Delete ─────────────────────────────────────────── */
+
+  const handleDocUpload = async (vesselId: string, file: File) => {
+    setUploadingDocFor(vesselId)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('vessel_id', vesselId)
+      const res = await fetch('/api/marine-database/upload', { method: 'POST', body: fd })
+      if (res.ok) {
+        const { documents } = await res.json()
+        setVessels(prev => prev.map(v => v.id === vesselId ? { ...v, custom_documents: documents } : v))
+      }
+    } finally { setUploadingDocFor(null) }
+  }
+
+  const handleDocDelete = async (vesselId: string, storagePath: string) => {
+    if (!confirm('Remove this document?')) return
+    const res = await fetch('/api/marine-database/upload', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vessel_id: vesselId, storage_path: storagePath }),
+    })
+    if (res.ok) {
+      const { documents } = await res.json()
+      setVessels(prev => prev.map(v => v.id === vesselId ? { ...v, custom_documents: documents } : v))
+    }
   }
 
   /* ── Delete ───────────────────────────────────────────────────────────── */
@@ -413,23 +445,54 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
                             </div>
                           )}
 
-                          {/* Manual */}
-                          {(v.manual_url || v.manual_summary) && (
-                            <div style={{ padding: 12, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--surface2)', marginBottom: 16 }}>
-                              <div style={{ ...labelStyle, marginBottom: 8 }}>Manual / Documentation</div>
-                              {v.manual_url && (
-                                <a href={v.manual_url} target="_blank" rel="noopener noreferrer"
-                                  style={{ fontSize: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, textDecoration: 'none' }}>
-                                  <ExternalLink size={12} /> View Manual PDF
-                                </a>
-                              )}
-                              {v.manual_summary && (
-                                <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                                  {v.manual_summary}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          {/* Manual / Documentation */}
+                          <div style={{ padding: 12, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--surface2)', marginBottom: 16 }}>
+                            <div style={{ ...labelStyle, marginBottom: 8 }}>Manual / Documentation</div>
+                            {v.manual_url && (
+                              <a href={v.manual_url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, textDecoration: 'none' }}>
+                                <ExternalLink size={12} /> View Manual PDF
+                              </a>
+                            )}
+                            {v.manual_summary && (
+                              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: 10 }}>
+                                {v.manual_summary}
+                              </div>
+                            )}
+
+                            {/* Uploaded Documents */}
+                            {v.custom_documents?.length > 0 && (
+                              <div style={{ marginBottom: 10 }}>
+                                {v.custom_documents.map((doc, di) => (
+                                  <div key={di} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                    <FileText size={12} color="var(--cyan)" />
+                                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                                      style={{ fontSize: 12, color: 'var(--cyan)', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {doc.name}
+                                    </a>
+                                    <button onClick={() => handleDocDelete(v.id, doc.storage_path)}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 2, lineHeight: 1 }}>
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Upload Button */}
+                            <label style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 4,
+                              background: 'var(--surface2)', color: 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                              opacity: uploadingDocFor === v.id ? 0.5 : 1,
+                            }}>
+                              <Upload size={12} />
+                              {uploadingDocFor === v.id ? 'Uploading...' : 'Upload Document'}
+                              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.svg" style={{ display: 'none' }}
+                                disabled={uploadingDocFor === v.id}
+                                onChange={e => { const f = e.target.files?.[0]; if (f) handleDocUpload(v.id, f); e.target.value = '' }}
+                              />
+                            </label>
+                          </div>
 
                           {/* Actions */}
                           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -449,17 +512,59 @@ export default function MarineDatabaseClient({ totalCount, makes, boatClasses }:
       </div>
 
       {/* Pagination */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
-        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-          style={{ padding: '6px 14px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text1)', border: 'none', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1 }}>
-          Prev
-        </button>
-        <span style={{ color: 'var(--text3)', fontSize: 13 }}>Page {page + 1}</span>
-        <button onClick={() => setPage(p => p + 1)} disabled={vessels.length < PAGE_SIZE}
-          style={{ padding: '6px 14px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text1)', border: 'none', cursor: vessels.length < PAGE_SIZE ? 'not-allowed' : 'pointer', opacity: vessels.length < PAGE_SIZE ? 0.5 : 1 }}>
-          Next
-        </button>
-      </div>
+      {(() => {
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+        const isLast = vessels.length < pageSize
+        // Build page numbers to show: first, last, and nearby pages
+        const pages: (number | 'ellipsis')[] = []
+        for (let i = 0; i < totalPages; i++) {
+          if (i === 0 || i === totalPages - 1 || (i >= page - 2 && i <= page + 2)) {
+            pages.push(i)
+          } else if (pages[pages.length - 1] !== 'ellipsis') {
+            pages.push('ellipsis')
+          }
+        }
+        const pgBtn = (disabled: boolean): React.CSSProperties => ({
+          padding: '6px 14px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text1)',
+          border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+        })
+        return (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 12 }}>
+            {/* Per-page selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: 'var(--text3)', fontSize: 12 }}>Show</span>
+              <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0) }}
+                style={{ padding: '4px 8px', borderRadius: 4, background: 'var(--surface2)', border: '1px solid var(--surface2)', color: 'var(--text1)', fontSize: 12 }}>
+                {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span style={{ color: 'var(--text3)', fontSize: 12 }}>per page</span>
+            </div>
+
+            {/* Page numbers */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={pgBtn(page === 0)}>Prev</button>
+              {pages.map((p, i) =>
+                p === 'ellipsis' ? (
+                  <span key={`e${i}`} style={{ color: 'var(--text3)', fontSize: 12, padding: '0 4px' }}>...</span>
+                ) : (
+                  <button key={p} onClick={() => setPage(p)}
+                    style={{
+                      padding: '6px 10px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: p === page ? 700 : 400,
+                      background: p === page ? 'var(--cyan)' : 'var(--surface2)',
+                      color: p === page ? '#000' : 'var(--text1)',
+                    }}>
+                    {p + 1}
+                  </button>
+                )
+              )}
+              <button onClick={() => setPage(p => p + 1)} disabled={isLast} style={pgBtn(isLast)}>Next</button>
+            </div>
+
+            {/* Total count */}
+            <span style={{ color: 'var(--text3)', fontSize: 12 }}>{totalCount.toLocaleString()} total</span>
+          </div>
+        )
+      })()}
 
       {/* ── Add Boat Modal ──────────────────────────────────────────────────── */}
       {showAdd && (

@@ -10,6 +10,7 @@ interface Referral {
   vehicle_desc: string | null
   status: string
   commission_amount: number | null
+  display_amount: number | null
   created_at: string
 }
 
@@ -34,7 +35,7 @@ export default function DealerReferralsClient({ dealerName, commissionPct, share
 
   const totalEarned = referrals
     .filter(r => ['complete', 'paid'].includes(r.status))
-    .reduce((s, r) => s + (r.commission_amount ?? 0), 0)
+    .reduce((s, r) => s + (r.display_amount ?? r.commission_amount ?? 0), 0)
   const pending = referrals.filter(r => !['complete', 'paid'].includes(r.status)).length
   const completed = referrals.filter(r => ['complete', 'paid'].includes(r.status)).length
 
@@ -66,7 +67,7 @@ export default function DealerReferralsClient({ dealerName, commissionPct, share
           Referrals
         </h1>
         <p style={{ fontSize: 14, color: C.text2, margin: 0 }}>
-          Share your link and earn {commissionPct}% commission on every wrap
+          Share your link and earn commission on every wrap
         </p>
       </div>
 
@@ -172,9 +173,9 @@ export default function DealerReferralsClient({ dealerName, commissionPct, share
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{meta.label}</div>
-                    {r.commission_amount != null && (
+                    {(r.display_amount ?? r.commission_amount) != null && (
                       <div style={{ fontSize: 11, color: C.text3, marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
-                        ${r.commission_amount.toLocaleString()}
+                        ${(r.display_amount ?? r.commission_amount ?? 0).toLocaleString()}
                       </div>
                     )}
                   </div>
@@ -189,7 +190,7 @@ export default function DealerReferralsClient({ dealerName, commissionPct, share
         <div style={{ textAlign: 'center', padding: '32px 20px', color: C.text3 }}>
           <Gift size={32} strokeWidth={1} style={{ marginBottom: 10, opacity: 0.3 }} />
           <div style={{ fontSize: 14, color: C.text2, marginBottom: 4 }}>No referrals yet</div>
-          <div style={{ fontSize: 12 }}>Share your link to start earning {commissionPct}% commission</div>
+          <div style={{ fontSize: 12 }}>Share your link to start earning commission</div>
         </div>
       )}
     </div>

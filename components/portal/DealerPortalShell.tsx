@@ -42,6 +42,8 @@ export interface DealerCtx {
   brand_color: string | null
   tagline: string | null
   primary_app: string | null
+  share_estimates: boolean
+  total_earned: number
 }
 
 function getBaseNav(features: PortalFeatures, primaryApp: string | null) {
@@ -137,14 +139,16 @@ export default function DealerPortalShell({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              padding: '5px 10px', borderRadius: 20,
-              background: `${accent}15`, border: `1px solid ${accent}30`,
-              fontSize: 12, fontWeight: 700, color: accent,
-              fontFamily: 'JetBrains Mono, monospace',
-            }}>
-              {ctx.commission_pct}% comm
-            </div>
+            {ctx.total_earned > 0 && (
+              <div style={{
+                padding: '5px 10px', borderRadius: 20,
+                background: `${accent}15`, border: `1px solid ${accent}30`,
+                fontSize: 12, fontWeight: 700, color: accent,
+                fontFamily: 'JetBrains Mono, monospace',
+              }}>
+                ${ctx.total_earned.toLocaleString()} earned
+              </div>
+            )}
           </div>
         </div>
 

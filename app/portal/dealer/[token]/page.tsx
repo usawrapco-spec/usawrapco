@@ -9,16 +9,29 @@ export const dynamic = 'force-dynamic'
 export default async function DealerPortalPage({ params }: { params: { token: string } }) {
   const supabase = getSupabaseAdmin()
 
-  const { data: dealer } = await supabase
+  // Fetch dealer — try with branding columns, fall back without
+  const baseCols = 'id, name, company_name, portal_token, commission_pct, portal_features, share_estimates, profiles:sales_rep_id ( name )'
+  const brandingCols = ', logo_url, brand_color, tagline, primary_app'
+
+  let dealer: any = null
+  const { data: d1, error: e1 } = await supabase
     .from('dealers')
-    .select(`
-      id, name, company_name, portal_token, commission_pct, portal_features,
-      logo_url, brand_color, tagline, primary_app,
-      profiles:sales_rep_id ( name )
-    `)
+    .select(baseCols + brandingCols)
     .eq('portal_token', params.token)
     .eq('active', true)
     .single()
+
+  if (d1) {
+    dealer = d1
+  } else if (e1?.code === '42703') {
+    const { data: d2 } = await supabase
+      .from('dealers')
+      .select(baseCols)
+      .eq('portal_token', params.token)
+      .eq('active', true)
+      .single()
+    dealer = d2
+  }
 
   if (!dealer) notFound()
 
@@ -62,6 +75,8 @@ export default async function DealerPortalPage({ params }: { params: { token: st
     brand_color: d.brand_color ?? null,
     tagline: d.tagline ?? null,
     primary_app: d.primary_app ?? null,
+    share_estimates: d.share_estimates ?? false,
+    total_earned: 0,
   }
 
   return <DealerHome ctx={ctx} referrals={referralsRes.data || []} />
