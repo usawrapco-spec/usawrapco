@@ -317,9 +317,9 @@ export async function generateWrapConcept(params: {
         input: {
           prompt,
           aspect_ratio: aspectRatio,
-          style_type: 'RENDER_3D',
+          style_type: 'Realistic',
           rendering_speed: 'TURBO',
-          magic_prompt_option: 'ON',
+          magic_prompt_option: 'On',
           negative_prompt: 'blurry, distorted text, misspelled words, low quality, watermark, signature, cropped vehicle, interior view, cartoon, amateur, sketch, hand-drawn',
         },
       }),
@@ -363,8 +363,8 @@ export async function generateWrapConcept(params: {
         input: {
           prompt,
           aspect_ratio: aspectRatio,
-          style_type: 'DESIGN',
-          magic_prompt_option: 'ON',
+          style_type: 'Design',
+          magic_prompt_option: 'On',
           negative_prompt: 'blurry, distorted text, misspelled words, low quality, watermark, signature, cropped vehicle, interior view, cartoon',
         },
       }),
