@@ -12,6 +12,7 @@ import {
   formatCurrency, formatDate, addDays,
 } from '@/lib/pdf/brand'
 import { getPdfLogoSrc } from '@/lib/pdf/logo'
+import { PROPOSAL_TEMPLATES, resolveProductType, type ProposalProductType } from '@/lib/pdf/proposal-templates'
 
 export const maxDuration = 60
 export const runtime = 'nodejs'
@@ -136,15 +137,22 @@ const s = StyleSheet.create({
   footerRight: { fontSize: 8, color: PDF_COLORS.textSecondary, textAlign: 'right' },
 })
 
-function CoverPage({ estimate, customer }: { estimate: any; customer: any }) {
+function CoverPage({ estimate, customer, productType }: { estimate: any; customer: any; productType: ProposalProductType }) {
+  const tpl = PROPOSAL_TEMPLATES[productType]
   const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
   const date = formatDate(estimate.quote_date || estimate.created_at)
 
   return React.createElement(Page, { size: 'LETTER', style: s.coverPage },
+    // Hero image band
+    React.createElement(View, { style: { height: 220, overflow: 'hidden', position: 'relative' } },
+      React.createElement(Image, { style: { width: '100%', height: 220, objectFit: 'cover' }, src: tpl.heroImageUrl }),
+      React.createElement(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: '#0f172a', opacity: 0.7 } }),
+    ),
     React.createElement(View, { style: s.coverContent },
       React.createElement(Image, { style: s.coverLogo, src: getPdfLogoSrc() }),
-      React.createElement(View, { style: s.coverDividerTop }),
-      React.createElement(Text, { style: s.coverTitle }, 'VEHICLE WRAP PROPOSAL'),
+      React.createElement(View, { style: { ...s.coverDividerTop, backgroundColor: tpl.accentColor } }),
+      React.createElement(Text, { style: s.coverTitle }, tpl.coverTitle),
+      React.createElement(Text, { style: { ...s.coverSubtitle, marginBottom: 20 } }, tpl.coverSubtitle),
       React.createElement(Text, { style: s.coverSubtitle }, 'Prepared exclusively for'),
       React.createElement(Text, { style: s.coverCustomer },
         customer?.name || customer?.contact_name || 'Valued Customer'
@@ -165,9 +173,9 @@ function CoverPage({ estimate, customer }: { estimate: any; customer: any }) {
         ),
       ),
     ),
-    React.createElement(View, { style: s.coverBottomLine }),
+    React.createElement(View, { style: { ...s.coverBottomLine, backgroundColor: tpl.accentColor } }),
     React.createElement(View, { style: s.coverBottom },
-      React.createElement(Text, { style: s.coverTagline }, BRAND.tagline),
+      React.createElement(Text, { style: s.coverTagline }, tpl.tagline),
       React.createElement(Text, { style: s.coverContact },
         `${BRAND.phone}  |  ${BRAND.email}  |  ${BRAND.website}`
       ),
@@ -380,77 +388,126 @@ function ProposalDetailsPage({ estimate, lineItems }: { estimate: any; lineItems
   )
 }
 
-function ProposalTermsPage({ estimate }: { estimate: any }) {
+function ProposalWhyUsPage({ estimate, productType }: { estimate: any; productType: ProposalProductType }) {
+  const tpl = PROPOSAL_TEMPLATES[productType]
   const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
   const date = formatDate(estimate.quote_date || estimate.created_at)
-
-  const bullets = [
-    'Premium materials — Avery, 3M, and Arlon vinyl — the industry\'s best',
-    "Expert installation team — Pacific Northwest's most trusted vehicle wrap shop",
-    'Design-to-installation in as little as 5 business days',
-    '5-star rated on Google — 95+ verified reviews',
-    'Locally owned and operated in Gig Harbor, WA since 2018',
-    'Full 3-year warranty on all installations',
-  ]
 
   return React.createElement(Page, { size: 'LETTER', style: s.page },
     React.createElement(View, { style: s.headerBand },
       React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
       React.createElement(View, { style: s.headerRight },
-        React.createElement(Text, { style: s.headerTitle }, 'PROPOSAL'),
+        React.createElement(Text, { style: s.headerTitle }, tpl.coverTitle),
         React.createElement(Text, { style: s.headerMetaBold }, estNumber),
         React.createElement(Text, { style: s.headerMeta }, date),
       ),
     ),
-    React.createElement(View, { style: s.accentLine }),
+    React.createElement(View, { style: { ...s.accentLine, backgroundColor: tpl.accentColor } }),
 
-    React.createElement(View, { style: { padding: '28px 40px 80px 40px' } },
-      // About
+    React.createElement(View, { style: s.bodyWide },
+      // Testimonial box
+      React.createElement(View, { style: { ...s.proofBox, borderLeftWidth: 4, borderLeftColor: tpl.accentColor } },
+        React.createElement(Text, { style: s.proofStars }, '\u2605\u2605\u2605\u2605\u2605'),
+        React.createElement(Text, { style: s.proofQuote }, `"${tpl.testimonial.quote}"`),
+        React.createElement(Text, { style: s.proofAuthor }, tpl.testimonial.author),
+        React.createElement(View, { style: s.proofStat },
+          ...tpl.stats.map((st, i) =>
+            React.createElement(View, { key: i, style: s.proofStatItem },
+              React.createElement(Text, { style: { ...s.proofStatNum, color: tpl.accentColor } }, st.value),
+              React.createElement(Text, { style: s.proofStatLabel }, st.label),
+            )
+          ),
+        ),
+      ),
+
+      // Why us section
       React.createElement(View, { style: s.aboutSection },
         React.createElement(View, { style: s.aboutLeft },
           React.createElement(Text, { style: s.aboutTitle }, 'Why USA Wrap Co?'),
-          ...bullets.map((b, i) =>
-            React.createElement(View, { key: i, style: s.bulletItem },
-              React.createElement(Text, { style: s.bulletDot }, '•'),
-              React.createElement(Text, { style: s.bulletText }, b),
+          ...tpl.whyUs.map((w, i) =>
+            React.createElement(View, { key: i, style: { marginBottom: 10 } },
+              React.createElement(View, { style: s.bulletItem },
+                React.createElement(Text, { style: { ...s.bulletDot, color: tpl.accentColor } }, '\u25CF'),
+                React.createElement(Text, { style: { fontSize: 11, fontWeight: 700, flex: 1 } }, w.title),
+              ),
+              React.createElement(Text, { style: { fontSize: 9, color: PDF_COLORS.textSecondary, lineHeight: 1.5, paddingLeft: 20 } }, w.text),
             )
           ),
         ),
         React.createElement(View, { style: s.aboutRight },
           React.createElement(Text, { style: { ...s.sectionLabel, marginBottom: 10 } }, 'Premium Materials'),
-          ...[
-            { brand: '3M', desc: 'Series 1080 Cast Vinyl — Industry gold standard' },
-            { brand: 'Avery', desc: 'Supreme Wrapping Film — Precision finish' },
-            { brand: 'Arlon', desc: 'SLX Cast Film — Superior conformability' },
-          ].map((m, i) =>
+          ...tpl.materials.map((m, i) =>
             React.createElement(View, {
               key: i,
               style: {
                 marginBottom: 8, padding: '8px 10px', borderRadius: 6,
                 backgroundColor: PDF_COLORS.lightGray,
-                borderLeftWidth: 3, borderLeftColor: PDF_COLORS.accent,
+                borderLeftWidth: 3, borderLeftColor: tpl.accentColor,
               },
             },
               React.createElement(Text, { style: { fontSize: 10, fontWeight: 700, marginBottom: 2 } }, m.brand),
-              React.createElement(Text, { style: { fontSize: 9, color: PDF_COLORS.textSecondary, lineHeight: 1.4 } }, m.desc),
+              React.createElement(Text, { style: { fontSize: 8, color: PDF_COLORS.textSecondary, lineHeight: 1.4 } }, m.desc),
             )
           ),
           React.createElement(View, { style: { marginTop: 12, padding: '8px 10px', backgroundColor: '#1a1f2e', borderRadius: 6 } },
-            React.createElement(Text, { style: { fontSize: 9, color: PDF_COLORS.accent, fontWeight: 700, marginBottom: 4 } }, '3-YEAR WARRANTY'),
-            React.createElement(Text, { style: { fontSize: 8, color: '#94a3b8', lineHeight: 1.4 } },
-              'Full coverage on materials and installation — your investment is protected.'
-            ),
+            React.createElement(Text, { style: { fontSize: 9, color: tpl.accentColor, fontWeight: 700, marginBottom: 4 } }, tpl.warranty.title),
+            React.createElement(Text, { style: { fontSize: 8, color: '#94a3b8', lineHeight: 1.4 } }, tpl.warranty.desc),
           ),
         ),
       ),
 
-      React.createElement(View, { style: s.divider }),
+      // Our Process
+      React.createElement(View, { style: { ...s.divider, marginVertical: 16 } }),
+      React.createElement(Text, { style: { ...s.aboutTitle, fontSize: 18 } }, 'Our Process'),
+      React.createElement(View, { style: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 } },
+        ...tpl.processSteps.map((ps, i) =>
+          React.createElement(View, {
+            key: i,
+            style: {
+              width: '48%', padding: '10px 12px', borderRadius: 8,
+              backgroundColor: PDF_COLORS.lightGray,
+              borderTopWidth: 3, borderTopColor: tpl.accentColor,
+              marginBottom: 6,
+            },
+          },
+            React.createElement(Text, { style: { fontSize: 18, fontWeight: 700, color: tpl.accentColor, fontFamily: 'BarlowCondensed', marginBottom: 2 } }, ps.step),
+            React.createElement(Text, { style: { fontSize: 10, fontWeight: 700, marginBottom: 3 } }, ps.title),
+            React.createElement(Text, { style: { fontSize: 8, color: PDF_COLORS.textSecondary, lineHeight: 1.5 } }, ps.desc),
+          )
+        ),
+      ),
+    ),
 
+    React.createElement(View, { style: s.footer },
+      React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
+      React.createElement(Text, { style: s.footerTagline }, tpl.tagline),
+      React.createElement(Text, { style: s.footerRight }, `${BRAND.phone}  |  ${BRAND.email}`),
+    ),
+  )
+}
+
+function ProposalTermsPage({ estimate, productType }: { estimate: any; productType: ProposalProductType }) {
+  const tpl = PROPOSAL_TEMPLATES[productType]
+  const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
+  const date = formatDate(estimate.quote_date || estimate.created_at)
+
+  return React.createElement(Page, { size: 'LETTER', style: s.page },
+    React.createElement(View, { style: s.headerBand },
+      React.createElement(Image, { style: s.logo, src: getPdfLogoSrc() }),
+      React.createElement(View, { style: s.headerRight },
+        React.createElement(Text, { style: s.headerTitle }, 'TERMS & CONDITIONS'),
+        React.createElement(Text, { style: s.headerMetaBold }, estNumber),
+        React.createElement(Text, { style: s.headerMeta }, date),
+      ),
+    ),
+    React.createElement(View, { style: { ...s.accentLine, backgroundColor: tpl.accentColor } }),
+
+    React.createElement(View, { style: { padding: '28px 40px 80px 40px' } },
       // Terms
       React.createElement(Text, { style: s.termsTitle }, 'Terms & Conditions'),
-      ...PDF_TERMS.map((term, i) =>
+      ...tpl.terms.map((term, i) =>
         React.createElement(View, { key: i, style: s.termItem },
-          React.createElement(Text, { style: { ...s.termText, marginRight: 6, color: PDF_COLORS.accent } }, '•'),
+          React.createElement(Text, { style: { ...s.termText, marginRight: 6, color: tpl.accentColor } }, '\u2022'),
           React.createElement(Text, { style: s.termText }, term),
         )
       ),
@@ -486,14 +543,17 @@ function ProposalTermsPage({ estimate }: { estimate: any }) {
   )
 }
 
-function ProposalPDF({ estimate, lineItems }: { estimate: any; lineItems: any[] }) {
+function ProposalPDF({ estimate, lineItems, productType = 'commercial_wrap' }: { estimate: any; lineItems: any[]; productType?: ProposalProductType }) {
+  const tpl = PROPOSAL_TEMPLATES[productType]
   return React.createElement(Document, {
-    title: `USA Wrap Co — Proposal ${estimate.estimate_number || ''}`,
+    title: `USA Wrap Co — ${tpl.coverTitle} ${estimate.estimate_number || ''}`,
     author: 'USA Wrap Co',
-    subject: 'Vehicle Wrap Proposal',
+    subject: tpl.coverTitle,
   },
+    React.createElement(CoverPage, { estimate, customer: estimate.customer, productType }),
     React.createElement(ProposalDetailsPage, { estimate, lineItems }),
-    React.createElement(ProposalTermsPage, { estimate }),
+    React.createElement(ProposalWhyUsPage, { estimate, productType }),
+    React.createElement(ProposalTermsPage, { estimate, productType }),
   )
 }
 
@@ -579,9 +639,10 @@ export async function GET(
           }
 
           const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
+          const pType = resolveProductType(estimate.form_data, proposal)
 
           const buffer = await renderToBuffer(
-            React.createElement(ProposalPDF, { estimate: pkgEstimate, lineItems }) as any
+            React.createElement(ProposalPDF, { estimate: pkgEstimate, lineItems, productType: pType }) as any
           )
 
           const safeTitle = (pkg.name || 'Package').replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')
@@ -646,9 +707,10 @@ export async function GET(
       .order('sort_order', { ascending: true })
 
     const estNumber = `EST-${String(estimate.estimate_number || '').padStart(4, '0')}`
+    const pType = resolveProductType(estimate.form_data)
 
     const buffer = await renderToBuffer(
-      React.createElement(ProposalPDF, { estimate, lineItems: items || [] }) as any
+      React.createElement(ProposalPDF, { estimate, lineItems: items || [], productType: pType }) as any
     )
 
     const custName = (estimate.customer?.name || estimate.customer?.contact_name || '').replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '-')

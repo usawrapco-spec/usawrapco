@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Car, Truck, Bus, Package, Anchor, Wand2,
   ChevronRight, ChevronLeft, Check, Loader2, Upload, X,
-  Sparkles, ImageIcon, Download, RefreshCw, ZoomIn, ZoomOut,
+  Sparkles, ImageIcon, RefreshCw, ZoomIn, ZoomOut,
   Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe, Pencil,
   LayoutGrid, RectangleHorizontal, Square, Wind,
   ThumbsUp, ThumbsDown, Calendar, Video, MapPin, Lock,
@@ -333,6 +333,10 @@ export default function MockupGeneratorPage() {
   const [boatMake, setBoatMake] = useState('')
   const [boatModelLen, setBoatModelLen] = useState('')
   const [deckSqft, setDeckSqft] = useState(120)
+  const [boatSearch, setBoatSearch] = useState('')
+  const [boatResults, setBoatResults] = useState<VehicleMeasurement[]>([])
+  const [boatSearching, setBoatSearching] = useState(false)
+  const boatSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [deckStyle, setDeckStyle] = useState('teak_straight')
 
   // Marine combined service state
@@ -367,6 +371,7 @@ export default function MockupGeneratorPage() {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+      if (boatSearchDebounceRef.current) clearTimeout(boatSearchDebounceRef.current)
     }
   }, [])
 
@@ -488,6 +493,37 @@ export default function MockupGeneratorPage() {
     applyYMM(year, v.make, v.model)
     setVehicleSearch(`${year} ${v.make} ${v.model}`)
     setVehicleResults([])
+  }
+
+  // ── Boat search ────────────────────────────────────────────────────────────
+  function handleBoatSearch(q: string) {
+    setBoatSearch(q)
+    if (boatSearchDebounceRef.current) clearTimeout(boatSearchDebounceRef.current)
+    if (q.length < 2) { setBoatResults([]); return }
+    boatSearchDebounceRef.current = setTimeout(async () => {
+      setBoatSearching(true)
+      try {
+        const res = await fetch(`/api/vehicles/search?q=${encodeURIComponent(q)}&limit=6`)
+        const data = await res.json()
+        // Filter to boat-type body styles
+        const boats = (data.vehicles || []).filter((v: VehicleMeasurement) =>
+          /boat|marine|pontoon|bass|cruiser|ski|jet|pwc|watercraft/i.test(v.body_style || '') ||
+          /sea ray|boston whaler|grady|yamaha|sea-doo|mastercraft|malibu|chaparral/i.test(v.make || '')
+        )
+        setBoatResults(boats.length ? boats : data.vehicles || [])
+      } finally {
+        setBoatSearching(false)
+      }
+    }, 300)
+  }
+
+  function selectBoatFromSearch(v: VehicleMeasurement) {
+    setBoatYear(v.year_start ? String(v.year_start) : '')
+    setBoatMake(v.make || '')
+    setBoatModelLen(v.model || '')
+    if (v.full_wrap_sqft) setDeckSqft(Math.round(v.full_wrap_sqft * 0.4)) // deck is ~40% of total sqft
+    setBoatSearch(`${v.year_start || ''} ${v.make} ${v.model}`.trim())
+    setBoatResults([])
   }
 
   // ── Logo upload ────────────────────────────────────────────────────────────
@@ -681,7 +717,7 @@ export default function MockupGeneratorPage() {
       const logoUrl = await getLogoUrl()
       const inspoUrls = await uploadInspirationImages()
       const marineNotes = (outputType === 'marine' && (marineService === 'decking' || marineService === 'both'))
-        ? `Marine vinyl decking style: ${DECK_STYLES.find(d => d.id === deckStyle)?.label} — ${DECK_STYLES.find(d => d.id === deckStyle)?.desc}. `
+        ? `Custom EVA foam decking style: ${DECK_STYLES.find(d => d.id === deckStyle)?.label} — ${DECK_STYLES.find(d => d.id === deckStyle)?.desc}.`
         : ''
       const signStyleNotes = outputType === 'signage'
         ? [
@@ -843,13 +879,6 @@ export default function MockupGeneratorPage() {
     }
   }
 
-  function handleDownload(url: string, name: string) {
-    const a = document.createElement('a')
-    a.href = url
-    a.download = name
-    a.click()
-  }
-
   function reset() {
     setStep(1)
     setBodyType('')
@@ -951,10 +980,10 @@ export default function MockupGeneratorPage() {
           {outputType === 'wrap'
             ? 'Select your vehicle, enter your brand info, and get 3 design concepts in minutes.'
             : outputType === 'marine'
-            ? 'Choose boat wrap, deck vinyl, or both — get AI concepts for your vessel in minutes.'
+            ? 'Choose boat wrap, EVA foam decking, or both — get AI concepts for your vessel in minutes.'
             : outputType === 'signage'
             ? 'Generate professional print-ready signs, banners, and door magnets.'
-            : 'Design custom marine vinyl decking for your boat — teak patterns, flat styles, and more.'}
+            : 'Design custom EVA foam decking for your boat — teak patterns, herringbone, carbon, and more.'}
         </p>
       </div>
 
@@ -1129,7 +1158,7 @@ export default function MockupGeneratorPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 32 }}>
             {([
               { id: 'wrap' as const,    label: 'Boat Wrap',        desc: 'Full hull and body graphics — your brand, colors, and design printed on marine-grade vinyl',                                     icon: Anchor },
-              { id: 'decking' as const, label: 'Deck Vinyl',       desc: 'Marine vinyl flooring for your deck, cockpit, and swim platform — non-slip, UV resistant',                                       icon: Layers },
+              { id: 'decking' as const, label: 'EVA Foam Decking', desc: 'Custom EVA foam flooring for your deck, cockpit, and swim platform — non-slip, UV resistant, precision cut to your boat',  icon: Layers },
               { id: 'both' as const,    label: 'Wrap + Decking',   desc: 'Complete boat transformation — matching wrap and deck vinyl for a unified look',                                                  icon: Sparkles },
             ]).map(s => {
               const Icon = s.icon
@@ -1260,7 +1289,7 @@ export default function MockupGeneratorPage() {
           {(outputType === 'decking' || (outputType === 'marine' && (marineService === 'decking' || marineService === 'both'))) && (
             <div style={{ marginBottom: 28 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Deck Style</h3>
-              <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Pick the look for your marine vinyl decking.</p>
+              <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Pick the look for your custom EVA foam decking.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {DECK_STYLES.map(ds => (
                   <div key={ds.id} onClick={() => setDeckStyle(ds.id)}
@@ -1297,6 +1326,39 @@ export default function MockupGeneratorPage() {
             </div>
           )}
 
+          {/* Boat search from database */}
+          <div style={{ marginBottom: 20, position: 'relative' }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Search Boat Database</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              <input
+                style={{ ...inp, paddingLeft: 36 }}
+                placeholder="Search by make, model, or type..."
+                value={boatSearch}
+                onChange={e => handleBoatSearch(e.target.value)}
+              />
+              {boatSearching && <Loader2 size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />}
+            </div>
+            {boatResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, zIndex: 50, overflow: 'hidden', marginTop: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                {boatResults.map((v, i) => (
+                  <div key={i} onClick={() => selectBoatFromSearch(v)}
+                    style={{ padding: '10px 16px', cursor: 'pointer', borderBottom: i < boatResults.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>{v.year_start} {v.make} {v.model}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{v.body_style || 'Marine'}{v.full_wrap_sqft ? ` · ~${Math.round(v.full_wrap_sqft * 0.4)} sqft deck est.` : ''}</div>
+                    </div>
+                    <ChevronRight size={12} style={{ color: 'var(--text3)' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Or enter manually below</div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Boat Year</label>
@@ -1332,10 +1394,10 @@ export default function MockupGeneratorPage() {
             <div style={{ background: 'rgba(34,211,238,0.07)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 12, padding: '16px 20px', marginBottom: 22 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cyan)', marginBottom: 6 }}>Estimated Decking Cost</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
-                ${(deckSqft * 36).toLocaleString()} &ndash; ${(deckSqft * 44).toLocaleString()}
+                ${(deckSqft * 32).toLocaleString()} &ndash; ${(deckSqft * 55).toLocaleString()}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-                Estimate based on marine vinyl decking, installed
+                Estimate for custom EVA foam decking, installed (varies by layout complexity)
               </div>
             </div>
           )}
@@ -2494,10 +2556,9 @@ export default function MockupGeneratorPage() {
 
                 {printUrl ? (
                   <div style={{ display: 'flex', gap: 12 }}>
-                    <button onClick={() => handleDownload(printUrl, `wrap-print-ready-${Date.now()}.pdf`)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 10, background: 'var(--green)', color: '#fff', fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                      <Download size={16} /> Download Print File
-                    </button>
+                    <div style={{ padding: '12px 24px', borderRadius: 10, background: 'rgba(34,192,122,0.1)', border: '1px solid rgba(34,192,122,0.3)', fontSize: 15, fontWeight: 700, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Check size={16} /> Print files ready — our team will reach out
+                    </div>
                     <button onClick={reset}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
                       Start New Project
@@ -2716,12 +2777,12 @@ export default function MockupGeneratorPage() {
             {/* App pitches */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
               {[
-                { icon: '🌲', title: 'PNW Portal', desc: 'Track your wrap projects, approve proofs, pay invoices, and message your crew — all from your phone.' },
-                { icon: '🚛', title: 'Fleet Management App', desc: 'Schedule wraps across your entire fleet, track maintenance, manage branding assets, and get fleet pricing.' },
-                { icon: '🎨', title: 'Design Studio', desc: 'Unlimited AI mockup generations, saved design history, and direct access to our design team.' },
+                { Icon: Globe, title: 'PNW Portal', desc: 'Track your wrap projects, approve proofs, pay invoices, and message your crew — all from your phone.' },
+                { Icon: Truck, title: 'Fleet Management App', desc: 'Schedule wraps across your entire fleet, track maintenance, manage branding assets, and get fleet pricing.' },
+                { Icon: Wand2, title: 'Design Studio', desc: 'Unlimited AI mockup generations, saved design history, and direct access to our design team.' },
               ].map((app, i) => (
                 <div key={i} style={{ display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 24, flexShrink: 0 }}>{app.icon}</div>
+                  <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, background: 'rgba(79,127,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><app.Icon size={16} style={{ color: 'var(--accent)' }} /></div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 2 }}>{app.title}</div>
                     <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.4 }}>{app.desc}</div>

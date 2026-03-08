@@ -132,6 +132,36 @@ function buildSignagePrompts(params: {
   }
 }
 
+// ── Boat Decking Prompts (top-down / aerial view) ────────────────────────────
+
+function buildDeckingPrompts(params: {
+  boat_sub_type: string
+  deck_style: string
+  deck_area: string
+  boat_year: string
+  boat_make: string
+  boat_model: string
+  style_notes: string
+}): Record<string, string> {
+  const { boat_sub_type, deck_style, deck_area, boat_year, boat_make, boat_model, style_notes } = params
+
+  const boatDesc = [boat_year, boat_make, boat_model].filter(Boolean).join(' ') || boat_sub_type || 'center console boat'
+  const areaDesc = deck_area === 'full_deck' ? 'entire top deck' : deck_area === 'cockpit_only' ? 'cockpit and helm area' : deck_area === 'bow_only' ? 'forward bow deck' : 'deck surfaces'
+  const extraNotes = style_notes ? ` Design notes: ${style_notes}.` : ''
+
+  // Base prompt — top-down aerial view showing the deck surface
+  const base = `Aerial top-down overhead view of a ${boatDesc}, professional product photography on white studio background, showing the ${areaDesc} covered with custom EVA foam decking pattern. The decking covers the boat floor/deck surface completely — high resolution, photorealistic material texture, marine-grade foam material look.${extraNotes}`
+
+  return {
+    a: `${base} STRAIGHT TEAK pattern — classic parallel teak plank lines in warm brown tones with dark caulk seams, realistic wood-grain texture, traditional nautical look, precision cut to boat deck shape`,
+    b: `${base} HERRINGBONE TEAK pattern — diagonal V-shaped chevron teak plank arrangement, alternating direction planks, premium yacht-style aesthetic, rich warm brown with dark seams`,
+    c: `${base} DIAMOND GRIP pattern — raised embossed diamond non-slip texture, dark grey/charcoal color, sporty performance look, maximum traction surface`,
+    d: `${base} CARBON FIBER texture — dark woven carbon fiber look, black and dark grey weave pattern, high-performance sport boat aesthetic, glossy finish`,
+    e: `${base} TWO-TONE TEAK pattern — alternating light and dark teak planks, modern contrast striping design, premium custom layout with accent borders at edges`,
+    f: `${base} SOLID COLOR CUSTOM — flat clean solid color EVA foam surface, minimal with subtle texture, modern yacht aesthetic, clean lines around deck hardware cutouts`,
+  }
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -175,6 +205,10 @@ export async function POST(req: NextRequest) {
     inspiration_urls = [] as string[],
     boat_sub_type = '',
     vehicle_paint_color = '',
+    marine_service = '',
+    deck_style = 'teak_straight',
+    deck_area = 'full_deck',
+    boat_details = '',
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {
@@ -252,8 +286,21 @@ export async function POST(req: NextRequest) {
     // ── Step 2: Generate 6 design concepts (parallel batches for speed) ─────
     await admin.from('mockup_results').update({ current_step: 2, step_name: 'Generating design concepts…' }).eq('id', mockupId)
 
+    // For marine decking-only, use the top-down decking prompt builder
+    const isDeckingOnly = output_type === 'decking' || (output_type === 'marine' && marine_service === 'decking')
+
     const prompts = output_type === 'signage'
       ? buildSignagePrompts({ company_name, phone, website, tagline, industry, brand_colors, style_notes, sign_type, logo_description: logo_url ? `brand logo prominently displayed, centered on vehicle side panels` : undefined })
+      : isDeckingOnly
+      ? buildDeckingPrompts({
+          boat_sub_type: boat_sub_type || vehicle_body_type || 'center_console',
+          deck_style,
+          deck_area,
+          boat_year: vehicle_year,
+          boat_make: vehicle_make,
+          boat_model: vehicle_model || boat_details,
+          style_notes,
+        })
       : buildWrapPrompts({
           company_name, phone, website, tagline, industry,
           brand_colors, style_notes, vehicle_body_type, wrap_coverage,
