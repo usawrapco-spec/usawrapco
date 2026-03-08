@@ -19,7 +19,8 @@ import {
   Wand2, LayoutTemplate, Car,
   Anchor, Bot, Sparkles, Store,
   ExternalLink, CreditCard, Banknote, Database,
-  MonitorSmartphone, ListChecks,
+  MonitorSmartphone, ListChecks, BarChart2, MapPin,
+  Phone, MessageCircle, Zap,
 } from 'lucide-react'
 
 interface NavItem {
@@ -60,7 +61,9 @@ const NAV_SECTIONS: NavSection[] = [
     icon: MonitorSmartphone,
     roles: ['owner', 'admin', 'sales_agent'],
     items: [
-      { href: '/sites/forms',   label: 'Forms Builder',  icon: ListChecks },
+      { href: '/sites/forms',    label: 'Forms Builder',   icon: ListChecks },
+      { href: '/sites/surveys',  label: 'Survey Builder',  icon: BarChart2 },
+      { href: '/sites/gmb',      label: 'GMB Manager',     icon: MapPin },
     ],
   },
   {
@@ -383,6 +386,79 @@ export function SideNav({
                   )
                 })}
               </div>
+            )
+          })}
+        </div>
+
+        {/* ── Quick Actions ── */}
+        <div style={{
+          padding: isExpanded ? '8px 10px' : '8px 0 8px 6px',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          gap: isExpanded ? 6 : 0,
+          flexDirection: isExpanded ? 'row' : 'column',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}>
+          {[
+            { label: 'Phone', icon: Phone, action: () => window.dispatchEvent(new Event('softphone:open')) },
+            { label: 'AI Chat', icon: Brain, href: '/engine' },
+            { label: 'Quick Design', icon: Sparkles, href: '/mockup-generator' },
+          ].map(qa => {
+            const Icon = qa.icon
+            if (qa.href) {
+              return (
+                <Link
+                  key={qa.label}
+                  href={qa.href}
+                  title={qa.label}
+                  onClick={onMobileClose}
+                  style={{
+                    flex: isExpanded ? 1 : undefined,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: isExpanded ? '8px 4px' : '8px 0',
+                    borderRadius: 8,
+                    background: 'var(--surface2)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    color: 'var(--text2)',
+                    textDecoration: 'none',
+                    fontSize: 11, fontWeight: 600,
+                    width: isExpanded ? undefined : 36,
+                    height: isExpanded ? undefined : 32,
+                    marginBottom: isExpanded ? 0 : 4,
+                    transition: 'background 0.12s',
+                  }}
+                >
+                  <Icon size={14} />
+                  {isExpanded && <span style={{ whiteSpace: 'nowrap' }}>{qa.label}</span>}
+                </Link>
+              )
+            }
+            return (
+              <button
+                key={qa.label}
+                onClick={qa.action}
+                title={qa.label}
+                style={{
+                  flex: isExpanded ? 1 : undefined,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: isExpanded ? '8px 4px' : '8px 0',
+                  borderRadius: 8,
+                  background: 'var(--surface2)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'var(--text2)',
+                  cursor: 'pointer',
+                  fontSize: 11, fontWeight: 600,
+                  fontFamily: 'inherit',
+                  width: isExpanded ? undefined : 36,
+                  height: isExpanded ? undefined : 32,
+                  marginBottom: isExpanded ? 0 : 4,
+                  transition: 'background 0.12s',
+                }}
+              >
+                <Icon size={14} />
+                {isExpanded && <span style={{ whiteSpace: 'nowrap' }}>{qa.label}</span>}
+              </button>
             )
           })}
         </div>

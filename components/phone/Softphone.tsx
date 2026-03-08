@@ -57,6 +57,13 @@ export default function Softphone() {
     if (phone?.callState === 'incoming') setExpanded(true)
   }, [phone?.callState])
 
+  // Listen for external open requests (e.g. from SideNav quick action)
+  useEffect(() => {
+    const handler = () => setExpanded(true)
+    window.addEventListener('softphone:open', handler)
+    return () => window.removeEventListener('softphone:open', handler)
+  }, [])
+
   useEffect(() => {
     if (phone?.callState === 'idle') {
       setShowTransfer(false)
@@ -343,7 +350,7 @@ export default function Softphone() {
         </div>
       )}
 
-      {/* FAB */}
+      {/* FAB — only visible during active/incoming calls; idle state is accessible from SideNav */}
       <button
         onClick={() => setExpanded(p => !p)}
         title="Softphone"
@@ -352,7 +359,7 @@ export default function Softphone() {
           background: callState === 'in-call' || callState === 'incoming' ? 'var(--green)' : 'var(--surface)',
           border: `2px solid ${isActive ? 'var(--green)' : '#2a2e3a'}`,
           color: callState !== 'idle' ? '#000' : 'var(--text2)',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', display: callState === 'idle' && !expanded ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: isActive ? '0 0 20px #22c07a44' : '0 2px 12px rgba(0,0,0,0.5)',
           animation: callState === 'incoming' ? 'sp-pulse 1.4s ease-in-out infinite' : 'none',
           position: 'relative', transition: 'all 0.2s',
