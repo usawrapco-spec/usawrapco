@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   ChevronRight, TrendingUp, Wand2, Compass, Map,
   Briefcase, DollarSign, Clock, CheckCircle2, Plus,
+  Rocket, Gift,
 } from 'lucide-react'
 import type { DealerCtx } from './DealerPortalShell'
 
@@ -35,6 +36,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 
 export default function DealerHome({ ctx, referrals }: Props) {
   const base = `/portal/dealer/${ctx.token}`
+  const features = ctx.portal_features
 
   const totalRevenue = referrals.reduce((s, r) => {
     if (r.commission_amount) return s + r.commission_amount
@@ -90,7 +92,7 @@ export default function DealerHome({ ctx, referrals }: Props) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.text1 }}>Refer a New Customer</div>
             <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>
-              Build a mockup, get an instant estimate, earn {ctx.commission_pct}% commission
+              Build a mockup{ctx.share_estimates ? ', get an instant estimate,' : ''} and earn commission
             </div>
           </div>
           <ChevronRight size={20} color={C.green} />
@@ -149,7 +151,7 @@ export default function DealerHome({ ctx, referrals }: Props) {
       )}
 
       {/* ── MESSAGES ──────────────────────────────────────────────────────── */}
-      <Link href={`${base}/messages`} style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 24 }}>
+      {features.messaging && <Link href={`${base}/messages`} style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 24 }}>
         <div style={{
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 14, padding: '16px 18px',
@@ -175,15 +177,46 @@ export default function DealerHome({ ctx, referrals }: Props) {
             <ChevronRight size={18} color={C.text3} />
           </div>
         </div>
-      </Link>
+      </Link>}
+
+      {/* ── PRIMARY APP HERO ──────────────────────────────────────────────── */}
+      {ctx.primary_app === 'pnw_navigator' && features.pnw_navigator && (
+        <Link href={`${base}/explorer`} style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 24 }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(34,211,238,0.18) 0%, rgba(79,127,255,0.12) 100%)',
+            border: '1px solid rgba(34,211,238,0.35)',
+            borderRadius: 16, padding: '24px 20px',
+            display: 'flex', alignItems: 'center', gap: 18,
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 14,
+              background: 'rgba(34,211,238,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Compass size={28} color={C.cyan} strokeWidth={1.8} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: C.text1, fontFamily: 'var(--font-barlow, Barlow Condensed, sans-serif)' }}>
+                PNW Navigator
+              </div>
+              <div style={{ fontSize: 13, color: C.text2, marginTop: 3, lineHeight: 1.4 }}>
+                Boat ramps, marinas, fishing zones, weather, tides & AI trip planner
+              </div>
+            </div>
+            <ChevronRight size={20} color={C.cyan} />
+          </div>
+        </Link>
+      )}
 
       {/* ── FEATURED APPS ─────────────────────────────────────────────────── */}
+      {(features.mockup_generator || (features.pnw_navigator && ctx.primary_app !== 'pnw_navigator') || features.fleet_manager) && (
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.5 }}>
           Featured Apps
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
+          {features.mockup_generator && (
           <Link href={`${base}/mockup`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
               background: 'linear-gradient(135deg, rgba(34,192,122,0.10) 0%, rgba(79,127,255,0.06) 100%)',
@@ -199,7 +232,9 @@ export default function DealerHome({ ctx, referrals }: Props) {
               <ChevronRight size={16} color={C.text3} />
             </div>
           </Link>
+          )}
 
+          {features.pnw_navigator && ctx.primary_app !== 'pnw_navigator' && (
           <Link href={`${base}/explorer`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
               background: 'linear-gradient(135deg, rgba(34,211,238,0.10) 0%, rgba(79,127,255,0.06) 100%)',
@@ -215,7 +250,9 @@ export default function DealerHome({ ctx, referrals }: Props) {
               <ChevronRight size={16} color={C.text3} />
             </div>
           </Link>
+          )}
 
+          {features.fleet_manager && (
           <Link href={`${base}/fleet`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{
               background: 'linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(79,127,255,0.06) 100%)',
@@ -231,7 +268,37 @@ export default function DealerHome({ ctx, referrals }: Props) {
               <ChevronRight size={16} color={C.text3} />
             </div>
           </Link>
+          )}
 
+        </div>
+      </section>
+      )}
+
+      {/* ── FINANCING & REFERRALS ────────────────────────────────────────── */}
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Link href={`${base}/financing`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderRadius: 12, padding: '16px 14px',
+              display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              <Rocket size={20} color={C.purple} strokeWidth={1.8} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Financing</span>
+              <span style={{ fontSize: 11, color: C.text3 }}>LaunchPay for customers</span>
+            </div>
+          </Link>
+          <Link href={`${base}/referrals`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div style={{
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderRadius: 12, padding: '16px 14px',
+              display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              <Gift size={20} color={C.green} strokeWidth={1.8} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Referrals</span>
+              <span style={{ fontSize: 11, color: C.text3 }}>Share & earn commission</span>
+            </div>
+          </Link>
         </div>
       </section>
 
@@ -240,7 +307,7 @@ export default function DealerHome({ ctx, referrals }: Props) {
         <div style={{ textAlign: 'center', padding: '32px 20px', color: C.text3 }}>
           <TrendingUp size={32} strokeWidth={1} style={{ marginBottom: 10, opacity: 0.3 }} />
           <div style={{ fontSize: 14, color: C.text2, marginBottom: 6 }}>No referrals yet</div>
-          <div style={{ fontSize: 12 }}>Refer your first customer and start earning {ctx.commission_pct}% commission</div>
+          <div style={{ fontSize: 12 }}>Refer your first customer and start earning commission</div>
         </div>
       )}
     </div>

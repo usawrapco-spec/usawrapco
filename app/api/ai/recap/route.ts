@@ -19,12 +19,34 @@ You must return a valid JSON object with this exact structure:
     {"title": "Section title", "level": "critical|warning|info", "items": ["item with [clickable link](/path) embedded", "item 2"]}
   ],
   "action_items": [
-    {"id": "a1", "text": "action text with optional [link](/path)", "priority": "high|medium|low"}
+    {
+      "id": "a1",
+      "text": "action text",
+      "priority": "high|medium|low",
+      "entity_type": "estimate|invoice|project|customer|task|call|message",
+      "entity_ids": ["uuid-from-data-above"],
+      "entity_count": 4,
+      "suggested_actions": [
+        {"label": "Send follow-up SMS to each", "type": "send_message"},
+        {"label": "Mark all as reviewed", "type": "update_status"}
+      ]
+    }
   ]
 }
 
 Levels: critical = red urgent items, warning = amber follow-ups/risks, info = general awareness.
-Keep action items to 3-8 maximum. Be honest — if nothing is urgent, say so.`
+Keep action items to 3-8 maximum. Be honest — if nothing is urgent, say so.
+
+IMPORTANT for action_items:
+- entity_type: the type of business record this action relates to. Use: estimate, invoice, project, customer, task, call, or message.
+- entity_ids: EXACT UUIDs from the data provided above. ONLY use IDs that actually appear in the data. Never invent UUIDs.
+- entity_count: how many records are involved.
+- suggested_actions: 1-3 specific next steps the owner might want to take. Types:
+  - "send_message": draft/send a message to someone
+  - "update_status": change status of records
+  - "create_task": create a follow-up task
+  - "ai_draft": have AI draft something (email, estimate, etc.)
+- If an action item is general advice with no specific records, omit entity_type, entity_ids, and entity_count.`
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,6 +111,7 @@ export async function POST(req: NextRequest) {
     // Last 24 hours
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const now = new Date().toISOString()
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
     // Fetch data in parallel
     const [
@@ -100,6 +123,7 @@ export async function POST(req: NextRequest) {
       appointmentsRes,
       messagesRes,
       callLogsRes,
+      feedbackRes,
     ] = await Promise.all([
       admin.from('projects')
         .select('id, title, status, pipe_stage, updated_at, install_date, revenue, agent:agent_id(name), installer:installer_id(name)')
@@ -151,6 +175,12 @@ export async function POST(req: NextRequest) {
         .gte('created_at', yesterday)
         .order('created_at', { ascending: false })
         .limit(30),
+
+      admin.from('action_item_feedback')
+        .select('entity_type, feedback_type, suggestion_type, suggestion_label')
+        .eq('org_id', orgId)
+        .gte('created_at', thirtyDaysAgo)
+        .limit(100),
     ])
 
     // Build data summary for Claude
@@ -195,6 +225,19 @@ JOB COMMENTS (${data.job_comments.length}):
 ${JSON.stringify(data.job_comments.slice(0, 10), null, 2)}
 
 ${customInstructions.length > 0 ? `\nOWNER CUSTOM INSTRUCTIONS (follow these in addition to your normal briefing):\n${customInstructions.map((i, n) => `${n + 1}. ${i}`).join('\n')}` : ''}
+${(() => {
+      const feedback = feedbackRes.data || []
+      if (feedback.length === 0) return ''
+      const accepted = feedback.filter((f: any) => f.feedback_type === 'suggestion_accepted')
+      const dismissed = feedback.filter((f: any) => f.feedback_type === 'suggestion_dismissed')
+      if (accepted.length === 0 && dismissed.length === 0) return ''
+      const acceptedTypes = [...new Set(accepted.map((f: any) => f.suggestion_type).filter(Boolean))]
+      const dismissedTypes = [...new Set(dismissed.map((f: any) => f.suggestion_type).filter(Boolean))]
+      return `\nOWNER BEHAVIOR PATTERNS (use these to tailor suggestions):
+- Frequently accepted suggestion types: ${acceptedTypes.length ? acceptedTypes.join(', ') : 'none yet'}
+- Frequently dismissed suggestion types: ${dismissedTypes.length ? dismissedTypes.join(', ') : 'none yet'}
+- Prioritize suggestions similar to accepted ones. Avoid suggestions similar to dismissed ones.`
+    })()}
 
 Generate a concise owner brief as JSON. Focus on what actually matters. If a data array is empty, skip that section.`
 
@@ -215,8 +258,15 @@ Generate a concise owner brief as JSON. Focus on what actually matters. If a dat
 
     if (!res.ok) {
       const errText = await res.text()
-      console.error('[ai/recap] Anthropic error:', errText)
-      return NextResponse.json({ error: 'AI request failed' }, { status: 500 })
+      console.error('[ai/recap] Anthropic error:', res.status, errText)
+      let detail = 'AI request failed'
+      try {
+        const errJson = JSON.parse(errText)
+        detail = errJson?.error?.message || errText
+      } catch {
+        detail = errText || `Anthropic API returned ${res.status}`
+      }
+      return NextResponse.json({ error: 'AI request failed', details: detail }, { status: 500 })
     }
 
     const aiData = await res.json()
@@ -244,19 +294,21 @@ Generate a concise owner brief as JSON. Focus on what actually matters. If a dat
       recapText = rawText
     }
 
-    // Save to DB
+    // Save to DB (upsert on unique constraint: org_id, recap_date, type)
     const today = new Date().toISOString().split('T')[0]
     const cachedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString()
     const { data: saved, error: insertError } = await admin
       .from('ai_recaps')
-      .insert({
+      .upsert({
         org_id: orgId,
         recap_date: today,
+        type: 'daily',
         recap_text: recapText,
         sections,
         action_items: actionItems,
         cached_until: cachedUntil,
-      })
+        generated_at: new Date().toISOString(),
+      }, { onConflict: 'org_id,recap_date,type' })
       .select()
       .single()
 

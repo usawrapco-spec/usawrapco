@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.usawrapco.com'
     const token = inv.pay_link_token || invoice_id
     const payUrl = `${appUrl}/pay/${token}`
-    const wisetackUrl = process.env.WISETACK_MERCHANT_URL || null
+    // Affirm financing — no separate URL needed, checkout is handled on the pay page
 
     // Estimate monthly payment (6-month 0% APR as the teaser rate)
     const monthlyEst = (balance / 6).toFixed(2)
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Build message
     const smsBody =
       `Hi ${customerName}! Your USA WRAP CO invoice #${inv.invoice_number} is ready — $${balance.toFixed(2)} due.` +
-      ` Finance from $${monthlyEst}/mo with 0% APR options.` +
+      ` Finance from $${monthlyEst}/mo with LaunchPay (powered by Affirm).` +
       ` Pay here: ${payUrl}`
 
     const emailSubject = `Financing available for INV-${inv.invoice_number} — from $${monthlyEst}/mo`
@@ -64,16 +64,14 @@ export async function POST(request: NextRequest) {
       ``,
       `Your USA WRAP CO invoice INV-${inv.invoice_number} has a balance of $${balance.toFixed(2)}.`,
       ``,
-      `You can pay in full or finance starting from $${monthlyEst}/month with 0% APR options available.`,
+      `You can pay in full or finance starting from $${monthlyEst}/month with 0% APR options via LaunchPay (powered by Affirm).`,
       ``,
       `View & pay: ${payUrl}`,
-      ``,
-      wisetackUrl ? `To apply for financing directly: ${wisetackUrl}` : '',
       ``,
       `No credit impact to check your rate.`,
       ``,
       `— USA WRAP CO`,
-    ].filter(l => l !== undefined).join('\n')
+    ].join('\n')
 
     let smsSent = false
     let emailSent = false
@@ -181,6 +179,7 @@ export async function POST(request: NextRequest) {
         sent_to_email: email,
         amount_requested: balance,
         status: 'sent',
+        provider: 'affirm',
         link_sent_at: new Date().toISOString(),
         merchant_ref: String(inv.invoice_number),
         created_by: user.id,

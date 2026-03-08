@@ -95,10 +95,22 @@ const s = StyleSheet.create({
   footerLogo: { width: 70, height: 22, objectFit: 'contain' },
   footerTagline: { fontSize: 8, color: PDF_COLORS.textMuted },
   footerRight: { fontSize: 8, color: PDF_COLORS.textSecondary, textAlign: 'right' },
-  // Terms
-  termsTitle: { fontFamily: 'BarlowCondensed', fontSize: 12, fontWeight: 700, marginBottom: 6, marginTop: 14 },
-  termItem: { flexDirection: 'row', marginBottom: 3 },
-  termText: { fontSize: 8, color: PDF_COLORS.textSecondary, flex: 1, lineHeight: 1.5 },
+  // Terms (page 2)
+  termsTitle: { fontFamily: 'BarlowCondensed', fontSize: 16, fontWeight: 700, marginBottom: 10, marginTop: 0 },
+  termItem: { flexDirection: 'row', marginBottom: 5 },
+  termBullet: { fontSize: 9, color: PDF_COLORS.accent, marginRight: 6, marginTop: 1 },
+  termText: { fontSize: 9, color: PDF_COLORS.textSecondary, flex: 1, lineHeight: 1.6 },
+  termNumber: { fontSize: 8, fontWeight: 700, color: PDF_COLORS.accent, width: 18 },
+  // Wash & care
+  careTitle: { fontFamily: 'BarlowCondensed', fontSize: 16, fontWeight: 700, marginBottom: 10, marginTop: 24 },
+  careItem: { flexDirection: 'row', marginBottom: 6, alignItems: 'flex-start' },
+  careIcon: { fontSize: 10, width: 20, textAlign: 'center', marginRight: 6 },
+  careLabel: { fontSize: 9, fontWeight: 700, color: PDF_COLORS.textPrimary },
+  careText: { fontSize: 9, color: PDF_COLORS.textSecondary, lineHeight: 1.5, flex: 1 },
+  // Page 2 header
+  page2Header: { backgroundColor: PDF_COLORS.dark, paddingHorizontal: 36, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  page2Title: { fontFamily: 'BarlowCondensed', fontSize: 20, fontWeight: 700, color: PDF_COLORS.white, letterSpacing: 2 },
+  page2Sub: { fontSize: 9, color: '#94a3b8' },
 })
 
 function getProductCategory(productType: string): string {
@@ -162,11 +174,25 @@ function InvoicePDF({ invoice, lineItems, payments }: {
   const amountPaid = invoice.amount_paid || 0
   const balanceDue = invoice.balance_due || 0
 
+  const WASH_CARE_ITEMS = [
+    { label: 'Wait Period', text: 'Do not wash your vehicle for at least 72 hours after installation to allow the vinyl to fully cure and bond.' },
+    { label: 'Hand Wash Only', text: 'Always hand wash with a soft microfiber mitt and clean water. Avoid automatic car washes — brushes and high-speed rollers can lift edges and scratch the wrap.' },
+    { label: 'Use Mild Soap', text: 'Use a gentle automotive soap (pH neutral). Avoid harsh detergents, degreasers, or solvents that can break down the vinyl or laminate.' },
+    { label: 'Dry Properly', text: 'Use a clean microfiber towel or chamois to dry. Do not air dry — water spots can leave mineral deposits that etch the surface over time.' },
+    { label: 'No Pressure Washing', text: 'Do not use pressure washers directly on wrapped surfaces. If you must, keep pressure below 1,200 PSI, water temperature below 140°F, and spray at a 45° angle from at least 12 inches away.' },
+    { label: 'Spot Cleaning', text: 'For bird droppings, tree sap, or bug splatter — clean immediately with isopropyl alcohol and a soft cloth. Do not let contaminants sit on the surface.' },
+    { label: 'Avoid Prolonged Sun', text: 'Park in shade or use a garage when possible. Extended UV exposure can cause premature fading, especially on dark or matte wraps.' },
+    { label: 'Matte & Satin Care', text: 'Do not wax or polish matte/satin wraps — it will create unwanted glossy spots. Use matte-specific spray detailers only.' },
+    { label: 'Gloss Wrap Care', text: 'Gloss wraps can be maintained with vinyl-safe spray wax or sealant for extra shine and UV protection. Avoid abrasive compounds.' },
+    { label: 'Warranty Note', text: 'Failure to follow these care instructions may void your 3-year limited warranty. When in doubt, contact us before using any product on your wrap.' },
+  ]
+
   return React.createElement(Document, {
     title: `USA Wrap Co — ${invNumber}`,
     author: 'USA Wrap Co',
     subject: 'Vehicle Wrap Invoice',
   },
+    // ─── PAGE 1: PRICING ───
     React.createElement(Page, { size: 'LETTER', style: s.page },
       // Header
       React.createElement(View, { style: s.headerBand },
@@ -283,7 +309,7 @@ function InvoicePDF({ invoice, lineItems, payments }: {
         ),
 
         // Payment history
-        payments.length > 0 && React.createElement(View, null,
+        payments.length > 0 && React.createElement(View, { wrap: false },
           React.createElement(View, { style: s.divider }),
           React.createElement(Text, { style: { ...s.sectionLabel, marginBottom: 4 } }, 'Payment History'),
           React.createElement(View, { style: s.payHistHeader },
@@ -320,19 +346,54 @@ function InvoicePDF({ invoice, lineItems, payments }: {
             React.createElement(Text, { style: s.payOptValue }, `${BRAND.phone}  |  ${BRAND.email}`),
           ),
         ),
+      ),
 
-        // Terms (compact)
-        React.createElement(View, { style: s.divider }),
+      // Page 1 Footer
+      React.createElement(View, { fixed: true, style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
+        React.createElement(View, { style: s.footer },
+          React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),
+          React.createElement(Text, { style: s.footerTagline }, BRAND.tagline),
+          React.createElement(Text, { style: s.footerRight }, `${BRAND.phone}  |  ${BRAND.email}`),
+        ),
+      ),
+    ),
+
+    // ─── PAGE 2: TERMS & CONDITIONS + WASH & CARE ───
+    React.createElement(Page, { size: 'LETTER', style: s.page },
+      // Page 2 Header
+      React.createElement(View, { style: s.page2Header },
+        React.createElement(Image, { style: { width: 60, height: 60, objectFit: 'contain' }, src: getPdfLogoSrc() }),
+        React.createElement(View, { style: { alignItems: 'flex-end' } },
+          React.createElement(Text, { style: s.page2Title }, 'TERMS & CARE INSTRUCTIONS'),
+          React.createElement(Text, { style: s.page2Sub }, `${invNumber}  |  ${customer.name || 'Customer'}`),
+        ),
+      ),
+      React.createElement(View, { style: s.accentLine }),
+
+      React.createElement(View, { style: { padding: '24px 36px', paddingBottom: 50 } },
+        // Terms & Conditions — all 10
         React.createElement(Text, { style: s.termsTitle }, 'Terms & Conditions'),
-        ...PDF_TERMS.slice(0, 4).map((term, i) =>
-          React.createElement(View, { key: i, style: s.termItem },
-            React.createElement(Text, { style: { ...s.termText, marginRight: 4, color: PDF_COLORS.accent } }, '•'),
+        ...PDF_TERMS.map((term, i) =>
+          React.createElement(View, { key: i, style: s.termItem, wrap: false },
+            React.createElement(Text, { style: s.termNumber }, `${i + 1}.`),
             React.createElement(Text, { style: s.termText }, term),
+          )
+        ),
+
+        // Wash & Care Instructions
+        React.createElement(Text, { style: s.careTitle }, 'Vinyl Wrap Care Instructions'),
+        ...WASH_CARE_ITEMS.map((item, i) =>
+          React.createElement(View, { key: i, style: s.careItem, wrap: false },
+            React.createElement(Text, { style: s.termNumber }, `${i + 1}.`),
+            React.createElement(View, { style: { flex: 1 } },
+              React.createElement(Text, { style: s.careLabel }, item.label),
+              React.createElement(Text, { style: s.careText }, item.text),
+            ),
           )
         ),
       ),
 
-      // Footer
+      // Page 2 Footer
       React.createElement(View, { fixed: true, style: { position: 'absolute', bottom: 0, left: 0, right: 0 } },
         React.createElement(View, { style: s.footer },
           React.createElement(Image, { style: s.footerLogo, src: getPdfLogoSrc() }),

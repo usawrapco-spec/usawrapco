@@ -504,6 +504,11 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
   const templateMenuRef = useRef<HTMLDivElement>(null)
 
+  // Copy from previous proposal
+  const [proposalSearch, setProposalSearch] = useState('')
+  const [proposalResults, setProposalResults] = useState<{ id: string; estimate_id: string; title: string; customer_name: string; estimate_number: string; status: string; created_at: string }[]>([])
+  const [proposalSearching, setProposalSearching] = useState(false)
+
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const pdfMenuRef = useRef<HTMLDivElement>(null)
 
@@ -1011,6 +1016,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
 
   async function handleLoadTemplate(tmpl: typeof templates[0]) {
     setTemplateMenuOpen(false)
+    const offset = lineItemsList.length
     const items: LineItem[] = (tmpl.line_items as Partial<LineItem>[]).map((li, i) => ({
       id: `tmpl-${Date.now()}-${i}`,
       parent_type: 'estimate' as const,
@@ -1023,13 +1029,94 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
       unit_discount: li.unit_discount || 0,
       total_price: li.total_price || 0,
       specs: (li.specs || {}) as LineItemSpecs,
-      sort_order: li.sort_order || i,
+      sort_order: offset + i,
       created_at: new Date().toISOString(),
     }))
-    setLineItemsList(items)
-    showToast(`Template "${tmpl.name}" loaded`)
+    setLineItemsList(prev => [...prev, ...items])
+    showToast(`Template "${tmpl.name}" added (${items.length} items)`)
     // Increment use count
     await supabase.from('estimate_templates').update({ use_count: (tmpl.use_count || 0) + 1 }).eq('id', tmpl.id)
+  }
+
+  async function searchPreviousProposals(query: string) {
+    setProposalSearch(query)
+    if (query.length < 2) { setProposalResults([]); return }
+    setProposalSearching(true)
+    try {
+      // Search proposals + also search estimates by customer name / number
+      const { data } = await supabase
+        .from('proposals')
+        .select('id, estimate_id, title, status, created_at, estimates!inner(estimate_number, customers(name))')
+        .neq('estimate_id', estimateId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (data) {
+        const q = query.toLowerCase()
+        const filtered = data.filter((p: any) => {
+          const t = (p.title || '').toLowerCase()
+          const cn = (p.estimates?.customers?.name || '').toLowerCase()
+          const en = (p.estimates?.estimate_number || '').toLowerCase()
+          return t.includes(q) || cn.includes(q) || en.includes(q)
+        })
+        setProposalResults(filtered.map((p: any) => ({
+          id: p.id,
+          estimate_id: p.estimate_id,
+          title: p.title || 'Untitled Proposal',
+          customer_name: p.estimates?.customers?.name || '',
+          estimate_number: p.estimates?.estimate_number || '',
+          status: p.status,
+          created_at: p.created_at,
+        })))
+      }
+    } catch { /* ignore */ }
+    setProposalSearching(false)
+  }
+
+  async function handleCopyFromProposal(sourceProposalId: string, proposalTitle: string) {
+    setTemplateMenuOpen(false)
+    setProposalSearch('')
+    setProposalResults([])
+    try {
+      // Fetch the source proposal to get its estimate_id
+      const res = await fetch(`/api/proposals/${sourceProposalId}`)
+      const data = await res.json()
+      if (!data.proposal) { showToast('Could not load proposal'); return }
+
+      // Fetch the real line items from the source estimate (with full specs/calculators)
+      const { data: sourceItems, error } = await supabase
+        .from('line_items')
+        .select('*')
+        .eq('parent_type', 'estimate')
+        .eq('parent_id', data.proposal.estimate_id)
+        .order('sort_order')
+
+      if (error || !sourceItems?.length) {
+        showToast('No line items found on source estimate')
+        return
+      }
+
+      // Clone line items with new IDs, preserving all specs/calculator data
+      const cloned: LineItem[] = sourceItems.map((li: any, i: number) => ({
+        id: `copy-${Date.now()}-${i}`,
+        parent_type: 'estimate' as const,
+        parent_id: estimateId,
+        product_type: li.product_type || 'wrap',
+        name: li.name || '',
+        description: li.description || null,
+        quantity: li.quantity || 1,
+        unit_price: li.unit_price || 0,
+        unit_discount: li.unit_discount || 0,
+        total_price: li.total_price || 0,
+        specs: (li.specs || {}) as LineItemSpecs,
+        sort_order: i,
+        created_at: new Date().toISOString(),
+      }))
+
+      setLineItemsList(prev => [...prev, ...cloned])
+      showToast(`Copied ${cloned.length} items from "${proposalTitle}"`)
+    } catch {
+      showToast('Error loading proposal')
+    }
   }
 
   async function handleDelete() {
@@ -1221,7 +1308,7 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="anim-fade-up" style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <div className="anim-fade-up">
       {/* Print styles + print-only logo header */}
       <style>{`
         @media print {
@@ -1357,31 +1444,21 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 borderRadius: 10, padding: 6, minWidth: 180, zIndex: 9999,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               }}>
-                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Estimate PDF failed') } }} />
+                <MenuButton icon={<FileText size={13} />} label="Estimate PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Estimate-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Estimate PDF failed') } }} />
                 <MenuButton icon={<Wrench size={13} />} label="Work Order" onClick={async () => {
                   setPdfMenuOpen(false)
                   try {
-                    const res = await fetch('/api/pdf/workorder', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        ref: est.estimate_number || estimateId,
-                        title: est.title || 'Work Order',
-                        customer: est.customer?.name || '',
-                        items: lineItemsList.map(li => ({ name: li.name, description: li.description, qty: li.quantity, specs: li.specs })),
-                        notes: est.notes || '',
-                        vehicleYear, vehicleMake, vehicleModel,
-                      }),
-                    })
+                    const res = await fetch(`/api/pdf/workorder?id=${estimateId}`)
+                    if (!res.ok) throw new Error('PDF failed')
                     const blob = await res.blob()
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement('a')
-                    a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`
+                    a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-WorkOrder-${est.estimate_number || estimateId}.pdf`
                     document.body.appendChild(a); a.click(); document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   } catch { showToast('Work order PDF failed') }
                 }} />
-                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/proposal/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Proposal PDF failed') } }} />
+                <MenuButton icon={<Layers size={13} />} label="Proposal PDF" onClick={async () => { setPdfMenuOpen(false); try { const res = await fetch(`/api/pdf/proposal/${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Proposal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('Proposal PDF failed') } }} />
               </div>
             )}
           </div>
@@ -1500,9 +1577,9 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {/* Export to PDF */}
                 <div style={{ padding: '2px 10px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Export to PDF</div>
-                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="Quote" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `quote-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
-                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="No Total" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}?hide_total=1`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `quote-nototal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
-                <MenuButton icon={<Wrench size={13} style={{ color: 'var(--text2)' }} />} label="Work Order" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch('/api/pdf/workorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: est.estimate_number || estimateId, title: est.title || 'Work Order', customer: est.customer?.name || '', items: lineItemsList.map(li => ({ name: li.name, description: li.description, qty: li.quantity, specs: li.specs })), notes: est.notes || '', vehicleYear, vehicleMake, vehicleModel }) }); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `workorder-${est.estimate_number || estimateId}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="Quote" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Quote-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<FileDown size={13} style={{ color: 'var(--text2)' }} />} label="No Total" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/estimate/${estimateId}?hide_total=1`); if (!res.ok) throw new Error(); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-Quote-NoTotal-${est.estimate_number}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
+                <MenuButton icon={<Wrench size={13} style={{ color: 'var(--text2)' }} />} label="Work Order" onClick={async () => { setMoreMenuOpen(false); try { const res = await fetch(`/api/pdf/workorder?id=${estimateId}`); if (!res.ok) throw new Error('PDF failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${(est.customer?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '-')}-WorkOrder-${est.estimate_number || estimateId}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url) } catch { showToast('PDF failed') } }} />
                 <MenuButton icon={<FileDown size={13} style={{ color: 'var(--amber)' }} />} label="Down Payment Invoice" onClick={() => { setMoreMenuOpen(false); window.open(`/api/pdf/down-payment/${estimateId}`, '_blank') }} />
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {/* Export to XLS */}
@@ -1837,23 +1914,6 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               />
             </div>
             <div>
-              <label style={fieldLabelStyle}>Proposal</label>
-              <button
-                onClick={() => setProposalMode(prev => !prev)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 14px', borderRadius: 8,
-                  border: 'none',
-                  background: proposalMode ? 'var(--green)' : 'var(--accent)',
-                  color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}
-              >
-                {proposalMode ? <CheckCircle2 size={13} /> : <FileText size={13} />}
-                {proposalMode ? 'Proposal On' : 'Build Proposal'}
-              </button>
-            </div>
-            <div>
               <label style={fieldLabelStyle}>Color</label>
               <input
                 value={vehicleColor}
@@ -2083,6 +2143,48 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
                     >
                       <Save size={12} /> Save Current as Template
                     </button>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', padding: '4px 12px', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: headingFont }}>
+                      Copy from Previous Proposal
+                    </div>
+                    <div style={{ padding: '4px 8px' }}>
+                      <input
+                        value={proposalSearch}
+                        onChange={e => searchPreviousProposals(e.target.value)}
+                        placeholder="Search by customer, title, or EST#..."
+                        style={{
+                          width: '100%', padding: '7px 10px', background: 'var(--bg)',
+                          border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text1)',
+                          fontSize: 12, outline: 'none',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    </div>
+                    {proposalSearching && (
+                      <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--text3)' }}>Searching...</div>
+                    )}
+                    {proposalResults.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleCopyFromProposal(p.id, p.title)}
+                        style={{
+                          display: 'block', width: '100%', padding: '8px 12px',
+                          border: 'none', borderRadius: 6, cursor: 'pointer',
+                          background: 'transparent', color: 'var(--text1)',
+                          fontSize: 12, textAlign: 'left',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ fontWeight: 600 }}>{p.customer_name || p.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {p.estimate_number && `${p.estimate_number} · `}{p.title}{p.status !== 'draft' && ` · ${p.status}`}
+                        </div>
+                      </button>
+                    ))}
+                    {proposalSearch.length >= 2 && !proposalSearching && proposalResults.length === 0 && (
+                      <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--text3)' }}>No proposals found</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2344,30 +2446,156 @@ export default function EstimateDetailClient({ profile, estimate, employees, cus
               totalPrice={lineItemsList.reduce((s, li) => s + (li.total_price || 0), 0)}
               totalGPM={0}
             />
-            {!showCustomerNote && (
-              <button
-                onClick={() => setShowCustomerNote(true)}
-                style={{
-                  background: 'transparent', border: 'none', color: 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0',
-                }}
-              >
-                + Add Customer Note
-              </button>
-            )}
-            {showCustomerNote && (
-              <>
-                <label style={fieldLabelStyle}>Customer Note</label>
-                <textarea
-                  value={customerNote}
-                  onChange={e => setCustomerNote(e.target.value)}
-                  disabled={!canWrite}
-                  placeholder="Note visible to customer on the estimate..."
-                  rows={4}
-                  style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 80 }}
+
+            {/* Right: Unified Financial Panel */}
+            <div style={{ ...cardStyle, position: 'sticky', top: 16 }}>
+
+              {/* ── REVENUE ─────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Revenue</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
+                  <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
+                </div>
+              </div>
+
+              {/* ── COSTS ───────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Costs</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {cogsBreakdown.material > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.labor > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.design > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
+                    </div>
+                  )}
+                  {cogsBreakdown.misc > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
+                      <span style={{ fontFamily: monoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
+                    </div>
+                  )}
+                  <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── PROFIT ──────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: headingFont, marginBottom: 8 }}>Profit</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{fmtPercent(overallGPM)}</span>
+                  </div>
+                  {overallGPM < 65 && subtotal > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
+                      <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── LEAD TYPE & AGENT ──────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Lead Type</div>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                  {(['inbound', 'outbound', 'handoff'] as const).map(lt => (
+                    <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: headingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
+                      {lt === 'handoff' ? 'Handoff' : lt === 'inbound' ? 'In' : 'Out'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: headingFont }}>Agent</div>
+                <select
+                  value={assignedAgent}
+                  onChange={e => setAssignedAgent(e.target.value)}
+                  style={{
+                    width: '100%', padding: '6px 8px', borderRadius: 6, fontSize: 12,
+                    background: 'var(--bg)', border: '1px solid var(--border)',
+                    color: 'var(--text1)', fontFamily: headingFont, cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">— Select Agent —</option>
+                  {team.filter(a => ['sales_agent', 'admin', 'owner'].includes(a.role)).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── TOTALS ──────────────────────────────── */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
+                      <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--red)', fontWeight: 600 }}>{fmtCurrency(-discount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
+                    <span style={{ fontFamily: monoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
+                    <span style={{ fontFamily: monoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── ACTION BUTTONS ───────────────────────── */}
+              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {canWrite && (
+                  <button
+                    onClick={handleCreateJob}
+                    style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                  >
+                    Convert to Job
+                  </button>
+                )}
+                <button
+                  onClick={handleSendEstimate}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: headingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                >
+                  Send Estimate
+                </button>
+              </div>
+
+              {/* Related Documents */}
+              <div style={{ padding: '0 16px 16px' }}>
+                <RelatedDocsPanel
+                  projectId={(est as any).project_id}
+                  customerId={est.customer_id}
+                  currentDocId={estimateId}
+                  currentDocType="estimate"
                 />
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       )}

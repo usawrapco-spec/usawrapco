@@ -3,6 +3,50 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/service'
 import { ORG_ID } from '@/lib/org'
 
+// PATCH — update an existing training instruction
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = getSupabaseAdmin()
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('role, org_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || profile.role !== 'owner') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { instruction } = await req.json()
+    if (!instruction?.trim()) {
+      return NextResponse.json({ error: 'Instruction text is required' }, { status: 400 })
+    }
+
+    const orgId = profile.org_id || ORG_ID
+    const { data, error } = await admin
+      .from('ai_settings')
+      .update({ setting_value: instruction.trim() })
+      .eq('id', params.id)
+      .eq('org_id', orgId)
+      .eq('setting_key', 'vinyl_instruction')
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ instruction: data })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // DELETE — remove a training instruction by ID
 export async function DELETE(
   _req: NextRequest,

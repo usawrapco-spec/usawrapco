@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   FileText, CreditCard, MessageSquare, Calendar,
   ChevronRight, Activity, AlertCircle, Upload, Zap,
-  Clock, Camera, Palette, Compass, Map, Wand2,
+  Clock, Camera, Palette, Compass, Map, Wand2, Rocket,
 } from 'lucide-react'
 import PortalCustomerTimeline from './PortalCustomerTimeline'
 import { buildMilestones } from '@/components/projects/JobTimeline'
@@ -228,6 +228,7 @@ export default function PortalHomePage({ recentActivity, invoiceBalance, proofsP
             { label: 'Design Proofs', icon: Palette,       href: `${base}/design`,     color: C.accent, badge: proofsPending },
             { label: 'My Jobs',       icon: FileText,      href: `${base}/jobs`,       color: C.green,  badge: 0 },
             { label: 'Invoices',      icon: CreditCard,    href: `${base}/invoices`,   color: C.amber,  badge: invoiceBalance > 0 ? 1 : 0 },
+            { label: 'Financing',     icon: Rocket,        href: `${base}/financing`,  color: C.purple, badge: 0 },
           ].map((item) => (
             <Link key={item.label} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
               <div style={{

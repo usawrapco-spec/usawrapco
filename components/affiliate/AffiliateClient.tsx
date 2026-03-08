@@ -67,6 +67,7 @@ export default function AffiliateClient({ profile, affiliates: initial, commissi
       status: 'active',
       onboarding_completed: false,
       onboarding_step: 0,
+      code,
       unique_code: code,
       unique_link: `${APP_URL}/ref/${code}`,
       notes: form.notes,

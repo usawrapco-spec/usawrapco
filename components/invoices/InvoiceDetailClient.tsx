@@ -80,7 +80,7 @@ function calcInvItemCOGS(item: LineItem): { material: number; labor: number; des
   return { material, labor, design, misc }
 }
 
-type InvTab = 'items' | 'tasks' | 'notes' | 'survey'
+type InvTab = 'items' | 'tasks' | 'notes' | 'survey' | 'care'
 
 // ─── Team Multi-Select Component ─────────────────────────────────────────────
 
@@ -256,6 +256,8 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const supabase = createClient()
   const inv = invoice || DEMO_INVOICE
   const items = lineItems.length > 0 ? lineItems : isDemo ? DEMO_LINE_ITEMS : []
+  const [lineItemsList, setLineItemsList] = useState<LineItem[]>(items)
+  const [expandedItem, setExpandedItem] = useState<string | null>(null)
 
   const canWrite = isAdminRole(profile.role) || hasPermission(profile.role, 'sales.write')
 
@@ -312,7 +314,7 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   )
 
   // Calculated totals — use stored total from DB when available to avoid NaN from missing columns
-  const subtotal = useMemo(() => items.reduce((s, li) => s + li.total_price, 0), [items])
+  const subtotal = useMemo(() => lineItemsList.reduce((s, li) => s + li.total_price, 0), [lineItemsList])
   const discount = inv.discount ?? 0
   // tax_percent is stored as e.g. 8.25 (percentage), tax_rate as 0.0825 (decimal) — handle both
   const taxRate = inv.tax_rate ?? (inv.tax_percent ? inv.tax_percent / 100 : 0)
@@ -325,14 +327,14 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
   const balanceDue = useMemo(() => total - amountPaid, [total, amountPaid])
 
   // Unified financial panel
-  const cogsBreakdown = useMemo(() => items.reduce((acc, li) => {
+  const cogsBreakdown = useMemo(() => lineItemsList.reduce((acc, li) => {
     const c = calcInvItemCOGS(li)
     acc.material += c.material
     acc.labor    += c.labor
     acc.design   += c.design
     acc.misc     += c.misc
     return acc
-  }, { material: 0, labor: 0, design: 0, misc: 0 }), [items])
+  }, { material: 0, labor: 0, design: 0, misc: 0 }), [lineItemsList])
   const totalCOGS    = useMemo(() => cogsBreakdown.material + cogsBreakdown.labor + cogsBreakdown.design + cogsBreakdown.misc, [cogsBreakdown])
   const totalGP      = useMemo(() => subtotal - totalCOGS, [subtotal, totalCOGS])
   const overallGPM   = useMemo(() => subtotal > 0 ? (totalGP / subtotal) * 100 : 0, [totalGP, subtotal])
@@ -478,6 +480,44 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
     if (isDemo) return
     await supabase.from('invoices').update({ notes }).eq('id', invoiceId)
     showToast('Notes saved')
+  }
+
+  async function handleSaveLineItems(updatedItems: LineItem[]) {
+    if (isDemo) return
+    for (const li of updatedItems) {
+      if (li.id.startsWith('new-')) {
+        const { id: _id, ...rest } = li
+        const { data } = await supabase.from('line_items').insert({ ...rest, org_id: inv.org_id }).select().single()
+        if (data) {
+          setLineItemsList(prev => prev.map(x => x.id === li.id ? { ...li, id: data.id } : x))
+        }
+      } else {
+        await supabase.from('line_items').update({
+          name: li.name, description: li.description, quantity: li.quantity,
+          unit_price: li.unit_price, unit_discount: li.unit_discount,
+          total_price: li.total_price, specs: li.specs, sort_order: li.sort_order,
+        }).eq('id', li.id)
+      }
+    }
+    // Update invoice subtotal/total
+    const newSubtotal = updatedItems.reduce((s, li) => s + li.total_price, 0)
+    const newTax = (newSubtotal - discount) * taxRate
+    const newTotal = newSubtotal - discount + newTax
+    await supabase.from('invoices').update({
+      subtotal: newSubtotal, tax_amount: newTax, total: newTotal,
+      balance_due: Math.max(0, newTotal - amountPaid),
+    }).eq('id', invoiceId)
+  }
+
+  async function handleRemoveLineItem(itemId: string) {
+    if (isDemo) return
+    if (!itemId.startsWith('new-')) {
+      await supabase.from('line_items').delete().eq('id', itemId)
+    }
+    const updated = lineItemsList.filter(x => x.id !== itemId)
+    setLineItemsList(updated)
+    await handleSaveLineItems(updated)
+    showToast('Line item removed')
   }
 
   async function handleExportPdf() {
@@ -751,19 +791,42 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'flex-start' }}>
-        {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ── ROI Strip ──────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0,
+        background: 'var(--card-bg, var(--surface))', border: '1px solid var(--card-border, var(--border))',
+        borderRadius: 12, marginBottom: 16, overflow: 'hidden',
+      }}>
+        <div style={{ padding: '12px 16px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 4 }}>Revenue</div>
+          <div style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</div>
+        </div>
+        <div style={{ padding: '12px 16px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 4 }}>Total COGS</div>
+          <div style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</div>
+        </div>
+        <div style={{ padding: '12px 16px', borderRight: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 4 }}>Gross Profit</div>
+          <div style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</div>
+        </div>
+        <div style={{ padding: '12px 16px' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 4 }}>GPM</div>
+          <div style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{overallGPM.toFixed(1)}%</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Tabbed section */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {/* Tab bar */}
             <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
               {([
-                { key: 'items'  as InvTab, label: 'Items', count: items.length },
+                { key: 'items'  as InvTab, label: 'Items', count: lineItemsList.length },
                 { key: 'tasks'  as InvTab, label: 'Tasks' },
                 { key: 'notes'  as InvTab, label: 'Notes' },
                 { key: 'survey' as InvTab, label: 'Survey' },
+                { key: 'care'   as InvTab, label: 'Wash & Care' },
               ]).map(t => (
                 <button
                   key={t.key}
@@ -792,40 +855,89 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
             <div style={{ padding: 16 }}>
               {/* Line Items tab */}
               {activeTab === 'items' && (
-                <>
-                  {items.length === 0 ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Line Items ({lineItemsList.length})
+                    </div>
+                    {canWrite && (
+                      <button
+                        className="btn-ghost btn-xs"
+                        onClick={() => {
+                          const newItem: LineItem = {
+                            id: `new-${Date.now()}`, parent_type: 'invoice', parent_id: invoiceId,
+                            product_type: 'wrap', name: '', description: null,
+                            quantity: 1, unit_price: 0, unit_discount: 0, total_price: 0,
+                            specs: {}, sort_order: lineItemsList.length, created_at: new Date().toISOString(),
+                          }
+                          setLineItemsList(prev => [...prev, newItem])
+                          setExpandedItem(newItem.id)
+                        }}
+                      >
+                        <Plus size={12} /> Add Item
+                      </button>
+                    )}
+                  </div>
+
+                  {lineItemsList.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: 32, color: 'var(--text3)', fontSize: 13 }}>
-                      No line items on this invoice.
+                      No line items on this invoice. Click &quot;Add Item&quot; to get started.
                     </div>
                   ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: 40 }}>#</th>
-                            <th>Item</th>
-                            <th>Description</th>
-                            <th style={{ textAlign: 'right', width: 60 }}>Qty</th>
-                            <th style={{ textAlign: 'right', width: 100 }}>Unit Price</th>
-                            <th style={{ textAlign: 'right', width: 100 }}>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {items.map((li, idx) => (
-                            <tr key={li.id}>
-                              <td><span className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>{idx + 1}</span></td>
-                              <td style={{ color: 'var(--text1)', fontWeight: 600, fontSize: 13 }}>{li.name || 'Untitled'}</td>
-                              <td style={{ fontSize: 12, color: 'var(--text2)' }}>{li.description || '--'}</td>
-                              <td style={{ textAlign: 'right' }}><span className="mono" style={{ fontSize: 13, color: 'var(--text1)' }}>{li.quantity}</span></td>
-                              <td style={{ textAlign: 'right' }}><span className="mono" style={{ fontSize: 13, color: 'var(--text2)' }}>{fmtCurrency(li.unit_price)}</span></td>
-                              <td style={{ textAlign: 'right' }}><span className="mono" style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(li.total_price)}</span></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {lineItemsList.map((li, idx) => (
+                        <InvLineItemCard
+                          key={li.id}
+                          item={li}
+                          index={idx}
+                          isExpanded={expandedItem === li.id}
+                          onToggle={() => setExpandedItem(expandedItem === li.id ? null : li.id)}
+                          canWrite={canWrite}
+                          onChange={(updated) => {
+                            const newList = lineItemsList.map(x => x.id === li.id ? updated : x)
+                            setLineItemsList(newList)
+                          }}
+                          onRemove={() => handleRemoveLineItem(li.id)}
+                          onSave={() => handleSaveLineItems(lineItemsList)}
+                        />
+                      ))}
                     </div>
                   )}
-                </>
+
+                  {/* Totals summary below line items */}
+                  {lineItemsList.length > 0 && (
+                    <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
+                          <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
+                        </div>
+                        {discount > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
+                            <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--green)', fontWeight: 600 }}>-{fmtCurrency(discount)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
+                          <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
+                          <span style={{ fontFamily: invMonoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, color: 'var(--text2)' }}>Amount Paid</span>
+                          <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--green)', fontWeight: 700 }}>{fmtCurrency(amountPaid)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Balance Due</span>
+                          <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 900, color: balanceDue > 0 ? 'var(--amber)' : 'var(--green)' }}>{fmtCurrency(Math.max(0, balanceDue))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Tasks tab */}
@@ -868,157 +980,22 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                   )}
                 </>
               )}
+              {/* Wash & Care tab */}
+              {activeTab === 'care' && (
+                <WashCareInstructions />
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Right column: Pricing + Payment + Actions */}
-        <div style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* ── Unified Financial Panel ─────────────────────────────────── */}
-          <div style={{ background: 'var(--card-bg, var(--surface))', border: '1px solid var(--card-border, var(--border))', borderRadius: 16, overflow: 'hidden' }}>
-
-            {/* ── REVENUE ─────────────────────────────── */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Revenue</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Sale Price</span>
-                <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(subtotal)}</span>
+          {/* Record Payment inline */}
+          {canWrite && status !== 'void' && balanceDue > 0 && (
+            <div className="card">
+              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CreditCard size={13} style={{ color: 'var(--green)' }} /> Record Payment
               </div>
-            </div>
-
-            {/* ── COSTS ───────────────────────────────── */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Costs</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {cogsBreakdown.material > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Material</span>
-                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.material)}</span>
-                  </div>
-                )}
-                {cogsBreakdown.labor > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Install Labor</span>
-                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.labor)}</span>
-                  </div>
-                )}
-                {cogsBreakdown.design > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Design Fees</span>
-                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.design)}</span>
-                  </div>
-                )}
-                {cogsBreakdown.misc > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Production Bonus</span>
-                    <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text2)' }}>{fmtCurrency(cogsBreakdown.misc)}</span>
-                  </div>
-                )}
-                <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Total COGS</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 13, fontWeight: 700, color: 'var(--text1)' }}>{fmtCurrency(totalCOGS)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── PROFIT ──────────────────────────────── */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Profit</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Gross Profit</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700, color: totalGP >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtCurrency(totalGP)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>GPM</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 900, color: overallGPM >= 73 ? 'var(--green)' : overallGPM >= 65 ? 'var(--amber)' : 'var(--red)' }}>{overallGPM.toFixed(1)}%</span>
-                </div>
-                {overallGPM < 65 && subtotal > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 6, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.25)' }}>
-                    <AlertTriangle size={12} style={{ color: 'var(--red)', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>Low Margin — below 65%</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── COMMISSION PREVIEW ──────────────────── */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Commission Preview</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: invHeadingFont }}>Lead Type</div>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                {(['inbound', 'outbound', 'presold'] as const).map(lt => (
-                  <button key={lt} onClick={() => setLeadType(lt)} style={{ flex: 1, padding: '5px 2px', borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: invHeadingFont, textTransform: 'uppercase', letterSpacing: '0.04em', border: leadType === lt ? '2px solid var(--accent)' : '1px solid var(--border)', background: leadType === lt ? 'rgba(79,127,255,0.12)' : 'var(--bg)', color: leadType === lt ? 'var(--accent)' : 'var(--text3)' }}>
-                    {lt === 'presold' ? 'Pre-Sold' : lt === 'inbound' ? 'In' : 'Out'}
-                  </button>
-                ))}
-              </div>
-              {(INV_COMMISSION_RATES[leadType] || INV_COMMISSION_RATES.inbound).bonuses && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: torqBonus ? 'var(--text1)' : 'var(--text2)', marginBottom: 8 }}>
-                  <input type="checkbox" checked={torqBonus} onChange={() => setTorqBonus(!torqBonus)} />
-                  Torq Training Bonus (+1%)
-                </label>
-              )}
-              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Commission Rate</span>
-                  <span style={{ fontFamily: invMonoFont, fontSize: 12, color: 'var(--text1)' }}>{(commRate * 100).toFixed(1)}%</span>
-                </div>
-                {overallGPM < 65 && subtotal > 0 && (
-                  <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>Low margin — base rate only</div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text1)' }}>Est. Commission</span>
-                  <span style={{ fontFamily: invMonoFont, fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{fmtCurrency(estCommission)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── TOTALS ──────────────────────────────── */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Subtotal</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(subtotal)}</span>
-                </div>
-                {discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--text2)' }}>Discount</span>
-                    <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--green)', fontWeight: 600 }}>-{fmtCurrency(discount)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Tax ({(taxRate * 100).toFixed(2)}%)</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--text1)', fontWeight: 600 }}>{fmtCurrency(taxAmount)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Total</span>
-                  <span style={{ fontFamily: invMonoFont, fontSize: 16, fontWeight: 800, color: 'var(--text1)' }}>{fmtCurrency(total)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── PAYMENT STATUS ───────────────────────── */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: invHeadingFont, marginBottom: 8 }}>Payment</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Amount Paid</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--green)', fontWeight: 700 }}>{fmtCurrency(amountPaid)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text1)' }}>Balance Due</span>
-                  <span style={{ fontFamily: invMonoFont, fontVariantNumeric: 'tabular-nums', fontSize: 16, fontWeight: 900, color: balanceDue > 0 ? 'var(--amber)' : 'var(--green)' }}>{fmtCurrency(Math.max(0, balanceDue))}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── RECORD PAYMENT (inline) ──────────────── */}
-            {canWrite && status !== 'void' && balanceDue > 0 && (
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                {showPaymentForm ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {showPaymentForm ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
                       <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, fontFamily: invHeadingFont }}>Payment Amount</label>
                       <div style={{ position: 'relative' }}>
@@ -1034,41 +1011,23 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
                         ))}
                       </select>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <button onClick={() => setPaymentInput(balanceDue.toFixed(2))} className="btn-ghost btn-xs" style={{ fontSize: 11 }}>Full ({fmtCurrency(balanceDue)})</button>
-                      <button onClick={() => setPaymentInput((balanceDue / 2).toFixed(2))} className="btn-ghost btn-xs" style={{ fontSize: 11 }}>Half ({fmtCurrency(balanceDue / 2)})</button>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={handleRecordPayment} className="btn-primary btn-sm" style={{ flex: 1, background: 'var(--green)' }}><CreditCard size={13} /> Record</button>
-                      <button onClick={() => { setShowPaymentForm(false); setPaymentInput('') }} className="btn-ghost btn-sm">Cancel</button>
-                    </div>
                   </div>
-                ) : (
-                  <button onClick={() => setShowPaymentForm(true)} style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <CreditCard size={14} /> Record Payment
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* ── ACTION BUTTON ────────────────────────── */}
-            {canWrite && status !== 'void' && (
-              <div style={{ padding: '10px 16px', display: 'flex', gap: 8 }}>
-                <button
-                  onClick={handleSendInvoice}
-                  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                  <Send size={13} /> Send
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button onClick={() => setPaymentInput(balanceDue.toFixed(2))} className="btn-ghost btn-xs" style={{ fontSize: 11 }}>Full ({fmtCurrency(balanceDue)})</button>
+                    <button onClick={() => setPaymentInput((balanceDue / 2).toFixed(2))} className="btn-ghost btn-xs" style={{ fontSize: 11 }}>Half ({fmtCurrency(balanceDue / 2)})</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={handleRecordPayment} className="btn-primary btn-sm" style={{ flex: 1, background: 'var(--green)' }}><CreditCard size={13} /> Record</button>
+                    <button onClick={() => { setShowPaymentForm(false); setPaymentInput('') }} className="btn-ghost btn-sm">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowPaymentForm(true)} style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <CreditCard size={14} /> Record Payment
                 </button>
-                <button
-                  onClick={handleExportPdf}
-                  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', cursor: 'pointer', fontWeight: 700, fontFamily: invHeadingFont, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                  <Download size={13} /> PDF
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Payment History */}
           {localPayments.length > 0 && (
@@ -1102,75 +1061,34 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
             </div>
           )}
 
-          {/* Online Payment Link */}
-          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && total > 0 && (
-            <div className="card">
-              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Link2 size={13} style={{ color: 'var(--accent)' }} /> Online Payment Link
+          {/* Online Payment Link & Financing */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {canWrite && status !== 'void' && status !== 'paid' && !isDemo && total > 0 && (
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Link2 size={13} style={{ color: 'var(--accent)' }} /> Online Payment Link
+                </div>
+                <PaymentLinkPanel invoiceId={invoiceId} payLinkToken={payLinkToken} />
               </div>
-              <PaymentLinkPanel invoiceId={invoiceId} payLinkToken={payLinkToken} />
-            </div>
-          )}
-
-          {/* Financing */}
-          {canWrite && status !== 'void' && status !== 'paid' && !isDemo && total > 0 && (
-            <div className="card">
-              <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Calendar size={13} style={{ color: 'var(--accent)' }} /> Financing (Wisetack)
+            )}
+            {canWrite && status !== 'void' && status !== 'paid' && !isDemo && total > 0 && (
+              <div className="card">
+                <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Calendar size={13} style={{ color: 'var(--accent)' }} /> Financing (Wisetack)
+                </div>
+                <SendFinancingButton
+                  invoiceId={invoiceId}
+                  invoiceNumber={inv.invoice_number}
+                  payLinkToken={payLinkToken}
+                  balance={Math.max(0, balanceDue)}
+                  customerId={inv.customer_id}
+                  projectId={inv.project_id}
+                  customerPhone={(inv as any).customer?.phone || null}
+                  customerEmail={inv.customer?.email || null}
+                  currentFinancingStatus={financingStatus as any}
+                />
               </div>
-              <SendFinancingButton
-                invoiceId={invoiceId}
-                invoiceNumber={inv.invoice_number}
-                payLinkToken={payLinkToken}
-                balance={Math.max(0, balanceDue)}
-                customerId={inv.customer_id}
-                projectId={inv.project_id}
-                customerPhone={(inv as any).customer?.phone || null}
-                customerEmail={inv.customer?.email || null}
-                currentFinancingStatus={financingStatus as any}
-              />
-            </div>
-          )}
-
-          {/* Team */}
-          <div className="card">
-            <div className="section-label">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Users size={13} /> Team
-              </div>
-            </div>
-            <TeamMultiSelect
-              label="Sales Rep(s)"
-              members={team.filter(m => ['owner', 'admin', 'sales_agent'].includes(m.role))}
-              selectedIds={salesRepIds}
-              onChange={ids => { setSalesRepIds(ids); handleSaveTeam(ids, installerIds, designerIds, productionMgrIds) }}
-              canWrite={canWrite}
-              accentColor="#4f7fff"
-            />
-            <TeamMultiSelect
-              label="Installer(s)"
-              members={team.filter(m => m.role === 'installer')}
-              selectedIds={installerIds}
-              onChange={ids => { setInstallerIds(ids); handleSaveTeam(salesRepIds, ids, designerIds, productionMgrIds) }}
-              canWrite={canWrite}
-              accentColor="#22c07a"
-            />
-            <TeamMultiSelect
-              label="Designer(s)"
-              members={team.filter(m => ['designer', 'admin', 'owner'].includes(m.role))}
-              selectedIds={designerIds}
-              onChange={ids => { setDesignerIds(ids); handleSaveTeam(salesRepIds, installerIds, ids, productionMgrIds) }}
-              canWrite={canWrite}
-              accentColor="#8b5cf6"
-            />
-            <TeamMultiSelect
-              label="Prod Mgr(s)"
-              members={team.filter(m => ['production', 'admin', 'owner'].includes(m.role))}
-              selectedIds={productionMgrIds}
-              onChange={ids => { setProductionMgrIds(ids); handleSaveTeam(salesRepIds, installerIds, designerIds, ids) }}
-              canWrite={canWrite}
-              accentColor="#f59e0b"
-            />
+            )}
           </div>
 
           {/* Related Documents */}
@@ -1181,7 +1099,6 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
             currentDocType="invoice"
           />
         </div>
-      </div>
 
       {/* Toast */}
       {toast && (
@@ -1189,6 +1106,276 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
           {toast}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Invoice Line Item Card ──────────────────────────────────────────────────
+function InvLineItemCard({
+  item, index, isExpanded, onToggle, canWrite, onChange, onRemove, onSave,
+}: {
+  item: LineItem; index: number; isExpanded: boolean; onToggle: () => void
+  canWrite: boolean; onChange: (item: LineItem) => void; onRemove: () => void; onSave: () => void
+}) {
+  const [showDescription, setShowDescription] = useState(!!item.description)
+  const fmtCurrency = (n: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+
+  function updateField<K extends keyof LineItem>(key: K, value: LineItem[K]) {
+    const updated = { ...item, [key]: value }
+    if (key === 'quantity' || key === 'unit_price' || key === 'unit_discount') {
+      updated.total_price = (updated.quantity * updated.unit_price) - updated.unit_discount
+    }
+    onChange(updated)
+  }
+
+  function updateSpec(key: string, value: unknown) {
+    onChange({ ...item, specs: { ...item.specs, [key]: value } })
+  }
+
+  const specs = item.specs as Record<string, unknown>
+
+  return (
+    <div style={{
+      background: 'var(--surface2)', border: '1px solid var(--border)',
+      borderRadius: 10, overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div
+        onClick={onToggle}
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '10px 14px', cursor: 'pointer',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: invMonoFont }}>
+            {index + 1}.
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>
+            {item.name || 'Untitled Item'}
+          </span>
+          <span className="badge-gray" style={{ fontSize: 10 }}>
+            {item.product_type}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span className="mono" style={{ fontSize: 13, color: 'var(--text1)', fontWeight: 600 }}>
+            {fmtCurrency(item.total_price)}
+          </span>
+          <ChevronDown size={14} style={{ color: 'var(--text3)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12 }}>
+            <div>
+              <label className="field-label">Name</label>
+              <input value={item.name} onChange={e => updateField('name', e.target.value)} className="field" disabled={!canWrite} />
+            </div>
+            <div>
+              <label className="field-label">Quantity</label>
+              <input type="number" value={item.quantity} onChange={e => updateField('quantity', Number(e.target.value))} className="field mono" disabled={!canWrite} min={0} step={1} />
+            </div>
+            <div>
+              <label className="field-label">Unit Price</label>
+              <input type="number" value={item.unit_price} onChange={e => updateField('unit_price', Number(e.target.value))} className="field mono" disabled={!canWrite} min={0} step={0.01} />
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {!showDescription && (
+              <button onClick={() => setShowDescription(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+                + Add Description
+              </button>
+            )}
+            {showDescription && (
+              <>
+                <label className="field-label">Description</label>
+                <textarea value={item.description || ''} onChange={e => updateField('description', e.target.value)} className="field" rows={2} disabled={!canWrite} />
+              </>
+            )}
+          </div>
+
+          {/* Vehicle specs */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Car size={13} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Vehicle Info</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <div>
+                <label className="field-label">Year</label>
+                <input value={(specs.vehicleYear as string) || ''} onChange={e => updateSpec('vehicleYear', e.target.value)} className="field" disabled={!canWrite} placeholder="2024" />
+              </div>
+              <div>
+                <label className="field-label">Make</label>
+                <input value={(specs.vehicleMake as string) || ''} onChange={e => updateSpec('vehicleMake', e.target.value)} className="field" disabled={!canWrite} placeholder="Ford" />
+              </div>
+              <div>
+                <label className="field-label">Model</label>
+                <input value={(specs.vehicleModel as string) || ''} onChange={e => updateSpec('vehicleModel', e.target.value)} className="field" disabled={!canWrite} placeholder="F-150" />
+              </div>
+              <div>
+                <label className="field-label">Color</label>
+                <input value={(specs.vehicleColor as string) || ''} onChange={e => updateSpec('vehicleColor', e.target.value)} className="field" disabled={!canWrite} placeholder="White" />
+              </div>
+            </div>
+          </div>
+
+          {/* Material specs */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Layers size={13} style={{ color: 'var(--purple, #8b5cf6)' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Material Specs</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              <div>
+                <label className="field-label">Wrap Type</label>
+                <input value={(specs.wrapType as string) || ''} onChange={e => updateSpec('wrapType', e.target.value)} className="field" disabled={!canWrite} />
+              </div>
+              <div>
+                <label className="field-label">Vinyl Type</label>
+                <input value={(specs.vinylType as string) || ''} onChange={e => updateSpec('vinylType', e.target.value)} className="field" disabled={!canWrite} />
+              </div>
+              <div>
+                <label className="field-label">Laminate</label>
+                <input value={(specs.laminate as string) || ''} onChange={e => updateSpec('laminate', e.target.value)} className="field" disabled={!canWrite} />
+              </div>
+            </div>
+          </div>
+
+          {/* Cost breakdown */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <DollarSign size={13} style={{ color: 'var(--green)' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cost Breakdown</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <div>
+                <label className="field-label">Vinyl Area (sqft)</label>
+                <input type="number" value={(specs.vinylArea as number) || ''} onChange={e => updateSpec('vinylArea', Number(e.target.value))} className="field mono" disabled={!canWrite} />
+              </div>
+              <div>
+                <label className="field-label">Material Cost</label>
+                <input type="number" value={(specs.materialCost as number) || ''} onChange={e => updateSpec('materialCost', Number(e.target.value))} className="field mono" disabled={!canWrite} />
+              </div>
+              <div>
+                <label className="field-label">Labor Cost</label>
+                <input type="number" value={(specs.laborCost as number) || ''} onChange={e => updateSpec('laborCost', Number(e.target.value))} className="field mono" disabled={!canWrite} />
+              </div>
+              <div>
+                <label className="field-label">Complexity (1-5)</label>
+                <input type="number" value={(specs.complexity as number) || ''} onChange={e => updateSpec('complexity', Number(e.target.value))} className="field mono" disabled={!canWrite} min={1} max={5} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between' }}>
+            {canWrite && (
+              <button onClick={onRemove} className="btn-ghost btn-xs" style={{ color: 'var(--red)' }}>
+                <XCircle size={12} /> Remove Item
+              </button>
+            )}
+            {canWrite && (
+              <button onClick={onSave} className="btn-ghost btn-xs" style={{ color: 'var(--green)' }}>
+                <Save size={12} /> Save Items
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Wash & Care Instructions ───────────────────────────────────────────────
+function WashCareInstructions() {
+  const careItems = [
+    {
+      title: 'Wait Before Washing',
+      detail: 'Wait at least 48-72 hours after installation before washing your vehicle to allow the vinyl to fully adhere.',
+      icon: '⏱',
+    },
+    {
+      title: 'Hand Wash Only',
+      detail: 'Always hand wash your wrapped vehicle using a soft sponge or microfiber cloth with mild automotive soap. Avoid automatic car washes with brushes — they can scratch, lift, or damage the vinyl.',
+      icon: '🧽',
+    },
+    {
+      title: 'Use Mild Soap',
+      detail: 'Use a gentle, non-abrasive automotive detergent. Avoid harsh chemicals, solvents, or degreasers that can damage the vinyl finish.',
+      icon: '🧴',
+    },
+    {
+      title: 'Rinse Thoroughly',
+      detail: 'Rinse the vehicle with clean water before and after washing to remove loose dirt and prevent scratching.',
+      icon: '💧',
+    },
+    {
+      title: 'Dry Properly',
+      detail: 'Use a clean microfiber towel or chamois to dry the wrap. Avoid letting water spots air-dry as they can leave mineral deposits.',
+      icon: '🏁',
+    },
+    {
+      title: 'Avoid High-Pressure Washing',
+      detail: 'If using a pressure washer, keep it below 2,000 PSI, maintain at least 12 inches distance, and spray at a 45-degree angle. Never direct high pressure at edges or seams.',
+      icon: '🚿',
+    },
+    {
+      title: 'Spot Clean Promptly',
+      detail: 'Remove bird droppings, tree sap, bug splatter, and fuel spills as soon as possible. Use isopropyl alcohol (IPA) or a vinyl-safe cleaner for stubborn spots.',
+      icon: '🎯',
+    },
+    {
+      title: 'Protect From Sun Exposure',
+      detail: 'Park in a garage or shaded area when possible. Prolonged UV exposure can cause fading and degradation over time. Consider using a car cover for long-term outdoor storage.',
+      icon: '☀️',
+    },
+    {
+      title: 'No Wax or Polish on Matte/Satin',
+      detail: 'Do not apply wax, polish, or any product designed for glossy paint on matte or satin finishes — it will create unwanted shine. Use only matte-specific care products.',
+      icon: '✨',
+    },
+    {
+      title: 'Gloss Wraps Can Be Waxed',
+      detail: 'Gloss vinyl wraps can benefit from a vinyl-safe wax or sealant to maintain shine and add a layer of protection.',
+      icon: '💎',
+    },
+  ]
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16, fontFamily: 'Barlow Condensed, sans-serif' }}>
+        Vinyl Wrap Wash & Care Instructions
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {careItems.map((item, idx) => (
+          <div key={idx} style={{
+            display: 'flex', gap: 12, padding: '12px 14px',
+            background: 'var(--surface2)', borderRadius: 8,
+            border: '1px solid var(--border)',
+          }}>
+            <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1.4 }}>{item.icon}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', marginBottom: 2 }}>{item.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{item.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{
+        marginTop: 16, padding: '12px 14px', borderRadius: 8,
+        background: 'rgba(79,127,255,0.08)', border: '1px solid rgba(79,127,255,0.2)',
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>Warranty Note</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
+          Proper care and maintenance are essential to keep your wrap looking its best and to maintain warranty coverage.
+          Damage caused by improper washing, harsh chemicals, or neglect may void the warranty.
+          Contact USA Wrap Co with any questions about caring for your wrap.
+        </div>
+      </div>
     </div>
   )
 }

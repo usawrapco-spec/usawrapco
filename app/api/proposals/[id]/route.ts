@@ -69,12 +69,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (customer_id !== undefined) updates.customer_id = customer_id
     if (include_inspection !== undefined) updates.include_inspection = include_inspection
 
-    await admin.from('proposals').update(updates).eq('id', params.id)
+    const { error: updateErr } = await admin.from('proposals').update(updates).eq('id', params.id)
+    if (updateErr) {
+      console.error('[proposals PUT] update error:', updateErr)
+      return NextResponse.json({ error: updateErr.message }, { status: 500 })
+    }
 
     // Sync packages
     if (body.packages) {
       // Delete existing packages
-      await admin.from('proposal_packages').delete().eq('proposal_id', params.id)
+      const { error: delPkgErr } = await admin.from('proposal_packages').delete().eq('proposal_id', params.id)
+      if (delPkgErr) {
+        console.error('[proposals PUT] delete packages error:', delPkgErr)
+        return NextResponse.json({ error: delPkgErr.message }, { status: 500 })
+      }
 
       if (body.packages.length > 0) {
         const pkgs = await Promise.all(body.packages.map(async (p: any, i: number) => {
@@ -111,13 +119,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             sort_order: i,
           }
         }))
-        await admin.from('proposal_packages').insert(pkgs)
+        const { error: insPkgErr } = await admin.from('proposal_packages').insert(pkgs)
+        if (insPkgErr) {
+          console.error('[proposals PUT] insert packages error:', insPkgErr)
+          return NextResponse.json({ error: insPkgErr.message }, { status: 500 })
+        }
       }
     }
 
     // Sync upsells
     if (body.upsells) {
-      await admin.from('proposal_upsells').delete().eq('proposal_id', params.id)
+      const { error: delUpsErr } = await admin.from('proposal_upsells').delete().eq('proposal_id', params.id)
+      if (delUpsErr) {
+        console.error('[proposals PUT] delete upsells error:', delUpsErr)
+        return NextResponse.json({ error: delUpsErr.message }, { status: 500 })
+      }
 
       if (body.upsells.length > 0) {
         const ups = body.upsells.map((u: any, i: number) => ({
@@ -131,7 +147,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           badge: u.badge || null,
           sort_order: i,
         }))
-        await admin.from('proposal_upsells').insert(ups)
+        const { error: insUpsErr } = await admin.from('proposal_upsells').insert(ups)
+        if (insUpsErr) {
+          console.error('[proposals PUT] insert upsells error:', insUpsErr)
+          return NextResponse.json({ error: insUpsErr.message }, { status: 500 })
+        }
       }
     }
 

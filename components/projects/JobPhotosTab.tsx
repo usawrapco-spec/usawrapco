@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Upload, Star, Briefcase, X, ZoomIn, ChevronLeft, ChevronRight, Camera, Loader2, Search, Tag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import PhotoAnnotationEditor, { type PhotoAnnotation } from './PhotoAnnotationEditor'
 
 const C = {
   bg: '#0d0f14', surface: '#13151c', surface2: '#1a1d27', border: '#1e2738',
@@ -26,6 +27,7 @@ interface JobPhoto {
   created_at: string
   inspector_tag?: string | null
   line_item_id?: string | null
+  annotations?: PhotoAnnotation[]
 }
 
 const PHOTO_TYPES: { key: PhotoType; label: string; color: string }[] = [
@@ -67,6 +69,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
   const [filterType, setFilterType] = useState<PhotoType | 'all'>('all')
   const [inspectorMode, setInspectorMode] = useState(false)
   const [lineItems, setLineItems] = useState<LineItemStub[]>([])
+  const [annotatingPhoto, setAnnotatingPhoto] = useState<JobPhoto | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -164,6 +167,18 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
     }
   }
 
+  const saveAnnotations = async (annotations: PhotoAnnotation[]) => {
+    if (!annotatingPhoto) return
+    const photoId = annotatingPhoto.id
+    setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, annotations } : p))
+    setAnnotatingPhoto(prev => prev ? { ...prev, annotations } : null)
+    await fetch('/api/job-photos', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: photoId, annotations }),
+    })
+  }
+
   const filtered = filterType === 'all' ? photos : photos.filter(p => p.photo_type === filterType)
 
   const groupedByType: Record<PhotoType, JobPhoto[]> = {
@@ -243,7 +258,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
       {inspectorMode && (
         <div style={{ padding: '10px 16px', background: `${C.amber}12`, border: `1px solid ${C.amber}40`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.amber }}>
           <Tag size={14} />
-          <span><b>Photo Inspector active</b> — tag each photo to a line item or create a new one. Tagged photos feed the intake survey.</span>
+          <span><b>Photo Inspector active</b> — click any photo to annotate it. Tag and mark up damage areas directly on the image.</span>
         </div>
       )}
 
@@ -294,6 +309,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
                   lineItems={lineItems}
                   onToggleFlag={toggleFlag} onDelete={deletePhoto}
                   onLightbox={idx => setLightboxIdx(photos.indexOf(group[idx]))}
+                  onAnnotate={p => setAnnotatingPhoto(p)}
                   onTagPhoto={tagPhoto}
                   onCreateLineItemFromTag={createLineItemFromTag}
                 />
@@ -308,6 +324,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
           lineItems={lineItems}
           onToggleFlag={toggleFlag} onDelete={deletePhoto}
           onLightbox={idx => setLightboxIdx(photos.indexOf(filtered[idx]))}
+          onAnnotate={p => setAnnotatingPhoto(p)}
           onTagPhoto={tagPhoto}
           onCreateLineItemFromTag={createLineItemFromTag}
         />
@@ -333,12 +350,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
           >
             <ChevronLeft size={22} />
           </button>
-          <img
-            src={photos[lightboxIdx].url}
-            alt=""
-            onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, objectFit: 'contain' }}
-          />
+          <LightboxImage photo={photos[lightboxIdx]} />
           <button
             onClick={e => { e.stopPropagation(); setLightboxIdx(i => i !== null && i < photos.length - 1 ? i + 1 : i) }}
             style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 44, height: 44, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -376,6 +388,16 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
         </div>
       )}
 
+      {/* Annotation Editor (Inspector Mode) */}
+      {annotatingPhoto && (
+        <PhotoAnnotationEditor
+          photoUrl={annotatingPhoto.url}
+          initialAnnotations={annotatingPhoto.annotations || []}
+          onSave={saveAnnotations}
+          onClose={() => setAnnotatingPhoto(null)}
+        />
+      )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
@@ -384,7 +406,7 @@ export default function JobPhotosTab({ projectId, orgId, currentUserId }: { proj
 // ─── Photo Grid ───────────────────────────────────────────────────────────────
 function PhotoGrid({
   photos, allPhotos, inspectorMode, lineItems,
-  onToggleFlag, onDelete, onLightbox, onTagPhoto, onCreateLineItemFromTag,
+  onToggleFlag, onDelete, onLightbox, onAnnotate, onTagPhoto, onCreateLineItemFromTag,
 }: {
   photos: JobPhoto[]
   allPhotos: JobPhoto[]
@@ -393,6 +415,7 @@ function PhotoGrid({
   onToggleFlag: (p: JobPhoto, f: 'is_featured' | 'is_portfolio') => void
   onDelete: (p: JobPhoto) => void
   onLightbox: (idx: number) => void
+  onAnnotate: (p: JobPhoto) => void
   onTagPhoto: (p: JobPhoto, tag: string, lineItemId?: string | null) => void
   onCreateLineItemFromTag: (p: JobPhoto, tagName: string) => void
 }) {
@@ -402,7 +425,15 @@ function PhotoGrid({
         <div key={photo.id} style={{ borderRadius: 8, overflow: 'hidden', background: C.surface2, border: `1px solid ${photo.inspector_tag && inspectorMode ? C.amber : C.border}` }}>
           {/* Thumbnail */}
           <div style={{ position: 'relative', aspectRatio: '4/3', cursor: 'pointer' }}>
-            <img src={photo.url} alt={photo.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={() => onLightbox(i)} />
+            <img src={photo.url} alt={photo.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={() => inspectorMode ? onAnnotate(photo) : onLightbox(i)} />
+            {/* Annotation dot indicators */}
+            {photo.annotations && photo.annotations.length > 0 && (
+              <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                {photo.annotations.filter(a => a.type === 'circle_marker').map(a => (
+                  <circle key={a.id} cx={`${a.x}%`} cy={`${a.y}%`} r={4} fill={a.color} stroke="#fff" strokeWidth={1} opacity={0.9} />
+                ))}
+              </svg>
+            )}
             {/* Badges */}
             <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {photo.is_featured && <span style={{ background: C.amber, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3 }}>FEATURED</span>}
@@ -411,6 +442,11 @@ function PhotoGrid({
               {photo.inspector_tag && (
                 <span style={{ background: `${C.amber}dd`, color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Tag size={8} /> {photo.inspector_tag}
+                </span>
+              )}
+              {photo.annotations && photo.annotations.length > 0 && (
+                <span style={{ background: `${C.accent}dd`, color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 3 }}>
+                  {photo.annotations.length} mark{photo.annotations.length !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
@@ -445,6 +481,53 @@ function PhotoGrid({
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ─── Lightbox Image with Annotation Overlay ──────────────────────────────────
+function LightboxImage({ photo }: { photo: JobPhoto }) {
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  const imgRef = useRef<HTMLImageElement>(null)
+  const anns = photo.annotations || []
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }} onClick={e => e.stopPropagation()}>
+      <img
+        ref={imgRef}
+        src={photo.url}
+        alt=""
+        onLoad={() => {
+          if (imgRef.current) {
+            setSize({ w: imgRef.current.clientWidth, h: imgRef.current.clientHeight })
+          }
+        }}
+        style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, objectFit: 'contain', display: 'block' }}
+      />
+      {anns.length > 0 && size.w > 0 && (
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: size.w, height: size.h, pointerEvents: 'none' }}>
+          {anns.map(ann => {
+            if (ann.type === 'circle_marker') {
+              const cx = (ann.x / 100) * size.w
+              const cy = (ann.y / 100) * size.h
+              return (
+                <g key={ann.id}>
+                  <circle cx={cx} cy={cy} r={14} fill={ann.color} opacity={0.85} stroke="#fff" strokeWidth={2} />
+                  <text x={cx + 20} y={cy + 5} fill="#fff" fontSize={13} fontWeight={700}
+                    style={{ textShadow: `0 1px 4px rgba(0,0,0,0.9), 0 0 8px ${ann.color}` }}>
+                    {ann.label}
+                  </text>
+                </g>
+              )
+            }
+            if (ann.type === 'freehand' && ann.data?.points && ann.data.points.length >= 2) {
+              const pts = ann.data.points.map(p => `${(p.x / 100) * size.w},${(p.y / 100) * size.h}`).join(' ')
+              return <polyline key={ann.id} points={pts} fill="none" stroke={ann.color} strokeWidth={ann.data.strokeWidth || 3} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+            }
+            return null
+          })}
+        </svg>
+      )}
     </div>
   )
 }

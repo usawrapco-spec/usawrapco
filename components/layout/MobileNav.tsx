@@ -84,8 +84,15 @@ const MORE_SECTIONS: MoreSection[] = [
       { href: '/inbox',      label: 'Inbox',       icon: MessageCircle },
       { href: '/tasks',      label: 'Tasks',       icon: CheckSquare },
       { href: '/calendar',   label: 'Calendar',    icon: Calendar },
-      { href: '/portal',     label: 'Portal',      icon: Globe },
       { href: '/design/intakes', label: 'Intake',  icon: FileInput },
+    ],
+  },
+  {
+    label: 'Portals',
+    items: [
+      { href: '/portal',              label: 'Customer Portal',  icon: Globe },
+      { href: '/portals/dealer',      label: 'Dealer Hub',       icon: Store },
+      { href: '/portals/sales-agent', label: 'Sales Agents',     icon: UserPlus },
     ],
   },
   {
@@ -129,7 +136,7 @@ const MORE_SECTIONS: MoreSection[] = [
   {
     label: 'Design',
     items: [
-      { href: '/design',        label: 'Design Studio',   icon: Palette },
+      { href: '/design-studio',  label: 'Design Studio',   icon: Palette },
       { href: '/mockup',        label: 'Mockup Tool',     icon: Wand2 },
       { href: '/configurator',  label: '3D Configurator', icon: Box },
       { href: '/media',         label: 'Media Library',   icon: ImageIcon },

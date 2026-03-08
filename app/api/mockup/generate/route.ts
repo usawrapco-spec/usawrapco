@@ -154,9 +154,9 @@ Return ONLY the prompt text.`,
           prompt: fullPrompt,
           width: 2160,
           height: 1080,
-          style_type: 'DESIGN',
+          style_type: 'Design',
           aspect_ratio: 'ASPECT_2_1',
-          magic_prompt_option: 'OFF',
+          magic_prompt_option: 'Off',
         })
         flatDesignUrl = Array.isArray(output) ? output[0] : output
         await admin.from('mockup_results').update({ flat_design_url: flatDesignUrl }).eq('id', mockupId)
