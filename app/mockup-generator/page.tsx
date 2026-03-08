@@ -92,13 +92,26 @@ const BRAND_COLORS_PRESET = [
 ]
 
 const BOAT_SUB_TYPES = [
-  { id: 'center_console', label: 'Center Console',  desc: 'Fishing, open deck, T-top' },
-  { id: 'bowrider',       label: 'Bowrider',         desc: 'Sport, open bow seating' },
-  { id: 'pontoon',        label: 'Pontoon',           desc: 'Flat deck, dual pontoons' },
-  { id: 'bass',           label: 'Bass Boat',         desc: 'Low-profile, sleek hull' },
-  { id: 'cruiser',        label: 'Cabin Cruiser',     desc: 'Enclosed cabin, yacht-style' },
-  { id: 'ski',            label: 'Ski / Wake Boat',   desc: 'Inboard, tower, wakeboard' },
-  { id: 'jetski',         label: 'Jet Ski / PWC',     desc: 'Personal watercraft' },
+  { id: 'center_console', label: 'Center Console',    desc: 'Fishing, open deck, T-top' },
+  { id: 'bowrider',       label: 'Bowrider',           desc: 'Sport, open bow seating' },
+  { id: 'pontoon',        label: 'Pontoon',             desc: 'Flat deck, dual pontoons' },
+  { id: 'bass',           label: 'Bass Boat',           desc: 'Low-profile, sleek hull' },
+  { id: 'cruiser',        label: 'Cabin Cruiser',       desc: 'Enclosed cabin, yacht-style' },
+  { id: 'ski',            label: 'Ski / Wake Boat',     desc: 'Inboard, tower, wakeboard' },
+  { id: 'jetski',         label: 'Jet Ski / PWC',       desc: 'Personal watercraft' },
+  { id: 'mini_jet',       label: 'Mini Jet Boat',       desc: 'Compact jet-powered, river ready' },
+  { id: 'aluminum',       label: 'Aluminum / Jon Boat', desc: 'Utility flat, fishing' },
+]
+
+const DECK_STYLES = [
+  { id: 'teak_straight',    label: 'Straight Teak',         desc: 'Classic parallel teak plank lines',              color: '#8B6914', accent: '#5a3e0a' },
+  { id: 'teak_herringbone', label: 'Herringbone Teak',       desc: 'Diagonal alternating plank pattern',             color: '#9B7A1A', accent: '#6b4a10' },
+  { id: 'teak_caulk',       label: 'Teak with Black Caulk',  desc: 'Traditional teak with black seam lines',         color: '#7a5c0e', accent: '#1a1a1a' },
+  { id: 'carbon_fiber',     label: 'Carbon Fiber',           desc: 'Woven carbon fiber texture, sport look',         color: '#1a1a1a', accent: '#3a3a3a' },
+  { id: 'diamond_grip',     label: 'Diamond Grip',           desc: 'Embossed diamond non-slip pattern',              color: '#2a2a3a', accent: '#4a4a6a' },
+  { id: 'solid_grey',       label: 'Solid Grey',             desc: 'Clean flat grey, minimal and modern',            color: '#888',    accent: '#555' },
+  { id: 'solid_black',      label: 'Solid Black',            desc: 'All black matte finish',                         color: '#111',    accent: '#333' },
+  { id: 'custom',           label: 'Custom / Mixed',         desc: 'Tell us your vision — we can do combinations',   color: '#4f7fff', accent: '#2a4abf' },
 ]
 
 const COVERAGE_OPTIONS = [
@@ -159,6 +172,14 @@ const DECKING_STEPS = [
   { id: 5, label: 'Result' },
 ]
 
+const MARINE_STEPS = [
+  { id: 1, label: 'Boat Service' },
+  { id: 2, label: 'Boat Details' },
+  { id: 3, label: 'Style & Brand' },
+  { id: 4, label: 'Pick Concept' },
+  { id: 5, label: 'Result' },
+]
+
 // Legacy alias
 const STEPS = WRAP_STEPS
 
@@ -209,7 +230,7 @@ function estimatePrice(sqft: number, bodyType: string): { mid: number; low: numb
 export default function MockupGeneratorPage() {
   const supabase = createClient()
   const [step, setStep] = useState(1)
-  const [outputType, setOutputType] = useState<'wrap' | 'signage' | 'decking' | 'boat'>('wrap')
+  const [outputType, setOutputType] = useState<'wrap' | 'signage' | 'decking' | 'boat' | 'marine'>('wrap')
   const [signType, setSignType] = useState('')
 
   // Concept picker
@@ -312,6 +333,10 @@ export default function MockupGeneratorPage() {
   const [boatMake, setBoatMake] = useState('')
   const [boatModelLen, setBoatModelLen] = useState('')
   const [deckSqft, setDeckSqft] = useState(120)
+  const [deckStyle, setDeckStyle] = useState('teak_straight')
+
+  // Marine combined service state
+  const [marineService, setMarineService] = useState<'wrap' | 'decking' | 'both'>('wrap')
 
   // Sign-specific intake state
   const [signHeadline, setSignHeadline] = useState('')
@@ -633,7 +658,7 @@ export default function MockupGeneratorPage() {
     // Check free generation limit
     const genKey = `portal_gen_count_${outputType}`
     const used = parseInt(localStorage.getItem(genKey) || '0', 10)
-    const freeLimit = outputType === 'boat' ? FREE_BOAT_GENS : FREE_WRAP_GENS
+    const freeLimit = (outputType === 'boat' || outputType === 'marine') ? FREE_BOAT_GENS : FREE_WRAP_GENS
     if (!isLoggedIn && used >= freeLimit) {
       setShowExitGate(true)
       return
@@ -655,6 +680,9 @@ export default function MockupGeneratorPage() {
     try {
       const logoUrl = await getLogoUrl()
       const inspoUrls = await uploadInspirationImages()
+      const marineNotes = (outputType === 'marine' && (marineService === 'decking' || marineService === 'both'))
+        ? `Marine vinyl decking style: ${DECK_STYLES.find(d => d.id === deckStyle)?.label} — ${DECK_STYLES.find(d => d.id === deckStyle)?.desc}. `
+        : ''
       const signStyleNotes = outputType === 'signage'
         ? [
             styleChoice,
@@ -669,6 +697,14 @@ export default function MockupGeneratorPage() {
             (boatYear || boatMake || boatModelLen) ? `Boat: ${[boatYear, boatMake, boatModelLen].filter(Boolean).join(' ')}` : '',
             designNotes || '',
           ].filter(Boolean).join('. ')
+        : outputType === 'marine'
+        ? [
+            marineNotes,
+            styleChoice,
+            outputType === 'marine' ? `Service: ${marineService}` : '',
+            (boatYear || boatMake || boatModelLen) ? `Boat: ${[boatYear, boatMake, boatModelLen].filter(Boolean).join(' ')}` : '',
+            designNotes || '',
+          ].filter(Boolean).join('. ')
         : [styleChoice, designNotes].filter(Boolean).join('. ')
 
       const res = await fetch('/api/mockup/start', {
@@ -680,11 +716,11 @@ export default function MockupGeneratorPage() {
           sign_width_in: signInfo?.w,
           sign_height_in: signInfo?.h,
           size_key: signInfo?.size_key || 'landscape_16_9',
-          vehicle_make: outputType === 'decking' ? boatMake : selectedMake,
-          vehicle_model: outputType === 'decking' ? boatModelLen : selectedModel,
-          vehicle_year: outputType === 'decking' ? boatYear : selectedYear,
-          vehicle_body_type: outputType === 'decking' ? 'boat' : (outputType === 'boat' ? 'boat' : bodyType),
-          vehicle_sqft: outputType === 'decking' ? deckSqft : estimatedSqft,
+          vehicle_make: (outputType === 'decking' || outputType === 'marine') ? boatMake : selectedMake,
+          vehicle_model: (outputType === 'decking' || outputType === 'marine') ? boatModelLen : selectedModel,
+          vehicle_year: (outputType === 'decking' || outputType === 'marine') ? boatYear : selectedYear,
+          vehicle_body_type: (outputType === 'decking' || outputType === 'marine') ? 'boat' : (outputType === 'boat' ? 'boat' : bodyType),
+          vehicle_sqft: (outputType === 'decking' || outputType === 'marine') ? deckSqft : estimatedSqft,
           vehicle_paint_color: vehicleColor,
           wrap_coverage: coverages[0] || 'full',
           company_name: companyName,
@@ -695,9 +731,10 @@ export default function MockupGeneratorPage() {
           style_notes: signStyleNotes || undefined,
           inspiration_urls: inspoUrls,
           boat_sub_type: boatSubType || undefined,
-          ...(outputType === 'decking' ? {
+          ...((outputType === 'decking' || outputType === 'marine') ? {
             deck_area: deckArea,
             boat_details: [boatYear, boatMake, boatModelLen].filter(Boolean).join(' '),
+            ...(outputType === 'marine' ? { marine_service: marineService, deck_style: deckStyle } : {}),
           } : {}),
         }),
       })
@@ -844,6 +881,8 @@ export default function MockupGeneratorPage() {
     setBoatMake('')
     setBoatModelLen('')
     setDeckSqft(120)
+    setDeckStyle('teak_straight')
+    setMarineService('wrap')
     setSignHeadline('')
     setSignSubcopy('')
     setSignCta('')
@@ -867,6 +906,7 @@ export default function MockupGeneratorPage() {
 
   const vehicleSelected = !!(selectedMake && selectedModel)
   const primaryDisplay = renderUrl || mockupStatus?.final_mockup_url || mockupStatus?.concept_url
+  const isDeckingOnly = outputType === 'marine' && marineService === 'decking'
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -885,17 +925,16 @@ export default function MockupGeneratorPage() {
           <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 4, border: '1px solid var(--border)', gap: 2, flexWrap: 'wrap' }}>
             {([
               { id: 'wrap', label: 'Vehicle Wrap', locked: false },
-              { id: 'boat', label: 'Boat Wrap', locked: false },
+              { id: 'marine', label: 'Boat Wraps & Decking', locked: false },
               { id: 'signage', label: 'Signage', locked: !isLoggedIn },
-              { id: 'decking', label: 'Boat Decking', locked: !isLoggedIn },
             ] as const).map(({ id, label, locked }) => (
               <button key={id}
                 onClick={() => {
                   if (locked) { setShowExitGate(true); return }
-                  setOutputType(id as 'wrap' | 'signage' | 'decking' | 'boat')
+                  setOutputType(id as 'wrap' | 'signage' | 'marine')
                   setStep(1)
                   setSignType('')
-                  setBodyType(id === 'boat' ? 'boat' : '')
+                  setBodyType(id === 'marine' ? '' : '')
                 }}
                 style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
                   background: outputType === id ? 'var(--accent)' : 'transparent',
@@ -911,23 +950,23 @@ export default function MockupGeneratorPage() {
         <p style={{ fontSize: 15, color: 'var(--text3)', marginTop: 6 }}>
           {outputType === 'wrap'
             ? 'Select your vehicle, enter your brand info, and get 3 design concepts in minutes.'
-            : outputType === 'boat'
-            ? 'Select your boat type, enter your brand info, and get wrap concepts for your vessel.'
+            : outputType === 'marine'
+            ? 'Choose boat wrap, deck vinyl, or both — get AI concepts for your vessel in minutes.'
             : outputType === 'signage'
             ? 'Generate professional print-ready signs, banners, and door magnets.'
-            : 'Design custom SeaDek and marine vinyl decking for your boat.'}
+            : 'Design custom marine vinyl decking for your boat — teak patterns, flat styles, and more.'}
         </p>
       </div>
 
       {/* Step indicator */}
       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-        STEP {step} OF {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS).length}
+        STEP {step} OF {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : outputType === 'marine' ? MARINE_STEPS : WRAP_STEPS).length}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 36, overflowX: 'auto' }}>
-        {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS).map((s, i) => {
+        {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : outputType === 'marine' ? MARINE_STEPS : WRAP_STEPS).map((s, i) => {
           const done = step > s.id
           const active = step === s.id
-          const stepList = outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS
+          const stepList = outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : outputType === 'marine' ? MARINE_STEPS : WRAP_STEPS
           // boat uses same steps as wrap
           return (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -1080,28 +1119,57 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 1: Boat Sub-type (boat wrap mode) ───────────────────────────── */}
-      {step === 1 && outputType === 'boat' && (
+      {/* ── STEP 1: Marine (Boat Wraps & Decking) ────────────────────────────── */}
+      {step === 1 && outputType === 'marine' && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>What type of boat?</h2>
-          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>
-            Select your hull type for the most accurate wrap mockup.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10, marginBottom: 28 }}>
-            {BOAT_SUB_TYPES.map(bt => {
-              const sel2 = boatSubType === bt.id
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>What are you looking for?</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>Choose your service — we can do one or both on the same boat.</p>
+
+          {/* Service picker */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 32 }}>
+            {([
+              { id: 'wrap' as const,    label: 'Boat Wrap',        desc: 'Full hull and body graphics — your brand, colors, and design printed on marine-grade vinyl',                                     icon: Anchor },
+              { id: 'decking' as const, label: 'Deck Vinyl',       desc: 'Marine vinyl flooring for your deck, cockpit, and swim platform — non-slip, UV resistant',                                       icon: Layers },
+              { id: 'both' as const,    label: 'Wrap + Decking',   desc: 'Complete boat transformation — matching wrap and deck vinyl for a unified look',                                                  icon: Sparkles },
+            ]).map(s => {
+              const Icon = s.icon
               return (
-                <div key={bt.id}
-                  onClick={() => { setBoatSubType(bt.id); setTimeout(() => setStep(2), 120) }}
-                  style={{ padding: '16px 14px', borderRadius: 12, cursor: 'pointer',
-                    border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
-                    background: sel2 ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
-                    transition: 'all 0.15s' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>{bt.label}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{bt.desc}</div>
+                <div key={s.id} onClick={() => setMarineService(s.id)}
+                  style={{ padding: '20px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
+                    border: marineService === s.id ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: marineService === s.id ? 'rgba(79,127,255,0.08)' : 'var(--surface2)', transition: 'all 0.15s' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 12, background: marineService === s.id ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                    <Icon size={26} style={{ color: marineService === s.id ? 'var(--accent)' : 'var(--text2)' }} />
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: marineService === s.id ? 'var(--accent)' : 'var(--text1)', marginBottom: 6, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase' as const }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.4 }}>{s.desc}</div>
                 </div>
               )
             })}
+          </div>
+
+          {/* Boat type */}
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text1)', marginBottom: 12 }}>What type of boat?</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 28 }}>
+            {BOAT_SUB_TYPES.map(b => (
+              <div key={b.id} onClick={() => setBoatSubType(b.id)}
+                style={{ padding: '14px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
+                  border: boatSubType === b.id ? '2px solid var(--cyan)' : '1px solid var(--border)',
+                  background: boatSubType === b.id ? 'rgba(34,211,238,0.08)' : 'var(--surface2)', transition: 'all 0.15s' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: boatSubType === b.id ? 'var(--cyan)' : 'var(--text1)', marginBottom: 2 }}>{b.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{b.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setStep(2)} disabled={!boatSubType}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 10,
+                background: boatSubType ? 'var(--accent)' : 'var(--surface2)',
+                color: boatSubType ? '#fff' : 'var(--text3)', fontSize: 15, fontWeight: 700, border: 'none',
+                cursor: boatSubType ? 'pointer' : 'not-allowed' }}>
+              Next <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       )}
@@ -1180,13 +1248,54 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 2: Deck Layout / Measurements (decking mode) ─────────────────── */}
-      {step === 2 && outputType === 'decking' && (
+      {/* ── STEP 2: Deck Layout / Measurements (decking or marine mode) ──────── */}
+      {step === 2 && (outputType === 'decking' || outputType === 'marine') && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>Boat details & deck dimensions</h2>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>Boat details &amp; deck dimensions</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 26 }}>
             We&apos;ll use these dimensions to scale the mockup correctly.
           </p>
+
+          {/* Deck style picker — only for decking or both */}
+          {(outputType === 'decking' || (outputType === 'marine' && (marineService === 'decking' || marineService === 'both'))) && (
+            <div style={{ marginBottom: 28 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Deck Style</h3>
+              <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Pick the look for your marine vinyl decking.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                {DECK_STYLES.map(ds => (
+                  <div key={ds.id} onClick={() => setDeckStyle(ds.id)}
+                    style={{ borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                      border: deckStyle === ds.id ? '2px solid var(--cyan)' : '1px solid var(--border)',
+                      transition: 'all 0.15s' }}>
+                    {/* Visual swatch */}
+                    <div style={{ height: 64, background: ds.color, position: 'relative', overflow: 'hidden' }}>
+                      {ds.id.startsWith('teak') && ds.id !== 'teak_herringbone' && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(0deg, ${ds.accent} 0px, ${ds.accent} 2px, transparent 2px, transparent 12px)`, opacity: 0.7 }} />
+                      )}
+                      {ds.id === 'teak_herringbone' && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(45deg, ${ds.accent} 0px, ${ds.accent} 2px, transparent 2px, transparent 12px)`, opacity: 0.7 }} />
+                      )}
+                      {ds.id === 'diamond_grip' && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(45deg, ${ds.accent} 0px, ${ds.accent} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(-45deg, ${ds.accent} 0px, ${ds.accent} 1px, transparent 1px, transparent 8px)`, opacity: 0.8 }} />
+                      )}
+                      {ds.id === 'carbon_fiber' && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(45deg, ${ds.accent} 0px, ${ds.accent} 2px, transparent 2px, transparent 6px), repeating-linear-gradient(-45deg, ${ds.accent} 0px, ${ds.accent} 2px, transparent 2px, transparent 6px)` }} />
+                      )}
+                      {deckStyle === ds.id && (
+                        <div style={{ position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: '50%', background: 'var(--cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Check size={10} style={{ color: '#000' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ padding: '8px 10px', background: deckStyle === ds.id ? 'rgba(34,211,238,0.08)' : 'var(--surface2)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: deckStyle === ds.id ? 'var(--cyan)' : 'var(--text1)', marginBottom: 2 }}>{ds.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', lineHeight: 1.3 }}>{ds.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             <div>
@@ -1201,30 +1310,32 @@ export default function MockupGeneratorPage() {
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Boat Model / Length</label>
               <input style={inp} placeholder="e.g. 30ft Center Console, SX230, 370 Sundancer..." value={boatModelLen} onChange={e => setBoatModelLen(e.target.value)} />
             </div>
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Deck Square Footage (estimate)
-              </label>
-              <input
-                type="number"
-                style={inp}
-                value={deckSqft}
-                min={20}
-                max={2000}
-                onChange={e => setDeckSqft(Number(e.target.value))}
-              />
-            </div>
+            {(outputType === 'decking' || (outputType === 'marine' && (marineService === 'decking' || marineService === 'both'))) && (
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Deck Square Footage (estimate)
+                </label>
+                <input
+                  type="number"
+                  style={inp}
+                  value={deckSqft}
+                  min={20}
+                  max={2000}
+                  onChange={e => setDeckSqft(Number(e.target.value))}
+                />
+              </div>
+            )}
           </div>
 
           {/* Price estimate */}
-          {deckSqft > 0 && (
+          {(marineService === 'decking' || marineService === 'both' || outputType === 'decking') && deckSqft > 0 && (
             <div style={{ background: 'rgba(34,211,238,0.07)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 12, padding: '16px 20px', marginBottom: 22 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cyan)', marginBottom: 6 }}>Estimated Decking Cost</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
-                ${(deckSqft * 22).toLocaleString()} &ndash; ${(deckSqft * 32).toLocaleString()}
+                ${(deckSqft * 36).toLocaleString()} &ndash; ${(deckSqft * 44).toLocaleString()}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-                Based on {deckSqft} sqft at $22&ndash;$32/sqft installed (SeaDek / marine vinyl)
+                Estimate based on marine vinyl decking, installed
               </div>
             </div>
           )}
@@ -1246,7 +1357,7 @@ export default function MockupGeneratorPage() {
       )}
 
       {/* ── STEP 2: Your Vehicle ──────────────────────────────────────────────── */}
-      {step === 2 && outputType !== 'decking' && (
+      {step === 2 && outputType !== 'decking' && outputType !== 'signage' && outputType !== 'marine' && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
             Select your vehicle
@@ -1543,15 +1654,58 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 3 (wrap/boat/decking) / STEP 2 (signage): Brand & Generate ─── */}
-      {((outputType === 'wrap' && step === 3) || (outputType === 'boat' && step === 3) || (outputType === 'signage' && step === 2) || (outputType === 'decking' && step === 3)) && (
+      {/* ── STEP 3 (wrap/marine/decking) / STEP 2 (signage): Brand & Generate ─── */}
+      {((outputType === 'wrap' && step === 3) || (outputType === 'marine' && step === 3) || (outputType === 'signage' && step === 2) || (outputType === 'decking' && step === 3)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Your brand info</h2>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>{isDeckingOnly ? 'Deck Style Confirmed' : 'Your brand info'}</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 22 }}>
-            Paste your website to auto-fill, or enter manually. We&apos;ll generate 3 concepts.
+            {isDeckingOnly ? 'Review your deck selection and add any notes for our team.' : 'Paste your website to auto-fill, or enter manually. We\'ll generate 3 concepts.'}
           </p>
 
+          {/* Decking-only simplified form */}
+          {isDeckingOnly && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ padding: '20px 24px', background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 14, marginBottom: 24 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--cyan)', marginBottom: 6 }}>Deck Vinyl — No Branding Needed</div>
+                <div style={{ fontSize: 13, color: 'var(--text3)', lineHeight: 1.5 }}>
+                  Marine decking is about aesthetics and functionality, not branding. We will render your selected <strong style={{ color: 'var(--text2)' }}>{DECK_STYLES.find(d => d.id === deckStyle)?.label}</strong> style on your {boatSubType.replace('_', ' ')} boat.
+                </div>
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Additional Design Notes (optional)</label>
+                <textarea value={designNotes} onChange={e => setDesignNotes(e.target.value)}
+                  placeholder="e.g. Two-tone deck, white and teak accents on the bow only, black non-slip on swim platform..."
+                  rows={3}
+                  style={{ ...inp, resize: 'vertical' as const, fontFamily: 'inherit', minHeight: 80 }} />
+              </div>
+              {generating && (
+                <div style={{ marginTop: 24, marginBottom: 20 }}>
+                  <div style={{ maxWidth: 480, margin: '0 auto', background: 'var(--surface)', borderRadius: 24, padding: '40px 32px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                    <Loader2 size={32} className="animate-spin" style={{ color: 'var(--cyan)', display: 'block', margin: '0 auto 16px' }} />
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text1)', marginBottom: 6 }}>Creating Deck Concepts</div>
+                    <div style={{ fontSize: 13, color: 'var(--text3)' }}>This typically takes 15-30 seconds</div>
+                  </div>
+                </div>
+              )}
+              {genError && (
+                <div style={{ padding: '14px 18px', borderRadius: 10, marginTop: 20, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 14, color: 'var(--red)' }}>
+                  {genError}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 28 }}>
+                <button onClick={() => setStep(2)} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.4 : 1 }}>
+                  <ChevronLeft size={16} /> Back
+                </button>
+                <button onClick={handleGenerate} disabled={generating}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 32px', borderRadius: 10, background: generating ? 'rgba(34,211,238,0.4)' : 'linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%)', color: generating ? 'var(--text3)' : '#000', fontSize: 16, fontWeight: 800, border: 'none', cursor: generating ? 'not-allowed' : 'pointer' }}>
+                  {generating ? <><Loader2 size={18} className="animate-spin" /> Creating...</> : <><Sparkles size={17} /> Generate Deck Concepts</>}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Website auto-fill (primary path) ── */}
+          {!isDeckingOnly && (
           <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 14, padding: '20px 22px', marginBottom: 28 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Globe size={16} /> Fastest way - paste your website
@@ -1587,14 +1741,20 @@ export default function MockupGeneratorPage() {
               Pulls company name, phone, colors &amp; logo from your website automatically.
             </div>
           </div>
+          )}
 
+          {!isDeckingOnly && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
             {/* Sign-specific fields — shown only for signage mode */}
             {outputType === 'signage' && (
               <>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Main Headline Text *</label>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
+                  <input style={inp} placeholder="e.g. Pacific Northwest Plumbing" value={companyName} onChange={e => setCompanyName(e.target.value)} />
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Main Headline Text</label>
                   <input style={inp} placeholder="e.g. 24/7 Emergency Plumbing" value={signHeadline} onChange={e => setSignHeadline(e.target.value)} />
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
@@ -1867,9 +2027,10 @@ export default function MockupGeneratorPage() {
               <input ref={inspirationRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleInspirationUpload} />
             </div>
           </div>
+          )}
 
           {/* Generation progress — Wrapmate-style loading */}
-          {generating && (
+          {!isDeckingOnly && generating && (
             <div style={{ marginTop: 24, marginBottom: 20 }}>
               <div style={{ maxWidth: 480, margin: '0 auto', background: 'var(--surface)', borderRadius: 24, padding: '40px 32px', border: '1px solid var(--border)', textAlign: 'center' }}>
                 {/* Circular progress */}
@@ -1913,39 +2074,41 @@ export default function MockupGeneratorPage() {
             </div>
           )}
 
-          {genError && (
+          {!isDeckingOnly && genError && (
             <div style={{ padding: '14px 18px', borderRadius: 10, marginTop: 20, background: 'rgba(242,90,90,0.1)', border: '1px solid rgba(242,90,90,0.3)', fontSize: 14, color: 'var(--red)' }}>
               {genError}
             </div>
           )}
 
+          {!isDeckingOnly && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 28 }}>
             <button onClick={() => setStep(outputType === 'signage' ? 1 : 2)} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.4 : 1 }}>
               <ChevronLeft size={16} /> Back
             </button>
             <button
               onClick={handleGenerate}
-              disabled={outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)}
+              disabled={!companyName.trim() || generating}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '14px 36px', borderRadius: 10,
-                background: (outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)) ? 'rgba(79,127,255,0.5)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
+                background: (!companyName.trim() || generating) ? 'rgba(79,127,255,0.5)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
                 color: '#fff', fontSize: 16, fontWeight: 800, border: 'none',
-                cursor: (outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)) ? 'not-allowed' : 'pointer',
+                cursor: (!companyName.trim() || generating) ? 'not-allowed' : 'pointer',
                 boxShadow: (outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)) ? 'none' : '0 4px 20px rgba(79,127,255,0.4)',
               }}
             >
               {generating
                 ? <><Loader2 size={18} className="animate-spin" /> Creating Concepts...</>
-                : <><Sparkles size={18} /> Generate My {outputType === 'signage' ? 'Sign' : outputType === 'decking' ? 'Decking' : 'Wrap'} Concepts</>
+                : <><Sparkles size={18} /> Generate My {outputType === 'signage' ? 'Sign' : outputType === 'decking' ? 'Decking' : outputType === 'marine' ? (marineService === 'wrap' ? 'Wrap' : 'Marine') : 'Wrap'} Concepts</>
               }
             </button>
           </div>
+          )}
         </div>
       )}
 
-      {/* ── STEP 4 (wrap/boat/decking) / STEP 3 (signage): Concept Picker ──── */}
-      {((outputType === 'wrap' && step === 4) || (outputType === 'boat' && step === 4) || (outputType === 'signage' && step === 3) || (outputType === 'decking' && step === 4)) && (
+      {/* ── STEP 4 (wrap/marine/decking) / STEP 3 (signage): Concept Picker ──── */}
+      {((outputType === 'wrap' && step === 4) || (outputType === 'marine' && step === 4) || (outputType === 'signage' && step === 3) || (outputType === 'decking' && step === 4)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Choose Your Design Direction</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 16 }}>
@@ -1967,7 +2130,7 @@ export default function MockupGeneratorPage() {
           )}
 
           {/* Ballpark pricing summary */}
-          {estimatedPrice && (outputType === 'wrap' || outputType === 'boat') && (
+          {estimatedPrice && (outputType === 'wrap') && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
                 Price Comparison — {selectedYear} {selectedMake} {selectedModel}
@@ -2050,17 +2213,39 @@ export default function MockupGeneratorPage() {
                   ]).filter(concept => concept.url).map(concept => (
                     <div key={concept.id} style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: selectedConcept === concept.id ? '2px solid var(--accent)' : '1px solid var(--border)', transition: 'border-color 0.15s' }}>
                       {/* Image */}
-                      <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setExpandedImage(concept.url)}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={concept.url!} alt={concept.label} style={{ width: '100%', display: 'block', maxHeight: 320, objectFit: 'cover' }} />
-                        <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', borderRadius: 6, padding: '4px 10px', fontSize: 11, color: '#fff', fontWeight: 700 }}>Concept {concept.id.toUpperCase()}</div>
-                        {(logoNoBg || logoPreview) && (
-                          <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6, padding: 4 }}>
+                      {/* Sign-shaped image display */}
+                      {(() => {
+                        const signInfo = outputType === 'signage' ? SIGN_TYPES.find(s => s.id === signType) : null
+                        const signAspect = signInfo ? `${signInfo.w}/${signInfo.h}` : undefined
+                        const isPortrait = signInfo && signInfo.h > signInfo.w
+                        const isWide = signInfo && signInfo.w > signInfo.h * 1.5
+                        return (
+                          <div style={{ position: 'relative', cursor: 'zoom-in', background: signInfo ? '#f0f0f0' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: signInfo ? '16px' : 0 }}
+                            onClick={() => setExpandedImage(concept.url)}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={logoNoBg || logoPreview || ''} alt="logo" style={{ height: 36, maxWidth: 90, objectFit: 'contain', display: 'block' }} />
+                            <img src={concept.url!} alt={concept.label} style={{
+                              display: 'block',
+                              ...(signInfo
+                                ? { width: isPortrait ? 'auto' : '100%', height: isPortrait ? 280 : 'auto', maxWidth: isWide ? '100%' : '60%', maxHeight: 320, objectFit: 'contain', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }
+                                : { width: '100%', maxHeight: 320, objectFit: 'cover' }
+                              )
+                            }} />
+                            {/* Dimensions badge for signage */}
+                            {signInfo && (
+                              <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.75)', borderRadius: 6, padding: '3px 8px', fontSize: 10, color: '#fff', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
+                                {signInfo.w}" × {signInfo.h}"
+                              </div>
+                            )}
+                            <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', borderRadius: 6, padding: '4px 10px', fontSize: 11, color: '#fff', fontWeight: 700 }}>Concept {concept.id.toUpperCase()}</div>
+                            {(logoNoBg || logoPreview) && (
+                              <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6, padding: 4 }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={logoNoBg || logoPreview || ''} alt="logo" style={{ height: 36, maxWidth: 90, objectFit: 'contain', display: 'block' }} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        )
+                      })()}
                       {/* Footer */}
                       <div style={{ padding: '14px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -2084,9 +2269,22 @@ export default function MockupGeneratorPage() {
                         {showFeedbackFor === concept.id && (
                           <div style={{ marginTop: 12 }}>
                             <textarea value={conceptFeedback} onChange={e => setConceptFeedback(e.target.value)}
-                              placeholder="Tweak your design — describe what you&apos;d like changed..."
+                              placeholder="Tweak your design — describe what you'd like changed..."
                               rows={2}
                               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 13, outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                          </div>
+                        )}
+                        {/* Signage: "Proceed with this design" flow */}
+                        {outputType === 'signage' && selectedConcept === concept.id && (
+                          <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 10, background: 'rgba(34,192,122,0.07)', border: '1px solid rgba(34,192,122,0.2)' }}>
+                            <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 700, marginBottom: 4 }}>Ready to print?</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4, marginBottom: 8 }}>
+                              Our in-house design team will convert this to print-ready files and send you a final approval mockup before we begin production.
+                            </div>
+                            <button onClick={() => { setRevisionNotes(conceptFeedback); setRevisionCallback(() => () => { handleFinalize(concept.id) }); setShowRevisionModal(true) }}
+                              style={{ width: '100%', padding: '10px 0', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#0d1a10', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                              <Check size={14} /> Proceed with This Design
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2172,8 +2370,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 5 (wrap/boat/decking) / STEP 4 (signage): Result ─────────── */}
-      {((outputType === 'wrap' && step === 5) || (outputType === 'boat' && step === 5) || (outputType === 'signage' && step === 4) || (outputType === 'decking' && step === 5)) && (
+      {/* ── STEP 5 (wrap/marine/decking) / STEP 4 (signage): Result ─────────── */}
+      {((outputType === 'wrap' && step === 5) || (outputType === 'marine' && step === 5) || (outputType === 'signage' && step === 4) || (outputType === 'decking' && step === 5)) && (
         <div>
           <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 28 }}>
             {/* Header */}
