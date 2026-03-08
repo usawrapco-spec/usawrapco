@@ -436,6 +436,9 @@ export default function InvoiceDetailClient({ profile, invoice, lineItems = [], 
       const { error } = await supabase.from('invoices').update({
         title: title || null,
         notes,
+        status,
+        subtotal, tax_rate: taxRate, tax_amount: taxAmount, total,
+        discount, balance_due: balanceDue,
         updated_at: new Date().toISOString(),
       }).eq('id', invoiceId)
       if (error) {

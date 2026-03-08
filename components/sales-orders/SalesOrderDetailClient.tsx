@@ -417,6 +417,43 @@ export default function SalesOrderDetailClient({ profile, salesOrder, lineItems,
         setSaving(false)
         return
       }
+
+      // ── Persist line items ──
+      const orgId = so.org_id || profile.org_id
+      // Fetch existing line item IDs so we can detect deletes
+      const { data: existingRows } = await supabase
+        .from('line_items')
+        .select('id')
+        .eq('parent_type', 'sales_order')
+        .eq('parent_id', orderId)
+      const existingIds = new Set((existingRows || []).map((r: { id: string }) => r.id))
+      const currentIds = new Set(lineItemsList.filter(li => !li.id.startsWith('new-')).map(li => li.id))
+
+      // Delete removed items
+      const toDelete = [...existingIds].filter(id => !currentIds.has(id))
+      if (toDelete.length > 0) {
+        await supabase.from('line_items').delete().in('id', toDelete)
+      }
+
+      // Upsert items
+      for (const li of lineItemsList) {
+        if (li.id.startsWith('new-')) {
+          const { id: _id, ...rest } = li
+          const { data: inserted } = await supabase.from('line_items')
+            .insert({ ...rest, org_id: orgId })
+            .select().single()
+          if (inserted) {
+            setLineItemsList(prev => prev.map(x => x.id === li.id ? { ...li, id: inserted.id } : x))
+          }
+        } else {
+          await supabase.from('line_items').update({
+            name: li.name, description: li.description, quantity: li.quantity,
+            unit_price: li.unit_price, unit_discount: li.unit_discount,
+            total_price: li.total_price, specs: li.specs, sort_order: li.sort_order,
+          }).eq('id', li.id)
+        }
+      }
+
       showToastMsg('Sales order saved')
     } catch (err) {
       console.error('Sales order save exception:', err)

@@ -129,8 +129,20 @@ export default function InvoicesClient({ profile, initialInvoices }: Props) {
     if (!canWrite) return
     setCreating(true)
     try {
+      // Generate next invoice number
+      const { data: maxRow } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('org_id', profile.org_id)
+        .not('invoice_number', 'is', null)
+        .order('invoice_number', { ascending: false })
+        .limit(1)
+        .single()
+      const nextNum = maxRow?.invoice_number ? String(Number(maxRow.invoice_number) + 1) : '1001'
+
       const { data, error } = await supabase.from('invoices').insert({
         org_id: profile.org_id,
+        invoice_number: nextNum,
         title: 'New Invoice',
         status: 'draft',
         invoice_date: new Date().toISOString().split('T')[0],

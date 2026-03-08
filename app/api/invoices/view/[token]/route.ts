@@ -25,25 +25,25 @@ export async function GET(
       .order('sort_order', { ascending: true })
 
     const customer = (inv.customer as any) || {}
-    const org = (inv.org as any) || {}
-    const taxRate = org.settings?.tax_rate || 8.25
 
     const items = (lineItems || []).map((li: any) => ({
-      item: li.product || li.name || 'Item',
+      item: li.name || 'Item',
       description: li.description || '',
-      qty: li.qty || li.quantity || 1,
-      price: li.price || li.unit_price || 0,
+      qty: li.quantity || 1,
+      price: li.unit_price || 0,
     }))
 
-    const subtotal = items.reduce((s: number, li: any) => s + li.price * li.qty, 0)
-    const taxAmount = subtotal * (taxRate / 100)
-    const total = subtotal + taxAmount
+    // Use stored financials from the invoice — never recalculate from org settings
+    const subtotal = inv.subtotal ?? items.reduce((s: number, li: any) => s + li.price * li.qty, 0)
+    const taxRate = inv.tax_rate ?? (inv.tax_percent ? inv.tax_percent / 100 : 0)
+    const taxAmount = inv.tax_amount ?? subtotal * taxRate
+    const total = inv.total ?? (subtotal + taxAmount)
     const amountPaid = inv.amount_paid || 0
-    const balanceDue = Math.max(0, total - amountPaid)
+    const balanceDue = inv.balance_due ?? Math.max(0, total - amountPaid)
 
     return NextResponse.json({
       number: `INV-${inv.invoice_number || inv.id.slice(0, 8).toUpperCase()}`,
-      invoiceDate: inv.created_at,
+      invoiceDate: inv.invoice_date || inv.created_at,
       dueDate: inv.due_date || '',
       paymentTerms: inv.payment_terms || 'Net 30',
       status: inv.status || 'sent',
@@ -54,7 +54,7 @@ export async function GET(
       customerCompany: customer.company_name || '',
       lineItems: items,
       subtotal,
-      taxRate: taxRate / 100,
+      taxRate,
       taxAmount,
       total,
       amountPaid,

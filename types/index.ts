@@ -633,6 +633,11 @@ export interface Invoice {
   created_by: string | null
   created_at: string
   updated_at: string
+  // Signature fields
+  signed_at?: string | null
+  signer_name?: string | null
+  signature_data?: string | null
+  requires_signature?: boolean
   // Wisetack financing fields
   pay_link_token?: string | null
   financing_application_id?: string | null
