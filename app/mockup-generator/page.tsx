@@ -151,6 +151,14 @@ const SIGN_STEPS = [
   { id: 4, label: 'Result' },
 ]
 
+const DECKING_STEPS = [
+  { id: 1, label: 'Boat Type' },
+  { id: 2, label: 'Deck Layout' },
+  { id: 3, label: 'Brand & Generate' },
+  { id: 4, label: 'Pick Concept' },
+  { id: 5, label: 'Result' },
+]
+
 // Legacy alias
 const STEPS = WRAP_STEPS
 
@@ -180,8 +188,8 @@ function bodyStyleToBodyType(bodyStyle: string): string {
 
 function estimatePrice(sqft: number, bodyType: string): number {
   const base: Record<string, number> = {
-    car: 2200, suv: 2800, pickup: 2600, van: 3400,
-    sprinter: 3800, box_truck: 4200, trailer: 5500, boat: 3000,
+    car: 3500, suv: 4500, pickup: 4200, van: 5500,
+    sprinter: 6500, box_truck: 7500, trailer: 9000, boat: 5000,
   }
   const b = base[bodyType] || 3000
   const sqftFactor = Math.max(0.8, Math.min(1.5, sqft / 280))
@@ -193,7 +201,7 @@ function estimatePrice(sqft: number, bodyType: string): number {
 export default function MockupGeneratorPage() {
   const supabase = createClient()
   const [step, setStep] = useState(1)
-  const [outputType, setOutputType] = useState<'wrap' | 'signage'>('wrap')
+  const [outputType, setOutputType] = useState<'wrap' | 'signage' | 'decking'>('wrap')
   const [signType, setSignType] = useState('')
 
   // Concept picker
@@ -224,7 +232,7 @@ export default function MockupGeneratorPage() {
   const [vehicleResults, setVehicleResults] = useState<VehicleMeasurement[]>([])
   const [vehicleSearching, setVehicleSearching] = useState(false)
   const [templateTier, setTemplateTier] = useState<1 | 2 | 3 | null>(null)
-  const [coverage, setCoverage] = useState('full')
+  const [coverages, setCoverages] = useState<string[]>(['full'])
   const [estimatedSqft, setEstimatedSqft] = useState<number | null>(null)
   const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null)
 
@@ -271,6 +279,21 @@ export default function MockupGeneratorPage() {
 
   // Booking step
   const [bookingType, setBookingType] = useState<'zoom' | 'inshop' | null>(null)
+
+  // Decking state
+  const [deckArea, setDeckArea] = useState('full_deck')
+  const [boatYear, setBoatYear] = useState('')
+  const [boatMake, setBoatMake] = useState('')
+  const [boatModelLen, setBoatModelLen] = useState('')
+  const [deckSqft, setDeckSqft] = useState(120)
+
+  // Sign-specific intake state
+  const [signHeadline, setSignHeadline] = useState('')
+  const [signSubcopy, setSignSubcopy] = useState('')
+  const [signCta, setSignCta] = useState('')
+
+  // Design notes (all output types)
+  const [designNotes, setDesignNotes] = useState('')
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -321,7 +344,7 @@ export default function MockupGeneratorPage() {
         if (m) {
           const sqft = m.full_wrap_sqft || 280
           const detectedType = bodyStyleToBodyType(m.body_style || '')
-          if (!bodyType) setBodyType(detectedType)
+          setBodyType(detectedType)
           setEstimatedSqft(sqft)
           setEstimatedPrice(estimatePrice(sqft, bodyType || detectedType))
         } else {
@@ -540,6 +563,22 @@ export default function MockupGeneratorPage() {
     try {
       const logoUrl = await getLogoUrl()
       const inspoUrls = await uploadInspirationImages()
+      const signStyleNotes = outputType === 'signage'
+        ? [
+            styleChoice,
+            signHeadline ? `Headline: "${signHeadline}"` : '',
+            signSubcopy ? `Body: ${signSubcopy}` : '',
+            signCta ? `CTA: "${signCta}"` : '',
+          ].filter(Boolean).join('. ')
+        : outputType === 'decking'
+        ? [
+            styleChoice,
+            `Deck area: ${deckArea}`,
+            (boatYear || boatMake || boatModelLen) ? `Boat: ${[boatYear, boatMake, boatModelLen].filter(Boolean).join(' ')}` : '',
+            designNotes || '',
+          ].filter(Boolean).join('. ')
+        : [styleChoice, designNotes].filter(Boolean).join('. ')
+
       const res = await fetch('/api/mockup/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -549,20 +588,24 @@ export default function MockupGeneratorPage() {
           sign_width_in: signInfo?.w,
           sign_height_in: signInfo?.h,
           size_key: signInfo?.size_key || 'landscape_16_9',
-          vehicle_make: selectedMake,
-          vehicle_model: selectedModel,
-          vehicle_year: selectedYear,
-          vehicle_body_type: bodyType,
-          vehicle_sqft: estimatedSqft,
-          wrap_coverage: coverage,
+          vehicle_make: outputType === 'decking' ? boatMake : selectedMake,
+          vehicle_model: outputType === 'decking' ? boatModelLen : selectedModel,
+          vehicle_year: outputType === 'decking' ? boatYear : selectedYear,
+          vehicle_body_type: outputType === 'decking' ? 'boat' : bodyType,
+          vehicle_sqft: outputType === 'decking' ? deckSqft : estimatedSqft,
+          wrap_coverage: coverages[0] || 'full',
           company_name: companyName,
           tagline, phone, website,
           logo_url: logoUrl,
           brand_colors: brandColors,
           industry,
-          style_notes: styleChoice,
+          style_notes: signStyleNotes || undefined,
           inspiration_urls: inspoUrls,
           boat_sub_type: boatSubType || undefined,
+          ...(outputType === 'decking' ? {
+            deck_area: deckArea,
+            boat_details: [boatYear, boatMake, boatModelLen].filter(Boolean).join(' '),
+          } : {}),
         }),
       })
       const data = await res.json()
@@ -685,7 +728,7 @@ export default function MockupGeneratorPage() {
     setSelectedModel('')
     setVehicleMeasurement(null)
     setTemplateTier(null)
-    setCoverage('full')
+    setCoverages(['full'])
     setEstimatedSqft(null)
     setEstimatedPrice(null)
     setMockupId(null)
@@ -702,6 +745,15 @@ export default function MockupGeneratorPage() {
     setShowFeedbackFor(null)
     setConceptVotes({ a: null, b: null, c: null })
     setBookingType(null)
+    setDeckArea('full_deck')
+    setBoatYear('')
+    setBoatMake('')
+    setBoatModelLen('')
+    setDeckSqft(120)
+    setSignHeadline('')
+    setSignSubcopy('')
+    setSignCta('')
+    setDesignNotes('')
   }
 
   // ── Shared styles ──────────────────────────────────────────────────────────
@@ -731,7 +783,7 @@ export default function MockupGeneratorPage() {
           </div>
           {/* Output type toggle */}
           <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
-            {(['wrap', 'signage'] as const).map(type => (
+            {(['wrap', 'signage', 'decking'] as const).map(type => (
               <button
                 key={type}
                 onClick={() => { setOutputType(type); setStep(1); setSignType(''); setBodyType('') }}
@@ -741,7 +793,7 @@ export default function MockupGeneratorPage() {
                   color: outputType === type ? '#fff' : 'var(--text2)',
                 }}
               >
-                {type === 'wrap' ? 'Vehicle Wrap' : 'Signage'}
+                {type === 'wrap' ? 'Vehicle Wrap' : type === 'signage' ? 'Signage' : 'Boat Decking'}
               </button>
             ))}
           </div>
@@ -749,15 +801,18 @@ export default function MockupGeneratorPage() {
         <p style={{ fontSize: 15, color: 'var(--text3)', marginTop: 6 }}>
           {outputType === 'wrap'
             ? 'Select your vehicle, enter your brand info, and get 3 design concepts in minutes.'
-            : 'Generate professional print-ready signs, banners, and door magnets.'}
+            : outputType === 'signage'
+            ? 'Generate professional print-ready signs, banners, and door magnets.'
+            : 'Design custom SeaDek and marine vinyl decking for your boat.'}
         </p>
       </div>
 
       {/* Step indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 36, overflowX: 'auto' }}>
-        {(outputType === 'signage' ? SIGN_STEPS : WRAP_STEPS).map((s, i) => {
+        {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS).map((s, i) => {
           const done = step > s.id
           const active = step === s.id
+          const stepList = outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS
           return (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <div
@@ -785,7 +840,7 @@ export default function MockupGeneratorPage() {
                   color: active ? 'var(--accent)' : done ? 'var(--green)' : 'var(--text3)',
                 }}>{s.label}</span>
               </div>
-              {i < (outputType === 'signage' ? SIGN_STEPS : WRAP_STEPS).length - 1 && (
+              {i < stepList.length - 1 && (
                 <ChevronRight size={14} style={{ color: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
               )}
             </div>
@@ -909,8 +964,147 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
+      {/* ── STEP 1: Boat Type (decking mode) ─────────────────────────────────── */}
+      {step === 1 && outputType === 'decking' && (
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>What type of boat?</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>
+            Select your hull type for the most accurate decking mockup.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 32 }}>
+            {BOAT_SUB_TYPES.map(bt => {
+              const sel2 = boatSubType === bt.id
+              return (
+                <div
+                  key={bt.id}
+                  onClick={() => setBoatSubType(bt.id)}
+                  style={{
+                    padding: '18px 16px', borderRadius: 12, cursor: 'pointer',
+                    border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: sel2 ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                    transition: 'all 0.15s', position: 'relative',
+                  }}
+                >
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: sel2 ? 'rgba(79,127,255,0.15)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <Layers size={22} style={{ color: sel2 ? 'var(--accent)' : 'var(--text2)' }} />
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{bt.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{bt.desc}</div>
+                  {sel2 && <Check size={14} style={{ color: 'var(--accent)', position: 'absolute', top: 10, right: 10 }} />}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Deck Area selector */}
+          <div style={{ marginBottom: 28 }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text1)', display: 'block', marginBottom: 14 }}>
+              Which deck area are we covering?
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
+              {[
+                { id: 'full_deck',       label: 'Full Deck',           desc: 'Complete top-to-bottom coverage' },
+                { id: 'cockpit_only',    label: 'Cockpit Only',        desc: 'Seating and helm area' },
+                { id: 'bow_only',        label: 'Bow Only',            desc: 'Forward deck section' },
+                { id: 'gunwales_trim',   label: 'Gunwales & Trim',     desc: 'Perimeter rails and trim' },
+                { id: 'helm_platform',   label: 'Helm Platform',       desc: 'Helm station area only' },
+              ].map(da => {
+                const sel2 = deckArea === da.id
+                return (
+                  <div key={da.id} onClick={() => setDeckArea(da.id)}
+                    style={{
+                      padding: '14px 14px', borderRadius: 10, cursor: 'pointer',
+                      border: sel2 ? '2px solid var(--cyan)' : '1px solid var(--border)',
+                      background: sel2 ? 'rgba(34,211,238,0.07)' : 'var(--surface2)',
+                      transition: 'all 0.15s',
+                    }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: sel2 ? 'var(--cyan)' : 'var(--text1)', marginBottom: 2 }}>{da.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{da.desc}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setStep(2)}
+              disabled={!boatSubType}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 10, background: boatSubType ? 'var(--accent)' : 'var(--surface2)', color: boatSubType ? '#fff' : 'var(--text3)', fontSize: 15, fontWeight: 700, border: 'none', cursor: boatSubType ? 'pointer' : 'not-allowed' }}>
+              Next: Deck Details <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 2: Deck Layout / Measurements (decking mode) ─────────────────── */}
+      {step === 2 && outputType === 'decking' && (
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>Boat details & deck dimensions</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 26 }}>
+            We&apos;ll use these dimensions to scale the mockup correctly.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Boat Year</label>
+              <input style={inp} placeholder="e.g. 2019" value={boatYear} onChange={e => setBoatYear(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Boat Make</label>
+              <input style={inp} placeholder="Sea Ray, Grady-White, Boston Whaler..." value={boatMake} onChange={e => setBoatMake(e.target.value)} />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Boat Model / Length</label>
+              <input style={inp} placeholder="e.g. 30ft Center Console, SX230, 370 Sundancer..." value={boatModelLen} onChange={e => setBoatModelLen(e.target.value)} />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Deck Square Footage (estimate)
+              </label>
+              <input
+                type="number"
+                style={inp}
+                value={deckSqft}
+                min={20}
+                max={2000}
+                onChange={e => setDeckSqft(Number(e.target.value))}
+              />
+            </div>
+          </div>
+
+          {/* Price estimate */}
+          {deckSqft > 0 && (
+            <div style={{ background: 'rgba(34,211,238,0.07)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: 12, padding: '16px 20px', marginBottom: 22 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cyan)', marginBottom: 6 }}>Estimated Decking Cost</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text1)', fontFamily: 'JetBrains Mono, monospace' }}>
+                ${(deckSqft * 22).toLocaleString()} &ndash; ${(deckSqft * 32).toLocaleString()}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                Based on {deckSqft} sqft at $22&ndash;$32/sqft installed (SeaDek / marine vinyl)
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Package size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+            We&apos;ll use these dimensions to scale the mockup correctly and calculate material quantities.
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <button onClick={() => setStep(1)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              <ChevronLeft size={16} /> Back
+            </button>
+            <button onClick={() => setStep(3)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+              Next: Brand Info <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── STEP 2: Your Vehicle ──────────────────────────────────────────────── */}
-      {step === 2 && (
+      {step === 2 && outputType !== 'decking' && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>
             Select your vehicle
@@ -1123,8 +1317,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 3 (wrap) / STEP 2 (signage): Brand & Generate ─────────────── */}
-      {((outputType === 'wrap' && step === 3) || (outputType === 'signage' && step === 2)) && (
+      {/* ── STEP 3 (wrap/decking) / STEP 2 (signage): Brand & Generate ─────── */}
+      {((outputType === 'wrap' && step === 3) || (outputType === 'signage' && step === 2) || (outputType === 'decking' && step === 3)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Your brand info</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 22 }}>
@@ -1169,41 +1363,70 @@ export default function MockupGeneratorPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
-              <input style={inp} placeholder="e.g. Pacific Northwest Plumbing" value={companyName} onChange={e => setCompanyName(e.target.value)} />
-            </div>
 
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tagline</label>
-              <input style={inp} placeholder="Fast. Reliable. Local." value={tagline} onChange={e => setTagline(e.target.value)} />
-            </div>
+            {/* Sign-specific fields — shown only for signage mode */}
+            {outputType === 'signage' && (
+              <>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Main Headline Text *</label>
+                  <input style={inp} placeholder="e.g. 24/7 Emergency Plumbing" value={signHeadline} onChange={e => setSignHeadline(e.target.value)} />
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Supporting Text / Body Copy</label>
+                  <textarea
+                    rows={3}
+                    style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
+                    placeholder="Supporting text, bullet points, special offer..."
+                    value={signSubcopy}
+                    onChange={e => setSignSubcopy(e.target.value)}
+                  />
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call to Action</label>
+                  <input style={inp} placeholder='e.g. "Call Now!", "Free Estimate", "Visit Our Website"' value={signCta} onChange={e => setSignCta(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phone</label>
+                  <input style={inp} placeholder="(253) 555-0100" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Website</label>
+                  <input style={inp} placeholder="yoursite.com" value={website} onChange={e => setWebsite(e.target.value)} />
+                </div>
+              </>
+            )}
 
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phone</label>
-              <input style={inp} placeholder="(253) 555-0100" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Website</label>
-              <input style={inp} placeholder="yoursite.com" value={website} onChange={e => setWebsite(e.target.value)} />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Slogan</label>
-              <input style={inp} placeholder="Your tagline or slogan" value={tagline} onChange={e => setTagline(e.target.value)} />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Industry</label>
-              <div style={{ position: 'relative' }}>
-                <select style={{ ...inp, appearance: 'none' }} value={industry} onChange={e => setIndustry(e.target.value)}>
-                  <option value="">Select industry...</option>
-                  {INDUSTRIES.map(i2 => <option key={i2} value={i2}>{i2}</option>)}
-                </select>
-                <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
-              </div>
-            </div>
+            {/* Generic fields — shown for wrap and decking modes */}
+            {outputType !== 'signage' && (
+              <>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company Name *</label>
+                  <input style={inp} placeholder="e.g. Pacific Northwest Plumbing" value={companyName} onChange={e => setCompanyName(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tagline</label>
+                  <input style={inp} placeholder="Fast. Reliable. Local." value={tagline} onChange={e => setTagline(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phone</label>
+                  <input style={inp} placeholder="(253) 555-0100" value={phone} onChange={e => setPhone(formatPhone(e.target.value))} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Website</label>
+                  <input style={inp} placeholder="yoursite.com" value={website} onChange={e => setWebsite(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Industry</label>
+                  <div style={{ position: 'relative' }}>
+                    <select style={{ ...inp, appearance: 'none' }} value={industry} onChange={e => setIndustry(e.target.value)}>
+                      <option value="">Select industry...</option>
+                      {INDUSTRIES.map(i2 => <option key={i2} value={i2}>{i2}</option>)}
+                    </select>
+                    <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Logo */}
             <div>
@@ -1274,29 +1497,55 @@ export default function MockupGeneratorPage() {
               </div>
             </div>
 
-            {/* Coverage selector - moved here from step 2 for wrap mode */}
+            {/* Design notes */}
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Describe Your Design (optional)</label>
+              <textarea
+                rows={3}
+                style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
+                placeholder="e.g. Logo centered on both sides, phone number large on rear, gradient from dark navy to light blue..."
+                value={designNotes}
+                onChange={e => setDesignNotes(e.target.value)}
+              />
+            </div>
+
+            {/* Coverage selector — multi-select so customer can compare prices */}
             {outputType === 'wrap' && vehicleSelected && (
               <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Wrap Coverage
-                </label>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Wrap Coverage
+                  </label>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>— select all you want to compare</span>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                   {COVERAGE_OPTIONS.map(c => {
                     const coveragePrice = estimatedPrice ? Math.round((estimatedPrice * c.pct) / 100) * 100 : null
+                    const selected = coverages.includes(c.id)
                     return (
                       <div
                         key={c.id}
-                        onClick={() => setCoverage(c.id)}
+                        onClick={() => setCoverages(prev =>
+                          prev.includes(c.id)
+                            ? prev.length > 1 ? prev.filter(x => x !== c.id) : prev
+                            : [...prev, c.id]
+                        )}
                         style={{
                           padding: '14px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
-                          border: coverage === c.id ? '2px solid var(--accent)' : '1px solid var(--border)',
-                          background: coverage === c.id ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                          border: selected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                          background: selected ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                          position: 'relative',
                         }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 700, color: coverage === c.id ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{c.label}</div>
+                        {selected && (
+                          <div style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Check size={10} style={{ color: '#fff' }} />
+                          </div>
+                        )}
+                        <div style={{ fontSize: 13, fontWeight: 700, color: selected ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{c.label}</div>
                         <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{c.desc}</div>
                         {coveragePrice && (
-                          <div style={{ fontSize: 15, fontWeight: 800, color: coverage === c.id ? 'var(--accent)' : 'var(--green)', marginTop: 4 }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: selected ? 'var(--accent)' : 'var(--green)', marginTop: 4 }}>
                             ~${coveragePrice.toLocaleString()}
                           </div>
                         )}
@@ -1371,27 +1620,27 @@ export default function MockupGeneratorPage() {
             </button>
             <button
               onClick={handleGenerate}
-              disabled={!companyName.trim() || generating}
+              disabled={outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '14px 36px', borderRadius: 10,
-                background: !companyName.trim() || generating ? 'rgba(79,127,255,0.5)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
+                background: (outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)) ? 'rgba(79,127,255,0.5)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
                 color: '#fff', fontSize: 16, fontWeight: 800, border: 'none',
-                cursor: !companyName.trim() || generating ? 'not-allowed' : 'pointer',
-                boxShadow: !companyName.trim() || generating ? 'none' : '0 4px 20px rgba(79,127,255,0.4)',
+                cursor: (outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)) ? 'not-allowed' : 'pointer',
+                boxShadow: (outputType === 'signage' ? (!signHeadline.trim() || generating) : (!companyName.trim() || generating)) ? 'none' : '0 4px 20px rgba(79,127,255,0.4)',
               }}
             >
               {generating
                 ? <><Loader2 size={18} className="animate-spin" /> Creating Concepts...</>
-                : <><Sparkles size={18} /> Generate My {outputType === 'signage' ? 'Sign' : 'Wrap'} Concepts</>
+                : <><Sparkles size={18} /> Generate My {outputType === 'signage' ? 'Sign' : outputType === 'decking' ? 'Decking' : 'Wrap'} Concepts</>
               }
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 4 (wrap) / STEP 3 (signage): Concept Picker ─────────────────── */}
-      {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3)) && (
+      {/* ── STEP 4 (wrap/decking) / STEP 3 (signage): Concept Picker ─────────── */}
+      {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3) || (outputType === 'decking' && step === 4)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Choose Your Design Direction</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 16 }}>
@@ -1400,28 +1649,36 @@ export default function MockupGeneratorPage() {
 
           {/* Ballpark pricing summary */}
           {estimatedPrice && outputType === 'wrap' && (
-            <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-              {COVERAGE_OPTIONS.map(c => {
-                const price = Math.round((estimatedPrice * c.pct) / 100) * 100
-                const isActive = coverage === c.id
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => setCoverage(c.id)}
-                    style={{
-                      flex: '1 1 auto', minWidth: 120, padding: '12px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
-                      border: isActive ? '2px solid var(--accent)' : '1px solid var(--border)',
-                      background: isActive ? 'rgba(79,127,255,0.1)' : 'var(--surface2)',
-                    }}
-                  >
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text2)', marginBottom: 2 }}>{c.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: isActive ? 'var(--accent)' : 'var(--green)' }}>~${price.toLocaleString()}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
-                      {selectedYear} {selectedMake} {selectedModel}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                Price Comparison — {selectedYear} {selectedMake} {selectedModel}
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {COVERAGE_OPTIONS.filter(c => coverages.includes(c.id)).map(c => {
+                  const price = Math.round((estimatedPrice * c.pct) / 100) * 100
+                  const isPrimary = c.id === coverages[0]
+                  return (
+                    <div
+                      key={c.id}
+                      style={{
+                        flex: '1 1 auto', minWidth: 130, padding: '14px 16px', borderRadius: 12, textAlign: 'center',
+                        border: isPrimary ? '2px solid var(--accent)' : '1px solid var(--border)',
+                        background: isPrimary ? 'rgba(79,127,255,0.1)' : 'var(--surface2)',
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 700, color: isPrimary ? 'var(--accent)' : 'var(--text2)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{c.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: isPrimary ? 'var(--accent)' : 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>~${price.toLocaleString()}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>{c.desc}</div>
+                      {isPrimary && <div style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, fontWeight: 700 }}>used for concepts</div>}
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+              {coverages.length > 1 && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Concepts are generated for the top option. Select your coverage when booking.
+                </div>
+              )}
             </div>
           )}
 
@@ -1451,6 +1708,17 @@ export default function MockupGeneratorPage() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={concept.url} alt={concept.label} style={{ width: '100%', display: 'block', height: 320, objectFit: 'cover' }} />
+                    {/* Logo preview overlay — bottom-left, mirrors where compositeText places it */}
+                    {(logoNoBg || logoPreview) && (
+                      <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: 4 }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={logoNoBg || logoPreview || ''}
+                          alt="Your logo"
+                          style={{ height: 40, maxWidth: 100, objectFit: 'contain', display: 'block' }}
+                        />
+                      </div>
+                    )}
                     <div style={{ position: 'absolute', top: 10, right: 10, padding: '5px 9px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <ZoomIn size={11} /> Click to expand
                     </div>
@@ -1567,6 +1835,7 @@ export default function MockupGeneratorPage() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
                 <RefreshCw size={13} /> Regenerate All
               </button>
+
             </div>
             <button
               onClick={() => handleFinalize(selectedConcept)}
@@ -1579,8 +1848,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 5 (wrap) / STEP 4 (signage): Result ────────────────────────── */}
-      {((outputType === 'wrap' && step === 5) || (outputType === 'signage' && step === 4)) && (
+      {/* ── STEP 5 (wrap/decking) / STEP 4 (signage): Result ───────────────── */}
+      {((outputType === 'wrap' && step === 5) || (outputType === 'signage' && step === 4) || (outputType === 'decking' && step === 5)) && (
         <div>
           <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 28 }}>
             {/* Header */}

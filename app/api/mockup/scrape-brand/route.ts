@@ -59,9 +59,27 @@ function resolveUrl(src: string, base: string): string {
 }
 
 function cleanCompanyName(raw: string): string {
-  // Strip common suffixes like "| Home", "- Home", "| Official Site", etc.
+  if (!raw) return ''
+  // Many sites use "SEO Keywords | Brand Name" or "Brand Name | Tagline" format.
+  // Heuristic: if there's a pipe, try to find the actual brand name.
+  const pipeMatch = raw.match(/^(.+?)\s*[|]\s*(.+)$/)
+  if (pipeMatch) {
+    const before = pipeMatch[1].trim()
+    const after = pipeMatch[2].trim()
+    // If 'after' is a generic word, strip it and keep 'before'
+    const genericAfter = /^(home|welcome|official|site|website|main|homepage)$/i.test(after)
+    if (genericAfter) return before.replace(/\s*(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?)$/i, '').trim()
+    // If 'before' looks like SEO keywords (contains commas, long, or has geo terms) use 'after'
+    const beforeLooksLikeSEO = before.includes(',') || before.split(' ').length > 5
+      || /\b(best|top|#1|no\.?\s*1|near me|in\s+\w+,?\s+\w{2}\b)/i.test(before)
+    if (beforeLooksLikeSEO) return after.replace(/\s*(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?)$/i, '').trim()
+    // If 'after' is shorter (typical brand name position), prefer it
+    if (after.length < before.length) return after.replace(/\s*(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?)$/i, '').trim()
+    return before.replace(/\s*(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?)$/i, '').trim()
+  }
+  // Strip dash suffixes like "Brand Name - Home", "Brand Name — Official Site"
   return raw
-    .replace(/\s*[|\-–—]\s*(Home|Welcome|Official|Site|Website|LLC|Inc|Co\.?|Corp\.?).*$/i, '')
+    .replace(/\s*[-–—]\s*(Home|Welcome|Official|Site|Website|LLC|Inc|Co\.?|Corp\.?).*$/i, '')
     .replace(/\s*(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?)$/i, '')
     .trim()
 }
@@ -193,14 +211,17 @@ export async function POST(req: NextRequest) {
     // ── Extract basic info ──────────────────────────────────────────────────
     const ogTitle     = getMeta(html, 'og:title')
     const ogDesc      = getMeta(html, 'og:description')
+    const ogSiteName  = getMeta(html, 'og:site_name')
     const metaDesc    = getMeta(html, 'description')
     const pageTitle   = getTitle(html)
     const phone       = getPhone(html)
     const logoUrl     = getLogoUrl(html, finalUrl)
 
-    // Company name: prefer og:title > page title
-    const rawName = ogTitle || pageTitle || ''
-    const companyName = cleanCompanyName(rawName)
+    // Company name: og:site_name is the most reliable (pure brand name, no SEO keywords).
+    // Fall back to og:title or page title, cleaned up.
+    const companyName = ogSiteName
+      ? ogSiteName.trim()
+      : cleanCompanyName(ogTitle || pageTitle || '')
 
     // Tagline: prefer og:description > meta description (first sentence)
     const rawDesc = ogDesc || metaDesc || ''
