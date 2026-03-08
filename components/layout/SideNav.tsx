@@ -19,6 +19,7 @@ import {
   Wand2, LayoutTemplate, Car,
   Anchor, Bot, Sparkles, Store,
   ExternalLink, CreditCard, Banknote, Database,
+  MonitorSmartphone, ListChecks,
 } from 'lucide-react'
 
 interface NavItem {
@@ -51,6 +52,15 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/estimates',  label: 'Estimates',        icon: FileText, roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/customers',  label: 'Customers',        icon: Users,    roles: ['owner', 'admin', 'sales_agent'] },
       { href: '/invoices',   label: 'Invoices',         icon: Receipt,  roles: ['owner', 'admin', 'sales_agent'] },
+    ],
+  },
+  {
+    id: 'sites',
+    label: 'SITES',
+    icon: MonitorSmartphone,
+    roles: ['owner', 'admin', 'sales_agent'],
+    items: [
+      { href: '/sites/forms',   label: 'Forms Builder',  icon: ListChecks },
     ],
   },
   {
@@ -97,7 +107,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/design-studio',       label: 'Design Studio',    icon: Sparkles,      roles: ['owner', 'admin', 'designer'] },
       { href: '/design',              label: 'Design Manager',   icon: LayoutGrid,    roles: ['owner', 'admin', 'designer'] },
       { href: '/design/intakes',      label: 'Design Intake',    icon: FileInput,     badge: 'intakes' },
-      { href: '/mockup-generator',    label: 'Wrap Lead Capture', icon: Wand2 },
+      { href: '/mockup-generator',    label: 'Mockup Generator',  icon: Wand2 },
     ],
   },
   {
