@@ -38,6 +38,22 @@ function sectionColor(level: string) {
   return { icon: Info, color: '#4f7fff', bg: 'rgba(79,127,255,0.08)', border: 'rgba(79,127,255,0.2)' }
 }
 
+// Parse markdown links [text](url) out of a string and render with Link components
+function renderWithLinks(text: string) {
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g)
+  return parts.map((part, i) => {
+    const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+    if (match) {
+      return (
+        <Link key={i} href={match[2]} style={{ color: '#4f7fff', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+          {match[1]}
+        </Link>
+      )
+    }
+    return <span key={i}>{part}</span>
+  })
+}
+
 function priorityColor(p: string) {
   if (p === 'high') return '#f25a5a'
   if (p === 'medium') return '#f59e0b'
@@ -289,7 +305,7 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
                   {(section.items || []).map((item, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: 'var(--text1)', lineHeight: 1.5 }}>
                       <div style={{ width: 4, height: 4, borderRadius: '50%', background: color, marginTop: 7, flexShrink: 0 }} />
-                      <span>{item}</span>
+                      <span>{renderWithLinks(item)}</span>
                     </div>
                   ))}
                 </div>
@@ -349,7 +365,7 @@ export default function VinylDailyBrief({ ownerName, profileId }: Props) {
                           fontSize: 12.5, color: done ? 'var(--text3)' : 'var(--text1)',
                           textDecoration: done ? 'line-through' : 'none',
                         }}>
-                          {item.text}
+                          {renderWithLinks(item.text)}
                         </span>
                       </div>
                       <div style={{
