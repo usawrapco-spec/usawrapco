@@ -49,12 +49,15 @@ function buildWrapPrompts(params: {
   wrap_coverage: string
   boat_sub_type?: string
   base_analysis?: string
+  vehicle_paint_color?: string
+  logo_description?: string
 }): Record<string, string> {
   const {
     company_name, phone, website, tagline, industry,
     brand_colors, style_notes, vehicle_body_type,
     vehicle_year, vehicle_make, vehicle_model,
     wrap_coverage, boat_sub_type, base_analysis,
+    vehicle_paint_color, logo_description,
   } = params
 
   // Resolve vehicle description — use boat sub-type if available
@@ -64,11 +67,12 @@ function buildWrapPrompts(params: {
   const coverDesc = wrap_coverage === 'full' ? 'full wrap covering entire vehicle' : `${wrap_coverage} wrap`
   const extraNotes = style_notes ? ` Design notes: ${style_notes}.` : ''
 
-  // Explicit color enforcement for consistency
+  // Very explicit color enforcement — repeat hex codes so AI follows them
   const primaryColor = brand_colors[0] || '#1a56f0'
   const secondaryColor = brand_colors[1] || '#ffffff'
+  const accentColor = brand_colors[2] || ''
   const colorStr = brand_colors.length ? brand_colors.join(', ') : '#1a56f0, #ffffff'
-  const colorEnforce = `Primary color MUST be ${primaryColor}. Secondary color MUST be ${secondaryColor}.`
+  const colorEnforce = `STRICT COLOR REQUIREMENT: Use ONLY these exact brand colors: ${colorStr}. Primary: ${primaryColor} (dominant, used for main graphic elements, backgrounds, large shapes). Secondary: ${secondaryColor} (text, accent lines, contrast). ${accentColor ? `Accent: ${accentColor}. ` : ''}DO NOT use any other colors. All graphic elements must strictly follow this palette.`
 
   // Build the text elements that should appear on the wrap
   const textElements: string[] = []
@@ -80,15 +84,15 @@ function buildWrapPrompts(params: {
     ? `The wrap MUST prominently display: ${textElements.join(', ')}.`
     : ''
 
-  const base = `Professional vehicle wrap mockup: ${vehicleName} ${vehicleDesc}, ${coverDesc}, brand colors ${colorStr}. ${colorEnforce} ${textDesc}${industry ? ` ${industry} industry branding.` : ''}${extraNotes} ${base_analysis || ''} Photorealistic vinyl wrap applied to the vehicle with accurate proportions, studio lighting, commercial photography, high detail`
+  const base = `Professional vehicle wrap mockup: ${vehicleName} ${vehicleDesc}, ${coverDesc}, brand colors ${colorStr}. ${colorEnforce} ${textDesc}${logo_description ? ` The company logo (${logo_description}) must be prominently featured on the vehicle sides — large, centered on the main panels, integrated into the wrap design as a primary visual element.` : ''}${industry ? ` ${industry} industry branding.` : ''}${extraNotes}${vehicle_paint_color ? ` Base vehicle paint is ${vehicle_paint_color} — show this color in unpainted/partial areas.` : ''} ${base_analysis || ''} Photorealistic vinyl wrap applied to the vehicle with accurate proportions, studio lighting, commercial photography, high detail`
 
   return {
-    a: `${base}. BOLD AGGRESSIVE style — dark charcoal/black base color, sharp angular geometric cuts, high-contrast color blocks in ${primaryColor}, dramatic shadows, powerful brand presence, racing-inspired graphics`,
-    b: `${base}. CLEAN PROFESSIONAL style — white/light gray base, thin ${primaryColor} accent lines, geometric color blocking, corporate feel, minimal and polished, modern business look, clean edges`,
+    a: `${base}. BOLD AGGRESSIVE style — ${primaryColor} base color, sharp angular geometric cuts, high-contrast color blocks in ${primaryColor} and ${secondaryColor}, dramatic shadows, powerful brand presence, racing-inspired graphics`,
+    b: `${base}. CLEAN PROFESSIONAL style — ${secondaryColor} base, thin ${primaryColor} accent lines, geometric color blocking, corporate feel, minimal and polished, modern business look, clean edges`,
     c: `${base}. DYNAMIC GRADIENT style — flowing diagonal design elements, smooth color gradient from ${primaryColor} to ${secondaryColor}, energetic motion lines, eye-catching composition, sweeping curves`,
-    d: `${base}. SLEEK MINIMAL style — single ${primaryColor} accent stripe, large white/neutral areas, subtle branding, understated elegance, premium fleet look, thin pinstripe details`,
-    e: `${base}. VIBRANT FULL-COLOR style — rich saturated ${primaryColor} covering entire vehicle, large bold graphics, eye-catching from a distance, attention-grabbing street presence, full coverage design`,
-    f: `${base}. CLASSIC TRADITIONAL style — timeless layout, centered logo placement, clean horizontal lines in ${primaryColor}, professional fleet branding, trusted business look, balanced composition`,
+    d: `${base}. SLEEK MINIMAL style — single ${primaryColor} accent stripe, large ${secondaryColor} areas, subtle branding, understated elegance, premium fleet look, thin pinstripe details`,
+    e: `${base}. VIBRANT FULL-COLOR style — ${primaryColor} covering entire vehicle, large bold graphics in ${secondaryColor}, eye-catching from a distance, attention-grabbing street presence, full coverage design`,
+    f: `${base}. CLASSIC TRADITIONAL style — timeless layout, centered logo placement, clean horizontal lines in ${primaryColor} and ${secondaryColor}, professional fleet branding, trusted business look, balanced composition`,
   }
 }
 
@@ -101,8 +105,9 @@ function buildSignagePrompts(params: {
   brand_colors: string[]
   style_notes: string
   sign_type: string
+  logo_description?: string
 }): Record<string, string> {
-  const { company_name, phone, website, tagline, industry, brand_colors, style_notes, sign_type } = params
+  const { company_name, phone, website, tagline, industry, brand_colors, style_notes, sign_type, logo_description } = params
   const colorStr = brand_colors.length ? brand_colors.join(', ') : '#1a56f0, #ffffff'
   const extraNotes = style_notes ? ` ${style_notes}.` : ''
 
@@ -115,7 +120,7 @@ function buildSignagePrompts(params: {
     ? `Display: ${textElements.join(', ')}.`
     : ''
 
-  const base = `Professional commercial ${sign_type} sign design, brand colors ${colorStr}. ${textDesc}${industry ? ` ${industry} industry.` : ''}${extraNotes} Print-ready graphic design`
+  const base = `Professional commercial ${sign_type} sign design, brand colors ${colorStr}. ${textDesc}${logo_description ? ` The company logo (${logo_description}) must be prominently featured — large, centered, integrated into the design as a primary visual element.` : ''}${industry ? ` ${industry} industry.` : ''}${extraNotes} Print-ready graphic design`
 
   return {
     a: `${base}. BOLD style — high contrast, large color blocks, attention-grabbing`,
@@ -169,6 +174,7 @@ export async function POST(req: NextRequest) {
     customer_id,
     inspiration_urls = [] as string[],
     boat_sub_type = '',
+    vehicle_paint_color = '',
   } = body
 
   if (output_type === 'wrap' && !template_id && !vehicle_make) {
@@ -247,13 +253,15 @@ export async function POST(req: NextRequest) {
     await admin.from('mockup_results').update({ current_step: 2, step_name: 'Generating design concepts…' }).eq('id', mockupId)
 
     const prompts = output_type === 'signage'
-      ? buildSignagePrompts({ company_name, phone, website, tagline, industry, brand_colors, style_notes, sign_type })
+      ? buildSignagePrompts({ company_name, phone, website, tagline, industry, brand_colors, style_notes, sign_type, logo_description: logo_url ? `brand logo prominently displayed, centered on vehicle side panels` : undefined })
       : buildWrapPrompts({
           company_name, phone, website, tagline, industry,
           brand_colors, style_notes, vehicle_body_type, wrap_coverage,
           vehicle_year, vehicle_make, vehicle_model,
           boat_sub_type: boat_sub_type || undefined,
           base_analysis: baseAnalysis,
+          vehicle_paint_color: vehicle_paint_color || undefined,
+          logo_description: logo_url ? `brand logo prominently displayed, centered on vehicle side panels` : undefined,
         })
 
     const sizeKey = output_type === 'signage' ? (size_key as string) : 'landscape_16_9'

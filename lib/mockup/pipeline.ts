@@ -503,13 +503,15 @@ export async function compositeText(params: {
       const logoRes = await fetch(logo_url)
       if (logoRes.ok) {
         const logoBuffer = Buffer.from(await logoRes.arrayBuffer())
-        const logoW = Math.round(targetW * 0.14)
-        const padding = Math.round(targetW * 0.03)
+        const logoW = Math.round(targetW * 0.22)  // bigger: 22% of width instead of 14%
         const logoPng = await sharp(logoBuffer).resize(logoW, undefined, { fit: 'inside' }).ensureAlpha().png().toBuffer()
         const logoMeta = await sharp(logoPng).metadata()
         const logoH = logoMeta.height || Math.round(logoW * 0.5)
+        // Center horizontally, position at ~25% from top (vehicle side panel area)
+        const logoLeft = Math.round((targetW - logoW) / 2)
+        const logoTop = Math.round(targetH * 0.25)
         finalBuffer = await sharp(finalBuffer)
-          .composite([{ input: logoPng, left: padding, top: targetH - logoH - padding }])
+          .composite([{ input: logoPng, left: logoLeft, top: logoTop }])
           .png()
           .toBuffer()
       }

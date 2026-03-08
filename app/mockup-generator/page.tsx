@@ -8,7 +8,7 @@ import {
   Sparkles, ImageIcon, Download, RefreshCw, ZoomIn, ZoomOut,
   Search, ChevronDown, AlertTriangle, Zap, Bot, Layers, Globe, Pencil,
   LayoutGrid, RectangleHorizontal, Square, Wind,
-  ThumbsUp, ThumbsDown, Calendar, Video, MapPin,
+  ThumbsUp, ThumbsDown, Calendar, Video, MapPin, Lock,
 } from 'lucide-react'
 import MockupEditor from '@/components/mockup/MockupEditor'
 
@@ -162,6 +162,9 @@ const DECKING_STEPS = [
 // Legacy alias
 const STEPS = WRAP_STEPS
 
+const FREE_WRAP_GENS = 2
+const FREE_BOAT_GENS = 1
+
 function bodyTypeToRenderCategory(bodyType: string): string {
   if (bodyType === 'box_truck') return 'box_truck'
   if (bodyType === 'trailer') return 'trailer'
@@ -186,14 +189,19 @@ function bodyStyleToBodyType(bodyStyle: string): string {
   return 'van'
 }
 
-function estimatePrice(sqft: number, bodyType: string): number {
+function estimatePrice(sqft: number, bodyType: string): { mid: number; low: number; high: number } {
   const base: Record<string, number> = {
     car: 3500, suv: 4500, pickup: 4200, van: 5500,
     sprinter: 6500, box_truck: 7500, trailer: 9000, boat: 5000,
   }
   const b = base[bodyType] || 3000
   const sqftFactor = Math.max(0.8, Math.min(1.5, sqft / 280))
-  return Math.round(b * sqftFactor / 100) * 100
+  const mid = Math.round(b * sqftFactor / 100) * 100
+  return {
+    mid,
+    low: Math.round(mid * 0.90 / 100) * 100,
+    high: Math.round(mid * 1.05 / 100) * 100,
+  }
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
@@ -201,7 +209,7 @@ function estimatePrice(sqft: number, bodyType: string): number {
 export default function MockupGeneratorPage() {
   const supabase = createClient()
   const [step, setStep] = useState(1)
-  const [outputType, setOutputType] = useState<'wrap' | 'signage' | 'decking'>('wrap')
+  const [outputType, setOutputType] = useState<'wrap' | 'signage' | 'decking' | 'boat'>('wrap')
   const [signType, setSignType] = useState('')
 
   // Concept picker
@@ -234,7 +242,24 @@ export default function MockupGeneratorPage() {
   const [templateTier, setTemplateTier] = useState<1 | 2 | 3 | null>(null)
   const [coverages, setCoverages] = useState<string[]>(['full'])
   const [estimatedSqft, setEstimatedSqft] = useState<number | null>(null)
-  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null)
+  const [estimatedPrice, setEstimatedPrice] = useState<{ mid: number; low: number; high: number } | null>(null)
+  const [vehicleColor, setVehicleColor] = useState('White')
+  const [fleetMode, setFleetMode] = useState(false)
+  const [fleetVehicles, setFleetVehicles] = useState<Array<{
+    year: string; make: string; model: string; bodyType: string
+    sqft: number; price: { low: number; mid: number; high: number } | null
+    color: string
+  }>>([])
+
+  // Revision modal state
+  const [showRevisionModal, setShowRevisionModal] = useState(false)
+  const [revisionCallback, setRevisionCallback] = useState<(() => void) | null>(null)
+  const [revisionNotes, setRevisionNotes] = useState('')
+  const [hasRegenerated, setHasRegenerated] = useState(false)
+
+  // Exit gate / auth state
+  const [showExitGate, setShowExitGate] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   // Step 3 - Brand
   const [websiteScrapeUrl, setWebsiteScrapeUrl] = useState('')
@@ -252,6 +277,7 @@ export default function MockupGeneratorPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoNoBg, setLogoNoBg] = useState<string | null>(null)
   const [scrapedLogoUrl, setScrapedLogoUrl] = useState<string | null>(null)
+  const [processingLogo, setProcessingLogo] = useState(false)
   const logoRef = useRef<HTMLInputElement>(null)
 
   // Step 4 - Generating
@@ -295,6 +321,20 @@ export default function MockupGeneratorPage() {
   // Design notes (all output types)
   const [designNotes, setDesignNotes] = useState('')
 
+  // Example mockups gallery
+  const [exampleMockups, setExampleMockups] = useState<Array<{ id: string; concept_a_url: string | null; company_name: string | null; vehicle_make: string | null; vehicle_model: string | null }>>([])
+
+  useEffect(() => {
+    supabase.from('mockup_results')
+      .select('id, concept_a_url, company_name, vehicle_make, vehicle_model')
+      .in('status', ['concepts_ready', 'concept_ready'])
+      .not('concept_a_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(6)
+      .then(({ data }) => { if (data?.length) setExampleMockups(data) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -304,6 +344,24 @@ export default function MockupGeneratorPage() {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
     }
   }, [])
+
+  // Check if user is logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setIsLoggedIn(!!data.session))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Exit gate on browser unload — only if they have generated something and aren't logged in
+  useEffect(() => {
+    if (!mockupId || isLoggedIn) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+      setShowExitGate(true)
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [mockupId, isLoggedIn])
 
   // ── YMM cascade: Year -> Makes ──────────────────────────────────────────────
   useEffect(() => {
@@ -515,7 +573,31 @@ export default function MockupGeneratorPage() {
       if (data.logo_url) {
         setScrapedLogoUrl(data.logo_url)
         setLogoPreview(data.logo_url)
-        setLogoNoBg(data.logo_url)
+        setProcessingLogo(true)
+        // Process logo in background: remove bg + extract colors
+        ;(async () => {
+          try {
+            const [bgRes, colorRes] = await Promise.all([
+              fetch('/api/mockup/remove-bg', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl: data.logo_url }),
+              }),
+              fetch('/api/mockup/scrape-brand', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logo_url: data.logo_url }),
+              }),
+            ])
+            const bgData = await bgRes.json()
+            if (bgData.success && !bgData.skipped && bgData.imageBase64) {
+              setLogoNoBg(bgData.imageBase64)
+            } else {
+              setLogoNoBg(data.logo_url)
+            }
+            const colorData = await colorRes.json()
+            if (colorData.brand_colors?.length) setBrandColors(colorData.brand_colors.slice(0, 3))
+          } catch { setLogoNoBg(data.logo_url) }
+          finally { setProcessingLogo(false) }
+        })()
       }
     } catch (err: unknown) {
       setScrapeError(err instanceof Error ? err.message : 'Scrape failed')
@@ -548,6 +630,16 @@ export default function MockupGeneratorPage() {
   }
 
   async function handleGenerate() {
+    // Check free generation limit
+    const genKey = `portal_gen_count_${outputType}`
+    const used = parseInt(localStorage.getItem(genKey) || '0', 10)
+    const freeLimit = outputType === 'boat' ? FREE_BOAT_GENS : FREE_WRAP_GENS
+    if (!isLoggedIn && used >= freeLimit) {
+      setShowExitGate(true)
+      return
+    }
+    localStorage.setItem(genKey, String(used + 1))
+
     setGenerating(true)
     setGenError(null)
     setPipelineStep(0)
@@ -591,8 +683,9 @@ export default function MockupGeneratorPage() {
           vehicle_make: outputType === 'decking' ? boatMake : selectedMake,
           vehicle_model: outputType === 'decking' ? boatModelLen : selectedModel,
           vehicle_year: outputType === 'decking' ? boatYear : selectedYear,
-          vehicle_body_type: outputType === 'decking' ? 'boat' : bodyType,
+          vehicle_body_type: outputType === 'decking' ? 'boat' : (outputType === 'boat' ? 'boat' : bodyType),
           vehicle_sqft: outputType === 'decking' ? deckSqft : estimatedSqft,
+          vehicle_paint_color: vehicleColor,
           wrap_coverage: coverages[0] || 'full',
           company_name: companyName,
           tagline, phone, website,
@@ -625,7 +718,7 @@ export default function MockupGeneratorPage() {
       })
       setPipelineStep(PIPELINE_STEPS_GENERATE.length - 1)
       setGenerating(false)
-      // Go to concept picker step (wrap: 4, signage: 3)
+      // Go to concept picker step (wrap/boat: 4, signage: 3)
       setStep(outputType === 'signage' ? 3 : 4)
     } catch (err: unknown) {
       setGenError(err instanceof Error ? err.message : 'Generation failed')
@@ -672,6 +765,7 @@ export default function MockupGeneratorPage() {
       setFinalizeStep(PIPELINE_STEPS_FINALIZE.length - 1)
       setFinalizing(false)
       setStep(outputType === 'signage' ? 4 : 5)
+      // boat and wrap both go to step 5
     } catch (err: unknown) {
       setGenError(err instanceof Error ? err.message : 'Finalization failed')
       setFinalizing(false)
@@ -754,6 +848,12 @@ export default function MockupGeneratorPage() {
     setSignSubcopy('')
     setSignCta('')
     setDesignNotes('')
+    setProcessingLogo(false)
+    setVehicleColor('White')
+    setFleetMode(false)
+    setFleetVehicles([])
+    setHasRegenerated(false)
+    setShowRevisionModal(false)
   }
 
   // ── Shared styles ──────────────────────────────────────────────────────────
@@ -782,18 +882,28 @@ export default function MockupGeneratorPage() {
             }}>AI Mockup Generator</h1>
           </div>
           {/* Output type toggle */}
-          <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 4, border: '1px solid var(--border)', gap: 2 }}>
-            {(['wrap', 'signage', 'decking'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => { setOutputType(type); setStep(1); setSignType(''); setBodyType('') }}
-                style={{
-                  padding: '8px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer',
-                  background: outputType === type ? 'var(--accent)' : 'transparent',
-                  color: outputType === type ? '#fff' : 'var(--text2)',
+          <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 4, border: '1px solid var(--border)', gap: 2, flexWrap: 'wrap' }}>
+            {([
+              { id: 'wrap', label: 'Vehicle Wrap', locked: false },
+              { id: 'boat', label: 'Boat Wrap', locked: false },
+              { id: 'signage', label: 'Signage', locked: !isLoggedIn },
+              { id: 'decking', label: 'Boat Decking', locked: !isLoggedIn },
+            ] as const).map(({ id, label, locked }) => (
+              <button key={id}
+                onClick={() => {
+                  if (locked) { setShowExitGate(true); return }
+                  setOutputType(id as 'wrap' | 'signage' | 'decking' | 'boat')
+                  setStep(1)
+                  setSignType('')
+                  setBodyType(id === 'boat' ? 'boat' : '')
                 }}
-              >
-                {type === 'wrap' ? 'Vehicle Wrap' : type === 'signage' ? 'Signage' : 'Boat Decking'}
+                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  background: outputType === id ? 'var(--accent)' : 'transparent',
+                  color: outputType === id ? '#fff' : locked ? 'var(--text3)' : 'var(--text2)',
+                  display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }}>
+                {locked && <Lock size={11} />}
+                {label}
+                {locked && <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent)', marginLeft: 2 }}>Sign in to unlock</span>}
               </button>
             ))}
           </div>
@@ -801,6 +911,8 @@ export default function MockupGeneratorPage() {
         <p style={{ fontSize: 15, color: 'var(--text3)', marginTop: 6 }}>
           {outputType === 'wrap'
             ? 'Select your vehicle, enter your brand info, and get 3 design concepts in minutes.'
+            : outputType === 'boat'
+            ? 'Select your boat type, enter your brand info, and get wrap concepts for your vessel.'
             : outputType === 'signage'
             ? 'Generate professional print-ready signs, banners, and door magnets.'
             : 'Design custom SeaDek and marine vinyl decking for your boat.'}
@@ -808,11 +920,15 @@ export default function MockupGeneratorPage() {
       </div>
 
       {/* Step indicator */}
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+        STEP {step} OF {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS).length}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 36, overflowX: 'auto' }}>
         {(outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS).map((s, i) => {
           const done = step > s.id
           const active = step === s.id
           const stepList = outputType === 'signage' ? SIGN_STEPS : outputType === 'decking' ? DECKING_STEPS : WRAP_STEPS
+          // boat uses same steps as wrap
           return (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <div
@@ -961,6 +1077,32 @@ export default function MockupGeneratorPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── STEP 1: Boat Sub-type (boat wrap mode) ───────────────────────────── */}
+      {step === 1 && outputType === 'boat' && (
+        <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>What type of boat?</h2>
+          <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 28 }}>
+            Select your hull type for the most accurate wrap mockup.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10, marginBottom: 28 }}>
+            {BOAT_SUB_TYPES.map(bt => {
+              const sel2 = boatSubType === bt.id
+              return (
+                <div key={bt.id}
+                  onClick={() => { setBoatSubType(bt.id); setTimeout(() => setStep(2), 120) }}
+                  style={{ padding: '16px 14px', borderRadius: 12, cursor: 'pointer',
+                    border: sel2 ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: sel2 ? 'rgba(79,127,255,0.08)' : 'var(--surface2)',
+                    transition: 'all 0.15s' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: sel2 ? 'var(--accent)' : 'var(--text1)', marginBottom: 2 }}>{bt.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{bt.desc}</div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -1241,8 +1383,8 @@ export default function MockupGeneratorPage() {
                 </div>
                 {estimatedPrice && (
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      ${estimatedPrice.toLocaleString()}
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      ${estimatedPrice.low.toLocaleString()} &ndash; ${estimatedPrice.high.toLocaleString()}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text3)' }}>est. full wrap</div>
                   </div>
@@ -1291,11 +1433,95 @@ export default function MockupGeneratorPage() {
             </div>
           )}
 
+          {/* Vehicle Color Picker */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Vehicle Color</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['White', 'Black', 'Silver', 'Gray', 'Navy Blue', 'Red', 'Dark Green', 'Brown', 'Beige', 'Yellow'].map(c => (
+                <button key={c} onClick={() => setVehicleColor(c)}
+                  style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    border: vehicleColor === c ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: vehicleColor === c ? 'rgba(79,127,255,0.12)' : 'var(--surface2)',
+                    color: vehicleColor === c ? 'var(--accent)' : 'var(--text2)' }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>Used to show exposed paint in partial wrap designs</div>
+          </div>
+
+          {/* Fleet Mode */}
+          {vehicleSelected && (
+            <div style={{ marginTop: 0, marginBottom: 22, padding: '14px 18px', borderRadius: 12, background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: fleetMode ? 14 : 0 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)' }}>Fleet Mode</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>Add up to 3 vehicles — see pricing per vehicle</div>
+                </div>
+                <button onClick={() => setFleetMode(f => !f)}
+                  style={{ padding: '7px 16px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    background: fleetMode ? 'var(--accent)' : 'var(--surface2)',
+                    border: '1px solid var(--border)', color: fleetMode ? '#fff' : 'var(--text2)' }}>
+                  {fleetMode ? 'Fleet On' : 'Enable Fleet'}
+                </button>
+              </div>
+              {fleetMode && (
+                <div>
+                  {fleetVehicles.map((fv, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)', marginBottom: 8 }}>
+                      <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>
+                        {fv.color} {fv.year} {fv.make} {fv.model}
+                      </div>
+                      {fv.price && (
+                        <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 700 }}>
+                          ${fv.price.low.toLocaleString()} – ${fv.price.high.toLocaleString()}
+                        </div>
+                      )}
+                      <button onClick={() => setFleetVehicles(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {fleetVehicles.length < 2 && selectedMake && selectedModel && (
+                    <button
+                      onClick={() => {
+                        if (!selectedMake || !selectedModel) return
+                        setFleetVehicles(prev => [...prev, {
+                          year: selectedYear, make: selectedMake, model: selectedModel,
+                          bodyType: bodyType || 'van', sqft: estimatedSqft || 280,
+                          price: estimatedPrice, color: vehicleColor,
+                        }])
+                      }}
+                      style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px dashed var(--border)',
+                        background: 'transparent', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      + Add {[selectedYear, selectedMake, selectedModel].filter(Boolean).join(' ')} to fleet
+                    </button>
+                  )}
+                  {fleetVehicles.length > 0 && (
+                    <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', marginBottom: 4 }}>Fleet total estimate</div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {(() => {
+                          const all = [estimatedPrice, ...fleetVehicles.map(fv => fv.price)].filter(Boolean) as Array<{low:number;high:number;mid:number}>
+                          const low = all.reduce((s, p) => s + p.low, 0)
+                          const high = all.reduce((s, p) => s + p.high, 0)
+                          return `$${low.toLocaleString()} – $${high.toLocaleString()}`
+                        })()}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{1 + fleetVehicles.length} vehicles, full wraps</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Fallback */}
           <div style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 22 }}>
             {"Don't see your vehicle? "}
             <button
-              onClick={() => { setSelectedMake('Custom'); setSelectedModel('Vehicle'); setEstimatedSqft(280); setEstimatedPrice(3000); setStep(3) }}
+              onClick={() => { setSelectedMake('Custom'); setSelectedModel('Vehicle'); setEstimatedSqft(280); setEstimatedPrice({ mid: 3000, low: 2700, high: 3200 }); setStep(3) }}
               style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
             >
               Continue anyway
@@ -1317,8 +1543,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 3 (wrap/decking) / STEP 2 (signage): Brand & Generate ─────── */}
-      {((outputType === 'wrap' && step === 3) || (outputType === 'signage' && step === 2) || (outputType === 'decking' && step === 3)) && (
+      {/* ── STEP 3 (wrap/boat/decking) / STEP 2 (signage): Brand & Generate ─── */}
+      {((outputType === 'wrap' && step === 3) || (outputType === 'boat' && step === 3) || (outputType === 'signage' && step === 2) || (outputType === 'decking' && step === 3)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Your brand info</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 22 }}>
@@ -1437,9 +1663,37 @@ export default function MockupGeneratorPage() {
               >
                 {logoPreview ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logoPreview} alt="Logo" style={{ maxHeight: 70, maxWidth: 160, objectFit: 'contain' }} />
-                    <button onClick={(e) => { e.stopPropagation(); setLogoFile(null); setLogoPreview(null); setLogoNoBg(null) }}
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {/* Checkered background shows transparency */}
+                      <div style={{
+                        width: 120, height: 70, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
+                        backgroundImage: 'linear-gradient(45deg, #555 25%, transparent 25%), linear-gradient(-45deg, #555 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #555 75%), linear-gradient(-45deg, transparent 75%, #555 75%)',
+                        backgroundSize: '10px 10px', backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0',
+                        backgroundColor: '#333',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={logoNoBg || logoPreview}
+                          alt="Logo"
+                          style={{ maxHeight: 62, maxWidth: 112, objectFit: 'contain' }}
+                        />
+                      </div>
+                      <div>
+                        {processingLogo ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--accent)' }}>
+                            <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                            Removing background &amp; extracting colors...
+                          </div>
+                        ) : logoNoBg && logoNoBg !== logoPreview ? (
+                          <div style={{ fontSize: 11, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Check size={11} /> Background removed
+                          </div>
+                        ) : null}
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Click to change</div>
+                      </div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setLogoFile(null); setLogoPreview(null); setLogoNoBg(null); setScrapedLogoUrl(null) }}
                       style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'var(--red)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <X size={12} style={{ color: '#fff' }} />
                     </button>
@@ -1483,6 +1737,28 @@ export default function MockupGeneratorPage() {
               )}
             </div>
 
+            {/* Inspiration Gallery */}
+            {exampleMockups.length > 0 && (
+              <div style={{ gridColumn: 'span 2', marginBottom: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Inspiration — recent wrap concepts
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {exampleMockups.slice(0, 6).map(ex => ex.concept_a_url && (
+                    <div key={ex.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', position: 'relative' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={ex.concept_a_url} alt="Example wrap" style={{ width: '100%', height: 80, objectFit: 'cover', display: 'block' }} />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '4px 6px' }}>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {[ex.vehicle_make, ex.vehicle_model].filter(Boolean).join(' ') || 'Vehicle Wrap'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Design Style */}
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Design Style</label>
@@ -1520,7 +1796,8 @@ export default function MockupGeneratorPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                   {COVERAGE_OPTIONS.map(c => {
-                    const coveragePrice = estimatedPrice ? Math.round((estimatedPrice * c.pct) / 100) * 100 : null
+                    const coverageLow = estimatedPrice ? Math.round(estimatedPrice.low * c.pct / 100) * 100 : null
+                    const coverageHigh = estimatedPrice ? Math.round(estimatedPrice.high * c.pct / 100) * 100 : null
                     const selected = coverages.includes(c.id)
                     return (
                       <div
@@ -1544,9 +1821,9 @@ export default function MockupGeneratorPage() {
                         )}
                         <div style={{ fontSize: 13, fontWeight: 700, color: selected ? 'var(--accent)' : 'var(--text1)', marginBottom: 3 }}>{c.label}</div>
                         <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{c.desc}</div>
-                        {coveragePrice && (
-                          <div style={{ fontSize: 15, fontWeight: 800, color: selected ? 'var(--accent)' : 'var(--green)', marginTop: 4 }}>
-                            ~${coveragePrice.toLocaleString()}
+                        {coverageLow && coverageHigh && (
+                          <div style={{ fontSize: 13, fontWeight: 800, color: selected ? 'var(--accent)' : 'var(--green)', marginTop: 4 }}>
+                            ~${coverageLow.toLocaleString()} &ndash; ${coverageHigh.toLocaleString()}
                           </div>
                         )}
                       </div>
@@ -1591,20 +1868,48 @@ export default function MockupGeneratorPage() {
             </div>
           </div>
 
-          {/* Generation progress */}
+          {/* Generation progress — Wrapmate-style loading */}
           {generating && (
             <div style={{ marginTop: 24, marginBottom: 20 }}>
-              {PIPELINE_STEPS_GENERATE.map((ps, i) => {
-                const done = pipelineStep > i; const active = pipelineStep === i
-                return (
-                  <div key={ps.key} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < PIPELINE_STEPS_GENERATE.length - 1 ? '1px solid var(--border)' : 'none', opacity: pipelineStep < i ? 0.3 : 1 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: done ? 'rgba(34,192,122,0.15)' : active ? 'rgba(79,127,255,0.15)' : 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {done ? <Check size={13} style={{ color: 'var(--green)' }} /> : active ? <Loader2 size={13} className="animate-spin" style={{ color: 'var(--accent)' }} /> : <span style={{ fontSize: 10, color: 'var(--text3)' }}>{i + 1}</span>}
-                    </div>
-                    <span style={{ fontSize: 14, color: done ? 'var(--green)' : active ? 'var(--accent)' : 'var(--text3)', fontWeight: active ? 600 : 400 }}>{ps.label}</span>
+              <div style={{ maxWidth: 480, margin: '0 auto', background: 'var(--surface)', borderRadius: 24, padding: '40px 32px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                {/* Circular progress */}
+                <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto 24px' }}>
+                  <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
+                    <circle cx="40" cy="40" r="34" fill="none" stroke="var(--surface2)" strokeWidth="6" />
+                    <circle cx="40" cy="40" r="34" fill="none" stroke="var(--accent)" strokeWidth="6"
+                      strokeDasharray={`${2 * Math.PI * 34}`}
+                      strokeDashoffset={`${2 * Math.PI * 34 * (1 - Math.min(pipelineStep + 1, PIPELINE_STEPS_GENERATE.length) / PIPELINE_STEPS_GENERATE.length)}`}
+                      strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
+                  </svg>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {Math.round(Math.min(pipelineStep + 1, PIPELINE_STEPS_GENERATE.length) / PIPELINE_STEPS_GENERATE.length * 100)}%
                   </div>
-                )
-              })}
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text1)', marginBottom: 6 }}>Creating Your Designs</div>
+                <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 28 }}>Our AI is crafting unique concepts just for you</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {[
+                    { label: 'Analyzing your vehicle', sub: 'Identifying high-visibility zones' },
+                    { label: 'Processing brand assets', sub: 'Colors, logo, and typography' },
+                    { label: 'Designing concepts', sub: 'Generating 6 unique styles' },
+                  ].map((item, i) => {
+                    const isDone = pipelineStep > i
+                    const isActive = pipelineStep === i
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 10, background: isActive ? 'rgba(79,127,255,0.08)' : 'transparent', marginBottom: 4 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isDone ? 'var(--accent)' : isActive ? 'rgba(79,127,255,0.2)' : 'var(--surface2)', border: `2px solid ${isDone || isActive ? 'var(--accent)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {isDone ? <Check size={13} style={{ color: '#fff' }} /> : isActive ? <Loader2 size={12} style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} /> : <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 700 }}>{i + 1}</span>}
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: 13, fontWeight: isDone || isActive ? 700 : 400, color: isDone ? 'var(--green)' : isActive ? 'var(--text1)' : 'var(--text3)' }}>{item.label}</div>
+                          {isActive && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{item.sub}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ marginTop: 20, fontSize: 12, color: 'var(--text3)' }}>This typically takes 15-30 seconds</div>
+              </div>
             </div>
           )}
 
@@ -1639,23 +1944,38 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 4 (wrap/decking) / STEP 3 (signage): Concept Picker ─────────── */}
-      {((outputType === 'wrap' && step === 4) || (outputType === 'signage' && step === 3) || (outputType === 'decking' && step === 4)) && (
+      {/* ── STEP 4 (wrap/boat/decking) / STEP 3 (signage): Concept Picker ──── */}
+      {((outputType === 'wrap' && step === 4) || (outputType === 'boat' && step === 4) || (outputType === 'signage' && step === 3) || (outputType === 'decking' && step === 4)) && (
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 36, border: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text1)', marginBottom: 6 }}>Choose Your Design Direction</h2>
           <p style={{ fontSize: 15, color: 'var(--text3)', marginBottom: 16 }}>
             {Object.values(concepts).filter(Boolean).length} concepts generated. Pick the direction you like and tell us what to keep or change.
           </p>
 
+          {/* Save to portal notice */}
+          {mockupId && !isLoggedIn && (
+            <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 12, background: 'rgba(34,192,122,0.08)', border: '1px solid rgba(34,192,122,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>Save these designs to your portal</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>Sign in to save, share with your team, and access from anywhere</div>
+              </div>
+              <button onClick={() => setShowExitGate(true)}
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--green)', color: '#0d1a10', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Go to Portal
+              </button>
+            </div>
+          )}
+
           {/* Ballpark pricing summary */}
-          {estimatedPrice && outputType === 'wrap' && (
+          {estimatedPrice && (outputType === 'wrap' || outputType === 'boat') && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
                 Price Comparison — {selectedYear} {selectedMake} {selectedModel}
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {COVERAGE_OPTIONS.filter(c => coverages.includes(c.id)).map(c => {
-                  const price = Math.round((estimatedPrice * c.pct) / 100) * 100
+                  const priceLow = Math.round(estimatedPrice.low * c.pct / 100) * 100
+                  const priceHigh = Math.round(estimatedPrice.high * c.pct / 100) * 100
                   const isPrimary = c.id === coverages[0]
                   return (
                     <div
@@ -1667,7 +1987,7 @@ export default function MockupGeneratorPage() {
                       }}
                     >
                       <div style={{ fontSize: 11, fontWeight: 700, color: isPrimary ? 'var(--accent)' : 'var(--text2)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{c.label}</div>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: isPrimary ? 'var(--accent)' : 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>~${price.toLocaleString()}</div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: isPrimary ? 'var(--accent)' : 'var(--green)', fontFamily: 'JetBrains Mono, monospace' }}>${priceLow.toLocaleString()} &ndash; ${priceHigh.toLocaleString()}</div>
                       <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>{c.desc}</div>
                       {isPrimary && <div style={{ fontSize: 10, color: 'var(--accent)', marginTop: 4, fontWeight: 700 }}>used for concepts</div>}
                     </div>
@@ -1683,100 +2003,97 @@ export default function MockupGeneratorPage() {
           )}
 
           {Object.values(concepts).some(Boolean) ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 28 }}>
-              {([
-                { id: 'a', url: concepts.a, label: 'Bold & Aggressive' },
-                { id: 'b', url: concepts.b, label: 'Clean & Professional' },
-                { id: 'c', url: concepts.c, label: 'Dynamic Gradient' },
-                { id: 'd', url: concepts.d, label: 'Sleek Minimal' },
-                { id: 'e', url: concepts.e, label: 'Vibrant Full-Color' },
-                { id: 'f', url: concepts.f, label: 'Classic Traditional' },
-              ]).map(concept => concept.url ? (
-                <div
-                  key={concept.id}
-                  style={{
-                    borderRadius: 14, overflow: 'hidden',
-                    border: selectedConcept === concept.id ? '3px solid var(--accent)' : '1px solid var(--border)',
-                    background: 'var(--surface2)', transition: 'border-color 0.15s',
-                    position: 'relative',
-                  }}
-                >
-                  {/* Image - click to expand */}
-                  <div
-                    onClick={() => setExpandedImage(concept.url)}
-                    style={{ cursor: 'zoom-in', position: 'relative' }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={concept.url} alt={concept.label} style={{ width: '100%', display: 'block', height: 320, objectFit: 'cover' }} />
-                    {/* Logo preview overlay — bottom-left, mirrors where compositeText places it */}
-                    {(logoNoBg || logoPreview) && (
-                      <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start', marginBottom: 28 }}>
+              {/* Left: How it works */}
+              <div style={{ background: 'linear-gradient(135deg, #0f2040 0%, #1a1060 100%)', borderRadius: 16, padding: '28px 24px', color: '#fff', position: 'sticky', top: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>HOW IT WORKS</div>
+                <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 20, fontFamily: 'Barlow Condensed, sans-serif' }}>From concept to wrap</div>
+                {[
+                  { step: 1, label: 'Explore concepts', desc: 'AI-generated starting points — pick your favorite direction', active: true },
+                  { step: 2, label: 'Lock in your design', desc: 'Our team refines it into a production-ready wrap', active: false },
+                  { step: 3, label: 'We handle the rest', desc: 'Printed on premium vinyl, professionally installed', active: false },
+                ].map(s => (
+                  <div key={s.step} style={{ display: 'flex', gap: 12, marginBottom: 16, opacity: s.active ? 1 : 0.6 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: s.active ? 'var(--accent)' : 'rgba(255,255,255,0.15)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
+                      {s.active ? <span style={{ color: '#fff' }}>&#9733;</span> : s.step}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{s.label}</div>
+                      {s.active && <span style={{ fontSize: 11, color: '#22c07a', fontWeight: 700 }}>YOU ARE HERE</span>}
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                  </div>
+                ))}
+                {estimatedPrice && (
+                  <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>Estimated project cost</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#22c07a', fontFamily: 'JetBrains Mono, monospace' }}>
+                      ${estimatedPrice.low.toLocaleString()} &ndash; ${estimatedPrice.high.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{selectedYear} {selectedMake} {selectedModel} &middot; {coverages[0]} wrap</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Scrollable concepts */}
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text1)', marginBottom: 4, fontFamily: 'Barlow Condensed, sans-serif' }}>Your Design Concepts</div>
+                <div style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 20 }}>Pick your favorite — our team will refine it to perfection.</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {([
+                    { id: 'a', url: concepts.a, label: 'Bold & Aggressive' },
+                    { id: 'b', url: concepts.b, label: 'Clean & Professional' },
+                    { id: 'c', url: concepts.c, label: 'Dynamic Gradient' },
+                    { id: 'd', url: concepts.d, label: 'Sleek Minimal' },
+                    { id: 'e', url: concepts.e, label: 'Vibrant Full-Color' },
+                    { id: 'f', url: concepts.f, label: 'Classic Traditional' },
+                  ]).filter(concept => concept.url).map(concept => (
+                    <div key={concept.id} style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: selectedConcept === concept.id ? '2px solid var(--accent)' : '1px solid var(--border)', transition: 'border-color 0.15s' }}>
+                      {/* Image */}
+                      <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setExpandedImage(concept.url)}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={logoNoBg || logoPreview || ''}
-                          alt="Your logo"
-                          style={{ height: 40, maxWidth: 100, objectFit: 'contain', display: 'block' }}
-                        />
+                        <img src={concept.url!} alt={concept.label} style={{ width: '100%', display: 'block', maxHeight: 320, objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', borderRadius: 6, padding: '4px 10px', fontSize: 11, color: '#fff', fontWeight: 700 }}>Concept {concept.id.toUpperCase()}</div>
+                        {(logoNoBg || logoPreview) && (
+                          <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6, padding: 4 }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={logoNoBg || logoPreview || ''} alt="logo" style={{ height: 36, maxWidth: 90, objectFit: 'contain', display: 'block' }} />
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div style={{ position: 'absolute', top: 10, right: 10, padding: '5px 9px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <ZoomIn size={11} /> Click to expand
-                    </div>
-                  </div>
-
-                  <div style={{ padding: '14px 16px' }}>
-                    {/* Label and select */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: selectedConcept === concept.id ? 'var(--accent)' : 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        {concept.label}
+                      {/* Footer */}
+                      <div style={{ padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: selectedConcept === concept.id ? 'var(--accent)' : 'var(--text1)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{concept.label}</div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => setConceptVotes(prev => ({ ...prev, [concept.id]: prev[concept.id] === 'up' ? null : 'up' }))}
+                              style={{ padding: '5px 10px', borderRadius: 6, border: `1px solid ${conceptVotes[concept.id] === 'up' ? 'var(--green)' : 'var(--border)'}`, background: conceptVotes[concept.id] === 'up' ? 'rgba(34,192,122,0.1)' : 'transparent', color: conceptVotes[concept.id] === 'up' ? 'var(--green)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                              <ThumbsUp size={12} />
+                            </button>
+                            <button onClick={() => setConceptVotes(prev => ({ ...prev, [concept.id]: prev[concept.id] === 'down' ? null : 'down' }))}
+                              style={{ padding: '5px 10px', borderRadius: 6, border: `1px solid ${conceptVotes[concept.id] === 'down' ? 'var(--red)' : 'var(--border)'}`, background: conceptVotes[concept.id] === 'down' ? 'rgba(242,90,90,0.1)' : 'transparent', color: conceptVotes[concept.id] === 'down' ? 'var(--red)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                              <ThumbsDown size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        <button onClick={() => { setSelectedConcept(concept.id); setShowFeedbackFor(concept.id) }}
+                          style={{ width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', background: selectedConcept === concept.id ? 'var(--accent)' : 'var(--surface2)', color: selectedConcept === concept.id ? '#fff' : 'var(--text2)', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                          {selectedConcept === concept.id ? '✓ Selected' : 'Use This Concept'}
+                        </button>
+                        {/* Tweak textarea — only show for selected concept */}
+                        {showFeedbackFor === concept.id && (
+                          <div style={{ marginTop: 12 }}>
+                            <textarea value={conceptFeedback} onChange={e => setConceptFeedback(e.target.value)}
+                              placeholder="Tweak your design — describe what you&apos;d like changed..."
+                              rows={2}
+                              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 13, outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                          </div>
+                        )}
                       </div>
-                      {selectedConcept === concept.id && <Check size={18} style={{ color: 'var(--accent)' }} />}
                     </div>
-
-                    {/* Thumbs up / down */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                      <button
-                        onClick={() => setConceptVotes(prev => ({ ...prev, [concept.id]: prev[concept.id] === 'up' ? null : 'up' }))}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                          background: conceptVotes[concept.id] === 'up' ? 'rgba(34,192,122,0.15)' : 'var(--bg)',
-                          border: conceptVotes[concept.id] === 'up' ? '1px solid var(--green)' : '1px solid var(--border)',
-                          color: conceptVotes[concept.id] === 'up' ? 'var(--green)' : 'var(--text3)',
-                          fontSize: 13, fontWeight: 600,
-                        }}
-                      >
-                        <ThumbsUp size={14} /> Like
-                      </button>
-                      <button
-                        onClick={() => setConceptVotes(prev => ({ ...prev, [concept.id]: prev[concept.id] === 'down' ? null : 'down' }))}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                          background: conceptVotes[concept.id] === 'down' ? 'rgba(242,90,90,0.15)' : 'var(--bg)',
-                          border: conceptVotes[concept.id] === 'down' ? '1px solid var(--red)' : '1px solid var(--border)',
-                          color: conceptVotes[concept.id] === 'down' ? 'var(--red)' : 'var(--text3)',
-                          fontSize: 13, fontWeight: 600,
-                        }}
-                      >
-                        <ThumbsDown size={14} /> Dislike
-                      </button>
-                    </div>
-
-                    {/* Select button */}
-                    <button
-                      onClick={() => { setSelectedConcept(concept.id); setShowFeedbackFor(concept.id) }}
-                      style={{
-                        width: '100%', padding: '11px 0', borderRadius: 9, cursor: 'pointer',
-                        background: selectedConcept === concept.id ? 'var(--accent)' : 'var(--bg)',
-                        border: selectedConcept === concept.id ? 'none' : '1px solid var(--border)',
-                        color: selectedConcept === concept.id ? '#fff' : 'var(--text2)',
-                        fontSize: 14, fontWeight: 700, textAlign: 'center',
-                      }}
-                    >
-                      {selectedConcept === concept.id ? 'Selected' : 'Use This Concept'}
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ) : null)}
+              </div>
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: 60 }}>
@@ -1785,20 +2102,12 @@ export default function MockupGeneratorPage() {
             </div>
           )}
 
-          {/* Feedback textarea - shows when user picks a concept */}
+          {/* Feedback hint */}
           {showFeedbackFor && (
-            <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 14, padding: '20px 22px', marginBottom: 24 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', marginBottom: 8 }}>
-                Tell us what you love and what you&apos;d change about this design
+            <div style={{ background: 'rgba(79,127,255,0.06)', border: '1px solid rgba(79,127,255,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 24 }}>
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+                Concept {showFeedbackFor.toUpperCase()} selected. Add any tweak notes in the card above, then click &ldquo;Continue with Selected&rdquo;.
               </div>
-              <textarea
-                value={conceptFeedback}
-                onChange={e => setConceptFeedback(e.target.value)}
-                placeholder="e.g. Love the color layout, but make the logo bigger. Change the background pattern to something simpler..."
-                style={{
-                  ...inp, minHeight: 100, resize: 'vertical', fontFamily: 'inherit',
-                }}
-              />
             </div>
           )}
 
@@ -1828,17 +2137,32 @@ export default function MockupGeneratorPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setStep(outputType === 'signage' ? 2 : 3)} disabled={finalizing}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: (finalizing) ? 'not-allowed' : 'pointer', opacity: finalizing ? 0.4 : 1 }}>
                 <ChevronLeft size={16} /> Back
               </button>
-              <button onClick={() => { setStep(outputType === 'signage' ? 2 : 3); setTimeout(() => handleGenerate(), 50) }} disabled={finalizing}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: finalizing ? 0.4 : 1 }}>
-                <RefreshCw size={13} /> Regenerate All
+                <button onClick={() => {
+                if (hasRegenerated) return
+                setRevisionNotes('')
+                setRevisionCallback(() => () => {
+                  setStep(outputType === 'signage' ? 2 : 3)
+                  setTimeout(() => handleGenerate(), 50)
+                  setHasRegenerated(true)
+                })
+                setShowRevisionModal(true)
+              }} disabled={finalizing || hasRegenerated}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: hasRegenerated ? 'var(--text3)' : 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: (finalizing || hasRegenerated) ? 'not-allowed' : 'pointer', opacity: finalizing ? 0.4 : 1 }}>
+                {hasRegenerated ? 'Regen used' : <><RefreshCw size={13} /> Regenerate All</>}
               </button>
 
             </div>
             <button
-              onClick={() => handleFinalize(selectedConcept)}
+              onClick={() => {
+                setRevisionNotes(conceptFeedback)
+                setRevisionCallback(() => () => {
+                  handleFinalize(selectedConcept)
+                })
+                setShowRevisionModal(true)
+              }}
               disabled={finalizing || !Object.values(concepts).some(Boolean)}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 32px', borderRadius: 10, background: finalizing || !Object.values(concepts).some(Boolean) ? 'var(--surface2)' : 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)', color: finalizing || !Object.values(concepts).some(Boolean) ? 'var(--text3)' : '#fff', fontSize: 16, fontWeight: 800, border: 'none', cursor: finalizing || !Object.values(concepts).some(Boolean) ? 'not-allowed' : 'pointer', boxShadow: !finalizing && Object.values(concepts).some(Boolean) ? '0 4px 20px rgba(79,127,255,0.4)' : 'none' }}
             >
@@ -1848,8 +2172,8 @@ export default function MockupGeneratorPage() {
         </div>
       )}
 
-      {/* ── STEP 5 (wrap/decking) / STEP 4 (signage): Result ───────────────── */}
-      {((outputType === 'wrap' && step === 5) || (outputType === 'signage' && step === 4) || (outputType === 'decking' && step === 5)) && (
+      {/* ── STEP 5 (wrap/boat/decking) / STEP 4 (signage): Result ─────────── */}
+      {((outputType === 'wrap' && step === 5) || (outputType === 'boat' && step === 5) || (outputType === 'signage' && step === 4) || (outputType === 'decking' && step === 5)) && (
         <div>
           <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 28 }}>
             {/* Header */}
@@ -1872,17 +2196,15 @@ export default function MockupGeneratorPage() {
                   Adjust Brand
                 </button>
                 {primaryDisplay && (
-                  <>
-                    <button onClick={() => setShowEditor(true)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--purple)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                      <Pencil size={13} /> Edit / Add Text
-                    </button>
-                    <button onClick={() => handleDownload(primaryDisplay, `wrap-concept-${selectedMake}-${Date.now()}.jpg`)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'rgba(79,127,255,0.12)', border: '1px solid rgba(79,127,255,0.3)', color: 'var(--accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                      <Download size={13} /> Download
-                    </button>
-                  </>
+                  <button onClick={() => setShowEditor(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--purple)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    <Pencil size={13} /> Edit / Add Text
+                  </button>
                 )}
+                <button onClick={reset}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Start New Project
+                </button>
               </div>
             </div>
 
@@ -1913,7 +2235,7 @@ export default function MockupGeneratorPage() {
                   </div>
 
                   {/* Flat design toggle */}
-                  {mockupStatus?.concept_url && renderUrl && (
+                  {mockupStatus?.flat_design_url && (
                     <div style={{ marginTop: 16 }}>
                       <button
                         onClick={() => setShowFlat(!showFlat)}
@@ -1926,7 +2248,7 @@ export default function MockupGeneratorPage() {
                           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Flat Design</div>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={mockupStatus.concept_url}
+                            src={mockupStatus.flat_design_url}
                             alt="Flat wrap design"
                             style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)', maxHeight: 400, objectFit: 'cover' }}
                           />
@@ -1980,7 +2302,7 @@ export default function MockupGeneratorPage() {
                     </button>
                     <button onClick={reset}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                      Start New Mockup
+                      Start New Project
                     </button>
                   </div>
                 ) : (
@@ -1994,10 +2316,26 @@ export default function MockupGeneratorPage() {
                     </button>
                     <button onClick={reset}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 10, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                      Start Over
+                      Start New Project
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Fleet vehicle adder */}
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px', marginTop: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text1)', marginBottom: 4 }}>Add more vehicles to your project</div>
+                <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>We will reach out to discuss year, make, model for each additional vehicle.</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button onClick={() => setFleetVehicles(prev => prev.length > 0 ? prev.slice(0, -1) : prev)}
+                      style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>&#8722;</button>
+                    <span style={{ fontSize: 20, fontWeight: 800, minWidth: 30, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>{1 + fleetVehicles.length}</span>
+                    <button onClick={() => { if (fleetVehicles.length < 9) setFleetVehicles(prev => [...prev, { year: '', make: '', model: '', bodyType: bodyType || 'van', sqft: estimatedSqft || 280, price: estimatedPrice, color: vehicleColor }]) }}
+                      style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>+</button>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>{1 + fleetVehicles.length} vehicle{(1 + fleetVehicles.length) !== 1 ? 's' : ''} &middot; ${((1 + fleetVehicles.length) * 250).toLocaleString()} design deposit</div>
+                </div>
               </div>
             </div>
           </div>
@@ -2023,8 +2361,8 @@ export default function MockupGeneratorPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Estimated Price</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {estimatedPrice ? `$${estimatedPrice.toLocaleString()}` : 'TBD'}
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {estimatedPrice ? `$${estimatedPrice.low.toLocaleString()} – $${estimatedPrice.high.toLocaleString()}` : 'TBD'}
                     </div>
                   </div>
                 </div>
@@ -2132,6 +2470,81 @@ export default function MockupGeneratorPage() {
           onClose={() => setShowEditor(false)}
         />
       )}
+
+      {/* ── Revision Modal (Change 4d) ─────────────────────────────────────────── */}
+      {showRevisionModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(13,15,20,0.92)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '32px 28px', maxWidth: 480, width: '100%' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text1)', marginBottom: 8 }}>Any revisions before we continue?</div>
+            <div style={{ fontSize: 14, color: 'var(--text3)', marginBottom: 20 }}>Tell us what to change — colors, text placement, style tweaks. Or leave blank to proceed as-is.</div>
+            <textarea
+              value={revisionNotes}
+              onChange={e => setRevisionNotes(e.target.value)}
+              placeholder="e.g. Make the logo larger, use more of the blue, add our phone number prominently on the rear..."
+              rows={4}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text1)', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setShowRevisionModal(false)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => {
+                if (revisionNotes.trim()) setConceptFeedback(revisionNotes)
+                setShowRevisionModal(false)
+                revisionCallback?.()
+              }}
+                style={{ flex: 2, padding: '12px 0', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Sparkles size={16} /> {revisionNotes.trim() ? 'Apply Revisions & Continue' : 'Continue As-Is'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Exit Gate / Signup Pitch Modal (Change 5d) ────────────────────────── */}
+      {showExitGate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(13,15,20,0.95)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 24, padding: '40px 32px', maxWidth: 520, width: '100%' }}>
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'Barlow Condensed, sans-serif', textTransform: 'uppercase', color: 'var(--text1)', marginBottom: 8 }}>
+                Don&apos;t lose your designs
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--text3)' }}>
+                Create a free account to save your mockups, get a quote, and manage your fleet — all in one place.
+              </div>
+            </div>
+            {/* App pitches */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              {[
+                { icon: '🌲', title: 'PNW Portal', desc: 'Track your wrap projects, approve proofs, pay invoices, and message your crew — all from your phone.' },
+                { icon: '🚛', title: 'Fleet Management App', desc: 'Schedule wraps across your entire fleet, track maintenance, manage branding assets, and get fleet pricing.' },
+                { icon: '🎨', title: 'Design Studio', desc: 'Unlimited AI mockup generations, saved design history, and direct access to our design team.' },
+              ].map((app, i) => (
+                <div key={i} style={{ display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 24, flexShrink: 0 }}>{app.icon}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text1)', marginBottom: 2 }}>{app.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.4 }}>{app.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* CTA */}
+            <a href="/portal/login?next=/portal"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px 0', borderRadius: 12, background: 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)', color: '#fff', fontSize: 16, fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.04em', boxSizing: 'border-box', marginBottom: 10 }}>
+              <Sparkles size={18} /> Create Free Account &amp; Save My Designs
+            </a>
+            <button onClick={() => setShowExitGate(false)}
+              style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text3)', fontSize: 13, cursor: 'pointer' }}>
+              Not now — continue browsing
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

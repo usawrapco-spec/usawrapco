@@ -12,6 +12,23 @@ import { C } from '@/lib/portal-theme'
 import { PortalProvider, type PortalContextValue } from '@/lib/portal-context'
 import { createClient } from '@/lib/supabase/client'
 
+// Routes that don't require a signed-in Supabase session
+// Invoices, messages, chat, proposals, and estimates are viewable without an account.
+// Advanced actions (approve, upload, fleet, design, etc.) require sign-in.
+const PUBLIC_SUFFIXES = [
+  '/invoices',
+  '/messages',
+  '/chat',
+  '/proposals',
+  '/proposal',
+  '/estimate',   // covers /jobs/[id]/estimate
+]
+
+function isPublicPath(pathname: string, base: string): boolean {
+  if (pathname === base || pathname === base + '/') return true // home is public too (info only)
+  return PUBLIC_SUFFIXES.some(s => pathname.startsWith(base + s))
+}
+
 const BASE_NAV = [
   { key: 'home',     label: 'Home',     icon: Home,          href: '' },
   { key: 'proofs',   label: 'Proofs',   icon: Palette,       href: '/design' },
@@ -32,6 +49,19 @@ export default function PortalShell({
   const base = `/portal/${ctx.token}`
   const [unreadCount, setUnreadCount] = useState(0)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [authed, setAuthed] = useState<boolean | null>(null) // null = checking
+
+  // Check Supabase auth session
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setAuthed(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   // Fetch unread notification count
   useEffect(() => {
@@ -411,7 +441,98 @@ export default function PortalShell({
             </div>
           </>
         )}
+
+        {/* ── Auth Gate Overlay ────────────────────────────────────────────────
+            Show when: session check complete, not authed, and on a protected route.
+            Public routes (invoices, messages, chat, home) stay accessible.
+        ── */}
+        {authed === false && pathname && !isPublicPath(pathname, base) && (
+          <AuthGate token={ctx.token} pathname={pathname} />
+        )}
       </div>
     </PortalProvider>
+  )
+}
+
+/* ── Auth Gate Overlay ──────────────────────────────────────────────────────── */
+
+function AuthGate({ token, pathname }: { token: string; pathname: string }) {
+  const loginHref = `/portal/login?next=${encodeURIComponent(pathname)}`
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 100,
+      background: 'rgba(13,15,20,0.92)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    }}>
+      <div style={{
+        background: '#13151c',
+        border: '1px solid #2a2f3d',
+        borderRadius: 20,
+        padding: '40px 32px',
+        width: '100%',
+        maxWidth: 400,
+        textAlign: 'center',
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: '50%',
+          background: 'rgba(79,127,255,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 20px',
+        }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f7fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+
+        <div style={{
+          fontSize: 22,
+          fontWeight: 900,
+          fontFamily: "'Barlow Condensed', sans-serif",
+          color: '#e8eaed',
+          marginBottom: 8,
+        }}>
+          Sign In to Continue
+        </div>
+        <p style={{ fontSize: 14, color: '#9299b5', lineHeight: 1.6, marginBottom: 28 }}>
+          Create a free account to save your project history, designs, and portal activity — or sign in if you already have one.
+        </p>
+
+        <Link
+          href={loginHref}
+          style={{
+            display: 'block',
+            width: '100%',
+            padding: '14px 20px',
+            borderRadius: 12,
+            border: 'none',
+            background: '#4f7fff',
+            color: '#fff',
+            fontSize: 15,
+            fontWeight: 800,
+            fontFamily: "'Barlow Condensed', sans-serif",
+            textDecoration: 'none',
+            marginBottom: 12,
+            boxSizing: 'border-box',
+          }}
+        >
+          Sign In / Create Account
+        </Link>
+
+        <div style={{ fontSize: 12, color: '#5a6080', marginTop: 8 }}>
+          No account needed for{' '}
+          <Link href={`/portal/${token}/invoices`} style={{ color: '#9299b5', textDecoration: 'underline' }}>invoices</Link>
+          {' '}or{' '}
+          <Link href={`/portal/${token}/messages`} style={{ color: '#9299b5', textDecoration: 'underline' }}>messages</Link>
+        </div>
+      </div>
+    </div>
   )
 }

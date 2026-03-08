@@ -231,6 +231,18 @@ export default function DesignMockupWizard() {
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid' | 'loading'>('pending')
   const [checkingPayment, setCheckingPayment] = useState(false)
 
+  // Free generation gate: 2 free, then require sign-in
+  const FREE_GENERATIONS = 2
+  const GEN_COUNT_KEY = 'portal_gen_count'
+  const [showAuthGate, setShowAuthGate] = useState(false)
+  const [authed, setAuthed] = useState<boolean>(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setAuthed(!!session))
+    return () => subscription.unsubscribe()
+  }, [])
+
   // Scraping state
   const [scraping, setScraping] = useState(false)
   const [websiteData, setWebsiteData] = useState<any>(null)
@@ -366,6 +378,17 @@ export default function DesignMockupWizard() {
   /* ── Generation Flow ───────────────────────────────────────────────────────── */
 
   const startGeneration = async () => {
+    // Check free generation quota
+    if (!authed) {
+      const used = parseInt(localStorage.getItem(GEN_COUNT_KEY) || '0', 10)
+      if (used >= FREE_GENERATIONS) {
+        setShowAuthGate(true)
+        return
+      }
+      // Increment counter
+      localStorage.setItem(GEN_COUNT_KEY, String(used + 1))
+    }
+
     setGenerating(true)
     setError('')
     setStep(3.5) // loading screen
@@ -1236,6 +1259,81 @@ export default function DesignMockupWizard() {
         {step === 4 && renderPaywall()}
         {step === 5 && renderUnlocked()}
       </main>
+
+      {/* Free generation limit gate */}
+      {showAuthGate && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(13,15,20,0.93)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24,
+        }}>
+          <div style={{
+            background: '#13151c',
+            border: '1px solid #2a2f3d',
+            borderRadius: 20,
+            padding: '40px 32px',
+            maxWidth: 420,
+            width: '100%',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%',
+              background: 'rgba(79,127,255,0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px',
+            }}>
+              <Sparkles size={24} color="var(--accent)" />
+            </div>
+            <div style={{
+              fontSize: 24,
+              fontWeight: 900,
+              fontFamily: 'Barlow Condensed, sans-serif',
+              color: '#e8eaed',
+              marginBottom: 10,
+            }}>
+              You&apos;ve Used Your Free Generations
+            </div>
+            <p style={{ fontSize: 14, color: '#9299b5', lineHeight: 1.6, marginBottom: 28 }}>
+              You get {FREE_GENERATIONS} free AI wrap designs — no account needed. To generate more, create a free account and save your designs to your history.
+            </p>
+            <a
+              href="/portal/login?next=/portal/design"
+              style={{
+                display: 'block',
+                padding: '14px 20px',
+                borderRadius: 12,
+                background: 'var(--accent)',
+                color: '#fff',
+                fontSize: 15,
+                fontWeight: 800,
+                fontFamily: 'Barlow Condensed, sans-serif',
+                textDecoration: 'none',
+                marginBottom: 12,
+              }}
+            >
+              Create Free Account / Sign In
+            </a>
+            <button
+              onClick={() => setShowAuthGate(false)}
+              style={{
+                background: 'transparent',
+                border: '1px solid #2a2f3d',
+                borderRadius: 10,
+                padding: '11px 24px',
+                color: '#9299b5',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: 'inherit',
+              }}
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -30,20 +30,20 @@ function getPhone(html: string): string {
 }
 
 function getLogoUrl(html: string, baseUrl: string): string {
-  // og:image first (usually highest quality brand image)
-  const og = getMeta(html, 'og:image')
-  if (og) return resolveUrl(og, baseUrl)
-
-  // src containing "logo" in an img tag
+  // 1. <img> tags with "logo" in src/alt/class/id (actual logo images)
   const logoImg = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*(?:alt|class|id)=["'][^"']*logo[^"']*["']/i)
     || html.match(/<img[^>]+(?:alt|class|id)=["'][^"']*logo[^"']*["'][^>]+src=["']([^"']+)["']/i)
     || html.match(/<img[^>]+src=["']([^"']*logo[^"']*)["']/i)
   if (logoImg) return resolveUrl(logoImg[1], baseUrl)
 
-  // apple-touch-icon
+  // 2. apple-touch-icon
   const apple = html.match(/<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i)
     || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']apple-touch-icon["']/i)
   if (apple) return resolveUrl(apple[1], baseUrl)
+
+  // 3. og:image (last resort — often a hero photo, not the logo)
+  const og = getMeta(html, 'og:image')
+  if (og) return resolveUrl(og, baseUrl)
 
   return ''
 }
@@ -151,15 +151,24 @@ async function extractLogoColorsBase64(base64DataUrl: string): Promise<string[]>
   return []
 }
 
+function decodeHtmlEntities(str: string): string {
+  return str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&nbsp;/g, ' ')
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, logo_base64 } = await req.json()
+    const { url, logo_base64, logo_url } = await req.json()
 
     // Logo-only color extraction (no website URL needed)
     if (!url && logo_base64) {
       const brand_colors = await extractLogoColorsBase64(logo_base64)
+      return NextResponse.json({ brand_colors })
+    }
+
+    if (!url && logo_url) {
+      const brand_colors = await extractLogoColors(logo_url)
       return NextResponse.json({ brand_colors })
     }
 
@@ -225,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     // Tagline: prefer og:description > meta description (first sentence)
     const rawDesc = ogDesc || metaDesc || ''
-    const tagline = rawDesc.split(/[.!?]/)[0].trim().slice(0, 80) || ''
+    const tagline = decodeHtmlEntities(rawDesc.split(/[.!?]/)[0].trim().slice(0, 80)) || ''
 
     // Website: clean domain
     let website = ''
